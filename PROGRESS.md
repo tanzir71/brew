@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Current milestone: M2
+## Current milestone: M3
 
 ## Checklist state
 
@@ -23,14 +23,21 @@ Exit review passed 2026-07-10: a clean local clone completed `npm ci`, started w
 
 Exit review passed 2026-07-10: `npm run review:m1` subscribed to 20 live public feeds in an isolated database; both poll cycles succeeded for all 20, ingested 1,593 articles, and produced zero duplicate GUID or normalized-hash groups.
 
-### M2 — Reader core
+### M2 — Reader core — DONE
 
 - [x] Sidebar with folders/feeds/unread counts; All/Today/Starred views.
 - [x] Virtualized article list, three densities, unread filter, sort.
 - [x] Article overlay/pane per §7.3 including lazy full-text extraction.
 - [x] Read/star/tag actions with optimistic UI and SSE-driven live inserts.
 - [x] Mark-all-read with undo; mark-read-on-scroll setting.
-- [ ] Light/dark themes.
+- [x] Light/dark themes.
+
+Exit review passed 2026-07-10: committed Playwright baselines cover title, magazine, and card densities in light and dark themes; `web/src/styles/tokens.css` documents the type scale; a traced browser test asserts Reader navigation paints in under 100 ms.
+
+### M3 — Keyboard & search
+
+- [ ] All shortcuts of §7.6 plus `?` cheat sheet.
+- [ ] FTS5 search with scoping chips (e2e: index 1k fixture articles, search returns under 50 ms).
 
 ## Decisions
 

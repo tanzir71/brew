@@ -10,8 +10,14 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function App() {
   const [managing, setManaging] = useState(false);
+  const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => { const saved = localStorage.getItem('brew:theme'); return saved === 'light' || saved === 'dark' ? saved : 'system'; });
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => { const resolved = theme === 'system' ? media.matches ? 'dark' : 'light' : theme; document.documentElement.dataset.theme = theme; document.documentElement.dataset.resolvedTheme = resolved; };
+    apply(); media.addEventListener('change', apply); return () => media.removeEventListener('change', apply);
+  }, [theme]);
   return <main className="min-h-screen bg-stone-50 text-stone-900">
-    <header className="flex h-16 items-center justify-between border-b border-stone-200 px-8"><span className="font-semibold tracking-tight">Brew</span><button onClick={() => setManaging((value) => !value)} className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700">{managing ? 'Back to Brew' : 'Manage feeds'}</button></header>
+    <header className="flex h-16 items-center justify-between border-b border-stone-200 px-8"><span className="font-semibold tracking-tight">Brew</span><div className="flex items-center gap-3"><label className="sr-only" htmlFor="theme-picker">Theme</label><select id="theme-picker" value={theme} onChange={(event) => { const next = event.target.value as 'system' | 'light' | 'dark'; setTheme(next); localStorage.setItem('brew:theme', next); }} className="rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-medium"><option value="system">System theme</option><option value="light">Light theme</option><option value="dark">Dark theme</option></select><button onClick={() => setManaging((value) => !value)} className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700">{managing ? 'Back to Brew' : 'Manage feeds'}</button></div></header>
     {managing ? <FeedManager /> : <Reader />}
   </main>;
 }
