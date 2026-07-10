@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Current milestone: Refinement backlog
+## Current milestone: All milestones and refinement backlog — DONE
 
 ## Checklist state
 
@@ -41,7 +41,7 @@ Exit review passed 2026-07-10: committed Playwright baselines cover title, magaz
 
 Exit review passed 2026-07-10: Playwright starts a real Fastify/SQLite instance, indexes 1,000 fixture articles through FTS5 triggers, and verifies scoped HTTP search under 50 ms; the complete shortcut and virtualized search flows pass in-browser.
 
-### M4 — Rules engine
+### M4 — Rules engine — DONE
 
 - [x] Data model, evaluation in ingest path, ordering, `stop_processing` (table-driven unit tests: every operator × every action, regex timeout, condition combinators).
 - [x] Sentence-style builder UI with live dry-run preview.
