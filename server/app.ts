@@ -4,13 +4,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { HealthResponse } from '../shared/api.js';
 import { openDatabase, type BrewDatabase } from './db/database.js';
+import { registerFeedRoutes } from './routes/feeds.js';
 
 const rootDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-export async function createApp(options: { serveWeb?: boolean; database?: BrewDatabase } = {}): Promise<FastifyInstance> {
+export async function createApp(options: { serveWeb?: boolean; database?: BrewDatabase; fetcher?: typeof fetch } = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
   const database = options.database ?? openDatabase();
   app.addHook('onClose', () => database.close());
+  registerFeedRoutes(app, database, options.fetcher);
 
   app.get('/api/health', async (): Promise<HealthResponse> => ({ ok: true }));
 

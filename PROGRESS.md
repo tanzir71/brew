@@ -15,7 +15,7 @@ Exit review passed 2026-07-10: a clean local clone completed `npm ci`, started w
 
 ### M1 — Feeds & ingest
 
-- [ ] Add feed by URL (including discovery from HTML pages); delete; rename; folders CRUD.
+- [x] Add feed by URL (including discovery from HTML pages); delete; rename; folders CRUD.
 - [ ] Poller with conditional GET, adaptive intervals, backoff, concurrency limit, and fixture coverage.
 - [ ] Ingest pipeline: dedupe, sanitize, tracker stripping (tested).
 - [ ] OPML import/export round-trips folder structure (test with a 100-feed fixture).
@@ -31,6 +31,7 @@ Exit review passed 2026-07-10: a clean local clone completed `npm ci`, started w
 - The repository began with only `CODEX_HANDOFF.md` and was not initialized as Git.
 - Vite must bind explicitly to `127.0.0.1` on this Windows host; its default IPv6 binding is not reachable by Playwright's IPv4 base URL.
 - Production compilation does not copy SQL assets, so the migration loader falls back to the repository migration directory when running from `dist`.
+- Feed discovery validates declared alternate links and common-path candidates by parsing their response; unreachable and non-feed candidates are quietly omitted.
 
 ## Dependency justifications
 
