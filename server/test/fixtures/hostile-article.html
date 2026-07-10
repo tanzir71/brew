@@ -1,0 +1,8 @@
+<div onclick="steal()">
+  <script>alert('xss')</script>
+  <iframe src="https://evil.test"></iframe>
+  <img src="https://tracker.test/pixel.gif" width="1" height="1">
+  <img src="https://images.test/hero.jpg" width="1200" height="800" onerror="steal()">
+  <a href="https://example.test/story?utm_source=newsletter&amp;fbclid=secret&amp;keep=yes" onclick="steal()">Read</a>
+  <a href="javascript:alert(1)">Bad link</a>
+</div>

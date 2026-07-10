@@ -7,6 +7,7 @@ import { parseFeedDocument, type ParsedArticle } from './feed-parser.js';
 type Fetch = typeof globalThis.fetch;
 export interface PollResult { feedId: number; status: number; newItems: number; outcome: 'success' | 'not-modified' | 'error'; error?: string }
 type Ingest = (feed: Feed, articles: ParsedArticle[]) => Promise<number> | number;
+type CycleComplete = (results: PollResult[]) => void;
 
 export function adaptiveInterval(current: number, articles: ParsedArticle[], now = new Date()): number {
   const dayAgo = now.getTime() - 86_400_000;
@@ -24,7 +25,7 @@ export function effectiveInterval(feed: Pick<Feed, 'fetchIntervalMinutes' | 'con
 
 export class PollerService {
   private task: ScheduledTask | null = null;
-  constructor(private readonly database: BrewDatabase, private readonly fetcher: Fetch = globalThis.fetch, private readonly ingest: Ingest = () => 0, private readonly now: () => Date = () => new Date()) {}
+  constructor(private readonly database: BrewDatabase, private readonly fetcher: Fetch = globalThis.fetch, private readonly ingest: Ingest = () => 0, private readonly now: () => Date = () => new Date(), private readonly cycleComplete: CycleComplete = () => undefined) {}
 
   start(): void { if (!this.task) this.task = cron.schedule('* * * * *', () => { void this.pollDue(); }); }
   stop(): void { this.task?.stop(); this.task = null; }
@@ -40,10 +41,18 @@ export class PollerService {
     let cursor = 0;
     const worker = async () => { while (cursor < queue.length) { const feed = queue[cursor++]; if (feed) results.push(await this.pollFeed(feed)); } };
     await Promise.all(Array.from({ length: Math.min(6, queue.length) }, worker));
-    return results.sort((a, b) => a.feedId - b.feedId);
+    const sorted = results.sort((a, b) => a.feedId - b.feedId);
+    this.cycleComplete(sorted);
+    return sorted;
   }
 
-  async pollFeedById(id: number): Promise<PollResult | null> { const feed = this.database.db.select().from(feeds).where(eq(feeds.id, id)).get(); return feed ? this.pollFeed(feed) : null; }
+  async pollFeedById(id: number): Promise<PollResult | null> {
+    const feed = this.database.db.select().from(feeds).where(eq(feeds.id, id)).get();
+    if (!feed) return null;
+    const result = await this.pollFeed(feed);
+    this.cycleComplete([result]);
+    return result;
+  }
 
   async pollFeed(feed: Feed): Promise<PollResult> {
     const fetchedAt = this.now();

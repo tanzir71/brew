@@ -7,15 +7,22 @@ import { openDatabase, type BrewDatabase } from './db/database.js';
 import { registerFeedRoutes } from './routes/feeds.js';
 import { registerPollerRoutes } from './routes/poller.js';
 import { PollerService } from './services/poller-service.js';
+import { IngestPipeline } from './services/ingest-pipeline.js';
+import { SseBroker } from './services/sse-broker.js';
 
 const rootDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 export async function createApp(options: { serveWeb?: boolean; database?: BrewDatabase; fetcher?: typeof fetch; startPoller?: boolean } = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
   const database = options.database ?? openDatabase();
+  const broker = new SseBroker();
   app.addHook('onClose', () => database.close());
   registerFeedRoutes(app, database, options.fetcher);
-  const poller = new PollerService(database, options.fetcher);
+  const ingest = new IngestPipeline(database);
+  const poller = new PollerService(database, options.fetcher, (feed, incoming) => ingest.ingest(feed, incoming), undefined, (results) => {
+    const changed = results.filter((result) => result.newItems > 0);
+    if (changed.length) broker.publish('article:new', { count: changed.reduce((sum, result) => sum + result.newItems, 0), feeds: changed.map(({ feedId, newItems }) => ({ feedId, count: newItems })) });
+  });
   registerPollerRoutes(app, poller);
   if (options.startPoller) poller.start();
   app.addHook('onClose', () => poller.stop());
@@ -30,8 +37,9 @@ export async function createApp(options: { serveWeb?: boolean; database?: BrewDa
       Connection: 'keep-alive',
     });
     reply.raw.write('event: heartbeat\ndata: {}\n\n');
+    const remove = broker.add(reply.raw);
     const heartbeat = setInterval(() => reply.raw.write('event: heartbeat\ndata: {}\n\n'), 15_000);
-    request.raw.on('close', () => clearInterval(heartbeat));
+    request.raw.on('close', () => { clearInterval(heartbeat); remove(); });
   });
 
   if (options.serveWeb) {
