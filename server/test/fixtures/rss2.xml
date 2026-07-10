@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>RSS Two</title><link>https://rss.test</link><description>RSS fixture</description><item><guid>rss-1</guid><title>RSS item</title><link>https://rss.test/one</link><pubDate>Fri, 10 Jul 2026 02:00:00 GMT</pubDate><description><![CDATA[<p>Hello RSS</p>]]></description></item></channel></rss>

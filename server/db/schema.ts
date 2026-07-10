@@ -135,3 +135,5 @@ export const settings = sqliteTable('settings', {
 });
 
 export const schema = { folders, feeds, articles, tags, articleTags, rules, ruleLogs, brewConfigs, brews, settings };
+
+export type Feed = typeof feeds.$inferSelect;

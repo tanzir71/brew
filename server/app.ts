@@ -5,14 +5,20 @@ import { fileURLToPath } from 'node:url';
 import type { HealthResponse } from '../shared/api.js';
 import { openDatabase, type BrewDatabase } from './db/database.js';
 import { registerFeedRoutes } from './routes/feeds.js';
+import { registerPollerRoutes } from './routes/poller.js';
+import { PollerService } from './services/poller-service.js';
 
 const rootDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-export async function createApp(options: { serveWeb?: boolean; database?: BrewDatabase; fetcher?: typeof fetch } = {}): Promise<FastifyInstance> {
+export async function createApp(options: { serveWeb?: boolean; database?: BrewDatabase; fetcher?: typeof fetch; startPoller?: boolean } = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
   const database = options.database ?? openDatabase();
   app.addHook('onClose', () => database.close());
   registerFeedRoutes(app, database, options.fetcher);
+  const poller = new PollerService(database, options.fetcher);
+  registerPollerRoutes(app, poller);
+  if (options.startPoller) poller.start();
+  app.addHook('onClose', () => poller.stop());
 
   app.get('/api/health', async (): Promise<HealthResponse> => ({ ok: true }));
 

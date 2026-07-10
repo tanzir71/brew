@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Atom Notes</title><link href="https://atom.test/"/><updated>2026-07-10T02:00:00Z</updated><id>https://atom.test/</id><entry><title>Atom item</title><link href="https://atom.test/one"/><id>atom-1</id><updated>2026-07-10T02:00:00Z</updated><summary>Atom summary</summary></entry></feed>

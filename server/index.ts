@@ -1,6 +1,6 @@
 import { createApp } from './app.js';
 
-const app = await createApp({ serveWeb: process.env.NODE_ENV === 'production' });
+const app = await createApp({ serveWeb: process.env.NODE_ENV === 'production', startPoller: true });
 
 try {
   await app.listen({ port: 4400, host: '127.0.0.1' });

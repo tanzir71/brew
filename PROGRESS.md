@@ -16,7 +16,7 @@ Exit review passed 2026-07-10: a clean local clone completed `npm ci`, started w
 ### M1 — Feeds & ingest
 
 - [x] Add feed by URL (including discovery from HTML pages); delete; rename; folders CRUD.
-- [ ] Poller with conditional GET, adaptive intervals, backoff, concurrency limit, and fixture coverage.
+- [x] Poller with conditional GET, adaptive intervals, backoff, concurrency limit, and fixture coverage.
 - [ ] Ingest pipeline: dedupe, sanitize, tracker stripping (tested).
 - [ ] OPML import/export round-trips folder structure (test with a 100-feed fixture).
 - [ ] Feed health surface in settings.
@@ -25,6 +25,7 @@ Exit review passed 2026-07-10: a clean local clone completed `npm ci`, started w
 
 - 2026-07-10: Use Tailwind CSS v4 through its Vite plugin — it keeps the scaffold minimal and avoids obsolete configuration.
 - 2026-07-10: Keep server and web compilation separate — browser and Node module resolution have different requirements while remaining one package.
+- 2026-07-10: Adapt active feeds by 25% per successful poll toward 15 minutes and quiet feeds by 50% toward 6 hours — gradual changes avoid cadence oscillation while honoring the specified targets.
 
 ## Discoveries / gotchas for future iterations
 
