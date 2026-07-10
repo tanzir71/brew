@@ -42,3 +42,10 @@ export interface ArticleSummary {
   folderTitle: string | null;
 }
 export interface ArticlePage { items: ArticleSummary[]; nextCursor: string | null }
+export interface ArticleDetail extends ArticleSummary {
+  url: string;
+  contentHtml: string | null;
+  fullTextHtml: string | null;
+  readTimeMinutes: number;
+  tags: Array<{ id: number; name: string; color: string }>;
+}

@@ -9,6 +9,15 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
     const items = view === 'starred' ? [article(3, 'Saved essay', 'Research', true)] : view === 'today' ? [article(1, 'Fresh design story', 'Design'), article(2, 'Fresh research story', 'Research')] : cursor ? [article(999, 'Next page story', 'Design')] : Array.from({ length: 60 }, (_, index) => article(index + 10, `Library story ${index + 1}`, 'Design'));
     return route.fulfill({ json: { items, nextCursor: view === 'all' && !cursor ? '123:1' : null } });
   });
+  await page.route('**/api/articles/*', (route) => {
+    const id = Number(new URL(route.request().url()).pathname.split('/').at(-1));
+    return route.fulfill({ json: detail(id) });
+  });
+  await page.route('**/api/articles/*/full-text', (route) => {
+    const parts = new URL(route.request().url()).pathname.split('/');
+    const id = Number(parts.at(-2));
+    return route.fulfill({ json: { ...detail(id), fullTextHtml: '<p>The complete extracted article body.</p>', readTimeMinutes: 4 } });
+  });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'The Brew' })).toBeVisible();
   await page.getByRole('button', { name: /Today/ }).click();
@@ -17,9 +26,25 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
   await expect(page.getByText('Fresh research story')).toBeVisible();
   await page.getByRole('button', { name: /Starred/ }).click();
   await expect(page.getByText('Saved essay')).toBeVisible();
-  await page.getByRole('button', { name: /Design Notes/ }).click();
+  await page.getByRole('complementary', { name: 'Reader navigation' }).getByRole('button', { name: /Design Notes/ }).click();
   await expect(page.getByRole('heading', { name: 'Design Notes' })).toBeVisible();
   expect(await page.getByTestId('virtual-article-list').locator('article').count()).toBeLessThan(40);
+  await page.getByTestId('virtual-article-list').locator('article').filter({ hasText: 'Library story 1' }).first().click();
+  await expect(page.getByRole('dialog', { name: 'Article reader' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Article 10 detail' })).toBeVisible();
+  await expect(page.getByText('2 min read')).toBeVisible();
+  await page.getByRole('button', { name: 'Load full article' }).click();
+  await expect(page.getByText('The complete extracted article body.')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Article reader' })).toBeHidden();
+  await page.getByLabel('Open articles').selectOption('pane');
+  expect(await page.evaluate(() => localStorage.getItem('brew:article-open-mode'))).toBe('pane');
+  await page.getByTestId('virtual-article-list').locator('article').filter({ hasText: 'Library story 2' }).first().click();
+  const pane = page.getByRole('dialog', { name: 'Article reader' });
+  await expect(pane).toBeVisible();
+  expect((await pane.boundingBox())?.x).toBeGreaterThan(400);
+  await expect(page.getByRole('link', { name: /View original/ })).toHaveAttribute('href', /example\.test/);
+  await page.getByRole('button', { name: 'Close article' }).click();
   await page.getByTestId('virtual-article-list').evaluate((element) => { element.scrollTop = element.scrollHeight; element.dispatchEvent(new Event('scroll')); });
   await expect(page.getByText('Next page story')).toBeVisible();
   await page.getByRole('button', { name: 'cards view' }).click();
@@ -35,4 +60,8 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
 
 function article(id: number, title: string, folderTitle: string, starred = false) {
   return { id, title, author: null, summaryHtml: null, imageUrl: null, publishedAt: '2026-07-10T03:00:00.000Z', readAt: null, starredAt: starred ? '2026-07-10T04:00:00.000Z' : null, feedId: 1, feedTitle: 'Design Notes', folderId: 1, folderTitle };
+}
+
+function detail(id: number) {
+  return { ...article(id, `Article ${id} detail`, 'Design'), url: `https://example.test/${id}`, contentHtml: '<p>Short feed content.</p>', fullTextHtml: null, readTimeMinutes: 2, tags: [] };
 }
