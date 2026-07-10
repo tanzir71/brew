@@ -61,6 +61,19 @@ export function Reader({
       refresh();
       void queryClient.invalidateQueries({ queryKey: ['articles'] });
     });
+    events.addEventListener('notification', (event) => {
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+      try {
+        const article = JSON.parse((event as MessageEvent<string>).data) as {
+          title: string;
+          url: string;
+        };
+        const notification = new Notification(article.title, { body: 'Matched a Brew rule' });
+        notification.onclick = () => window.open(article.url, '_blank', 'noopener,noreferrer');
+      } catch {
+        // Ignore malformed events without interrupting the live reader connection.
+      }
+    });
     window.addEventListener('brew:navigation-refresh', refresh);
     return () => {
       events.close();
@@ -990,6 +1003,9 @@ function ArticleRow({
   focused: boolean;
   onOpen: () => void;
 }) {
+  const highlightStyle = article.highlightColor
+    ? { borderLeftColor: article.highlightColor, borderLeftWidth: 4 }
+    : undefined;
   const meta = (
     <div className="flex items-center gap-2 text-xs text-stone-500">
       <span>{article.feedTitle}</span>
@@ -1015,6 +1031,7 @@ function ArticleRow({
   if (density === 'title')
     return (
       <article
+        style={highlightStyle}
         role="button"
         tabIndex={0}
         data-focused={focused}
@@ -1029,6 +1046,7 @@ function ArticleRow({
   if (density === 'cards')
     return (
       <article
+        style={highlightStyle}
         role="button"
         tabIndex={0}
         data-focused={focused}
@@ -1057,6 +1075,7 @@ function ArticleRow({
     );
   return (
     <article
+      style={highlightStyle}
       role="button"
       tabIndex={0}
       data-focused={focused}

@@ -31,6 +31,8 @@ export interface RuleRecord {
   conditions: RuleCondition[];
   actions: RuleAction[];
   stopProcessing: boolean;
+  hits24h?: number;
+  hits30d?: number;
 }
 export type RuleDraft = Omit<RuleRecord, 'id' | 'position'> & { position?: number };
 export interface RulePreviewItem {
@@ -38,4 +40,11 @@ export interface RulePreviewItem {
   title: string;
   feedTitle: string;
   publishedAt: string;
+}
+export interface RuleLogRecord {
+  id: number;
+  articleId: number;
+  articleTitle: string;
+  executedAt: string;
+  actions: Array<{ type: RuleAction['type']; ok: boolean; error?: string }>;
 }

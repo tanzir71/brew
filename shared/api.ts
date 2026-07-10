@@ -34,6 +34,7 @@ export interface ArticleSummary {
   author: string | null;
   summaryHtml: string | null;
   imageUrl: string | null;
+  highlightColor: string | null;
   publishedAt: string;
   readAt: string | null;
   starredAt: string | null;

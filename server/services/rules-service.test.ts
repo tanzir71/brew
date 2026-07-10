@@ -86,4 +86,29 @@ describe('RulesService actions', () => {
     expect(await pipeline.ingest(feed, [incoming])).toBe(1);
     const inserted = database.db.select().from(articles).get()!; expect(inserted.readAt).not.toBeNull(); expect(inserted.hidden).toBe(false); expect(database.db.select().from(ruleLogs).all()).toHaveLength(1); database.close();
   });
+
+  it('retries a failed webhook once and records the final failure', async () => {
+    const { database, article } = fixture();
+    addRule(database, [], [{ type: 'webhook', url: 'https://hooks.test/failing' }]);
+    const fetcher = vi.fn(async () => new Response('{}', { status: 500 })) as unknown as typeof fetch;
+    await new RulesService(database, fetcher).evaluateArticle(article.id);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    const log = database.db.select().from(ruleLogs).get()!;
+    expect(JSON.parse(log.actionsTakenJson)).toEqual([
+      { type: 'webhook', ok: false, error: 'HTTP 500' },
+    ]);
+    database.close();
+  });
+
+  it('reports hit counts and reapplies one rule to existing articles with logs', async () => {
+    const { database, article } = fixture();
+    const rule = addRule(database, [{ field: 'title', operator: 'contains', value: 'calm' }], [{ type: 'star' }]);
+    const service = new RulesService(database);
+    expect(await service.applyToExisting(rule.id, 30)).toBe(1);
+    expect(service.list()[0]).toMatchObject({ hits24h: 1, hits30d: 1 });
+    expect(service.logs(rule.id)).toEqual([
+      expect.objectContaining({ articleId: article.id, articleTitle: 'A calm design reader', actions: [{ type: 'star', ok: true }] }),
+    ]);
+    database.close();
+  });
 });

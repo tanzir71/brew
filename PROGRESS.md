@@ -45,9 +45,11 @@ Exit review passed 2026-07-10: Playwright starts a real Fastify/SQLite instance,
 
 - [x] Data model, evaluation in ingest path, ordering, `stop_processing` (table-driven unit tests: every operator × every action, regex timeout, condition combinators).
 - [x] Sentence-style builder UI with live dry-run preview.
-- [ ] All actions of §7.4 including highlight rendering in lists, notify, webhook.
-- [ ] Rule logs + hit counts + "apply to existing articles".
-- [ ] Duplicate filter with trigram similarity (tested with near-duplicate fixtures).
+- [x] All actions of §7.4 including highlight rendering in lists, notify, webhook.
+- [x] Rule logs + hit counts + "apply to existing articles".
+- [x] Duplicate filter with trigram similarity (tested with near-duplicate fixtures).
+
+Exit review passed 2026-07-10: action/operator matrices cover exact persisted states, webhook retry/failure logging, rule ordering, hit counts, targeted reapplication, and near-duplicate fixtures; the sentence builder and action surfaces pass Playwright.
 
 ## Decisions
 

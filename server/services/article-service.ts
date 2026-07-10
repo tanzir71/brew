@@ -10,7 +10,7 @@ import { sanitizeArticleHtml } from './html-sanitizer.js';
 type Fetch = typeof globalThis.fetch;
 interface UndoEntry { articleIds: number[]; expiresAt: number }
 export interface MarkAllScope { view: 'all' | 'today' | 'starred'; feedId?: number; folderId?: number }
-interface DetailRow { id: number; title: string; author: string | null; summaryHtml: string | null; contentHtml: string | null; fullTextHtml: string | null; imageUrl: string | null; url: string; publishedAt: number; readAt: number | null; starredAt: number | null; feedId: number; feedTitle: string; folderId: number | null; folderTitle: string | null }
+interface DetailRow { id: number; title: string; author: string | null; summaryHtml: string | null; contentHtml: string | null; fullTextHtml: string | null; imageUrl: string | null; highlightColor: string | null; url: string; publishedAt: number; readAt: number | null; starredAt: number | null; feedId: number; feedTitle: string; folderId: number | null; folderTitle: string | null }
 interface TagRow { id: number; name: string; color: string }
 
 const wordCount = (html: string | null): number => {
@@ -25,7 +25,7 @@ export class ArticleService {
   constructor(private readonly database: BrewDatabase, private readonly fetcher: Fetch = globalThis.fetch, private readonly now: () => Date = () => new Date()) {}
 
   get(id: number): ArticleDetail | null {
-    const row = this.database.sqlite.prepare('SELECT a.id, a.title, a.author, a.summary_html AS summaryHtml, a.content_html AS contentHtml, a.full_text_html AS fullTextHtml, a.image_url AS imageUrl, a.url, a.published_at AS publishedAt, a.read_at AS readAt, a.starred_at AS starredAt, f.id AS feedId, f.title AS feedTitle, fo.id AS folderId, fo.title AS folderTitle FROM articles a JOIN feeds f ON f.id = a.feed_id LEFT JOIN folders fo ON fo.id = f.folder_id WHERE a.id = ?').get(id) as DetailRow | undefined;
+    const row = this.database.sqlite.prepare('SELECT a.id, a.title, a.author, a.summary_html AS summaryHtml, a.content_html AS contentHtml, a.full_text_html AS fullTextHtml, a.image_url AS imageUrl, a.highlight_color AS highlightColor, a.url, a.published_at AS publishedAt, a.read_at AS readAt, a.starred_at AS starredAt, f.id AS feedId, f.title AS feedTitle, fo.id AS folderId, fo.title AS folderTitle FROM articles a JOIN feeds f ON f.id = a.feed_id LEFT JOIN folders fo ON fo.id = f.folder_id WHERE a.id = ?').get(id) as DetailRow | undefined;
     if (!row) return null;
     const tags = this.database.sqlite.prepare('SELECT t.id, t.name, t.color FROM tags t JOIN article_tags at ON at.tag_id = t.id WHERE at.article_id = ? ORDER BY t.name').all(id) as TagRow[];
     return { ...row, publishedAt: new Date(row.publishedAt).toISOString(), readAt: row.readAt === null ? null : new Date(row.readAt).toISOString(), starredAt: row.starredAt === null ? null : new Date(row.starredAt).toISOString(), readTimeMinutes: readTime(row.fullTextHtml ?? row.contentHtml ?? row.summaryHtml), tags };

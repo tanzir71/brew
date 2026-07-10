@@ -5,6 +5,7 @@ import type {
   RuleCondition,
   RuleDraft,
   RuleField,
+  RuleLogRecord,
   RuleOperator,
   RulePreviewItem,
   RuleRecord,
@@ -80,22 +81,31 @@ export function RulesPage() {
   const [draft, setDraft] = useState<RuleDraft>(blankDraft);
   const [preview, setPreview] = useState<RulePreviewItem[]>([]);
   const [message, setMessage] = useState('');
+  const [logs, setLogs] = useState<RuleLogRecord[]>([]);
+  const [duplicateFilter, setDuplicateFilter] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
+    typeof Notification === 'undefined' ? 'denied' : Notification.permission,
+  );
   const refresh = useCallback(async () => {
-    const [nextRules, nextNavigation] = await Promise.all([
+    const [nextRules, nextNavigation, filter] = await Promise.all([
       json<RuleRecord[]>('/api/rules'),
       json<ReaderNavigation>('/api/reader/navigation'),
+      json<{ enabled: boolean }>('/api/rules/duplicate-filter'),
     ]);
     setRules(nextRules);
     setNavigation(nextNavigation);
+    setDuplicateFilter(filter.enabled);
   }, []);
   useEffect(() => {
     void Promise.all([
       json<RuleRecord[]>('/api/rules'),
       json<ReaderNavigation>('/api/reader/navigation'),
+      json<{ enabled: boolean }>('/api/rules/duplicate-filter'),
     ])
-      .then(([nextRules, nextNavigation]) => {
+      .then(([nextRules, nextNavigation, filter]) => {
         setRules(nextRules);
         setNavigation(nextNavigation);
+        setDuplicateFilter(filter.enabled);
       })
       .catch((error: Error) => setMessage(error.message));
   }, []);
@@ -182,6 +192,17 @@ export function RulesPage() {
     await refresh();
     selectRule(created);
   };
+  const showLogs = async (id: number) => {
+    setLogs(await json<RuleLogRecord[]>(`/api/rules/${id}/logs`));
+  };
+  const applyExisting = async (id: number) => {
+    const result = await json<{ matched: number }>(`/api/rules/${id}/apply`, {
+      method: 'POST', body: JSON.stringify({ days: 30 }),
+    });
+    setMessage(`Applied to ${result.matched} existing article${result.matched === 1 ? '' : 's'}.`);
+    await refresh();
+    await showLogs(id);
+  };
   const setCondition = (index: number, values: Partial<RuleCondition>) =>
     setDraft((current) => ({
       ...current,
@@ -215,6 +236,31 @@ export function RulesPage() {
             New
           </button>
         </div>
+        <button
+          type="button"
+          disabled={typeof Notification === 'undefined' || notificationPermission === 'granted'}
+          onClick={() => {
+            if (typeof Notification !== 'undefined')
+              void Notification.requestPermission().then(setNotificationPermission);
+          }}
+          className="mt-3 rounded-lg border border-stone-300 px-3 py-2 text-xs font-medium text-stone-600 disabled:opacity-60"
+        >
+          {notificationPermission === 'granted'
+            ? 'Notifications enabled'
+            : 'Enable notifications'}
+        </button>
+        <label className="mt-3 flex items-center gap-2 text-xs text-stone-600">
+          <input
+            type="checkbox"
+            checked={duplicateFilter}
+            onChange={(event) => {
+              const enabled = event.target.checked;
+              setDuplicateFilter(enabled);
+              void json('/api/rules/duplicate-filter', { method: 'PUT', body: JSON.stringify({ enabled }) });
+            }}
+          />
+          Hide near-duplicate titles (3 days)
+        </label>
         <div className="mt-5 space-y-2">
           {rules.length === 0 && (
             <p className="rounded-xl border border-dashed border-stone-300 p-5 text-sm text-stone-500">
@@ -237,6 +283,9 @@ export function RulesPage() {
                   {rule.conditions.length} condition{rule.conditions.length === 1 ? '' : 's'} ·{' '}
                   {rule.actions.length} action{rule.actions.length === 1 ? '' : 's'}
                 </span>
+                <span className="mt-1 block text-[11px] text-stone-400">
+                  {rule.hits24h ?? 0} hits / 24 h · {rule.hits30d ?? 0} / 30 d
+                </span>
               </button>
               <div className="mt-2 flex gap-2">
                 <button onClick={() => duplicate(rule)} className="text-xs text-stone-500">
@@ -244,6 +293,12 @@ export function RulesPage() {
                 </button>
                 <button onClick={() => remove(rule.id)} className="text-xs text-red-700">
                   Delete
+                </button>
+                <button onClick={() => void showLogs(rule.id)} className="text-xs text-stone-500">
+                  Logs
+                </button>
+                <button onClick={() => void applyExisting(rule.id)} className="text-xs text-amber-700">
+                  Apply 30d
                 </button>
               </div>
             </article>
@@ -510,6 +565,20 @@ export function RulesPage() {
             <p className="py-8 text-center text-sm text-stone-400">No matches yet.</p>
           )}
         </div>
+        {logs.length > 0 && (
+          <section className="mt-7 border-t border-stone-200 pt-5" aria-label="Rule execution log">
+            <h2 className="text-sm font-semibold">Recent executions</h2>
+            <div className="mt-3 max-h-72 space-y-3 overflow-auto">
+              {logs.map((log) => (
+                <article key={log.id} className="text-xs">
+                  <p className="font-medium">{log.articleTitle}</p>
+                  <p className="text-stone-400">{new Date(log.executedAt).toLocaleString()}</p>
+                  <p className="text-stone-500">{log.actions.map((action) => `${action.type}: ${action.ok ? 'ok' : action.error}`).join(', ')}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
       </aside>
     </div>
   );

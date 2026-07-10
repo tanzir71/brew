@@ -4,6 +4,7 @@ import type {
   RuleAction,
   RuleCondition,
   RuleDraft,
+  RuleLogRecord,
   RulePreviewItem,
   RuleRecord,
   RuleScope,
@@ -253,6 +254,12 @@ export class RulesService {
   }
 
   list(): RuleRecord[] {
+    const now = Date.now();
+    const counts = this.database.sqlite.prepare(`SELECT rule_id AS ruleId,
+      sum(CASE WHEN executed_at >= ? THEN 1 ELSE 0 END) AS hits24h,
+      sum(CASE WHEN executed_at >= ? THEN 1 ELSE 0 END) AS hits30d
+      FROM rule_logs GROUP BY rule_id`).all(now - 86_400_000, now - 2_592_000_000) as Array<{ruleId:number; hits24h:number; hits30d:number}>;
+    const byRule = new Map(counts.map((row) => [row.ruleId, row]));
     return this.database.db
       .select()
       .from(rules)
@@ -268,6 +275,8 @@ export class RulesService {
         conditions: JSON.parse(rule.conditionsJson) as RuleCondition[],
         actions: JSON.parse(rule.actionsJson) as RuleAction[],
         stopProcessing: rule.stopProcessing,
+        hits24h: byRule.get(rule.id)?.hits24h ?? 0,
+        hits30d: byRule.get(rule.id)?.hits30d ?? 0,
       }));
   }
 
@@ -333,6 +342,34 @@ export class RulesService {
   }
   delete(id: number): boolean {
     return this.database.db.delete(rules).where(eq(rules.id, id)).run().changes > 0;
+  }
+
+  logs(ruleId: number): RuleLogRecord[] {
+    return (this.database.sqlite.prepare(`SELECT l.id, l.article_id AS articleId,
+      a.title AS articleTitle, l.executed_at AS executedAt, l.actions_taken_json AS actionsJson
+      FROM rule_logs l JOIN articles a ON a.id = l.article_id
+      WHERE l.rule_id = ? ORDER BY l.executed_at DESC LIMIT 100`).all(ruleId) as Array<{
+        id:number; articleId:number; articleTitle:string; executedAt:number; actionsJson:string
+      }>).map((row) => ({
+        id: row.id, articleId: row.articleId, articleTitle: row.articleTitle,
+        executedAt: new Date(row.executedAt).toISOString(), actions: JSON.parse(row.actionsJson),
+      }));
+  }
+
+  async applyToExisting(ruleId: number, days: number): Promise<number> {
+    const rule = this.database.db.select().from(rules).where(eq(rules.id, ruleId)).get();
+    if (!rule) throw new Error('Rule not found');
+    const since = Date.now() - Math.min(3650, Math.max(1, days)) * 86_400_000;
+    const ids = this.database.sqlite.prepare('SELECT id FROM articles WHERE published_at >= ? ORDER BY published_at DESC').all(since) as Array<{id:number}>;
+    let matched = 0;
+    for (const { id } of ids) {
+      const context = this.context(id);
+      if (!context || !(await this.definitionMatches(context, JSON.parse(rule.scopeJson), rule.matchType, JSON.parse(rule.conditionsJson)))) continue;
+      const results = await this.executeActions(rule, context, JSON.parse(rule.actionsJson));
+      this.database.db.insert(ruleLogs).values({ ruleId, articleId: id, actionsTakenJson: JSON.stringify(results) }).run();
+      matched++;
+    }
+    return matched;
   }
 
   async preview(

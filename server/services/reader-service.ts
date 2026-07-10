@@ -4,7 +4,7 @@ import type { BrewDatabase } from '../db/database.js';
 interface CountRow { count: number }
 interface FeedRow { id: number; folderId: number | null; title: string; muted: number; unreadCount: number }
 interface FolderRow { id: number; title: string; position: number }
-interface ArticleRow { id: number; url: string; title: string; author: string | null; summaryHtml: string | null; imageUrl: string | null; publishedAt: number; readAt: number | null; starredAt: number | null; feedId: number; feedTitle: string; folderId: number | null; folderTitle: string | null }
+interface ArticleRow { id: number; url: string; title: string; author: string | null; summaryHtml: string | null; imageUrl: string | null; highlightColor: string | null; publishedAt: number; readAt: number | null; starredAt: number | null; feedId: number; feedTitle: string; folderId: number | null; folderTitle: string | null }
 
 export type ReaderView = 'all' | 'today' | 'starred';
 export interface ArticleQuery { view: ReaderView; feedId?: number; folderId?: number; limit?: number; unread?: boolean; sort?: 'newest' | 'oldest'; cursor?: string }
@@ -40,7 +40,7 @@ export class ReaderService {
     }
     const limit = Math.min(100, Math.max(1, query.limit ?? 50));
     parameters.push(limit + 1);
-    const rows = this.database.sqlite.prepare(`SELECT a.id, a.url, a.title, a.author, a.summary_html AS summaryHtml, a.image_url AS imageUrl, a.published_at AS publishedAt, a.read_at AS readAt, a.starred_at AS starredAt, f.id AS feedId, f.title AS feedTitle, fo.id AS folderId, fo.title AS folderTitle FROM articles a JOIN feeds f ON f.id = a.feed_id LEFT JOIN folders fo ON fo.id = f.folder_id WHERE ${clauses.join(' AND ')} ORDER BY a.published_at ${direction}, a.id ${direction} LIMIT ?`).all(...parameters) as ArticleRow[];
+    const rows = this.database.sqlite.prepare(`SELECT a.id, a.url, a.title, a.author, a.summary_html AS summaryHtml, a.image_url AS imageUrl, a.highlight_color AS highlightColor, a.published_at AS publishedAt, a.read_at AS readAt, a.starred_at AS starredAt, f.id AS feedId, f.title AS feedTitle, fo.id AS folderId, fo.title AS folderTitle FROM articles a JOIN feeds f ON f.id = a.feed_id LEFT JOIN folders fo ON fo.id = f.folder_id WHERE ${clauses.join(' AND ')} ORDER BY a.published_at ${direction}, a.id ${direction} LIMIT ?`).all(...parameters) as ArticleRow[];
     const hasMore = rows.length > limit;
     const pageRows = rows.slice(0, limit);
     const items = pageRows.map((row): ArticleSummary => ({ ...row, publishedAt: new Date(row.publishedAt).toISOString(), readAt: row.readAt === null ? null : new Date(row.readAt).toISOString(), starredAt: row.starredAt === null ? null : new Date(row.starredAt).toISOString() }));

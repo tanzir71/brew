@@ -9,6 +9,13 @@ export function registerRulesRoutes(
   fetcher?: typeof fetch,
 ): void {
   const service = new RulesService(database, fetcher);
+  app.get('/api/rules/duplicate-filter', async () => ({
+    enabled: (database.sqlite.prepare("SELECT value FROM settings WHERE key = 'duplicate_filter_enabled'").get() as {value:string} | undefined)?.value === 'true',
+  }));
+  app.put<{ Body: { enabled: boolean } }>('/api/rules/duplicate-filter', async (request) => {
+    database.sqlite.prepare("INSERT INTO settings(key, value) VALUES('duplicate_filter_enabled', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(String(Boolean(request.body.enabled)));
+    return { enabled: Boolean(request.body.enabled) };
+  });
   app.get('/api/rules', async () => service.list());
   app.post<{ Body: RuleDraft }>('/api/rules', async (request, reply) => {
     try {
@@ -36,6 +43,16 @@ export function registerRulesRoutes(
       ? reply.code(204).send()
       : reply.code(404).send({ error: 'Rule not found' }),
   );
+  app.get<{ Params: { id: string } }>('/api/rules/:id/logs', async (request) =>
+    service.logs(Number(request.params.id)),
+  );
+  app.post<{ Params: { id: string }; Body: { days?: number } }>('/api/rules/:id/apply', async (request, reply) => {
+    try {
+      return { matched: await service.applyToExisting(Number(request.params.id), request.body.days ?? 30) };
+    } catch (error) {
+      return reply.code(404).send({ error: error instanceof Error ? error.message : 'Rule not found' });
+    }
+  });
   app.post<{ Body: Pick<RuleDraft, 'scope' | 'matchType' | 'conditions'> }>(
     '/api/rules/preview',
     async (request, reply) => {

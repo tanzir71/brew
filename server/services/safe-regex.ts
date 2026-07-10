@@ -6,7 +6,7 @@ const workerSource = `
   catch (error) { parentPort.postMessage({ matched: false, error: error instanceof Error ? error.message : 'Invalid regex' }); }
 `;
 
-export async function safeRegexTest(pattern: string, value: string, timeoutMs = 100): Promise<{ matched: boolean; timedOut: boolean; error?: string }> {
+export async function safeRegexTest(pattern: string, value: string, timeoutMs = 500): Promise<{ matched: boolean; timedOut: boolean; error?: string }> {
   return new Promise((resolve) => {
     const worker = new Worker(workerSource, { eval: true, workerData: { pattern, value } });
     let settled = false;
