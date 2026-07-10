@@ -49,7 +49,7 @@ Exit review passed 2026-07-10: Playwright starts a real Fastify/SQLite instance,
 - [x] Rule logs + hit counts + "apply to existing articles".
 - [x] Duplicate filter with trigram similarity (tested with near-duplicate fixtures).
 
-Exit review passed 2026-07-10: action/operator matrices cover exact persisted states, webhook retry/failure logging, rule ordering, hit counts, targeted reapplication, and near-duplicate fixtures; the sentence builder and action surfaces pass Playwright.
+Exit review passed 2026-07-10: action/operator matrices cover exact persisted states, webhook retry/failure logging, rule ordering, hit counts, targeted reapplication, and near-duplicate fixtures; Playwright creates five realistic rules through the UI and asserts their exact persisted fixture states.
 
 ### M5 — The Brew — DONE
 

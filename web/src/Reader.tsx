@@ -1330,7 +1330,15 @@ function ArticleReader({
                 {message}
               </p>
             )}
-            {detail.data.enclosureUrl&&detail.data.enclosureType?.startsWith('audio/')&&<audio aria-label={`Listen to ${detail.data.title}`} controls preload="none" className="mt-7 w-full" src={`/api/media?src=${encodeURIComponent(detail.data.enclosureUrl)}`}/>} 
+            {detail.data.enclosureUrl && detail.data.enclosureType?.startsWith('audio/') && (
+              <audio
+                aria-label={`Listen to ${detail.data.title}`}
+                controls
+                preload="none"
+                className="mt-7 w-full"
+                src={`/api/media?src=${encodeURIComponent(detail.data.enclosureUrl)}`}
+              />
+            )}
             <div
               className={`article-content mt-9 text-[18px] ${readingPrefs.lineHeight==='compact'?'leading-[1.45]':'leading-[1.8]'} text-stone-800 [&_a]:text-amber-800 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-5 [&_h2]:mt-9 [&_h2]:text-2xl [&_img]:my-7 [&_img]:h-auto [&_img]:max-w-full [&_p]:my-5`}
               dangerouslySetInnerHTML={{
