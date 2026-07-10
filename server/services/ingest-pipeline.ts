@@ -4,16 +4,17 @@ import type { BrewDatabase } from '../db/database.js';
 import { articles, type Feed } from '../db/schema.js';
 import type { ParsedArticle } from './feed-parser.js';
 import { normalizedArticleUrl, sanitizeArticleHtml } from './html-sanitizer.js';
+import type { RulesService } from './rules-service.js';
 
 const normalizedTitle = (value: string): string => value.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
 export const articleHash = (url: string, title: string): string => createHash('sha1').update(`${normalizedArticleUrl(url)}\n${normalizedTitle(title)}`).digest('hex');
 
 export class IngestPipeline {
-  constructor(private readonly database: BrewDatabase) {}
+  constructor(private readonly database: BrewDatabase, private readonly rules?: RulesService) {}
 
-  ingest(feed: Feed, incoming: ParsedArticle[]): number {
-    return this.database.sqlite.transaction(() => {
-      let inserted = 0;
+  async ingest(feed: Feed, incoming: ParsedArticle[]): Promise<number> {
+    const insertedIds = this.database.sqlite.transaction(() => {
+      const ids: number[] = [];
       for (const item of incoming) {
         const hash = articleHash(item.url, item.title);
         const duplicate = this.database.db.select({ id: articles.id }).from(articles).where(and(eq(articles.feedId, feed.id), or(eq(articles.guid, item.guid), eq(articles.hash, hash)))).get();
@@ -23,10 +24,12 @@ export class IngestPipeline {
         const source = contentHtml ?? summaryHtml;
         let imageUrl: string | null = null;
         if (source) { const match = source.match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i); imageUrl = match?.[1] ?? null; }
-        this.database.db.insert(articles).values({ feedId: feed.id, guid: item.guid, url: normalizedArticleUrl(item.url), title: item.title.trim() || '(untitled)', author: item.author?.trim() || null, summaryHtml, contentHtml, imageUrl, publishedAt: item.publishedAt, hash }).run();
-        inserted++;
+        const inserted = this.database.db.insert(articles).values({ feedId: feed.id, guid: item.guid, url: normalizedArticleUrl(item.url), title: item.title.trim() || '(untitled)', author: item.author?.trim() || null, summaryHtml, contentHtml, imageUrl, publishedAt: item.publishedAt, hash }).returning({ id: articles.id }).get();
+        ids.push(inserted.id);
       }
-      return inserted;
+      return ids;
     })();
+    if (this.rules) for (const articleId of insertedIds) await this.rules.evaluateArticle(articleId);
+    return insertedIds.length;
   }
 }

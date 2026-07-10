@@ -31,11 +31,11 @@ describe('article sanitization', () => {
 });
 
 describe('IngestPipeline', () => {
-  it('persists sanitized articles and deduplicates by guid then normalized hash', () => {
+  it('persists sanitized articles and deduplicates by guid then normalized hash', async () => {
     const database = openDatabase(':memory:');
     const feed = database.db.insert(feeds).values({ url: 'https://example.test/feed', title: 'Example' }).returning().get();
     const pipeline = new IngestPipeline(database);
-    expect(pipeline.ingest(feed, [
+    expect(await pipeline.ingest(feed, [
       baseArticle(),
       baseArticle({ url: 'https://example.test/different', title: 'Different duplicate guid' }),
       baseArticle({ guid: 'guid-2', url: 'https://example.test/story?fbclid=other', title: 'a story' }),
@@ -44,18 +44,18 @@ describe('IngestPipeline', () => {
     expect(stored).toHaveLength(1);
     expect(stored[0]).toMatchObject({ guid: 'guid-1', url: 'https://example.test/story', title: 'A  Story', imageUrl: 'https://images.test/hero.jpg' });
     expect(stored[0]?.contentHtml).not.toMatch(/script|iframe|onclick|pixel.gif|utm_source|fbclid/i);
-    expect(pipeline.ingest(feed, [baseArticle({ guid: 'guid-3', url: 'https://example.test/new', title: 'New' })])).toBe(1);
+    expect(await pipeline.ingest(feed, [baseArticle({ guid: 'guid-3', url: 'https://example.test/new', title: 'New' })])).toBe(1);
     expect(database.db.select().from(articles).all()).toHaveLength(2);
     database.close();
   });
 
-  it('allows the same normalized hash in different feeds', () => {
+  it('allows the same normalized hash in different feeds', async () => {
     const database = openDatabase(':memory:');
     const one = database.db.insert(feeds).values({ url: 'https://one.test/feed', title: 'One' }).returning().get();
     const two = database.db.insert(feeds).values({ url: 'https://two.test/feed', title: 'Two' }).returning().get();
     const pipeline = new IngestPipeline(database);
-    expect(pipeline.ingest(one, [baseArticle()])).toBe(1);
-    expect(pipeline.ingest(two, [baseArticle()])).toBe(1);
+    expect(await pipeline.ingest(one, [baseArticle()])).toBe(1);
+    expect(await pipeline.ingest(two, [baseArticle()])).toBe(1);
     database.close();
   });
 });

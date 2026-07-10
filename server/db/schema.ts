@@ -59,6 +59,9 @@ export const articles = sqliteTable(
     readAt: timestamp('read_at'),
     starredAt: timestamp('starred_at'),
     hidden: integer('hidden', { mode: 'boolean' }).notNull().default(false),
+    highlightColor: text('highlight_color'),
+    featuredInBrew: integer('featured_in_brew', { mode: 'boolean' }).notNull().default(false),
+    excludedFromBrew: integer('excluded_from_brew', { mode: 'boolean' }).notNull().default(false),
     hash: text('hash').notNull(),
   },
   (table) => [

@@ -43,7 +43,7 @@ Exit review passed 2026-07-10: Playwright starts a real Fastify/SQLite instance,
 
 ### M4 — Rules engine
 
-- [ ] Data model, evaluation in ingest path, ordering, `stop_processing` (table-driven unit tests: every operator × every action, regex timeout, condition combinators).
+- [x] Data model, evaluation in ingest path, ordering, `stop_processing` (table-driven unit tests: every operator × every action, regex timeout, condition combinators).
 - [ ] Sentence-style builder UI with live dry-run preview.
 - [ ] All actions of §7.4 including highlight rendering in lists, notify, webhook.
 - [ ] Rule logs + hit counts + "apply to existing articles".
@@ -57,6 +57,7 @@ Exit review passed 2026-07-10: Playwright starts a real Fastify/SQLite instance,
 - 2026-07-10: Follow DOMPurify with a strict linkedom tag/attribute/protocol allowlist — DOMPurify currently reports linkedom's partial window as unsupported, so the explicit pass preserves the mandated stack without trusting unsanitized fallback output.
 - 2026-07-10: Flatten nested OPML folder paths as `Parent / Child` — Brew's canonical schema has one folder level, and retaining the full path avoids silently losing organization.
 - 2026-07-10: Persist `failing_since` separately from the latest fetch attempt — a seven-day health warning cannot be derived accurately from `last_fetched_at`, which advances on every retry.
+- 2026-07-10: Execute regex conditions in short-lived worker threads with a 100 ms hard timeout — JavaScript regex evaluation cannot otherwise be safely interrupted on catastrophic patterns.
 
 ## Discoveries / gotchas for future iterations
 

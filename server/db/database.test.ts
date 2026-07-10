@@ -17,7 +17,7 @@ describe('database migrations', () => {
     expect(tables.map(({ name }) => name)).toEqual(expect.arrayContaining(['folders', 'feeds', 'articles', 'tags', 'article_tags', 'rules', 'rule_logs', 'brew_configs', 'brews', 'settings']));
     first.close();
     const second = openDatabase(filename);
-    expect(second.sqlite.prepare('SELECT count(*) AS count FROM __brew_migrations').get()).toEqual({ count: 3 });
+    expect(second.sqlite.prepare('SELECT count(*) AS count FROM __brew_migrations').get()).toEqual({ count: 4 });
     second.close();
   });
 });

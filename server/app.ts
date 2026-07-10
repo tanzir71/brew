@@ -13,6 +13,7 @@ import { registerSearchRoutes } from './routes/search.js';
 import { PollerService } from './services/poller-service.js';
 import { IngestPipeline } from './services/ingest-pipeline.js';
 import { SseBroker } from './services/sse-broker.js';
+import { RulesService } from './services/rules-service.js';
 
 const rootDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -27,7 +28,8 @@ export async function createApp(options: { serveWeb?: boolean; database?: BrewDa
   registerReaderRoutes(app, database);
   registerArticleRoutes(app, database, options.fetcher);
   registerSearchRoutes(app, database);
-  const ingest = new IngestPipeline(database);
+  const rules = new RulesService(database, options.fetcher, (article) => broker.publish('notification', article));
+  const ingest = new IngestPipeline(database, rules);
   const poller = new PollerService(database, options.fetcher, (feed, incoming) => ingest.ingest(feed, incoming), undefined, (results) => {
     const changed = results.filter((result) => result.newItems > 0);
     if (changed.length) broker.publish('article:new', { count: changed.reduce((sum, result) => sum + result.newItems, 0), feeds: changed.map(({ feedId, newItems }) => ({ feedId, count: newItems })) });
