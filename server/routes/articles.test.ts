@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createApp } from '../app.js';
 import { openDatabase } from '../db/database.js';
 import { articles, feeds } from '../db/schema.js';
+import { ArticleService } from '../services/article-service.js';
 
 const fullPage = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../test/fixtures/full-article.html'), 'utf8');
 
@@ -32,5 +33,18 @@ describe('article detail and full-text extraction', () => {
     expect((await app.inject({ method: 'PUT', url: `/api/articles/${article.id}/tags`, payload: { tagIds: [tag.id] } })).json()).toMatchObject({ tags: [{ name: 'Long reads', color: '#7c3aed' }] });
     expect((await app.inject({ method: 'PATCH', url: `/api/articles/${article.id}`, payload: { read: false, starred: false } })).json()).toMatchObject({ readAt: null, starredAt: null });
     await app.close();
+  });
+
+  it('expires bulk-read undo tokens after five seconds', () => {
+    const database = openDatabase(':memory:');
+    const feed = database.db.insert(feeds).values({ title: 'Journal', url: 'https://journal.test/feed' }).returning().get();
+    database.db.insert(articles).values({ feedId: feed.id, guid: 'undo', url: 'https://journal.test/undo', title: 'Undo', publishedAt: new Date(), hash: 'undo' }).run();
+    let time = new Date('2026-07-10T04:00:00Z');
+    const service = new ArticleService(database, fetch, () => time);
+    const result = service.markAllRead({ view: 'all' });
+    time = new Date(time.getTime() + 5_000);
+    expect(service.undoMarkAll(result.undoToken)).toBeNull();
+    expect(database.db.select().from(articles).get()?.readAt).not.toBeNull();
+    database.close();
   });
 });

@@ -1,9 +1,23 @@
 import type { FastifyInstance } from 'fastify';
 import type { BrewDatabase } from '../db/database.js';
 import { ArticleService } from '../services/article-service.js';
+import type { MarkAllScope } from '../services/article-service.js';
 
 export function registerArticleRoutes(app: FastifyInstance, database: BrewDatabase, fetcher?: typeof fetch): void {
   const service = new ArticleService(database, fetcher);
+  app.post<{ Body: { view?: unknown; feedId?: unknown; folderId?: unknown } }>('/api/articles/mark-all-read', async (request, reply) => {
+    const view = request.body?.view ?? 'all';
+    if (!['all', 'today', 'starred'].includes(String(view))) return reply.code(400).send({ error: 'Invalid article view' });
+    const scope: MarkAllScope = { view: view as MarkAllScope['view'] };
+    if (typeof request.body?.feedId === 'number') scope.feedId = request.body.feedId;
+    if (typeof request.body?.folderId === 'number') scope.folderId = request.body.folderId;
+    return service.markAllRead(scope);
+  });
+  app.post<{ Body: { undoToken?: unknown } }>('/api/articles/mark-all-read/undo', async (request, reply) => {
+    if (typeof request.body?.undoToken !== 'string') return reply.code(400).send({ error: 'undoToken is required' });
+    const restored = service.undoMarkAll(request.body.undoToken);
+    return restored === null ? reply.code(410).send({ error: 'Undo window has expired' }) : { restored };
+  });
   app.get<{ Params: { id: string } }>('/api/articles/:id', async (request, reply) => service.get(Number(request.params.id)) ?? reply.code(404).send({ error: 'Article not found' }));
   app.post<{ Params: { id: string } }>('/api/articles/:id/full-text', async (request, reply) => {
     try { return await service.extractFullText(Number(request.params.id)) ?? reply.code(404).send({ error: 'Article not found' }); }

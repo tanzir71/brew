@@ -50,3 +50,4 @@ export interface ArticleDetail extends ArticleSummary {
   tags: TagSummary[];
 }
 export interface TagSummary { id: number; name: string; color: string }
+export interface MarkAllReadResult { updated: number; undoToken: string; expiresAt: string }

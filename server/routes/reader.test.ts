@@ -28,6 +28,12 @@ describe('reader navigation and views', () => {
     expect(firstPage).toMatchObject({ items: [expect.objectContaining({ title: 'Old starred' })], nextCursor: expect.any(String) });
     expect((await app.inject(`/api/articles?view=all&unread=true&sort=oldest&limit=1&cursor=${encodeURIComponent(firstPage.nextCursor)}`)).json()).toMatchObject({ items: [expect.objectContaining({ title: 'Today unread' })], nextCursor: null });
     expect((await app.inject('/api/articles?cursor=broken')).statusCode).toBe(400);
+    const marked = (await app.inject({ method: 'POST', url: '/api/articles/mark-all-read', payload: { view: 'today', folderId: folder.id } })).json();
+    expect(marked).toMatchObject({ updated: 1, undoToken: expect.any(String), expiresAt: expect.any(String) });
+    expect((await app.inject('/api/reader/navigation')).json().counts.today).toBe(0);
+    expect((await app.inject({ method: 'POST', url: '/api/articles/mark-all-read/undo', payload: { undoToken: marked.undoToken } })).json()).toEqual({ restored: 1 });
+    expect((await app.inject('/api/reader/navigation')).json().counts.today).toBe(1);
+    expect((await app.inject({ method: 'POST', url: '/api/articles/mark-all-read/undo', payload: { undoToken: marked.undoToken } })).statusCode).toBe(410);
     await app.close();
   });
 });

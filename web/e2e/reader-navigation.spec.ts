@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('navigates Today, All, Starred, folders, and feeds from the sidebar', async ({ page }) => {
   const states = new Map<number, ReturnType<typeof detail>>();
+  const readPatches: number[] = [];
   await page.route('**/api/reader/navigation', (route) => route.fulfill({ json: { counts: { all: 3, today: 2, starred: 1 }, folders: [{ id: 1, title: 'Design', unreadCount: 2, feeds: [{ id: 1, folderId: 1, title: 'Design Notes', unreadCount: 2, muted: false }] }], unfiled: [] } }));
   await page.route('**/api/articles?**', (route) => {
     const url = new URL(route.request().url());
@@ -13,7 +14,7 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
   await page.route('**/api/articles/*', async (route) => {
     const id = Number(new URL(route.request().url()).pathname.split('/').at(-1));
     let value = states.get(id) ?? detail(id);
-    if (route.request().method() === 'PATCH') { const body = route.request().postDataJSON() as { read?: boolean; starred?: boolean }; value = { ...value, readAt: body.read === undefined ? value.readAt : body.read ? '2026-07-10T05:00:00.000Z' : null, starredAt: body.starred === undefined ? value.starredAt : body.starred ? '2026-07-10T05:00:00.000Z' : null }; states.set(id, value); }
+    if (route.request().method() === 'PATCH') { const body = route.request().postDataJSON() as { read?: boolean; starred?: boolean }; if (body.read) readPatches.push(id); value = { ...value, readAt: body.read === undefined ? value.readAt : body.read ? '2026-07-10T05:00:00.000Z' : null, starredAt: body.starred === undefined ? value.starredAt : body.starred ? '2026-07-10T05:00:00.000Z' : null }; states.set(id, value); }
     return route.fulfill({ json: value });
   });
   await page.route('**/api/articles/*/full-text', (route) => {
@@ -23,6 +24,8 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
   });
   await page.route('**/api/articles/*/tags', async (route) => { const parts = new URL(route.request().url()).pathname.split('/'); const id = Number(parts.at(-2)); const tagIds = (route.request().postDataJSON() as { tagIds: number[] }).tagIds; const value = { ...(states.get(id) ?? detail(id)), tags: tagIds.map((tagId) => ({ id: tagId, name: tagId === 1 ? 'Tools' : 'Fresh', color: '#b45309' })) }; states.set(id, value); await route.fulfill({ json: value }); });
   await page.route('**/api/tags', async (route) => route.request().method() === 'POST' ? route.fulfill({ status: 201, json: { id: 2, name: 'Fresh', color: '#b45309' } }) : route.fulfill({ json: [{ id: 1, name: 'Tools', color: '#b45309' }] }));
+  await page.route('**/api/articles/mark-all-read', (route) => route.fulfill({ json: { updated: 60, undoToken: 'undo-1', expiresAt: new Date(Date.now() + 5_000).toISOString() } }));
+  await page.route('**/api/articles/mark-all-read/undo', (route) => route.fulfill({ json: { restored: 60 } }));
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'The Brew' })).toBeVisible();
   await page.getByRole('button', { name: /Today/ }).click();
@@ -34,6 +37,12 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
   await page.getByRole('complementary', { name: 'Reader navigation' }).getByRole('button', { name: /Design Notes/ }).click();
   await expect(page.getByRole('heading', { name: 'Design Notes' })).toBeVisible();
   expect(await page.getByTestId('virtual-article-list').locator('article').count()).toBeLessThan(40);
+  await page.getByRole('button', { name: 'Mark all read' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Marked 60 read.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Marked 60 read.' })).toBeHidden();
+  await page.getByLabel('Read on scroll').check();
+  expect(await page.evaluate(() => localStorage.getItem('brew:mark-read-on-scroll'))).toBe('true');
   await page.getByTestId('virtual-article-list').locator('article').filter({ hasText: 'Library story 1' }).first().click();
   await expect(page.getByRole('dialog', { name: 'Article reader' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Article 10 detail' })).toBeVisible();
@@ -57,8 +66,10 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
   expect((await pane.boundingBox())?.x).toBeGreaterThan(400);
   await expect(page.getByRole('link', { name: /View original/ })).toHaveAttribute('href', /example\.test/);
   await page.getByRole('button', { name: 'Close article' }).click();
+  const readsBeforeScroll = readPatches.length;
   await page.getByTestId('virtual-article-list').evaluate((element) => { element.scrollTop = element.scrollHeight; element.dispatchEvent(new Event('scroll')); });
   await expect(page.getByText('Next page story')).toBeVisible();
+  await expect.poll(() => readPatches.length).toBeGreaterThan(readsBeforeScroll);
   await page.getByRole('button', { name: 'cards view' }).click();
   await expect(page.getByRole('button', { name: 'cards view' })).toHaveAttribute('aria-pressed', 'true');
   expect(await page.evaluate(() => localStorage.getItem('brew:density:feed:1'))).toBe('cards');
