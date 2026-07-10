@@ -33,6 +33,7 @@ export const feeds = sqliteTable(
     lastFetchedAt: timestamp('last_fetched_at'),
     lastStatus: integer('last_status'),
     consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+    failingSince: timestamp('failing_since'),
     fullTextMode: integer('full_text_mode', { mode: 'boolean' }).notNull().default(false),
     muted: integer('muted', { mode: 'boolean' }).notNull().default(false),
     createdAt: timestamp('created_at').notNull().default(sql`(unixepoch() * 1000)`),

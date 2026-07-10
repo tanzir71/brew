@@ -36,6 +36,7 @@ describe('PollerService', () => {
     expect(result).toMatchObject({ outcome: 'error', status });
     const updated = database.db.select().from(feeds).get()!;
     expect(updated.consecutiveFailures).toBe(1);
+    expect(updated.failingSince).toEqual(now);
     expect(effectiveInterval(updated)).toBe(60);
     database.close();
   });
@@ -50,7 +51,7 @@ describe('PollerService', () => {
       return new Response(null, { status: 304 });
     }) as unknown as typeof fetch;
     expect(await new PollerService(database, fetcher, undefined, () => now).pollFeed(feed)).toMatchObject({ outcome: 'not-modified', status: 304 });
-    expect(database.db.select().from(feeds).get()).toMatchObject({ consecutiveFailures: 0, lastStatus: 304 });
+    expect(database.db.select().from(feeds).get()).toMatchObject({ consecutiveFailures: 0, lastStatus: 304, failingSince: null });
     database.close();
   });
 

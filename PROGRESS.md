@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Current milestone: M1
+## Current milestone: M2
 
 ## Checklist state
 
@@ -13,13 +13,24 @@
 
 Exit review passed 2026-07-10: a clean local clone completed `npm ci`, started with `npm run dev`, served the SPA, and returned `{ok:true}` through the Vite-proxied health endpoint.
 
-### M1 — Feeds & ingest
+### M1 — Feeds & ingest — DONE
 
 - [x] Add feed by URL (including discovery from HTML pages); delete; rename; folders CRUD.
 - [x] Poller with conditional GET, adaptive intervals, backoff, concurrency limit, and fixture coverage.
 - [x] Ingest pipeline: dedupe, sanitize, tracker stripping (tested).
 - [x] OPML import/export round-trips folder structure (test with a 100-feed fixture).
-- [ ] Feed health surface in settings.
+- [x] Feed health surface in settings.
+
+Exit review passed 2026-07-10: `npm run review:m1` subscribed to 20 live public feeds in an isolated database; both poll cycles succeeded for all 20, ingested 1,593 articles, and produced zero duplicate GUID or normalized-hash groups.
+
+### M2 — Reader core
+
+- [ ] Sidebar with folders/feeds/unread counts; All/Today/Starred views.
+- [ ] Virtualized article list, three densities, unread filter, sort.
+- [ ] Article overlay/pane per §7.3 including lazy full-text extraction.
+- [ ] Read/star/tag actions with optimistic UI and SSE-driven live inserts.
+- [ ] Mark-all-read with undo; mark-read-on-scroll setting.
+- [ ] Light/dark themes.
 
 ## Decisions
 
@@ -28,6 +39,7 @@ Exit review passed 2026-07-10: a clean local clone completed `npm ci`, started w
 - 2026-07-10: Adapt active feeds by 25% per successful poll toward 15 minutes and quiet feeds by 50% toward 6 hours — gradual changes avoid cadence oscillation while honoring the specified targets.
 - 2026-07-10: Follow DOMPurify with a strict linkedom tag/attribute/protocol allowlist — DOMPurify currently reports linkedom's partial window as unsupported, so the explicit pass preserves the mandated stack without trusting unsanitized fallback output.
 - 2026-07-10: Flatten nested OPML folder paths as `Parent / Child` — Brew's canonical schema has one folder level, and retaining the full path avoids silently losing organization.
+- 2026-07-10: Persist `failing_since` separately from the latest fetch attempt — a seven-day health warning cannot be derived accurately from `last_fetched_at`, which advances on every retry.
 
 ## Discoveries / gotchas for future iterations
 

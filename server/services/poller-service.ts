@@ -62,18 +62,18 @@ export class PollerService {
       if (feed.lastModified) headers.set('If-Modified-Since', feed.lastModified);
       const response = await this.fetcher(feed.url, { headers, redirect: 'follow', signal: AbortSignal.timeout(20_000) });
       if (response.status === 304) {
-        this.database.db.update(feeds).set({ lastFetchedAt: fetchedAt, lastStatus: 304, consecutiveFailures: 0 }).where(eq(feeds.id, feed.id)).run();
+        this.database.db.update(feeds).set({ lastFetchedAt: fetchedAt, lastStatus: 304, consecutiveFailures: 0, failingSince: null }).where(eq(feeds.id, feed.id)).run();
         return { feedId: feed.id, status: 304, newItems: 0, outcome: 'not-modified' };
       }
       if (!response.ok) throw Object.assign(new Error(`HTTP ${response.status}`), { status: response.status });
       const document = await parseFeedDocument(await response.text(), response.headers.get('content-type') ?? '');
       const newItems = await this.ingest(feed, document.articles);
       const interval = adaptiveInterval(feed.fetchIntervalMinutes, document.articles, fetchedAt);
-      this.database.db.update(feeds).set({ title: document.title || feed.title, siteUrl: document.siteUrl ?? feed.siteUrl, description: document.description ?? feed.description, fetchIntervalMinutes: interval, etag: response.headers.get('etag'), lastModified: response.headers.get('last-modified'), lastFetchedAt: fetchedAt, lastStatus: response.status, consecutiveFailures: 0 }).where(eq(feeds.id, feed.id)).run();
+      this.database.db.update(feeds).set({ title: document.title || feed.title, siteUrl: document.siteUrl ?? feed.siteUrl, description: document.description ?? feed.description, fetchIntervalMinutes: interval, etag: response.headers.get('etag'), lastModified: response.headers.get('last-modified'), lastFetchedAt: fetchedAt, lastStatus: response.status, consecutiveFailures: 0, failingSince: null }).where(eq(feeds.id, feed.id)).run();
       return { feedId: feed.id, status: response.status, newItems, outcome: 'success' };
     } catch (error) {
       const status = typeof error === 'object' && error && 'status' in error && typeof error.status === 'number' ? error.status : 0;
-      this.database.db.update(feeds).set({ lastFetchedAt: fetchedAt, lastStatus: status, consecutiveFailures: feed.consecutiveFailures + 1 }).where(eq(feeds.id, feed.id)).run();
+      this.database.db.update(feeds).set({ lastFetchedAt: fetchedAt, lastStatus: status, consecutiveFailures: feed.consecutiveFailures + 1, failingSince: feed.failingSince ?? fetchedAt }).where(eq(feeds.id, feed.id)).run();
       return { feedId: feed.id, status, newItems: 0, outcome: 'error', error: error instanceof Error ? error.message : 'Unknown polling error' };
     }
   }

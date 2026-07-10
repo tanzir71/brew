@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../app.js';
 import { openDatabase } from '../db/database.js';
+import { feeds } from '../db/schema.js';
 
 const rss = `<?xml version="1.0"?><rss version="2.0"><channel><title>Design Notes</title><link>https://example.test</link><description>Useful things</description><item><guid>one</guid><title>First</title><link>https://example.test/one</link></item></channel></rss>`;
 
@@ -46,5 +47,14 @@ describe('feed and folder routes', () => {
     apps.push(app);
     expect((await app.inject({ method: 'POST', url: '/api/feeds/discover', payload: { url: 'https://valid.test/feed.json' } })).json()).toMatchObject({ candidates: [{ title: 'JSON Daily', type: 'json' }] });
     expect((await app.inject({ method: 'POST', url: '/api/feeds', payload: { url: 'https://invalid.test' } })).statusCode).toBe(400);
+  });
+
+  it('reports a warning only after a feed has failed for seven days', async () => {
+    const database = openDatabase(':memory:');
+    database.db.insert(feeds).values({ url: 'https://stale.test/feed', title: 'Stale', lastStatus: 500, consecutiveFailures: 9, failingSince: new Date(Date.now() - 8 * 86_400_000) }).run();
+    database.db.insert(feeds).values({ url: 'https://recent.test/feed', title: 'Recent', lastStatus: 500, consecutiveFailures: 1, failingSince: new Date(Date.now() - 86_400_000) }).run();
+    const app = await createApp({ database }); apps.push(app);
+    const health = (await app.inject('/api/feeds')).json() as Array<{ title: string; healthWarning: boolean }>;
+    expect(health).toEqual([{ title: 'Recent', healthWarning: false }, { title: 'Stale', healthWarning: true }].map((expected) => expect.objectContaining(expected)));
   });
 });

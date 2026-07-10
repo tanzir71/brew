@@ -7,6 +7,12 @@ export interface FeedSummary {
   siteUrl: string | null;
   title: string;
   description: string | null;
+  fetchIntervalMinutes: number;
+  lastFetchedAt: string | null;
+  lastStatus: number | null;
+  consecutiveFailures: number;
+  failingSince: string | null;
+  healthWarning: boolean;
 }
 
 export interface FolderSummary { id: number; title: string; position: number }

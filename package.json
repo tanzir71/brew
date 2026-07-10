@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "review:m1": "tsx server/scripts/m1-exit-review.ts"
   },
   "dependencies": {
     "@fastify/static": "latest",

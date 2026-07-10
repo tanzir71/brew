@@ -52,7 +52,10 @@ async function fetchCandidate(fetcher: Fetch, url: string): Promise<{ candidate:
 export class FeedService {
   constructor(private readonly database: BrewDatabase, private readonly fetcher: Fetch = globalThis.fetch) {}
 
-  listFeeds(): FeedSummary[] { return this.database.db.select({ id: feeds.id, folderId: feeds.folderId, url: feeds.url, siteUrl: feeds.siteUrl, title: feeds.title, description: feeds.description }).from(feeds).orderBy(asc(feeds.title)).all(); }
+  listFeeds(): FeedSummary[] {
+    const warningThreshold = Date.now() - 7 * 86_400_000;
+    return this.database.db.select().from(feeds).orderBy(asc(feeds.title)).all().map((feed) => ({ id: feed.id, folderId: feed.folderId, url: feed.url, siteUrl: feed.siteUrl, title: feed.title, description: feed.description, fetchIntervalMinutes: feed.fetchIntervalMinutes, lastFetchedAt: feed.lastFetchedAt?.toISOString() ?? null, lastStatus: feed.lastStatus, consecutiveFailures: feed.consecutiveFailures, failingSince: feed.failingSince?.toISOString() ?? null, healthWarning: Boolean(feed.failingSince && feed.failingSince.getTime() <= warningThreshold) }));
+  }
   listFolders(): FolderSummary[] { return this.database.db.select({ id: folders.id, title: folders.title, position: folders.position }).from(folders).orderBy(asc(folders.position), asc(folders.title)).all(); }
 
   async discover(input: string): Promise<FeedCandidate[]> {
@@ -81,14 +84,14 @@ export class FeedService {
     if (!result) throw new Error('The selected URL is not a valid RSS, Atom, or JSON feed');
     if (folderId !== null && !this.database.db.select({ id: folders.id }).from(folders).where(eq(folders.id, folderId)).get()) throw new Error('Folder not found');
     const inserted = this.database.db.insert(feeds).values({ folderId, url: result.candidate.url, title: result.metadata.title, description: result.metadata.description, siteUrl: result.metadata.siteUrl }).returning().get();
-    return { id: inserted.id, folderId: inserted.folderId, url: inserted.url, siteUrl: inserted.siteUrl, title: inserted.title, description: inserted.description };
+    return { id: inserted.id, folderId: inserted.folderId, url: inserted.url, siteUrl: inserted.siteUrl, title: inserted.title, description: inserted.description, fetchIntervalMinutes: inserted.fetchIntervalMinutes, lastFetchedAt: null, lastStatus: null, consecutiveFailures: 0, failingSince: null, healthWarning: false };
   }
 
   renameFeed(id: number, title: string, folderId?: number | null): FeedSummary | undefined {
     const values: { title: string; folderId?: number | null } = { title: title.trim() };
     if (folderId !== undefined) values.folderId = folderId;
     const row = this.database.db.update(feeds).set(values).where(eq(feeds.id, id)).returning().get();
-    return row && { id: row.id, folderId: row.folderId, url: row.url, siteUrl: row.siteUrl, title: row.title, description: row.description };
+    return row && { id: row.id, folderId: row.folderId, url: row.url, siteUrl: row.siteUrl, title: row.title, description: row.description, fetchIntervalMinutes: row.fetchIntervalMinutes, lastFetchedAt: row.lastFetchedAt?.toISOString() ?? null, lastStatus: row.lastStatus, consecutiveFailures: row.consecutiveFailures, failingSince: row.failingSince?.toISOString() ?? null, healthWarning: Boolean(row.failingSince && row.failingSince.getTime() <= Date.now() - 7 * 86_400_000) };
   }
   deleteFeed(id: number): boolean { return this.database.db.delete(feeds).where(eq(feeds.id, id)).run().changes > 0; }
   createFolder(title: string): FolderSummary { const max = this.listFolders().at(-1)?.position ?? -1; return this.database.db.insert(folders).values({ title: title.trim(), position: max + 1 }).returning().get(); }
