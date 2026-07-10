@@ -9,7 +9,7 @@
 - [x] Repo scaffolded per §4 (folders, TS strict, ESLint/Prettier, Vitest, Playwright, Tailwind, Drizzle configured, all §10 scripts runnable and green on empty project).
 - [x] Fastify serves the SPA; `/api/health` returns `{ok:true}`; SSE endpoint streams heartbeat.
 - [x] SQLite opens/migrates on boot; schema of §6 created via migration 0001.
-- [ ] `README.md` with run instructions.
+- [x] `README.md` with run instructions.
 
 ## Decisions
 
