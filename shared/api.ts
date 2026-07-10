@@ -29,6 +29,7 @@ export interface ReaderNavigation {
 
 export interface ArticleSummary {
   id: number;
+  url: string;
   title: string;
   author: string | null;
   summaryHtml: string | null;
@@ -43,7 +44,6 @@ export interface ArticleSummary {
 }
 export interface ArticlePage { items: ArticleSummary[]; nextCursor: string | null }
 export interface ArticleDetail extends ArticleSummary {
-  url: string;
   contentHtml: string | null;
   fullTextHtml: string | null;
   readTimeMinutes: number;

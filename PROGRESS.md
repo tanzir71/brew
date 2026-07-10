@@ -36,7 +36,7 @@ Exit review passed 2026-07-10: committed Playwright baselines cover title, magaz
 
 ### M3 — Keyboard & search
 
-- [ ] All shortcuts of §7.6 plus `?` cheat sheet.
+- [x] All shortcuts of §7.6 plus `?` cheat sheet.
 - [ ] FTS5 search with scoping chips (e2e: index 1k fixture articles, search returns under 50 ms).
 
 ## Decisions
