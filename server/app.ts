@@ -10,6 +10,7 @@ import { registerOpmlRoutes } from './routes/opml.js';
 import { registerReaderRoutes } from './routes/reader.js';
 import { registerArticleRoutes } from './routes/articles.js';
 import { registerSearchRoutes } from './routes/search.js';
+import { registerRulesRoutes } from './routes/rules.js';
 import { PollerService } from './services/poller-service.js';
 import { IngestPipeline } from './services/ingest-pipeline.js';
 import { SseBroker } from './services/sse-broker.js';
@@ -28,6 +29,7 @@ export async function createApp(options: { serveWeb?: boolean; database?: BrewDa
   registerReaderRoutes(app, database);
   registerArticleRoutes(app, database, options.fetcher);
   registerSearchRoutes(app, database);
+  registerRulesRoutes(app, database, options.fetcher);
   const rules = new RulesService(database, options.fetcher, (article) => broker.publish('notification', article));
   const ingest = new IngestPipeline(database, rules);
   const poller = new PollerService(database, options.fetcher, (feed, incoming) => ingest.ingest(feed, incoming), undefined, (results) => {

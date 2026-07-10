@@ -1,6 +1,7 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import type { FeedCandidate, FeedSummary, FolderSummary } from '../../shared/api';
 import { Reader } from './Reader';
+import { RulesPage } from './RulesPage';
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -17,7 +18,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export function App() {
-  const [managing, setManaging] = useState(false);
+  const [mode, setMode] = useState<'reader' | 'feeds' | 'rules'>('reader');
   const [searchDraft, setSearchDraft] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => {
@@ -38,7 +39,9 @@ export function App() {
   return (
     <main className="min-h-screen bg-stone-50 text-stone-900">
       <header className="flex h-16 items-center justify-between border-b border-stone-200 px-8">
-        <span className="font-semibold tracking-tight">Brew</span>
+        <button onClick={() => setMode('reader')} className="font-semibold tracking-tight">
+          Brew
+        </button>
         <div className="flex items-center gap-3">
           <label className="sr-only" htmlFor="global-search">
             Search
@@ -52,7 +55,7 @@ export function App() {
               if (event.key === 'Enter') {
                 event.preventDefault();
                 setSearchQuery(searchDraft.trim());
-                setManaging(false);
+                setMode('reader');
               }
               if (event.key === 'Escape') {
                 setSearchDraft('');
@@ -89,15 +92,23 @@ export function App() {
             <option value="dark">Dark theme</option>
           </select>
           <button
-            onClick={() => setManaging((value) => !value)}
+            onClick={() => setMode(mode === 'rules' ? 'reader' : 'rules')}
             className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
           >
-            {managing ? 'Back to Brew' : 'Manage feeds'}
+            {mode === 'rules' ? 'Back to Brew' : 'Rules'}
+          </button>
+          <button
+            onClick={() => setMode(mode === 'feeds' ? 'reader' : 'feeds')}
+            className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
+          >
+            {mode === 'feeds' ? 'Back to Brew' : 'Manage feeds'}
           </button>
         </div>
       </header>
-      {managing ? (
+      {mode === 'feeds' ? (
         <FeedManager />
+      ) : mode === 'rules' ? (
+        <RulesPage />
       ) : (
         <Reader
           searchQuery={searchQuery}
