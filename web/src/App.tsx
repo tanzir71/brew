@@ -1,5 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import type { FeedCandidate, FeedSummary, FolderSummary } from '../../shared/api';
+import { Reader } from './Reader';
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
@@ -11,7 +12,7 @@ export function App() {
   const [managing, setManaging] = useState(false);
   return <main className="min-h-screen bg-stone-50 text-stone-900">
     <header className="flex h-16 items-center justify-between border-b border-stone-200 px-8"><span className="font-semibold tracking-tight">Brew</span><button onClick={() => setManaging((value) => !value)} className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700">{managing ? 'Back to Brew' : 'Manage feeds'}</button></header>
-    {managing ? <FeedManager /> : <section className="grid min-h-[calc(100vh-4rem)] place-items-center text-center"><div><p className="text-xs font-semibold uppercase tracking-[.24em] text-amber-700">Your morning paper</p><h1 className="mt-3 text-5xl font-semibold tracking-tight">Brew</h1><p className="mt-4 text-stone-500">A calm, private home for your feeds.</p><button onClick={() => setManaging(true)} className="mt-8 rounded-full bg-stone-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-stone-700">Add your first feed</button></div></section>}
+    {managing ? <FeedManager /> : <Reader />}
   </main>;
 }
 

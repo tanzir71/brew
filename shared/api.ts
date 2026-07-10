@@ -18,3 +18,26 @@ export interface FeedSummary {
 export interface FolderSummary { id: number; title: string; position: number }
 
 export interface FeedCandidate { url: string; title: string; type: 'rss' | 'atom' | 'json' }
+
+export interface ReaderFeed { id: number; folderId: number | null; title: string; unreadCount: number; muted: boolean }
+export interface ReaderFolder { id: number; title: string; unreadCount: number; feeds: ReaderFeed[] }
+export interface ReaderNavigation {
+  counts: { all: number; today: number; starred: number };
+  folders: ReaderFolder[];
+  unfiled: ReaderFeed[];
+}
+
+export interface ArticleSummary {
+  id: number;
+  title: string;
+  author: string | null;
+  summaryHtml: string | null;
+  imageUrl: string | null;
+  publishedAt: string;
+  readAt: string | null;
+  starredAt: string | null;
+  feedId: number;
+  feedTitle: string;
+  folderId: number | null;
+  folderTitle: string | null;
+}

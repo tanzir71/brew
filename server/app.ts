@@ -7,6 +7,7 @@ import { openDatabase, type BrewDatabase } from './db/database.js';
 import { registerFeedRoutes } from './routes/feeds.js';
 import { registerPollerRoutes } from './routes/poller.js';
 import { registerOpmlRoutes } from './routes/opml.js';
+import { registerReaderRoutes } from './routes/reader.js';
 import { PollerService } from './services/poller-service.js';
 import { IngestPipeline } from './services/ingest-pipeline.js';
 import { SseBroker } from './services/sse-broker.js';
@@ -21,6 +22,7 @@ export async function createApp(options: { serveWeb?: boolean; database?: BrewDa
   app.addHook('onClose', () => database.close());
   registerFeedRoutes(app, database, options.fetcher);
   registerOpmlRoutes(app, database);
+  registerReaderRoutes(app, database);
   const ingest = new IngestPipeline(database);
   const poller = new PollerService(database, options.fetcher, (feed, incoming) => ingest.ingest(feed, incoming), undefined, (results) => {
     const changed = results.filter((result) => result.newItems > 0);
