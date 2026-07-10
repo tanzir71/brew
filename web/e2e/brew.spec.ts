@@ -5,7 +5,7 @@ const sections=[
   {id:'list',title:'Briefing',source:'starred',maxItems:5,layout:'list',sort:'newest',onlyUnread:false,items:[item(2,'Local data has a durable future','Small systems can remain useful for decades.'),item(3,'Typography for long-form reading','Rhythm and measure make a reader feel effortless.')]},
   {id:'empty',title:'From the archive',source:'featured',maxItems:5,layout:'magazine',sort:'newest',onlyUnread:true,items:[]},
 ];
-const config={id:1,name:'Morning',scheduleCron:'0 7 * * *',enabled:true,sections:sections.map(({items:_,...section})=>section),createdAt:'2026-07-10T00:00:00.000Z'};
+const config={id:1,name:'Morning',scheduleCron:'0 7 * * *',enabled:true,sections:sections.map((section)=>({id:section.id,title:section.title,...('divider' in section?{divider:section.divider}:{}),source:section.source,maxItems:section.maxItems,layout:section.layout,sort:section.sort,onlyUnread:section.onlyUnread})),createdAt:'2026-07-10T00:00:00.000Z'};
 const snapshot={id:1,brewConfigId:1,configName:'Morning',generatedAt:'2026-07-10T07:00:00.000Z',sections,scrollPosition:0};
 
 test.beforeEach(async({page})=>{

@@ -50,7 +50,7 @@ export function sanitizeArticleHtml(input: string | null | undefined): string | 
   }
   for (const image of root.querySelectorAll('img')) {
     if (tinyDimension(image.getAttribute('width')) || tinyDimension(image.getAttribute('height'))) image.remove();
-    else { image.removeAttribute('width'); image.removeAttribute('height'); image.removeAttribute('loading'); }
+    else { const src=image.getAttribute('src'); if(src&&/^https?:/i.test(src))image.setAttribute('src',`/api/img?src=${encodeURIComponent(src)}`); image.removeAttribute('width'); image.removeAttribute('height'); image.removeAttribute('loading'); }
   }
   for (const anchor of root.querySelectorAll('a[href]')) {
     const href = anchor.getAttribute('href');

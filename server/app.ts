@@ -22,6 +22,12 @@ const rootDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 
 export async function createApp(options: { serveWeb?: boolean; database?: BrewDatabase; fetcher?: typeof fetch; startPoller?: boolean } = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
+  app.addHook('onSend', async (_request, reply, payload) => {
+    reply.header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('Referrer-Policy', 'no-referrer');
+    return payload;
+  });
   app.addContentTypeParser(['text/xml', 'application/xml', 'text/x-opml'], { parseAs: 'string' }, (_request, body, done) => done(null, body));
   const database = options.database ?? openDatabase();
   const broker = new SseBroker();
@@ -46,6 +52,22 @@ export async function createApp(options: { serveWeb?: boolean; database?: BrewDa
   app.addHook('onClose', () => { poller.stop(); if (brewTimer) clearInterval(brewTimer); });
 
   app.get('/api/health', async (): Promise<HealthResponse> => ({ ok: true }));
+
+  app.get<{ Querystring: { src?: string } }>('/api/img', async (request, reply) => {
+    try {
+      if (!request.query.src) throw new Error('src is required');
+      const source = new URL(request.query.src);
+      if (!['http:', 'https:'].includes(source.protocol)) throw new Error('Unsupported image URL');
+      const response = await (options.fetcher ?? fetch)(source, { signal: AbortSignal.timeout(8_000), redirect: 'follow' });
+      const type = response.headers.get('content-type')?.split(';')[0]?.trim() ?? '';
+      if (!response.ok || !type.startsWith('image/')) throw new Error('Image could not be loaded');
+      const data = Buffer.from(await response.arrayBuffer());
+      if (data.length > 10 * 1024 * 1024) throw new Error('Image is too large');
+      return reply.header('Content-Type', type).header('Cache-Control', 'private, max-age=86400').send(data);
+    } catch (error) {
+      return reply.code(400).send({ error: error instanceof Error ? error.message : 'Invalid image URL' });
+    }
+  });
 
   app.get('/api/events', async (request, reply) => {
     reply.hijack();

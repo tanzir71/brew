@@ -20,6 +20,7 @@ test('supports the complete Reader keyboard map and cheat sheet', async ({ page 
   await expect(page.getByRole('heading', { name: 'The Brew' })).toBeVisible();
   await page.keyboard.press('g'); await page.keyboard.press('a');
   await expect(page.getByRole('heading', { name: 'All articles' })).toBeVisible();
+  await expect(page.getByText('First keyboard story')).toBeVisible();
   await page.keyboard.press('j');
   await expect(page.locator('article[data-focused="true"]')).toContainText('First keyboard story');
   await page.keyboard.press('j');

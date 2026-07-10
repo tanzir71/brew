@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "concurrently -k -n server,web \"tsx watch server/index.ts\" \"vite --config web/vite.config.ts\"",
     "start": "node dist/server/index.js",
@@ -14,6 +16,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "review:m1": "tsx server/scripts/m1-exit-review.ts"
+    ,"backup": "tsx server/scripts/backup.ts"
+    ,"seed:big": "tsx server/scripts/seed-big.ts"
   },
   "dependencies": {
     "@fastify/static": "latest",
@@ -31,6 +35,7 @@
     "rss-parser": "latest"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@eslint/js": "latest",
     "@playwright/test": "latest",
     "@tailwindcss/vite": "latest",

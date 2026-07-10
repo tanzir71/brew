@@ -83,6 +83,7 @@ export function RulesPage() {
   const [message, setMessage] = useState('');
   const [logs, setLogs] = useState<RuleLogRecord[]>([]);
   const [duplicateFilter, setDuplicateFilter] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
     typeof Notification === 'undefined' ? 'denied' : Notification.permission,
   );
@@ -107,7 +108,8 @@ export function RulesPage() {
         setNavigation(nextNavigation);
         setDuplicateFilter(filter.enabled);
       })
-      .catch((error: Error) => setMessage(error.message));
+      .catch((error: Error) => setMessage(error.message))
+      .finally(() => setLoading(false));
   }, []);
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -216,6 +218,7 @@ export function RulesPage() {
       actions: current.actions.map((value, item) => (item === index ? action : value)),
     }));
 
+  if (loading) return <p role="status" className="p-12 text-center text-sm text-stone-500">Loading rules…</p>;
   return (
     <div className="mx-auto grid max-w-7xl gap-8 px-7 py-8 lg:grid-cols-[18rem_minmax(0,1fr)_20rem]">
       <aside>

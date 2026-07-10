@@ -55,7 +55,7 @@ describe('IngestPipeline', () => {
     ])).toBe(1);
     const stored = database.db.select().from(articles).all();
     expect(stored).toHaveLength(1);
-    expect(stored[0]).toMatchObject({ guid: 'guid-1', url: 'https://example.test/story', title: 'A  Story', imageUrl: 'https://images.test/hero.jpg' });
+    expect(stored[0]).toMatchObject({ guid: 'guid-1', url: 'https://example.test/story', title: 'A  Story', imageUrl: '/api/img?src=https%3A%2F%2Fimages.test%2Fhero.jpg' });
     expect(stored[0]?.contentHtml).not.toMatch(/script|iframe|onclick|pixel.gif|utm_source|fbclid/i);
     expect(await pipeline.ingest(feed, [baseArticle({ guid: 'guid-3', url: 'https://example.test/new', title: 'New' })])).toBe(1);
     expect(database.db.select().from(articles).all()).toHaveLength(2);

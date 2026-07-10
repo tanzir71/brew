@@ -35,6 +35,7 @@ async function getJson<T>(url: string): Promise<T> {
 const isEditableTarget = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement &&
   (target.matches('input, textarea, select') || target.isContentEditable);
+const imageSource = (value: string) => localStorage.getItem('brew:direct-images') === 'true' && value.startsWith('/api/img?src=') ? decodeURIComponent(value.slice(13)) : localStorage.getItem('brew:direct-images') === 'true' ? value : value.startsWith('/api/img?') ? value : `/api/img?src=${encodeURIComponent(value)}`;
 
 export function Reader({
   searchQuery,
@@ -49,6 +50,7 @@ export function Reader({
   const [error, setError] = useState('');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const pendingGo = useRef(false);
+  const pendingGoTimer = useRef<number | null>(null);
   useEffect(() => {
     const refresh = () => {
       void getJson<ReaderNavigation>('/api/reader/navigation')
@@ -106,8 +108,10 @@ export function Reader({
       if (event.key.toLowerCase() === 'g') {
         event.stopImmediatePropagation();
         pendingGo.current = true;
-        window.setTimeout(() => {
+        if (pendingGoTimer.current !== null) window.clearTimeout(pendingGoTimer.current);
+        pendingGoTimer.current = window.setTimeout(() => {
           pendingGo.current = false;
+          pendingGoTimer.current = null;
         }, 1_000);
         return;
       }
@@ -115,6 +119,8 @@ export function Reader({
         event.preventDefault();
         event.stopImmediatePropagation();
         pendingGo.current = false;
+        if (pendingGoTimer.current !== null) window.clearTimeout(pendingGoTimer.current);
+        pendingGoTimer.current = null;
         const key = event.key.toLowerCase();
         if (key === 'b') choose({ kind: 'brew', title: 'The Brew' });
         if (key === 't') choose({ kind: 'today', title: 'Today' });
@@ -132,6 +138,7 @@ export function Reader({
     return () => {
       window.removeEventListener('keydown', keydown, true);
       window.removeEventListener('brew:show-shortcuts', show);
+      if (pendingGoTimer.current !== null) window.clearTimeout(pendingGoTimer.current);
     };
   }, [choose, queryClient, showShortcuts]);
   const itemClass = (active: boolean) =>
@@ -919,7 +926,7 @@ function ArticleList({ selection }: { selection: Selection }) {
           </div>
         </div>
       </header>
-      <div ref={parent} data-testid="virtual-article-list" className="min-h-0 flex-1 overflow-auto">
+      <div ref={parent} data-reader-scroll data-testid="virtual-article-list" className="min-h-0 flex-1 overflow-auto">
         <div
           className="relative mx-auto max-w-5xl px-8"
           style={{ height: virtualizer.getTotalSize() }}
@@ -1055,7 +1062,7 @@ function ArticleRow({
         className={`h-[258px] cursor-pointer overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-amber-600 ${focused ? 'ring-2 ring-amber-500' : ''} ${article.readAt ? 'opacity-55' : ''}`}
       >
         {article.imageUrl ? (
-          <img src={article.imageUrl} alt="" loading="lazy" className="h-28 w-full object-cover" />
+          <img src={imageSource(article.imageUrl)} alt="" loading="lazy" className="h-28 w-full object-cover" />
         ) : (
           <div className="h-28 bg-gradient-to-br from-amber-50 to-stone-100" />
         )}
@@ -1095,7 +1102,7 @@ function ArticleRow({
       </div>
       {article.imageUrl && (
         <img
-          src={article.imageUrl}
+          src={imageSource(article.imageUrl)}
           alt=""
           loading="lazy"
           className="h-20 w-28 shrink-0 rounded-lg object-cover"

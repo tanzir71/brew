@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Current milestone: M5
+## Current milestone: M6
 
 ## Checklist state
 
@@ -60,6 +60,16 @@ Exit review passed 2026-07-10: action/operator matrices cover exact persisted st
 
 Exit review passed 2026-07-10: immutable snapshot and 30-edition retention tests pass; golden Playwright screenshots cover the seeded newspaper view in light and dark themes.
 
+### M6 — Hardening & polish — DONE
+
+- [x] Performance budgets of §8 verified with a 10k-article seed script (`npm run seed:big`).
+- [x] Image proxy + CSP + sanitization audit (tests attempt XSS via feed fixtures — renders inert).
+- [x] Accessibility pass: axe-core in Playwright, zero serious/critical violations on Reader, Rules, Brew.
+- [x] Backup script; error boundary; empty/loading/error states across primary views.
+- [x] Final spacing/type polish, favicon/app icon, contextual page titles.
+
+Exit review passed 2026-07-10: 10k virtual scrolling, cold load, and article-open budgets pass; a real 10k seed and SQLite backup completed; the complete 21-test Playwright suite passed three consecutive runs with no failures.
+
 ## Decisions
 
 - 2026-07-10: Use Tailwind CSS v4 through its Vite plugin — it keeps the scaffold minimal and avoids obsolete configuration.
@@ -79,6 +89,8 @@ Exit review passed 2026-07-10: immutable snapshot and 30-edition retention tests
 - DOMPurify with linkedom can return input unchanged because linkedom lacks parts of `WindowLike`; hostile-fixture tests must continue covering the explicit allowlist fallback.
 
 ## Dependency justifications
+
+- `@axe-core/playwright`: automated WCAG serious/critical regression checks required by M6.
 
 - Fastify + `@fastify/static`: REST/SSE server and production SPA hosting required by §4.
 - Drizzle ORM + `better-sqlite3` + drizzle-kit: canonical local SQLite persistence and migrations.

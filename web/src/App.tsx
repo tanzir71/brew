@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { Component, type FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react';
 import type { FeedCandidate, FeedSummary, FolderSummary } from '../../shared/api';
 import { Reader } from './Reader';
 import { RulesPage } from './RulesPage';
@@ -19,6 +19,9 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export function App() {
+  return <ErrorBoundary><AppContent /></ErrorBoundary>;
+}
+function AppContent() {
   const [mode, setMode] = useState<'brew' | 'reader' | 'feeds' | 'rules'>('brew');
   const [searchDraft, setSearchDraft] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -26,6 +29,7 @@ export function App() {
     const saved = localStorage.getItem('brew:theme');
     return saved === 'light' || saved === 'dark' ? saved : 'system';
   });
+  const [directImages,setDirectImages]=useState(()=>localStorage.getItem('brew:direct-images')==='true');
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const apply = () => {
@@ -37,6 +41,7 @@ export function App() {
     media.addEventListener('change', apply);
     return () => media.removeEventListener('change', apply);
   }, [theme]);
+  useEffect(() => { document.title = `${mode === 'brew' ? 'The Brew' : mode === 'reader' ? 'Reader' : mode === 'rules' ? 'Rules' : 'Feeds'} · Brew`; }, [mode]);
   return (
     <main className="min-h-screen bg-stone-50 text-stone-900">
       <header className="flex h-16 items-center justify-between border-b border-stone-200 px-8">
@@ -98,6 +103,10 @@ export function App() {
             <option value="light">Light theme</option>
             <option value="dark">Dark theme</option>
           </select>
+          <label className="sr-only" htmlFor="image-privacy">Image privacy</label>
+          <select id="image-privacy" value={directImages?'direct':'proxy'} onChange={(event)=>{const direct=event.target.value==='direct';setDirectImages(direct);localStorage.setItem('brew:direct-images',String(direct))}} className="rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-medium">
+            <option value="proxy">Private images</option><option value="direct">Load images directly</option>
+          </select>
           <button
             onClick={() => setMode(mode === 'rules' ? 'reader' : 'rules')}
             className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
@@ -130,6 +139,8 @@ export function App() {
     </main>
   );
 }
+
+class ErrorBoundary extends Component<{children:ReactNode},{error:boolean}>{state={error:false};static getDerivedStateFromError(){return{error:true}}render(){return this.state.error?<main className="grid min-h-screen place-items-center bg-stone-50 p-8 text-center"><div><p className="text-xs font-semibold uppercase tracking-wider text-amber-700">Brew</p><h1 className="mt-2 text-3xl font-semibold">Something went wrong.</h1><p className="mt-2 text-stone-500">Your local data is safe. Reload to try again.</p><button onClick={()=>location.reload()} className="mt-6 rounded-full bg-stone-900 px-5 py-2 text-white">Reload Brew</button></div></main>:this.props.children}}
 
 function FeedManager() {
   const [feeds, setFeeds] = useState<FeedSummary[]>([]);
