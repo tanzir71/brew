@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Current milestone: M4
+## Current milestone: M5
 
 ## Checklist state
 
@@ -50,6 +50,15 @@ Exit review passed 2026-07-10: Playwright starts a real Fastify/SQLite instance,
 - [x] Duplicate filter with trigram similarity (tested with near-duplicate fixtures).
 
 Exit review passed 2026-07-10: action/operator matrices cover exact persisted states, webhook retry/failure logging, rule ordering, hit counts, targeted reapplication, and near-duplicate fixtures; the sentence builder and action surfaces pass Playwright.
+
+### M5 — The Brew — DONE
+
+- [x] Brew config CRUD: section composer with drag-reorder, all section options of §7.5.
+- [x] Scheduled snapshot generation + "generate now" + 30-snapshot history with date navigation.
+- [x] Brew rendering: hero/list/magazine layouts, calm empty states, read-from-Brew, resume position.
+- [x] Brew as default landing page; multiple named Brews via tabs.
+
+Exit review passed 2026-07-10: immutable snapshot and 30-edition retention tests pass; golden Playwright screenshots cover the seeded newspaper view in light and dark themes.
 
 ## Decisions
 

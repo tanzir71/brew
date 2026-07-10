@@ -1,0 +1,12 @@
+import { describe,expect,it } from 'vitest';
+import type { BrewConfigDraft } from '../../shared/brew.js';
+import { openDatabase } from '../db/database.js';
+import { articles,feeds } from '../db/schema.js';
+import { BrewService } from './brew-service.js';
+
+const draft: BrewConfigDraft={name:'Morning',scheduleCron:'0 7 * * *',enabled:true,sections:[{id:'today',title:'Today',source:'today',maxItems:5,layout:'hero',sort:'newest',onlyUnread:false}]};
+describe('BrewService',()=>{
+  it('freezes immutable snapshots and persists reading position',()=>{const database=openDatabase(':memory:');const feed=database.db.insert(feeds).values({url:'https://test/feed',title:'Test'}).returning().get();database.db.insert(articles).values({feedId:feed.id,guid:'1',url:'https://test/1',title:'First',publishedAt:new Date(),hash:'1'}).run();const service=new BrewService(database);const config=service.create(draft);const first=service.generate(config.id);database.db.insert(articles).values({feedId:feed.id,guid:'2',url:'https://test/2',title:'Second',publishedAt:new Date(),hash:'2'}).run();expect(service.snapshot(first.id)?.sections[0]?.items.map((item)=>item.title)).toEqual(['First']);const second=service.generate(config.id);expect(second.sections[0]?.items).toHaveLength(2);service.saveScroll(first.id,321);expect(service.snapshot(first.id)?.scrollPosition).toBe(321);database.close()});
+  it('generates an enabled config only once for its scheduled minute',()=>{const database=openDatabase(':memory:');const service=new BrewService(database);service.create(draft);const time=new Date('2026-07-10T07:00:00');expect(service.runScheduled(time)).toBe(1);expect(service.runScheduled(time)).toBe(0);database.close()});
+  it('retains only the newest 30 snapshots',()=>{const database=openDatabase(':memory:');const service=new BrewService(database);const config=service.create(draft);for(let index=0;index<32;index++)service.generate(config.id);expect(service.history(config.id)).toHaveLength(30);database.close()});
+});

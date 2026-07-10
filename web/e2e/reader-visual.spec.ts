@@ -6,6 +6,7 @@ for (const theme of ['light', 'dark'] as const) {
       await mockReader(page);
       await page.setViewportSize({ width: 1280, height: 800 });
       await page.goto('/');
+      await page.getByRole('button', { name: 'Reader', exact: true }).click();
       await page.getByLabel('Theme').selectOption(theme);
       await page.getByRole('button', { name: /All/ }).click();
       await page.getByRole('button', { name: `${density} view` }).click();
@@ -18,6 +19,7 @@ for (const theme of ['light', 'dark'] as const) {
 test('Reader view navigation paints within 100ms', async ({ page }) => {
   await mockReader(page);
   await page.goto('/');
+  await page.getByRole('button', { name: 'Reader', exact: true }).click();
   const duration = await page.evaluate(async () => {
     const button = [...document.querySelectorAll('button')].find((element) => element.textContent?.includes('All'));
     if (!(button instanceof HTMLButtonElement)) throw new Error('All button not found');

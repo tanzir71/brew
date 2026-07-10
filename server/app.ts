@@ -11,10 +11,12 @@ import { registerReaderRoutes } from './routes/reader.js';
 import { registerArticleRoutes } from './routes/articles.js';
 import { registerSearchRoutes } from './routes/search.js';
 import { registerRulesRoutes } from './routes/rules.js';
+import { registerBrewRoutes } from './routes/brews.js';
 import { PollerService } from './services/poller-service.js';
 import { IngestPipeline } from './services/ingest-pipeline.js';
 import { SseBroker } from './services/sse-broker.js';
 import { RulesService } from './services/rules-service.js';
+import { BrewService } from './services/brew-service.js';
 
 const rootDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -30,6 +32,9 @@ export async function createApp(options: { serveWeb?: boolean; database?: BrewDa
   registerArticleRoutes(app, database, options.fetcher);
   registerSearchRoutes(app, database);
   registerRulesRoutes(app, database, options.fetcher);
+  registerBrewRoutes(app, database);
+  const brewService = new BrewService(database);
+  const brewTimer = options.startPoller ? setInterval(() => brewService.runScheduled(), 60_000) : null;
   const rules = new RulesService(database, options.fetcher, (article) => broker.publish('notification', article));
   const ingest = new IngestPipeline(database, rules);
   const poller = new PollerService(database, options.fetcher, (feed, incoming) => ingest.ingest(feed, incoming), undefined, (results) => {
@@ -38,7 +43,7 @@ export async function createApp(options: { serveWeb?: boolean; database?: BrewDa
   });
   registerPollerRoutes(app, poller);
   if (options.startPoller) poller.start();
-  app.addHook('onClose', () => poller.stop());
+  app.addHook('onClose', () => { poller.stop(); if (brewTimer) clearInterval(brewTimer); });
 
   app.get('/api/health', async (): Promise<HealthResponse> => ({ ok: true }));
 

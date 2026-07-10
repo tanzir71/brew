@@ -10,6 +10,7 @@ test('refreshes the active list when article:new arrives over SSE', async ({ pag
     return route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: 'event: heartbeat\ndata: {}\n\n' });
   });
   await page.goto('/');
+  await page.getByRole('button', { name: 'Reader', exact: true }).click();
   await page.getByRole('button', { name: /All/ }).click();
   await expect(page.getByText('Already here')).toBeVisible();
   await expect(page.getByText('Arrived live')).toBeVisible();

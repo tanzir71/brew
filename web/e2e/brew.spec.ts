@@ -1,0 +1,22 @@
+import { expect,test } from '@playwright/test';
+
+const sections=[
+  {id:'hero',title:'Lead story',divider:'Ideas worth a quiet morning',source:'today',maxItems:5,layout:'hero',sort:'newest',onlyUnread:false,items:[item(1,'The case for calmer software','A thoughtful look at tools that respect attention.')]},
+  {id:'list',title:'Briefing',source:'starred',maxItems:5,layout:'list',sort:'newest',onlyUnread:false,items:[item(2,'Local data has a durable future','Small systems can remain useful for decades.'),item(3,'Typography for long-form reading','Rhythm and measure make a reader feel effortless.')]},
+  {id:'empty',title:'From the archive',source:'featured',maxItems:5,layout:'magazine',sort:'newest',onlyUnread:true,items:[]},
+];
+const config={id:1,name:'Morning',scheduleCron:'0 7 * * *',enabled:true,sections:sections.map(({items:_,...section})=>section),createdAt:'2026-07-10T00:00:00.000Z'};
+const snapshot={id:1,brewConfigId:1,configName:'Morning',generatedAt:'2026-07-10T07:00:00.000Z',sections,scrollPosition:0};
+
+test.beforeEach(async({page})=>{
+  await page.route('**/api/brew-configs',route=>route.fulfill({json:[config]}));
+  await page.route('**/api/brew-configs/1/history',route=>route.fulfill({json:[snapshot]}));
+  await page.route('**/api/reader/navigation',route=>route.fulfill({json:{counts:{all:3,today:3,starred:1},folders:[],unfiled:[]}}));
+  await page.route('**/api/tags',route=>route.fulfill({json:[]}));
+  await page.route('**/api/brews/*/scroll',route=>route.fulfill({json:{ok:true}}));
+  await page.route('**/api/articles/*',route=>route.fulfill({json:{}}));
+});
+for(const theme of ['light','dark'] as const)test(`renders a frozen Brew in ${theme} theme`,async({page})=>{await page.addInitScript((value)=>localStorage.setItem('brew:theme',value),theme);await page.goto('/');await expect(page.getByRole('heading',{name:'Morning'})).toBeVisible();await expect(page.getByText('No stories for this section today.')).toBeVisible();await expect(page).toHaveScreenshot(`brew-${theme}.png`,{fullPage:true,animations:'disabled'});});
+test('edits every section option and opens the composer',async({page})=>{await page.goto('/');await page.getByRole('button',{name:'Configure'}).click();await expect(page.getByLabel('Section 1 title')).toHaveValue('Lead story');await page.getByLabel('Section 1 source').selectOption('folder');await expect(page.getByLabel('Section 1 source item')).toBeVisible();await page.getByRole('button',{name:'+ Add section'}).click();await expect(page.getByLabel('Section 4 title')).toBeVisible();});
+
+function item(id:number,title:string,summary:string){return{id,title,url:`https://example.test/${id}`,author:null,summaryHtml:`<p>${summary}</p>`,imageUrl:null,publishedAt:'2026-07-10T06:00:00.000Z',feedTitle:'Design Notes',readTimeMinutes:4,readAt:null}}

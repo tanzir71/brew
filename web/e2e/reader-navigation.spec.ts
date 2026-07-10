@@ -27,6 +27,7 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
   await page.route('**/api/articles/mark-all-read', (route) => route.fulfill({ json: { updated: 60, undoToken: 'undo-1', expiresAt: new Date(Date.now() + 5_000).toISOString() } }));
   await page.route('**/api/articles/mark-all-read/undo', (route) => route.fulfill({ json: { restored: 60 } }));
   await page.goto('/');
+  await page.getByRole('button', { name: 'Reader', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'The Brew' })).toBeVisible();
   await page.getByRole('button', { name: /Today/ }).click();
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible();

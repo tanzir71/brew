@@ -47,6 +47,7 @@ test('searches with virtualized all, current-folder, and starred scopes', async 
   });
 
   await page.goto('/');
+  await page.getByRole('button', { name: 'Reader', exact: true }).click();
   await page
     .getByRole('complementary', { name: 'Reader navigation' })
     .getByRole('button', { name: /Design/ })

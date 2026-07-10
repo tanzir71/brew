@@ -2,6 +2,7 @@ import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import type { FeedCandidate, FeedSummary, FolderSummary } from '../../shared/api';
 import { Reader } from './Reader';
 import { RulesPage } from './RulesPage';
+import { BrewPage } from './BrewPage';
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -18,7 +19,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export function App() {
-  const [mode, setMode] = useState<'reader' | 'feeds' | 'rules'>('reader');
+  const [mode, setMode] = useState<'brew' | 'reader' | 'feeds' | 'rules'>('brew');
   const [searchDraft, setSearchDraft] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => {
@@ -39,7 +40,7 @@ export function App() {
   return (
     <main className="min-h-screen bg-stone-50 text-stone-900">
       <header className="flex h-16 items-center justify-between border-b border-stone-200 px-8">
-        <button onClick={() => setMode('reader')} className="font-semibold tracking-tight">
+        <button onClick={() => setMode('brew')} className="font-semibold tracking-tight">
           Brew
         </button>
         <div className="flex items-center gap-3">
@@ -66,6 +67,12 @@ export function App() {
             placeholder="Search  /"
             className="w-36 rounded-full border border-stone-300 bg-white px-4 py-2 text-xs outline-none focus:w-56 focus:border-amber-600"
           />
+          <button
+            onClick={() => setMode(mode === 'reader' ? 'brew' : 'reader')}
+            className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium"
+          >
+            {mode === 'reader' ? 'The Brew' : 'Reader'}
+          </button>
           <button
             aria-label="Keyboard shortcuts"
             title="Keyboard shortcuts (?)"
@@ -109,6 +116,8 @@ export function App() {
         <FeedManager />
       ) : mode === 'rules' ? (
         <RulesPage />
+      ) : mode === 'brew' ? (
+        <BrewPage />
       ) : (
         <Reader
           searchQuery={searchQuery}
