@@ -21,9 +21,13 @@ describe('reader navigation and views', () => {
     const navigation = (await app.inject('/api/reader/navigation')).json();
     expect(navigation.counts).toEqual({ all: 2, today: 1, starred: 1 });
     expect(navigation.folders[0]).toMatchObject({ title: 'Design', unreadCount: 2, feeds: [{ title: 'Active', unreadCount: 2 }] });
-    expect((await app.inject('/api/articles?view=all')).json().map((item: { title: string }) => item.title)).toEqual(['Today unread', 'Today read', 'Old starred']);
-    expect((await app.inject('/api/articles?view=today')).json()).toHaveLength(2);
-    expect((await app.inject('/api/articles?view=starred')).json()).toEqual([expect.objectContaining({ title: 'Old starred' })]);
+    expect((await app.inject('/api/articles?view=all')).json().items.map((item: { title: string }) => item.title)).toEqual(['Today unread', 'Today read', 'Old starred']);
+    expect((await app.inject('/api/articles?view=today')).json().items).toHaveLength(2);
+    expect((await app.inject('/api/articles?view=starred')).json().items).toEqual([expect.objectContaining({ title: 'Old starred' })]);
+    const firstPage = (await app.inject('/api/articles?view=all&unread=true&sort=oldest&limit=1')).json();
+    expect(firstPage).toMatchObject({ items: [expect.objectContaining({ title: 'Old starred' })], nextCursor: expect.any(String) });
+    expect((await app.inject(`/api/articles?view=all&unread=true&sort=oldest&limit=1&cursor=${encodeURIComponent(firstPage.nextCursor)}`)).json()).toMatchObject({ items: [expect.objectContaining({ title: 'Today unread' })], nextCursor: null });
+    expect((await app.inject('/api/articles?cursor=broken')).statusCode).toBe(400);
     await app.close();
   });
 });

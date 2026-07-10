@@ -41,3 +41,4 @@ export interface ArticleSummary {
   folderId: number | null;
   folderTitle: string | null;
 }
+export interface ArticlePage { items: ArticleSummary[]; nextCursor: string | null }

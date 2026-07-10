@@ -26,7 +26,7 @@ Exit review passed 2026-07-10: `npm run review:m1` subscribed to 20 live public 
 ### M2 — Reader core
 
 - [x] Sidebar with folders/feeds/unread counts; All/Today/Starred views.
-- [ ] Virtualized article list, three densities, unread filter, sort.
+- [x] Virtualized article list, three densities, unread filter, sort.
 - [ ] Article overlay/pane per §7.3 including lazy full-text extraction.
 - [ ] Read/star/tag actions with optimistic UI and SSE-driven live inserts.
 - [ ] Mark-all-read with undo; mark-read-on-scroll setting.

@@ -5,8 +5,9 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
   await page.route('**/api/articles?**', (route) => {
     const url = new URL(route.request().url());
     const view = url.searchParams.get('view');
-    const items = view === 'starred' ? [article(3, 'Saved essay', 'Research', true)] : view === 'today' ? [article(1, 'Fresh design story', 'Design'), article(2, 'Fresh research story', 'Research')] : [article(1, 'Fresh design story', 'Design')];
-    return route.fulfill({ json: items });
+    const cursor = url.searchParams.get('cursor');
+    const items = view === 'starred' ? [article(3, 'Saved essay', 'Research', true)] : view === 'today' ? [article(1, 'Fresh design story', 'Design'), article(2, 'Fresh research story', 'Research')] : cursor ? [article(999, 'Next page story', 'Design')] : Array.from({ length: 60 }, (_, index) => article(index + 10, `Library story ${index + 1}`, 'Design'));
+    return route.fulfill({ json: { items, nextCursor: view === 'all' && !cursor ? '123:1' : null } });
   });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'The Brew' })).toBeVisible();
@@ -18,6 +19,18 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
   await expect(page.getByText('Saved essay')).toBeVisible();
   await page.getByRole('button', { name: /Design Notes/ }).click();
   await expect(page.getByRole('heading', { name: 'Design Notes' })).toBeVisible();
+  expect(await page.getByTestId('virtual-article-list').locator('article').count()).toBeLessThan(40);
+  await page.getByTestId('virtual-article-list').evaluate((element) => { element.scrollTop = element.scrollHeight; element.dispatchEvent(new Event('scroll')); });
+  await expect(page.getByText('Next page story')).toBeVisible();
+  await page.getByRole('button', { name: 'cards view' }).click();
+  await expect(page.getByRole('button', { name: 'cards view' })).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => localStorage.getItem('brew:density:feed:1'))).toBe('cards');
+  const unreadRequest = page.waitForRequest((request) => request.url().includes('/api/articles?') && request.url().includes('unread=true'));
+  await page.getByRole('button', { name: 'Unread' }).click();
+  await unreadRequest;
+  const oldestRequest = page.waitForRequest((request) => request.url().includes('/api/articles?') && request.url().includes('sort=oldest'));
+  await page.getByLabel('Sort articles').selectOption('oldest');
+  await oldestRequest;
 });
 
 function article(id: number, title: string, folderTitle: string, starred = false) {
