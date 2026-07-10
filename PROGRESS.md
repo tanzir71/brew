@@ -8,7 +8,7 @@
 
 - [x] Repo scaffolded per §4 (folders, TS strict, ESLint/Prettier, Vitest, Playwright, Tailwind, Drizzle configured, all §10 scripts runnable and green on empty project).
 - [x] Fastify serves the SPA; `/api/health` returns `{ok:true}`; SSE endpoint streams heartbeat.
-- [ ] SQLite opens/migrates on boot; schema of §6 created via migration 0001.
+- [x] SQLite opens/migrates on boot; schema of §6 created via migration 0001.
 - [ ] `README.md` with run instructions.
 
 ## Decisions
@@ -20,6 +20,7 @@
 
 - The repository began with only `CODEX_HANDOFF.md` and was not initialized as Git.
 - Vite must bind explicitly to `127.0.0.1` on this Windows host; its default IPv6 binding is not reachable by Playwright's IPv4 base URL.
+- Production compilation does not copy SQL assets, so the migration loader falls back to the repository migration directory when running from `dist`.
 
 ## Dependency justifications
 
