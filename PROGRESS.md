@@ -1,15 +1,25 @@
 # PROGRESS
 
-## Current milestone: M0
+## Current milestone: M1
 
 ## Checklist state
 
-### M0 — Skeleton
+### M0 — Skeleton — DONE
 
 - [x] Repo scaffolded per §4 (folders, TS strict, ESLint/Prettier, Vitest, Playwright, Tailwind, Drizzle configured, all §10 scripts runnable and green on empty project).
 - [x] Fastify serves the SPA; `/api/health` returns `{ok:true}`; SSE endpoint streams heartbeat.
 - [x] SQLite opens/migrates on boot; schema of §6 created via migration 0001.
 - [x] `README.md` with run instructions.
+
+Exit review passed 2026-07-10: a clean local clone completed `npm ci`, started with `npm run dev`, served the SPA, and returned `{ok:true}` through the Vite-proxied health endpoint.
+
+### M1 — Feeds & ingest
+
+- [ ] Add feed by URL (including discovery from HTML pages); delete; rename; folders CRUD.
+- [ ] Poller with conditional GET, adaptive intervals, backoff, concurrency limit, and fixture coverage.
+- [ ] Ingest pipeline: dedupe, sanitize, tracker stripping (tested).
+- [ ] OPML import/export round-trips folder structure (test with a 100-feed fixture).
+- [ ] Feed health surface in settings.
 
 ## Decisions
 
