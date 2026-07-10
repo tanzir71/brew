@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Current milestone: M3
+## Current milestone: M4
 
 ## Checklist state
 
@@ -34,10 +34,20 @@ Exit review passed 2026-07-10: `npm run review:m1` subscribed to 20 live public 
 
 Exit review passed 2026-07-10: committed Playwright baselines cover title, magazine, and card densities in light and dark themes; `web/src/styles/tokens.css` documents the type scale; a traced browser test asserts Reader navigation paints in under 100 ms.
 
-### M3 — Keyboard & search
+### M3 — Keyboard & search — DONE
 
 - [x] All shortcuts of §7.6 plus `?` cheat sheet.
-- [ ] FTS5 search with scoping chips (e2e: index 1k fixture articles, search returns under 50 ms).
+- [x] FTS5 search with scoping chips (e2e: index 1k fixture articles, search returns under 50 ms).
+
+Exit review passed 2026-07-10: Playwright starts a real Fastify/SQLite instance, indexes 1,000 fixture articles through FTS5 triggers, and verifies scoped HTTP search under 50 ms; the complete shortcut and virtualized search flows pass in-browser.
+
+### M4 — Rules engine
+
+- [ ] Data model, evaluation in ingest path, ordering, `stop_processing` (table-driven unit tests: every operator × every action, regex timeout, condition combinators).
+- [ ] Sentence-style builder UI with live dry-run preview.
+- [ ] All actions of §7.4 including highlight rendering in lists, notify, webhook.
+- [ ] Rule logs + hit counts + "apply to existing articles".
+- [ ] Duplicate filter with trigram similarity (tested with near-duplicate fixtures).
 
 ## Decisions
 

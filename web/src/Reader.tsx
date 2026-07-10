@@ -12,6 +12,7 @@ import type {
   ArticleSummary,
   MarkAllReadResult,
   ReaderNavigation,
+  SearchPage,
   TagSummary,
 } from '../../shared/api';
 
@@ -35,7 +36,13 @@ const isEditableTarget = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement &&
   (target.matches('input, textarea, select') || target.isContentEditable);
 
-export function Reader() {
+export function Reader({
+  searchQuery,
+  onClearSearch,
+}: {
+  searchQuery: string;
+  onClearSearch: () => void;
+}) {
   const queryClient = useQueryClient();
   const [navigation, setNavigation] = useState(emptyNavigation);
   const [selection, setSelection] = useState<Selection>({ kind: 'brew', title: 'The Brew' });
@@ -197,7 +204,21 @@ export function Reader() {
           </div>
         </aside>
         <section className="min-w-0 bg-white">
-          {error ? (
+          {searchQuery ? (
+            <SearchView
+              query={searchQuery}
+              currentFolderId={
+                selection.kind === 'folder'
+                  ? selection.id
+                  : selection.kind === 'feed'
+                    ? navigation.folders.find((folder) =>
+                        folder.feeds.some((feed) => feed.id === selection.id),
+                      )?.id
+                    : undefined
+              }
+              onClear={onClearSearch}
+            />
+          ) : error ? (
             <p role="alert" className="m-10 rounded-xl bg-red-50 p-4 text-sm text-red-700">
               {error}
             </p>
@@ -335,6 +356,175 @@ function ShortcutSheet({ onClose }: { onClose: () => void }) {
 }
 type Density = 'title' | 'magazine' | 'cards';
 type VirtualRow = { kind: 'article'; article: ArticleSummary } | { kind: 'header'; title: string };
+
+function SearchView({
+  query,
+  currentFolderId,
+  onClear,
+}: {
+  query: string;
+  currentFolderId?: number;
+  onClear: () => void;
+}) {
+  const [scope, setScope] = useState<'all' | 'folder' | 'starred'>('all');
+  const [selectedArticle, setSelectedArticle] = useState<number | null>(null);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const results = useInfiniteQuery({
+    queryKey: ['search', query, scope, currentFolderId],
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({
+        q: query,
+        scope,
+        limit: '50',
+        offset: String(pageParam),
+      });
+      if (scope === 'folder' && currentFolderId !== undefined)
+        params.set('folderId', String(currentFolderId));
+      return getJson<SearchPage>(`/api/search?${params}`);
+    },
+    getNextPageParam: (page) => page.nextOffset ?? undefined,
+    enabled: scope !== 'folder' || currentFolderId !== undefined,
+  });
+  const items = useMemo(
+    () => results.data?.pages.flatMap((page) => page.items) ?? [],
+    [results.data],
+  );
+  const parent = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line react-hooks/incompatible-library -- Search results use the same mandated virtual list engine as the Reader.
+  const virtualizer = useVirtualizer({
+    count: items.length + (results.hasNextPage ? 1 : 0),
+    getScrollElement: () => parent.current,
+    estimateSize: () => 126,
+    overscan: 8,
+  });
+  const virtualItems = virtualizer.getVirtualItems();
+  useEffect(() => {
+    const last = virtualItems.at(-1);
+    if (
+      last &&
+      last.index >= items.length - 4 &&
+      results.hasNextPage &&
+      !results.isFetchingNextPage
+    )
+      void results.fetchNextPage();
+  }, [items.length, results, virtualItems]);
+  useLayoutEffect(() => {
+    const keydown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target) || selectedArticle !== null || !items.length) return;
+      const key = event.key.toLowerCase();
+      if (key === 'j' || key === 'k') {
+        event.preventDefault();
+        const next =
+          key === 'j'
+            ? Math.min(items.length - 1, focusedIndex + 1)
+            : Math.max(0, focusedIndex < 0 ? 0 : focusedIndex - 1);
+        setFocusedIndex(next);
+        virtualizer.scrollToIndex(next, { align: 'auto' });
+      }
+      if (key === 'o' || event.key === 'Enter') {
+        event.preventDefault();
+        setSelectedArticle(items[Math.max(0, focusedIndex)]!.id);
+      }
+    };
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  }, [focusedIndex, items, selectedArticle, virtualizer]);
+  return (
+    <div className="flex h-[calc(100vh-4rem)] flex-col">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-stone-200 px-8 py-5">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[.18em] text-amber-700">Search</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">“{query}”</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg bg-stone-100 p-1" aria-label="Search scope">
+            <button
+              onClick={() => setScope('all')}
+              aria-pressed={scope === 'all'}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium ${scope === 'all' ? 'bg-white shadow-sm' : 'text-stone-500'}`}
+            >
+              All
+            </button>
+            <button
+              disabled={currentFolderId === undefined}
+              onClick={() => setScope('folder')}
+              aria-pressed={scope === 'folder'}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-40 ${scope === 'folder' ? 'bg-white shadow-sm' : 'text-stone-500'}`}
+            >
+              Current folder
+            </button>
+            <button
+              onClick={() => setScope('starred')}
+              aria-pressed={scope === 'starred'}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium ${scope === 'starred' ? 'bg-white shadow-sm' : 'text-stone-500'}`}
+            >
+              Starred
+            </button>
+          </div>
+          <button
+            onClick={onClear}
+            className="rounded-lg border border-stone-300 px-3 py-2 text-xs font-semibold"
+          >
+            Close search
+          </button>
+        </div>
+      </header>
+      <div className="border-b border-stone-100 px-8 py-2 text-xs text-stone-500">
+        {items.length} result{items.length === 1 ? '' : 's'}
+        {results.data?.pages.at(-1)
+          ? ` · ${results.data.pages.at(-1)!.durationMs.toFixed(1)} ms`
+          : ''}
+      </div>
+      <div
+        ref={parent}
+        data-testid="virtual-search-results"
+        className="min-h-0 flex-1 overflow-auto"
+      >
+        <div className="relative mx-auto max-w-4xl" style={{ height: virtualizer.getTotalSize() }}>
+          {virtualItems.map((virtual) => {
+            const article = items[virtual.index];
+            return (
+              <div
+                key={virtual.key}
+                ref={virtualizer.measureElement}
+                data-index={virtual.index}
+                className="absolute left-8 right-8 top-0"
+                style={{ transform: `translateY(${virtual.start}px)` }}
+              >
+                {article ? (
+                  <ArticleRow
+                    article={article}
+                    density="magazine"
+                    focused={items[focusedIndex]?.id === article.id}
+                    onOpen={() => {
+                      setFocusedIndex(virtual.index);
+                      setSelectedArticle(article.id);
+                    }}
+                  />
+                ) : (
+                  <p className="py-6 text-center text-xs text-stone-400">Searching more…</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {!results.isLoading && !items.length && (
+          <p className="px-10 py-20 text-center text-sm text-stone-500">
+            No matching articles. Try fewer or broader words.
+          </p>
+        )}
+      </div>
+      {selectedArticle !== null && (
+        <ArticleReader
+          id={selectedArticle}
+          mode="overlay"
+          onClose={() => setSelectedArticle(null)}
+        />
+      )}
+    </div>
+  );
+}
 
 function ArticleList({ selection }: { selection: Selection }) {
   const client = useQueryClient();
@@ -481,10 +671,13 @@ function ArticleList({ selection }: { selection: Selection }) {
     );
     return () => window.clearTimeout(timeout);
   }, [undo]);
-  const chooseDensity = useCallback((next: Density) => {
-    localStorage.setItem(`brew:density:${scope}`, next);
-    setDensityByScope((current) => ({ ...current, [scope]: next }));
-  }, [scope]);
+  const chooseDensity = useCallback(
+    (next: Density) => {
+      localStorage.setItem(`brew:density:${scope}`, next);
+      setDensityByScope((current) => ({ ...current, [scope]: next }));
+    },
+    [scope],
+  );
   const markAll = useCallback(async () => {
     const articleIds = articles.filter((article) => !article.readAt).map((article) => article.id);
     patchReadState(articleIds, new Date().toISOString());
@@ -744,7 +937,9 @@ function ArticleList({ selection }: { selection: Selection }) {
                       density={density}
                       focused={articles[focusedIndex]?.id === row.article.id}
                       onOpen={() => {
-                        setFocusedIndex(articles.findIndex((article) => article.id === row.article.id));
+                        setFocusedIndex(
+                          articles.findIndex((article) => article.id === row.article.id),
+                        );
                         setSelectedArticle(row.article.id);
                       }}
                     />
@@ -1053,24 +1248,24 @@ function ArticleReader({
               </time>
             </div>
             <div className="mt-6 flex flex-wrap gap-2">
-                <button
-                  data-shortcut="m"
-                  onClick={() => updateState({ read: !detail.data.readAt })}
+              <button
+                data-shortcut="m"
+                onClick={() => updateState({ read: !detail.data.readAt })}
                 className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold"
               >
                 {detail.data.readAt ? 'Mark unread' : 'Mark read'}
               </button>
-                <button
-                  data-shortcut="s"
-                  onClick={() => updateState({ starred: !detail.data.starredAt })}
+              <button
+                data-shortcut="s"
+                onClick={() => updateState({ starred: !detail.data.starredAt })}
                 aria-pressed={Boolean(detail.data.starredAt)}
                 className={`rounded-full border px-4 py-2 text-sm font-semibold ${detail.data.starredAt ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-stone-300'}`}
               >
                 {detail.data.starredAt ? '★ Starred' : '☆ Star'}
               </button>
-                <button
-                  data-shortcut="t"
-                  onClick={() => setShowTags((value) => !value)}
+              <button
+                data-shortcut="t"
+                onClick={() => setShowTags((value) => !value)}
                 className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold"
               >
                 Tag{detail.data.tags.length ? ` · ${detail.data.tags.length}` : ''}

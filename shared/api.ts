@@ -51,3 +51,4 @@ export interface ArticleDetail extends ArticleSummary {
 }
 export interface TagSummary { id: number; name: string; color: string }
 export interface MarkAllReadResult { updated: number; undoToken: string; expiresAt: string }
+export interface SearchPage { items: ArticleSummary[]; nextOffset: number | null; durationMs: number }
