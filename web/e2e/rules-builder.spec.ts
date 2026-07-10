@@ -12,6 +12,10 @@ test('builds a sentence rule with live dry-run preview', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Rules' }).click();
   await expect(page.getByRole('heading', { name: 'Rules' })).toBeVisible();
+  await page.getByRole('button',{name:'Mute keyword'}).click();
+  await expect(page.getByLabel('Rule name')).toHaveValue('Mute a keyword');
+  await expect(page.getByLabel('Action 1',{exact:true})).toHaveValue('hide');
+  await page.getByRole('button',{name:'New'}).click();
   await expect(page.getByText('When an article in')).toBeVisible();
   await page.getByLabel('Rule name').fill('Figma tools');
   await page.getByLabel('Rule scope').selectOption('folder');

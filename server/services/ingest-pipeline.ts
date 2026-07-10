@@ -37,7 +37,7 @@ export class IngestPipeline {
         const source = contentHtml ?? summaryHtml;
         let imageUrl: string | null = null;
         if (source) { const match = source.match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i); imageUrl = match?.[1] ?? null; }
-        const inserted = this.database.db.insert(articles).values({ feedId: feed.id, guid: item.guid, url: normalizedArticleUrl(item.url), title: item.title.trim() || '(untitled)', author: item.author?.trim() || null, summaryHtml, contentHtml, imageUrl, publishedAt: item.publishedAt, hash }).returning({ id: articles.id }).get();
+        const inserted = this.database.db.insert(articles).values({ feedId: feed.id, guid: item.guid, url: normalizedArticleUrl(item.url), title: item.title.trim() || '(untitled)', author: item.author?.trim() || null, summaryHtml, contentHtml, imageUrl, enclosureUrl:item.enclosureUrl??null,enclosureType:item.enclosureType??null,publishedAt: item.publishedAt, hash }).returning({ id: articles.id }).get();
         ids.push(inserted.id);
       }
       return ids;
@@ -53,6 +53,7 @@ export class IngestPipeline {
       }
     }
     if (this.rules) for (const articleId of insertedIds) await this.rules.evaluateArticle(articleId);
+    this.database.sqlite.prepare(`DELETE FROM articles WHERE feed_id = ? AND published_at < ? AND starred_at IS NULL AND NOT EXISTS (SELECT 1 FROM article_tags WHERE article_id = articles.id)`).run(feed.id,Date.now()-feed.retentionDays*86_400_000);
     return insertedIds.length;
   }
 }

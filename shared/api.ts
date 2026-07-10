@@ -13,6 +13,7 @@ export interface FeedSummary {
   consecutiveFailures: number;
   failingSince: string | null;
   healthWarning: boolean;
+  retentionDays: number;
 }
 
 export interface FolderSummary { id: number; title: string; position: number }
@@ -35,6 +36,8 @@ export interface ArticleSummary {
   summaryHtml: string | null;
   imageUrl: string | null;
   highlightColor: string | null;
+  enclosureUrl: string | null;
+  enclosureType: string | null;
   publishedAt: string;
   readAt: string | null;
   starredAt: string | null;

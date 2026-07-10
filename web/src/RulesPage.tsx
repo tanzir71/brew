@@ -264,6 +264,14 @@ export function RulesPage() {
           />
           Hide near-duplicate titles (3 days)
         </label>
+        <div className="mt-5 rounded-xl bg-stone-100 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">Templates</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" onClick={()=>{setSelectedId(null);setDraft({...blankDraft(),name:'Mute a keyword',conditions:[{field:'title',operator:'contains',value:'keyword'}],actions:[{type:'hide'}]})}} className="text-xs text-stone-600">Mute keyword</button>
+            <button type="button" onClick={()=>{setSelectedId(null);setDraft({...blankDraft(),name:'Highlight an author',conditions:[{field:'author',operator:'equals',value:'Author name'}],actions:[{type:'highlight',color:'#f59e0b'}]})}} className="text-xs text-stone-600">Highlight author</button>
+            <button type="button" onClick={()=>{setSelectedId(null);setDraft({...blankDraft(),name:'Feature a folder',scope:{folderIds:navigation.folders[0]?[navigation.folders[0].id]:[]},conditions:[],actions:[{type:'feature_in_brew'}]})}} className="text-xs text-stone-600">Feature folder</button>
+          </div>
+        </div>
         <div className="mt-5 space-y-2">
           {rules.length === 0 && (
             <p className="rounded-xl border border-dashed border-stone-300 p-5 text-sm text-stone-500">

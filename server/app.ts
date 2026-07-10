@@ -23,7 +23,7 @@ const rootDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 export async function createApp(options: { serveWeb?: boolean; database?: BrewDatabase; fetcher?: typeof fetch; startPoller?: boolean } = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
   app.addHook('onSend', async (_request, reply, payload) => {
-    reply.header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+    reply.header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('Referrer-Policy', 'no-referrer');
     return payload;
@@ -37,7 +37,7 @@ export async function createApp(options: { serveWeb?: boolean; database?: BrewDa
   registerReaderRoutes(app, database);
   registerArticleRoutes(app, database, options.fetcher);
   registerSearchRoutes(app, database);
-  registerRulesRoutes(app, database, options.fetcher);
+  registerRulesRoutes(app, database, options.fetcher,(article)=>broker.publish('notification',article));
   registerBrewRoutes(app, database);
   const brewService = new BrewService(database);
   const brewTimer = options.startPoller ? setInterval(() => brewService.runScheduled(), 60_000) : null;
@@ -68,6 +68,7 @@ export async function createApp(options: { serveWeb?: boolean; database?: BrewDa
       return reply.code(400).send({ error: error instanceof Error ? error.message : 'Invalid image URL' });
     }
   });
+  app.get<{Querystring:{src?:string}}>('/api/media',async(request,reply)=>{try{if(!request.query.src)throw new Error('src is required');const source=new URL(request.query.src);if(!['http:','https:'].includes(source.protocol))throw new Error('Unsupported media URL');const response=await(options.fetcher??fetch)(source,{signal:AbortSignal.timeout(10000)});const type=response.headers.get('content-type')?.split(';')[0]??'';if(!response.ok||!type.startsWith('audio/'))throw new Error('Audio could not be loaded');return reply.header('Content-Type',type).header('Cache-Control','private, max-age=86400').send(Buffer.from(await response.arrayBuffer()))}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:'Invalid media URL'})}});
 
   app.get('/api/events', async (request, reply) => {
     reply.hijack();

@@ -39,9 +39,11 @@ const imageSource = (value: string) => localStorage.getItem('brew:direct-images'
 
 export function Reader({
   searchQuery,
+  onSearch,
   onClearSearch,
 }: {
   searchQuery: string;
+  onSearch:(query:string)=>void;
   onClearSearch: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -51,6 +53,8 @@ export function Reader({
   const [showShortcuts, setShowShortcuts] = useState(false);
   const pendingGo = useRef(false);
   const pendingGoTimer = useRef<number | null>(null);
+  const [savedSearches,setSavedSearches]=useState<Array<{id:string;name:string;query:string}>>(()=>{try{return JSON.parse(localStorage.getItem('brew:saved-searches')??'[]') as Array<{id:string;name:string;query:string}>}catch{return[]}});
+  const persistSearches=(next:Array<{id:string;name:string;query:string}>)=>{setSavedSearches(next);localStorage.setItem('brew:saved-searches',JSON.stringify(next))};
   useEffect(() => {
     const refresh = () => {
       void getJson<ReaderNavigation>('/api/reader/navigation')
@@ -180,6 +184,7 @@ export function Reader({
             </button>
           </nav>
           <div className="my-5 h-px bg-stone-200" />
+          {savedSearches.length>0&&<section className="mb-5"><p className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-stone-400">Saved searches</p>{savedSearches.map((saved)=><div key={saved.id} className="group flex items-center"><button className={`${itemClass(searchQuery===saved.query)} min-w-0 flex-1`} onClick={()=>onSearch(saved.query)}><span className="truncate">⌕ {saved.name}</span></button><button aria-label={`Delete saved search ${saved.name}`} onClick={()=>persistSearches(savedSearches.filter((item)=>item.id!==saved.id))} className="px-1 text-xs text-stone-400 opacity-0 group-hover:opacity-100">×</button></div>)}</section>}
           <div className="space-y-4">
             {navigation.folders.map((folder) => (
               <section key={folder.id}>
@@ -197,7 +202,7 @@ export function Reader({
                       className={itemClass(selection.kind === 'feed' && selection.id === feed.id)}
                       onClick={() => choose({ kind: 'feed', id: feed.id, title: feed.title })}
                     >
-                      <span className="truncate">{feed.title}</span>
+                      <span className="flex min-w-0 items-center gap-2"><FeedIcon id={feed.id} title={feed.title}/><span className="truncate">{feed.title}</span></span>
                       <Count value={feed.unreadCount} />
                     </button>
                   ))}
@@ -215,7 +220,7 @@ export function Reader({
                     className={itemClass(selection.kind === 'feed' && selection.id === feed.id)}
                     onClick={() => choose({ kind: 'feed', id: feed.id, title: feed.title })}
                   >
-                    <span className="truncate">{feed.title}</span>
+                    <span className="flex min-w-0 items-center gap-2"><FeedIcon id={feed.id} title={feed.title}/><span className="truncate">{feed.title}</span></span>
                     <Count value={feed.unreadCount} />
                   </button>
                 ))}
@@ -237,6 +242,7 @@ export function Reader({
                     : undefined
               }
               onClear={onClearSearch}
+              onSave={()=>{const name=window.prompt('Saved search name',searchQuery)?.trim();if(name)persistSearches([...savedSearches,{id:crypto.randomUUID(),name,query:searchQuery}])}}
             />
           ) : error ? (
             <p role="alert" className="m-10 rounded-xl bg-red-50 p-4 text-sm text-red-700">
@@ -270,6 +276,7 @@ function Count({ value }: { value: number }) {
     <span className="ml-2 text-xs tabular-nums text-stone-400">{value}</span>
   ) : null;
 }
+function FeedIcon({id,title}:{id:number;title:string}){const [failed,setFailed]=useState(false);return <span aria-hidden className="grid h-5 w-5 shrink-0 place-items-center overflow-hidden rounded-md bg-amber-100 text-[10px] font-bold text-amber-900">{failed?title.trim().charAt(0).toUpperCase():<img src={`/api/feeds/${id}/icon`} alt="" className="h-full w-full object-cover" onError={()=>setFailed(true)}/>}</span>}
 function BrewWelcome() {
   return (
     <div className="mx-auto max-w-2xl px-10 py-20 text-center">
@@ -381,10 +388,12 @@ function SearchView({
   query,
   currentFolderId,
   onClear,
+  onSave,
 }: {
   query: string;
   currentFolderId?: number;
   onClear: () => void;
+  onSave:()=>void;
 }) {
   const [scope, setScope] = useState<'all' | 'folder' | 'starred'>('all');
   const [selectedArticle, setSelectedArticle] = useState<number | null>(null);
@@ -458,6 +467,7 @@ function SearchView({
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">“{query}”</h1>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={onSave} className="rounded-lg border border-stone-300 px-3 py-2 text-xs">Save search</button>
           <div className="flex rounded-lg bg-stone-100 p-1" aria-label="Search scope">
             <button
               onClick={() => setScope('all')}
@@ -980,7 +990,7 @@ function ArticleList({ selection }: { selection: Selection }) {
       {undo && (
         <div
           role="status"
-          className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-full bg-stone-900 px-5 py-3 text-sm text-white shadow-xl"
+          className="brew-undo-toast fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-full bg-stone-900 px-5 py-3 text-sm text-white shadow-xl"
         >
           <span>Marked {undo.updated} read.</span>
           <button onClick={undoMarkAll} className="font-semibold text-amber-300">
@@ -1044,7 +1054,7 @@ function ArticleRow({
         data-focused={focused}
         onClick={onOpen}
         onKeyDown={activate}
-        className={`flex min-h-14 cursor-pointer items-center justify-between border-b border-stone-100 bg-white py-3 outline-none focus-visible:ring-2 focus-visible:ring-amber-600 ${focused ? 'ring-2 ring-inset ring-amber-500' : ''} ${article.readAt ? 'opacity-50' : ''}`}
+        className={`brew-list-item flex min-h-14 cursor-pointer items-center justify-between border-b border-stone-100 bg-white py-3 outline-none focus-visible:ring-2 focus-visible:ring-amber-600 ${focused ? 'ring-2 ring-inset ring-amber-500' : ''} ${article.readAt ? 'opacity-50' : ''}`}
       >
         <h3 className="truncate pr-4 text-sm font-semibold">{article.title}</h3>
         {meta}
@@ -1129,6 +1139,8 @@ function ArticleReader({
   const [extracting, setExtracting] = useState(false);
   const [message, setMessage] = useState('');
   const [showTags, setShowTags] = useState(false);
+  const [readingPrefs,setReadingPrefs]=useState(()=>{try{return JSON.parse(localStorage.getItem('brew:reading-prefs')??'{}') as {font?:'sans'|'serif';width?:'narrow'|'wide';lineHeight?:'compact'|'relaxed'}}catch{return{}}});
+  const updatePrefs=(values:Partial<typeof readingPrefs>)=>setReadingPrefs((current)=>{const next={...current,...values};localStorage.setItem('brew:reading-prefs',JSON.stringify(next));return next});
   useEffect(() => {
     const close = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
@@ -1249,6 +1261,7 @@ function ArticleReader({
               </>
             )}
           </div>
+          <div className="flex gap-1" aria-label="Reading preferences"><select aria-label="Reader font" value={readingPrefs.font??'sans'} onChange={(event)=>updatePrefs({font:event.target.value as 'sans'|'serif'})} className="rounded border px-2 py-1 text-xs"><option value="sans">Sans</option><option value="serif">Serif</option></select><select aria-label="Reader width" value={readingPrefs.width??'narrow'} onChange={(event)=>updatePrefs({width:event.target.value as 'narrow'|'wide'})} className="rounded border px-2 py-1 text-xs"><option value="narrow">Narrow</option><option value="wide">Wide</option></select><select aria-label="Reader line height" value={readingPrefs.lineHeight??'relaxed'} onChange={(event)=>updatePrefs({lineHeight:event.target.value as 'compact'|'relaxed'})} className="rounded border px-2 py-1 text-xs"><option value="compact">Compact</option><option value="relaxed">Relaxed</option></select></div>
         </div>
         {detail.isLoading ? (
           <p className="p-12 text-center text-sm text-stone-500">Opening article…</p>
@@ -1257,7 +1270,7 @@ function ArticleReader({
             Could not open this article.
           </p>
         ) : (
-          <div className="mx-auto max-w-[680px] px-7 py-12">
+          <div className={`mx-auto px-7 py-12 ${readingPrefs.width==='wide'?'max-w-[880px]':'max-w-[680px]'} ${readingPrefs.font==='serif'?'font-serif':'font-sans'}`}>
             <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
               {detail.data.feedTitle}
             </p>
@@ -1285,7 +1298,7 @@ function ArticleReader({
                 data-shortcut="s"
                 onClick={() => updateState({ starred: !detail.data.starredAt })}
                 aria-pressed={Boolean(detail.data.starredAt)}
-                className={`rounded-full border px-4 py-2 text-sm font-semibold ${detail.data.starredAt ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-stone-300'}`}
+                className={`rounded-full border px-4 py-2 text-sm font-semibold ${detail.data.starredAt ? 'starred-burst border-amber-300 bg-amber-50 text-amber-800' : 'border-stone-300'}`}
               >
                 {detail.data.starredAt ? '★ Starred' : '☆ Star'}
               </button>
@@ -1317,8 +1330,9 @@ function ArticleReader({
                 {message}
               </p>
             )}
+            {detail.data.enclosureUrl&&detail.data.enclosureType?.startsWith('audio/')&&<audio aria-label={`Listen to ${detail.data.title}`} controls preload="none" className="mt-7 w-full" src={`/api/media?src=${encodeURIComponent(detail.data.enclosureUrl)}`}/>} 
             <div
-              className="article-content mt-9 text-[18px] leading-[1.65] text-stone-800 [&_a]:text-amber-800 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-5 [&_h2]:mt-9 [&_h2]:text-2xl [&_img]:my-7 [&_img]:h-auto [&_img]:max-w-full [&_p]:my-5"
+              className={`article-content mt-9 text-[18px] ${readingPrefs.lineHeight==='compact'?'leading-[1.45]':'leading-[1.8]'} text-stone-800 [&_a]:text-amber-800 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-5 [&_h2]:mt-9 [&_h2]:text-2xl [&_img]:my-7 [&_img]:h-auto [&_img]:max-w-full [&_p]:my-5`}
               dangerouslySetInnerHTML={{
                 __html:
                   detail.data.fullTextHtml ??

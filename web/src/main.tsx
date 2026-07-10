@@ -5,3 +5,4 @@ import './styles.css';
 import { App } from './App';
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: 1 } } });
 createRoot(document.getElementById('root')!).render(<StrictMode><QueryClientProvider client={queryClient}><App /></QueryClientProvider></StrictMode>);
+if('serviceWorker' in navigator&&import.meta.env.PROD)void navigator.serviceWorker.register('/sw.js');

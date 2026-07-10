@@ -36,6 +36,9 @@ test('supports the complete Reader keyboard map and cheat sheet', async ({ page 
 
   await page.keyboard.press('o');
   await expect(page.getByRole('dialog', { name: 'Article reader' })).toBeVisible();
+  await expect(page.getByLabel('Listen to First keyboard story')).toBeVisible();
+  await page.getByLabel('Reader font').selectOption('serif'); await page.getByLabel('Reader width').selectOption('wide'); await page.getByLabel('Reader line height').selectOption('compact');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('brew:reading-prefs'))).toContain('compact');
   await expect(page.getByRole('button', { name: '☆ Star' })).toBeVisible();
   await page.keyboard.press('s'); await expect(page.getByRole('button', { name: '★ Starred' })).toBeVisible();
   await page.keyboard.press('m'); await expect(page.getByRole('button', { name: 'Mark unread' })).toBeVisible();
@@ -59,4 +62,4 @@ test('supports the complete Reader keyboard map and cheat sheet', async ({ page 
 });
 
 function summary(id: number, title: string) { return { id, url: `https://example.test/${id}`, title, author: null, summaryHtml: '<p>Keyboard test summary.</p>', imageUrl: null, publishedAt: '2026-07-10T03:00:00.000Z', readAt: null, starredAt: null, feedId: 1, feedTitle: 'Keyboard feed', folderId: null, folderTitle: null }; }
-function detail(id: number, currentReadAt: string | null, currentStarredAt: string | null) { return { ...summary(id, id === 1 ? 'First keyboard story' : 'Second keyboard story'), readAt: currentReadAt, starredAt: currentStarredAt, contentHtml: '<p>Full keyboard story.</p>', fullTextHtml: '<p>Full keyboard story.</p>', readTimeMinutes: 2, tags: [] }; }
+function detail(id: number, currentReadAt: string | null, currentStarredAt: string | null) { return { ...summary(id, id === 1 ? 'First keyboard story' : 'Second keyboard story'), readAt: currentReadAt, starredAt: currentStarredAt, contentHtml: '<p>Full keyboard story.</p>', fullTextHtml: '<p>Full keyboard story.</p>', enclosureUrl:'https://example.test/episode.mp3',enclosureType:'audio/mpeg',readTimeMinutes: 2, tags: [] }; }

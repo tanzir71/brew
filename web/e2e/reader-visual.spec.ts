@@ -31,6 +31,7 @@ test('Reader view navigation paints within 100ms', async ({ page }) => {
 });
 
 async function mockReader(page: Page) {
+  await page.route('**/api/feeds/*/icon',(route)=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" rx="4" fill="#f59e0b"/></svg>'}));
   await page.route('**/api/events', (route) => route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: 'event: heartbeat\ndata: {}\n\n' }));
   await page.route('**/api/reader/navigation', (route) => route.fulfill({ json: { counts: { all: 8, today: 5, starred: 2 }, folders: [{ id: 1, title: 'Design', unreadCount: 5, feeds: [{ id: 1, folderId: 1, title: 'Design Notes', unreadCount: 5, muted: false }, { id: 2, folderId: 1, title: 'Type Foundry', unreadCount: 0, muted: false }] }, { id: 2, title: 'Technology', unreadCount: 3, feeds: [{ id: 3, folderId: 2, title: 'Practical Systems', unreadCount: 3, muted: false }] }], unfiled: [] } }));
   await page.route('**/api/articles?**', (route) => route.fulfill({ json: { items: [

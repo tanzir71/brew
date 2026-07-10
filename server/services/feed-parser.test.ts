@@ -1,0 +1,2 @@
+import {describe,expect,it} from 'vitest';import {parseFeedDocument} from './feed-parser.js';
+describe('podcast enclosure parsing',()=>{it('reads RSS audio enclosures',async()=>{const feed=await parseFeedDocument(`<?xml version="1.0"?><rss version="2.0"><channel><title>Pod</title><item><guid>ep1</guid><title>Episode</title><link>https://pod.test/1</link><enclosure url="https://cdn.test/1.mp3" type="audio/mpeg" length="123"/></item></channel></rss>`);expect(feed.articles[0]).toMatchObject({enclosureUrl:'https://cdn.test/1.mp3',enclosureType:'audio/mpeg'})})});

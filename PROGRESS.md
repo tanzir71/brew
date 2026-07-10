@@ -1,6 +1,6 @@
 # PROGRESS
 
-## Current milestone: M6
+## Current milestone: Refinement backlog
 
 ## Checklist state
 
@@ -69,6 +69,21 @@ Exit review passed 2026-07-10: immutable snapshot and 30-edition retention tests
 - [x] Final spacing/type polish, favicon/app icon, contextual page titles.
 
 Exit review passed 2026-07-10: 10k virtual scrolling, cold load, and article-open budgets pass; a real 10k seed and SQLite backup completed; the complete 21-test Playwright suite passed three consecutive runs with no failures.
+
+### Refinement backlog acceptance criteria
+
+1. [x] Feed icons: navigation shows a proxied site favicon when available and a deterministic letter fallback otherwise.
+2. [x] Retention: each feed exposes a retention-days setting (90 default); cleanup preserves starred or tagged articles and is fixture-tested.
+3. [x] Weekly review: Brew composer offers a last-seven-days starred source and generator coverage proves its bounds.
+4. [x] Rule templates: gallery can seed mute-keyword, highlight-author, and feature-folder drafts in one click.
+5. [x] OPML quirks: Feedly category and Inoreader nested/export attributes import with folders intact and round-trip tests.
+6. [x] Reader preferences: font family, content width, and line height persist locally and visibly affect article reading.
+7. [x] Saved searches: a current search can be named, appears as a sidebar pseudo-feed, reopens, and can be deleted.
+8. [x] Podcasts: RSS enclosure audio metadata persists and renders an accessible inline player.
+9. [x] PWA: valid manifest, install icons, and service worker provide an installable offline shell.
+10. [x] Micro-interactions: live inserts animate subtly, starring has feedback, and undo toast has polished enter/exit behavior with reduced-motion support.
+
+Refinement review passed 2026-07-10: focused unit and Playwright coverage exercises retention exceptions, weekly bounds, OPML quirks, templates, saved-search lifecycle, persisted reader controls, podcast rendering, and PWA artifacts.
 
 ## Decisions
 

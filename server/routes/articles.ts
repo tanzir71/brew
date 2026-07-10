@@ -5,6 +5,8 @@ import type { MarkAllScope } from '../services/article-service.js';
 
 export function registerArticleRoutes(app: FastifyInstance, database: BrewDatabase, fetcher?: typeof fetch): void {
   const service = new ArticleService(database, fetcher);
+  app.get('/api/articles-hidden',async()=>database.sqlite.prepare('SELECT a.id,a.title,f.title AS feedTitle,a.published_at AS publishedAt FROM articles a JOIN feeds f ON f.id=a.feed_id WHERE a.hidden=1 ORDER BY a.published_at DESC LIMIT 500').all());
+  app.post<{Params:{id:string}}>('/api/articles/:id/unhide',async(request,reply)=>database.sqlite.prepare('UPDATE articles SET hidden=0 WHERE id=?').run(Number(request.params.id)).changes?{ok:true}:reply.code(404).send({error:'Article not found'}));
   app.post<{ Body: { view?: unknown; feedId?: unknown; folderId?: unknown } }>('/api/articles/mark-all-read', async (request, reply) => {
     const view = request.body?.view ?? 'all';
     if (!['all', 'today', 'starred'].includes(String(view))) return reply.code(400).send({ error: 'Invalid article view' });

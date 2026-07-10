@@ -11,6 +11,8 @@ interface SearchRow {
   summaryHtml: string | null;
   imageUrl: string | null;
   highlightColor: string | null;
+  enclosureUrl:string|null;
+  enclosureType:string|null;
   publishedAt: number;
   readAt: number | null;
   starredAt: number | null;
@@ -55,7 +57,7 @@ export class SearchService {
     parameters.push(limit + 1, offset);
     const rows = this.database.sqlite
       .prepare(
-        `SELECT a.id, a.url, a.title, a.author, a.summary_html AS summaryHtml, a.image_url AS imageUrl, a.highlight_color AS highlightColor, a.published_at AS publishedAt, a.read_at AS readAt, a.starred_at AS starredAt, f.id AS feedId, f.title AS feedTitle, fo.id AS folderId, fo.title AS folderTitle FROM articles_fts JOIN articles a ON a.id = articles_fts.rowid JOIN feeds f ON f.id = a.feed_id LEFT JOIN folders fo ON fo.id = f.folder_id WHERE ${clauses.join(' AND ')} ORDER BY bm25(articles_fts), a.published_at DESC LIMIT ? OFFSET ?`,
+        `SELECT a.id, a.url, a.title, a.author, a.summary_html AS summaryHtml, a.image_url AS imageUrl, a.highlight_color AS highlightColor, a.enclosure_url AS enclosureUrl, a.enclosure_type AS enclosureType, a.published_at AS publishedAt, a.read_at AS readAt, a.starred_at AS starredAt, f.id AS feedId, f.title AS feedTitle, fo.id AS folderId, fo.title AS folderTitle FROM articles_fts JOIN articles a ON a.id = articles_fts.rowid JOIN feeds f ON f.id = a.feed_id LEFT JOIN folders fo ON fo.id = f.folder_id WHERE ${clauses.join(' AND ')} ORDER BY bm25(articles_fts), a.published_at DESC LIMIT ? OFFSET ?`,
       )
       .all(...parameters) as SearchRow[];
     const hasMore = rows.length > limit;

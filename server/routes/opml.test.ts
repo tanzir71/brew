@@ -42,4 +42,5 @@ describe('OPML import and export', () => {
     expect(() => service.import('<html>not opml</html>')).toThrow('Invalid OPML');
     database.close();
   });
+  it('handles Feedly categories and Inoreader nested export attributes',()=>{const database=openDatabase(':memory:');const xml=`<opml version="2.0"><body><outline text="Feedly: Design"><outline type="rss" text="Feedly Notes" xmlUrl="https://feedly.test/rss" htmlUrl="https://feedly.test" category="Design"/></outline><outline text="Inoreader"><outline text="Research"><outline type="rss" title="Deep Reads" xmlUrl="https://inoreader.test/feed" htmlUrl="https://inoreader.test"/></outline></outline></body></opml>`;expect(new OpmlService(database).import(xml)).toEqual({imported:2,skipped:0,foldersCreated:2});expect(database.db.select().from(folders).all().map((folder)=>folder.title)).toEqual(['Feedly: Design','Inoreader / Research']);const restored=openDatabase(':memory:');expect(new OpmlService(restored).import(new OpmlService(database).export()).imported).toBe(2);restored.close();database.close()});
 });

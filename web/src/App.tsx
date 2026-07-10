@@ -22,7 +22,7 @@ export function App() {
   return <ErrorBoundary><AppContent /></ErrorBoundary>;
 }
 function AppContent() {
-  const [mode, setMode] = useState<'brew' | 'reader' | 'feeds' | 'rules'>('brew');
+  const [mode, setMode] = useState<'brew' | 'reader' | 'feeds' | 'rules'>(()=>localStorage.getItem('brew:landing')==='reader'?'reader':'brew');
   const [searchDraft, setSearchDraft] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => {
@@ -107,6 +107,7 @@ function AppContent() {
           <select id="image-privacy" value={directImages?'direct':'proxy'} onChange={(event)=>{const direct=event.target.value==='direct';setDirectImages(direct);localStorage.setItem('brew:direct-images',String(direct))}} className="rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-medium">
             <option value="proxy">Private images</option><option value="direct">Load images directly</option>
           </select>
+          <label className="sr-only" htmlFor="landing-picker">Default landing page</label><select id="landing-picker" aria-label="Default landing page" value={localStorage.getItem('brew:landing')??'brew'} onChange={(event)=>{localStorage.setItem('brew:landing',event.target.value);setMode(event.target.value as 'brew'|'reader')}} className="rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-medium"><option value="brew">Start at Brew</option><option value="reader">Start at Reader</option></select>
           <button
             onClick={() => setMode(mode === 'rules' ? 'reader' : 'rules')}
             className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
@@ -130,6 +131,7 @@ function AppContent() {
       ) : (
         <Reader
           searchQuery={searchQuery}
+          onSearch={(query)=>{setSearchDraft(query);setSearchQuery(query)}}
           onClearSearch={() => {
             setSearchDraft('');
             setSearchQuery('');
@@ -151,7 +153,8 @@ function FeedManager() {
   const [folderTitle, setFolderTitle] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
-  const [section, setSection] = useState<'feeds' | 'health'>('feeds');
+  const [section, setSection] = useState<'feeds' | 'health' | 'hidden'>('feeds');
+  const [hiddenArticles,setHiddenArticles]=useState<Array<{id:number;title:string;feedTitle:string;publishedAt:number}>>([]);
   const refresh = useCallback(async () => {
     const [nextFeeds, nextFolders] = await Promise.all([
       api<FeedSummary[]>('/api/feeds'),
@@ -277,6 +280,7 @@ function FeedManager() {
     }
   }
 
+  if(section==='hidden')return <section className="mx-auto max-w-4xl px-8 py-12"><div className="flex items-end justify-between"><div><p className="text-xs font-semibold uppercase tracking-wider text-amber-700">Audit</p><h1 className="mt-2 text-3xl font-semibold">Hidden articles</h1></div><button onClick={()=>setSection('feeds')} className="rounded-lg border px-4 py-2 text-sm">Manage feeds</button></div><div className="mt-8 divide-y rounded-2xl border bg-white">{hiddenArticles.length?hiddenArticles.map((article)=><article key={article.id} className="flex items-center justify-between p-4"><div><h2 className="font-medium">{article.title}</h2><p className="text-xs text-stone-500">{article.feedTitle}</p></div><button onClick={()=>void api(`/api/articles/${article.id}/unhide`,{method:'POST'}).then(()=>setHiddenArticles((current)=>current.filter((item)=>item.id!==article.id)))} className="rounded-lg border px-3 py-2 text-xs">Unhide</button></article>):<p className="p-10 text-center text-sm text-stone-500">No hidden articles.</p>}</div></section>;
   if (section === 'health')
     return (
       <section className="mx-auto max-w-5xl px-8 py-12">
@@ -369,6 +373,7 @@ function FeedManager() {
             >
               Feed health
             </button>
+            <button onClick={()=>void api<Array<{id:number;title:string;feedTitle:string;publishedAt:number}>>('/api/articles-hidden').then((items)=>{setHiddenArticles(items);setSection('hidden')})} className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-medium">Hidden articles</button>
             <label className="cursor-pointer rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-medium hover:bg-stone-50">
               Import OPML
               <input
@@ -479,6 +484,9 @@ function FeedManager() {
                   <p className="truncate text-xs text-stone-500">{feed.url}</p>
                 </div>
                 <div className="ml-4 flex gap-2">
+                  <label className="flex items-center gap-1 text-xs text-stone-500">Keep
+                    <input aria-label={`Retention days for ${feed.title}`} type="number" min="1" max="3650" value={feed.retentionDays} onChange={(event)=>{const days=Number(event.target.value);setFeeds((current)=>current.map((item)=>item.id===feed.id?{...item,retentionDays:days}:item));}} onBlur={(event)=>void api(`/api/feeds/${feed.id}/retention`,{method:'PATCH',body:JSON.stringify({days:Number(event.target.value)})}).then(refresh)} className="w-16 rounded border border-stone-300 px-2 py-1"/> days
+                  </label>
                   <button
                     onClick={() => renameFeed(feed)}
                     className="rounded-lg px-3 py-2 text-xs font-medium hover:bg-stone-100"

@@ -7,8 +7,9 @@ export function registerRulesRoutes(
   app: FastifyInstance,
   database: BrewDatabase,
   fetcher?: typeof fetch,
+  notify?: (article:{id:number;title:string;url:string})=>void,
 ): void {
-  const service = new RulesService(database, fetcher);
+  const service = new RulesService(database, fetcher, notify);
   app.get('/api/rules/duplicate-filter', async () => ({
     enabled: (database.sqlite.prepare("SELECT value FROM settings WHERE key = 'duplicate_filter_enabled'").get() as {value:string} | undefined)?.value === 'true',
   }));

@@ -47,4 +47,5 @@ describe('article detail and full-text extraction', () => {
     expect(database.db.select().from(articles).get()?.readAt).not.toBeNull();
     database.close();
   });
+  it('surfaces hidden articles for audit and can unhide them',async()=>{const database=openDatabase(':memory:');const feed=database.db.insert(feeds).values({title:'Audit',url:'https://audit.test/feed'}).returning().get();const article=database.db.insert(articles).values({feedId:feed.id,guid:'hidden',url:'https://audit.test/hidden',title:'Hidden by rule',publishedAt:new Date(),hash:'hidden',hidden:true}).returning().get();const app=await createApp({database});expect((await app.inject('/api/articles-hidden')).json()).toEqual([expect.objectContaining({id:article.id,title:'Hidden by rule'})]);expect((await app.inject({method:'POST',url:`/api/articles/${article.id}/unhide`})).statusCode).toBe(200);expect(database.db.select().from(articles).get()?.hidden).toBe(false);await app.close()});
 });

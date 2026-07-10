@@ -92,8 +92,13 @@ test('searches with virtualized all, current-folder, and starred scopes', async 
   await starredRequest;
   await expect(page.getByText('Starred needle')).toBeVisible();
   await expect(page.getByText('2.4 ms')).toBeVisible();
+  page.once('dialog',(dialog)=>dialog.accept('Needles'));
+  await page.getByRole('button',{name:'Save search'}).click();
   await page.getByRole('button', { name: 'Close search' }).click();
   await expect(page.getByRole('heading', { name: 'Design' })).toBeVisible();
+  await page.getByRole('button',{name:'⌕ Needles'}).click();
+  await expect(page.getByRole('heading',{name:/needle/})).toBeVisible();
+  await page.getByRole('button',{name:'Delete saved search Needles'}).click();
 });
 
 function article(id: number, title: string, starred = false) {
