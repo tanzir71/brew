@@ -6,6 +6,7 @@ import type { HealthResponse } from '../shared/api.js';
 import { openDatabase, type BrewDatabase } from './db/database.js';
 import { registerFeedRoutes } from './routes/feeds.js';
 import { registerPollerRoutes } from './routes/poller.js';
+import { registerOpmlRoutes } from './routes/opml.js';
 import { PollerService } from './services/poller-service.js';
 import { IngestPipeline } from './services/ingest-pipeline.js';
 import { SseBroker } from './services/sse-broker.js';
@@ -14,10 +15,12 @@ const rootDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 
 export async function createApp(options: { serveWeb?: boolean; database?: BrewDatabase; fetcher?: typeof fetch; startPoller?: boolean } = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
+  app.addContentTypeParser(['text/xml', 'application/xml', 'text/x-opml'], { parseAs: 'string' }, (_request, body, done) => done(null, body));
   const database = options.database ?? openDatabase();
   const broker = new SseBroker();
   app.addHook('onClose', () => database.close());
   registerFeedRoutes(app, database, options.fetcher);
+  registerOpmlRoutes(app, database);
   const ingest = new IngestPipeline(database);
   const poller = new PollerService(database, options.fetcher, (feed, incoming) => ingest.ingest(feed, incoming), undefined, (results) => {
     const changed = results.filter((result) => result.newItems > 0);

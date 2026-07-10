@@ -12,6 +12,10 @@ test('discovers and adds a feed into a folder', async ({ page }) => {
     if (route.request().method() === 'POST') { feeds = [{ id: 1, folderId: 1, url: 'https://example.test/feed.xml', siteUrl: 'https://example.test', title: 'Design Notes', description: null }]; await route.fulfill({ status: 201, json: feeds[0] }); }
     else await route.fulfill({ json: feeds });
   });
+  await page.route('**/api/opml/import', async (route) => {
+    feeds.push({ id: 2, folderId: 1, url: 'https://imported.test/feed.xml', siteUrl: null, title: 'Imported Journal', description: null });
+    await route.fulfill({ json: { imported: 1, skipped: 0, foldersCreated: 0 } });
+  });
   await page.goto('/');
   await page.getByRole('button', { name: 'Manage feeds' }).click();
   await page.getByLabel('New folder name').fill('Design');
@@ -23,4 +27,8 @@ test('discovers and adds a feed into a folder', async ({ page }) => {
   await page.getByLabel('Save in').selectOption('1');
   await page.getByRole('button', { name: /Design Notes/ }).click();
   await expect(page.getByRole('heading', { name: 'Design Notes' })).toBeVisible();
+  await page.getByLabel('Import OPML').setInputFiles({ name: 'subscriptions.opml', mimeType: 'text/x-opml', buffer: Buffer.from('<?xml version="1.0"?><opml version="2.0"><body/></opml>') });
+  await expect(page.getByText('Imported 1 feeds.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Imported Journal' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Export OPML' })).toHaveAttribute('href', '/api/opml/export');
 });

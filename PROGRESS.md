@@ -18,7 +18,7 @@ Exit review passed 2026-07-10: a clean local clone completed `npm ci`, started w
 - [x] Add feed by URL (including discovery from HTML pages); delete; rename; folders CRUD.
 - [x] Poller with conditional GET, adaptive intervals, backoff, concurrency limit, and fixture coverage.
 - [x] Ingest pipeline: dedupe, sanitize, tracker stripping (tested).
-- [ ] OPML import/export round-trips folder structure (test with a 100-feed fixture).
+- [x] OPML import/export round-trips folder structure (test with a 100-feed fixture).
 - [ ] Feed health surface in settings.
 
 ## Decisions
@@ -27,6 +27,7 @@ Exit review passed 2026-07-10: a clean local clone completed `npm ci`, started w
 - 2026-07-10: Keep server and web compilation separate — browser and Node module resolution have different requirements while remaining one package.
 - 2026-07-10: Adapt active feeds by 25% per successful poll toward 15 minutes and quiet feeds by 50% toward 6 hours — gradual changes avoid cadence oscillation while honoring the specified targets.
 - 2026-07-10: Follow DOMPurify with a strict linkedom tag/attribute/protocol allowlist — DOMPurify currently reports linkedom's partial window as unsupported, so the explicit pass preserves the mandated stack without trusting unsanitized fallback output.
+- 2026-07-10: Flatten nested OPML folder paths as `Parent / Child` — Brew's canonical schema has one folder level, and retaining the full path avoids silently losing organization.
 
 ## Discoveries / gotchas for future iterations
 
