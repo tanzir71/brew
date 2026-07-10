@@ -28,7 +28,7 @@ Exit review passed 2026-07-10: `npm run review:m1` subscribed to 20 live public 
 - [x] Sidebar with folders/feeds/unread counts; All/Today/Starred views.
 - [x] Virtualized article list, three densities, unread filter, sort.
 - [x] Article overlay/pane per §7.3 including lazy full-text extraction.
-- [ ] Read/star/tag actions with optimistic UI and SSE-driven live inserts.
+- [x] Read/star/tag actions with optimistic UI and SSE-driven live inserts.
 - [ ] Mark-all-read with undo; mark-read-on-scroll setting.
 - [ ] Light/dark themes.
 

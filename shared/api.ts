@@ -47,5 +47,6 @@ export interface ArticleDetail extends ArticleSummary {
   contentHtml: string | null;
   fullTextHtml: string | null;
   readTimeMinutes: number;
-  tags: Array<{ id: number; name: string; color: string }>;
+  tags: TagSummary[];
 }
+export interface TagSummary { id: number; name: string; color: string }

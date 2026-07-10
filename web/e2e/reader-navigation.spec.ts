@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('navigates Today, All, Starred, folders, and feeds from the sidebar', async ({ page }) => {
+  const states = new Map<number, ReturnType<typeof detail>>();
   await page.route('**/api/reader/navigation', (route) => route.fulfill({ json: { counts: { all: 3, today: 2, starred: 1 }, folders: [{ id: 1, title: 'Design', unreadCount: 2, feeds: [{ id: 1, folderId: 1, title: 'Design Notes', unreadCount: 2, muted: false }] }], unfiled: [] } }));
   await page.route('**/api/articles?**', (route) => {
     const url = new URL(route.request().url());
@@ -9,15 +10,19 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
     const items = view === 'starred' ? [article(3, 'Saved essay', 'Research', true)] : view === 'today' ? [article(1, 'Fresh design story', 'Design'), article(2, 'Fresh research story', 'Research')] : cursor ? [article(999, 'Next page story', 'Design')] : Array.from({ length: 60 }, (_, index) => article(index + 10, `Library story ${index + 1}`, 'Design'));
     return route.fulfill({ json: { items, nextCursor: view === 'all' && !cursor ? '123:1' : null } });
   });
-  await page.route('**/api/articles/*', (route) => {
+  await page.route('**/api/articles/*', async (route) => {
     const id = Number(new URL(route.request().url()).pathname.split('/').at(-1));
-    return route.fulfill({ json: detail(id) });
+    let value = states.get(id) ?? detail(id);
+    if (route.request().method() === 'PATCH') { const body = route.request().postDataJSON() as { read?: boolean; starred?: boolean }; value = { ...value, readAt: body.read === undefined ? value.readAt : body.read ? '2026-07-10T05:00:00.000Z' : null, starredAt: body.starred === undefined ? value.starredAt : body.starred ? '2026-07-10T05:00:00.000Z' : null }; states.set(id, value); }
+    return route.fulfill({ json: value });
   });
   await page.route('**/api/articles/*/full-text', (route) => {
     const parts = new URL(route.request().url()).pathname.split('/');
     const id = Number(parts.at(-2));
-    return route.fulfill({ json: { ...detail(id), fullTextHtml: '<p>The complete extracted article body.</p>', readTimeMinutes: 4 } });
+    return route.fulfill({ json: { ...(states.get(id) ?? detail(id)), fullTextHtml: '<p>The complete extracted article body.</p>', readTimeMinutes: 4 } });
   });
+  await page.route('**/api/articles/*/tags', async (route) => { const parts = new URL(route.request().url()).pathname.split('/'); const id = Number(parts.at(-2)); const tagIds = (route.request().postDataJSON() as { tagIds: number[] }).tagIds; const value = { ...(states.get(id) ?? detail(id)), tags: tagIds.map((tagId) => ({ id: tagId, name: tagId === 1 ? 'Tools' : 'Fresh', color: '#b45309' })) }; states.set(id, value); await route.fulfill({ json: value }); });
+  await page.route('**/api/tags', async (route) => route.request().method() === 'POST' ? route.fulfill({ status: 201, json: { id: 2, name: 'Fresh', color: '#b45309' } }) : route.fulfill({ json: [{ id: 1, name: 'Tools', color: '#b45309' }] }));
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'The Brew' })).toBeVisible();
   await page.getByRole('button', { name: /Today/ }).click();
@@ -33,6 +38,13 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
   await expect(page.getByRole('dialog', { name: 'Article reader' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Article 10 detail' })).toBeVisible();
   await expect(page.getByText('2 min read')).toBeVisible();
+  await page.getByRole('button', { name: '☆ Star' }).click();
+  await expect(page.getByRole('button', { name: '★ Starred' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Mark read' }).click();
+  await expect(page.getByRole('button', { name: 'Mark unread' })).toBeVisible();
+  await page.getByRole('button', { name: 'Tag' }).click();
+  await page.getByRole('button', { name: 'Tools' }).click();
+  await expect(page.getByRole('button', { name: 'Tag · 1' })).toBeVisible();
   await page.getByRole('button', { name: 'Load full article' }).click();
   await expect(page.getByText('The complete extracted article body.')).toBeVisible();
   await page.keyboard.press('Escape');

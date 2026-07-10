@@ -26,6 +26,11 @@ describe('article detail and full-text extraction', () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
     await app.inject({ method: 'POST', url: `/api/articles/${article.id}/full-text` });
     expect(fetcher).toHaveBeenCalledTimes(1);
+    const starred = await app.inject({ method: 'PATCH', url: `/api/articles/${article.id}`, payload: { read: true, starred: true } });
+    expect(starred.json()).toMatchObject({ readAt: expect.any(String), starredAt: expect.any(String) });
+    const tag = (await app.inject({ method: 'POST', url: '/api/tags', payload: { name: 'Long reads', color: '#7c3aed' } })).json();
+    expect((await app.inject({ method: 'PUT', url: `/api/articles/${article.id}/tags`, payload: { tagIds: [tag.id] } })).json()).toMatchObject({ tags: [{ name: 'Long reads', color: '#7c3aed' }] });
+    expect((await app.inject({ method: 'PATCH', url: `/api/articles/${article.id}`, payload: { read: false, starred: false } })).json()).toMatchObject({ readAt: null, starredAt: null });
     await app.close();
   });
 });

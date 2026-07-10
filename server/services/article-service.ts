@@ -1,9 +1,9 @@
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { parseHTML } from 'linkedom';
 import { Readability } from '@mozilla/readability';
 import type { ArticleDetail } from '../../shared/api.js';
 import type { BrewDatabase } from '../db/database.js';
-import { articles } from '../db/schema.js';
+import { articleTags, articles, tags } from '../db/schema.js';
 import { sanitizeArticleHtml } from './html-sanitizer.js';
 
 type Fetch = typeof globalThis.fetch;
@@ -48,6 +48,36 @@ export class ArticleService {
     const clean = sanitizeArticleHtml(parsed.content);
     if (!clean) throw new Error('Extracted article was empty');
     this.database.db.update(articles).set({ fullTextHtml: clean }).where(eq(articles.id, id)).run();
+    return this.get(id);
+  }
+
+  updateState(id: number, values: { read?: boolean; starred?: boolean }): ArticleDetail | null {
+    if (!this.database.db.select({ id: articles.id }).from(articles).where(eq(articles.id, id)).get()) return null;
+    const changes: { readAt?: Date | null; starredAt?: Date | null } = {};
+    if (values.read !== undefined) changes.readAt = values.read ? new Date() : null;
+    if (values.starred !== undefined) changes.starredAt = values.starred ? new Date() : null;
+    if (Object.keys(changes).length) this.database.db.update(articles).set(changes).where(eq(articles.id, id)).run();
+    return this.get(id);
+  }
+
+  listTags(): TagRow[] { return this.database.db.select().from(tags).orderBy(tags.name).all(); }
+  createTag(name: string, color = '#b45309'): TagRow {
+    const normalized = name.trim();
+    if (!normalized) throw new Error('Tag name is required');
+    this.database.db.insert(tags).values({ name: normalized, color }).onConflictDoNothing({ target: tags.name }).run();
+    return this.database.db.select().from(tags).where(eq(tags.name, normalized)).get()!;
+  }
+  setTags(id: number, tagIds: number[]): ArticleDetail | null {
+    if (!this.database.db.select({ id: articles.id }).from(articles).where(eq(articles.id, id)).get()) return null;
+    const uniqueIds = [...new Set(tagIds)];
+    if (uniqueIds.length) {
+      const existing = this.database.db.select({ id: tags.id }).from(tags).where(inArray(tags.id, uniqueIds)).all();
+      if (existing.length !== uniqueIds.length) throw new Error('One or more tags do not exist');
+    }
+    this.database.sqlite.transaction(() => {
+      this.database.db.delete(articleTags).where(eq(articleTags.articleId, id)).run();
+      if (uniqueIds.length) this.database.db.insert(articleTags).values(uniqueIds.map((tagId) => ({ articleId: id, tagId }))).run();
+    })();
     return this.get(id);
   }
 }
