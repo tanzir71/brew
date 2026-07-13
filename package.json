@@ -18,6 +18,8 @@
     "review:m1": "tsx server/scripts/m1-exit-review.ts"
     ,"backup": "tsx server/scripts/backup.ts"
     ,"seed:big": "tsx server/scripts/seed-big.ts"
+    ,"website:verify": "node scripts/verify-site.mjs"
+    ,"website:browser": "node scripts/verify-website-browser.mjs"
   },
   "dependencies": {
     "@fastify/static": "latest",

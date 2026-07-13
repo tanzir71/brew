@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f8f6f1">
+  <meta name="description" content="Explore Brew with a private, interactive canned dataset."><title>Demo — Brew</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/demo/demo.css"><script src="/demo/demo.js" defer></script>
+</head>
+<body>
+  <div class="demo-notice" role="note"><span><i></i> Interactive demo · canned data · nothing is saved</span><a href="/">About Brew <span>↗</span></a></div>
+  <div class="app-shell">
+    <header class="topbar">
+      <button class="mobile-menu" aria-label="Open navigation">☰</button>
+      <button class="wordmark" data-view="brew"><b>B</b><span>Brew</span></button>
+      <div class="search-wrap"><span>⌕</span><input id="search" type="search" placeholder="Search your library" aria-label="Search articles"><kbd>/</kbd></div>
+      <div class="top-actions"><button id="shortcut-button" aria-label="Keyboard shortcuts">?</button><button id="theme-button" aria-label="Toggle dark mode">◐</button><span class="local-pill"><i></i> Local</span><button class="avatar" aria-label="Demo profile">T</button></div>
+    </header>
+    <div class="workspace">
+      <aside class="sidebar" aria-label="Library navigation">
+        <nav>
+          <button class="nav-item active" data-view="brew"><span class="nav-icon">◒</span><b>The Brew</b><small>Today</small></button>
+          <button class="nav-item" data-view="reader" data-filter="today"><span class="nav-icon">◷</span><b>Today</b><small>12</small></button>
+          <button class="nav-item" data-view="reader" data-filter="all"><span class="nav-icon">▤</span><b>All articles</b><small>42</small></button>
+          <button class="nav-item" data-view="reader" data-filter="starred"><span class="nav-icon">◇</span><b>Starred</b><small>7</small></button>
+          <p class="nav-label">LIBRARY</p>
+          <button class="nav-item" data-view="reader" data-filter="design"><span class="source-dot plum">D</span><b>Design</b><small>8</small></button>
+          <button class="nav-item" data-view="reader" data-filter="technology"><span class="source-dot moss">T</span><b>Technology</b><small>3</small></button>
+          <button class="nav-item" data-view="reader" data-filter="independent"><span class="source-dot ocean">I</span><b>Independent</b><small>1</small></button>
+          <button class="nav-item" data-view="reader" data-filter="podcasts"><span class="source-dot rust">P</span><b>Podcasts</b><small></small></button>
+          <p class="nav-label">AUTOMATION</p>
+          <button class="nav-item" data-view="rules"><span class="nav-icon">⌁</span><b>Rules</b><small>4</small></button>
+          <button class="nav-item muted" id="demo-add-feed"><span class="nav-icon">＋</span><b>Add feed</b></button>
+        </nav>
+        <div class="sidebar-footer"><div class="storage"><span>Local database</span><b>8.4 MB</b><i><em></em></i><small>42 articles · synced 2m ago</small></div><button class="settings-button">⚙ <span>Settings</span></button></div>
+      </aside>
+
+      <main class="main-panel">
+        <section id="brew-view" class="view active" aria-labelledby="brew-title">
+          <div class="brew-page">
+            <header class="brew-head"><div><p class="edition-date">MONDAY · JULY 13, 2026</p><h1 id="brew-title">Morning Brew</h1><p class="edition-note">A quiet start, selected from 16 feeds.</p></div><div class="edition-actions"><button class="icon-button" aria-label="Previous edition">←</button><button class="date-button">Today <span>⌄</span></button><button class="icon-button" aria-label="Next edition" disabled>→</button><button class="icon-button" aria-label="More options">•••</button></div></header>
+            <div class="progress-line"><i></i><span>3 of 9 read</span></div>
+
+            <section class="brew-section"><header><span>DESIGN &amp; CRAFT</span><i></i><small>4 STORIES</small></header>
+              <article class="lead-story" data-article="quiet-systems" tabindex="0"><div class="lead-art"><div class="shape a"></div><div class="shape b"></div><div class="shape c"></div><span>FIELD NOTES / 07.26</span></div><div class="lead-copy"><p class="source">Dense Discovery · 6 min</p><h2>The quiet systems behind interfaces that feel inevitable</h2><p>Good products rarely announce their structure. They make the next move feel obvious—then disappear behind it.</p><div class="story-actions"><button class="star" aria-label="Star article">◇</button><span>Selected by “Design signals”</span></div></div></article>
+              <div class="story-rows">
+                <article data-article="type-foundry" tabindex="0"><div><p>Type Foundry · 4 min</p><h3>A field guide to optical size in variable type</h3></div><button class="star" aria-label="Star article">◇</button></article>
+                <article data-article="tools-thinking" tabindex="0"><div><p>Sidebar · 8 min</p><h3>Tools should disappear; thinking should remain</h3></div><button class="star starred" aria-label="Unstar article">◆</button></article>
+                <article data-article="motion" tabindex="0"><div><p>Offscreen · 5 min</p><h3>Motion that explains, instead of decorates</h3></div><button class="star" aria-label="Star article">◇</button></article>
+              </div>
+            </section>
+
+            <section class="brew-section"><header><span>TECHNOLOGY, SLOWLY</span><i></i><small>3 STORIES</small></header>
+              <div class="magazine-story" data-article="local-software" tabindex="0"><div class="mini-art one"><span>LOCAL</span></div><div><p class="source">Works in Progress · 9 min</p><h2>Small tools, durable files, and the return of local software</h2><p>The best cloud service may be the one you never needed. A new generation of software is putting ownership back on disk.</p></div><button class="star" aria-label="Star article">◇</button></div>
+              <div class="magazine-story" data-article="calm-computing" tabindex="0"><div class="mini-art two"><span>CALM</span></div><div><p class="source">The New Atlantis · 12 min</p><h2>What calm computing looks like in practice</h2><p>Technology can ask less of us without doing less for us.</p></div><button class="star" aria-label="Star article">◇</button></div>
+              <div class="magazine-story read" data-article="sqlite" tabindex="0"><div class="mini-art three"><span>SQL</span></div><div><p class="source">Fly.io · 7 min</p><h2>SQLite is 25</h2><p>A small database with an unusually large footprint.</p></div><button class="star" aria-label="Star article">◇</button></div>
+            </section>
+
+            <section class="brew-section"><header><span>INDEPENDENT VOICES</span><i></i><small>2 STORIES</small></header><div class="quote-story" data-article="personal-web" tabindex="0"><span>“</span><div><h2>The personal web was never gone. We just stopped looking.</h2><p>Robin Sloan · 5 min read</p></div><button class="star starred" aria-label="Unstar article">◆</button></div><div class="quiet-empty">That’s everything for this morning. <span>2 articles excluded by your rules.</span></div></section>
+            <footer class="edition-end"><span>B</span><p>You reached the end of Monday’s Brew.</p><button data-view="reader">Browse all 42 articles →</button></footer>
+          </div>
+        </section>
+
+        <section id="reader-view" class="view" aria-labelledby="reader-title">
+          <div class="reader-layout">
+            <div class="reader-list"><header class="list-head"><div><p class="section-label">LIBRARY</p><h1 id="reader-title">Today</h1></div><div class="list-actions"><button class="filter active">Unread</button><button class="filter">All</button><button aria-label="Change density">☷</button><button aria-label="More options">•••</button></div></header><div class="list-meta"><span id="article-count">12 unread</span><button id="mark-read">Mark all read</button></div><div id="article-list"></div></div>
+            <aside id="article-pane" class="article-pane" aria-live="polite"><div class="empty-reader"><span>↗</span><h2>Choose a story</h2><p>Select an article to open it here.<br>Use <kbd>j</kbd> and <kbd>k</kbd> to move.</p></div></aside>
+          </div>
+        </section>
+
+        <section id="rules-view" class="view" aria-labelledby="rules-title">
+          <div class="rules-page"><header class="rules-head"><div><p class="section-label">AUTOMATION</p><h1 id="rules-title">Rules</h1><p>Plain-language decisions for every new article.</p></div><button class="primary-button" id="new-rule">＋ New rule</button></header>
+            <div class="rules-summary"><div><strong>4</strong><span>active rules</span></div><div><strong>18</strong><span>actions this week</span></div><div><strong>2</strong><span>articles hidden</span></div><p><i></i> Rules run locally, before new articles appear.</p></div>
+            <div class="rule-list">
+              <article><button class="rule-toggle on" aria-label="Disable rule"><i></i></button><div><div class="rule-title"><h2>Design signals</h2><span>7 hits this month</span></div><p class="sentence">When an article in <b>Design</b> has a title that <b>contains “systems”</b>, then <b>★ star it</b> and <b>feature in Brew</b>.</p><footer><span>Last ran 18 min ago</span><button>View log</button><button>•••</button></footer></div></article>
+              <article><button class="rule-toggle on" aria-label="Disable rule"><i></i></button><div><div class="rule-title"><h2>Long weekend reads</h2><span>4 hits this month</span></div><p class="sentence">When an article in <b>any feed</b> has content that <b>contains “essay”</b>, then <b>add tag “Long read”</b>.</p><footer><span>Last ran 2 hours ago</span><button>View log</button><button>•••</button></footer></div></article>
+              <article><button class="rule-toggle on" aria-label="Disable rule"><i></i></button><div><div class="rule-title"><h2>Quiet the promotions</h2><span>12 hits this month</span></div><p class="sentence">When an article in <b>any feed</b> has a title that <b>matches “sale|sponsor”</b>, then <b>hide it</b> and <b>stop processing</b>.</p><footer><span>Last ran yesterday</span><button>View log</button><button>•••</button></footer></div></article>
+              <article><button class="rule-toggle on" aria-label="Disable rule"><i></i></button><div><div class="rule-title"><h2>Independent voices</h2><span>3 hits this month</span></div><p class="sentence">When an article in <b>Independent</b> matches <b>any condition</b>, then <b>highlight amber</b> and <b>feature in Brew</b>.</p><footer><span>Last ran 3 days ago</span><button>View log</button><button>•••</button></footer></div></article>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+  <dialog id="demo-dialog"><button class="dialog-close" aria-label="Close">×</button><span class="dialog-icon">B</span><h2>This is a private simulation</h2><p>The public demo uses a fixed library, so it never contacts a feed or stores your actions. Run Brew locally to add your own sources.</p><div><a href="https://github.com/tanzir71/rss#quick-start">View setup guide</a><button class="dialog-secondary">Keep exploring</button></div></dialog>
+  <dialog id="shortcut-dialog"><button class="dialog-close" aria-label="Close">×</button><p class="section-label">KEYBOARD FIRST</p><h2>Shortcuts</h2><div class="shortcut-grid"><span><kbd>j</kbd> Next article</span><span><kbd>k</kbd> Previous article</span><span><kbd>o</kbd> Open</span><span><kbd>m</kbd> Mark read</span><span><kbd>s</kbd> Star</span><span><kbd>/</kbd> Search</span><span><kbd>g b</kbd> Go to Brew</span><span><kbd>?</kbd> This guide</span></div></dialog>
+</body>
+</html>

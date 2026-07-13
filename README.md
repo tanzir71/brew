@@ -1,5 +1,7 @@
 # Brew
 
+[Website](https://brew-reader.vercel.app/) · [Interactive demo](https://brew-reader.vercel.app/demo)
+
 Brew is a local-first, single-user RSS reader. It keeps feeds, articles, rules, and daily Brew snapshots in a SQLite database on your machine; it has no account, cloud database, or telemetry.
 
 ## Requirements
