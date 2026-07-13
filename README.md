@@ -2,53 +2,95 @@
 
 [Website](https://brew-reader.vercel.app/) · [Interactive demo](https://brew-reader.vercel.app/demo)
 
-Brew is a local-first, single-user RSS reader. It keeps feeds, articles, rules, and daily Brew snapshots in a SQLite database on your machine; it has no account, cloud database, or telemetry.
+> A local-first, single-user RSS reader. Your feeds, articles, and rules live in one SQLite file on your machine — **no account, no cloud, no telemetry.**
 
-## Requirements
+## What is this?
 
-- Node.js 20 or newer
-- npm
+Brew fetches your RSS/Atom feeds, stores everything locally, lets you build rules to triage articles, and produces daily "Brew" snapshots — a curated daily digest built from your own subscriptions. It is intentionally single-user: one person, one machine, one database file you can back up by copying it.
 
-## Run locally
+## Architecture
+
+```
+                       your machine
+┌──────────────────────────────────────────────────────────┐
+│                                                            │
+│   web/ — React SPA                                         │
+│   reading UI · feed management · rules · Brew snapshots    │
+│        │                                                   │
+│        │  HTTP (dev: Vite :4401 proxies → API :4400;       │
+│        │        prod: one Fastify process serves both)     │
+│        ▼                                                   │
+│   server/ — Fastify API                                    │
+│   feed fetching/refresh · article storage · rules engine   │
+│   daily snapshot builder · Drizzle ORM migrations          │
+│        │                                                   │
+│        ▼                                                   │
+│   data/brew.db — SQLite (auto-created & migrated on boot)  │
+│   feeds · articles · rules · snapshots                     │
+│                                                            │
+│   shared/ — TypeScript types used by both sides            │
+└──────────────────────────────────────────────────────────┘
+              │ outbound only
+              ▼
+      the feeds you subscribe to
+```
+
+Why it's shaped this way: one process in production (Fastify serves the compiled SPA and the API), one file of state (SQLite + WAL), types shared end-to-end from database to UI. The only network traffic is Brew fetching your feeds.
+
+## Getting started (from zero)
+
+### Prerequisites
+
+| Tool | Why | Get it |
+|---|---|---|
+| Node.js 20+ | Everything | <https://nodejs.org> (LTS) |
+
+### Development
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open <http://127.0.0.1:4401>. Vite serves the React app on port `4401` and proxies API requests to Fastify on port `4400`. The first boot creates and migrates `./data/brew.db` automatically.
+Open <http://127.0.0.1:4401>. Vite serves the React app on `4401` and proxies API requests to Fastify on `4400`. First boot creates and migrates `./data/brew.db` automatically — there is no database to set up.
 
-## Production build
+### Production
 
 ```bash
 npm run build
 npm start
 ```
 
-Open <http://127.0.0.1:4400>. In production, Fastify serves the compiled SPA and API from one process.
+Open <http://127.0.0.1:4400> — one process now serves the app and the API.
 
-Set `BREW_DB_PATH` to use a different SQLite file. Set `NODE_ENV=production` when invoking the compiled server directly.
+Environment knobs: `BREW_DB_PATH` points at a different SQLite file; set `NODE_ENV=production` when invoking the compiled server directly.
 
-## Quality gates
+### Quality gates
 
-```bash
-npm run typecheck
-npm run lint
-npm test
-npm run test:e2e
-npm run build
-```
-
-Playwright automatically starts the development servers for the end-to-end suite.
+| Command | What it does |
+|---|---|
+| `npm run typecheck` | TypeScript strict check |
+| `npm run lint` | Code style |
+| `npm test` | Unit tests |
+| `npm run test:e2e` | Playwright end-to-end (starts dev servers itself) |
+| `npm run build` | Production build |
 
 ## Project structure
 
-- `server/` — Fastify API, SQLite/Drizzle schema, and migrations
-- `web/` — React SPA and Playwright tests
-- `shared/` — types shared by the server and browser
-- `data/` — local runtime data (ignored by Git)
-- `PROGRESS.md` — milestone checklist, decisions, and implementation notes
+```
+server/   Fastify API, SQLite/Drizzle schema, migrations
+web/      React SPA + Playwright tests
+shared/   types shared by server and browser
+data/     local runtime data (git-ignored)
+PROGRESS.md   milestone checklist and decisions
+```
 
 ## Data ownership
 
-The database is stored at `data/brew.db` by default and is excluded from version control. Stop Brew before copying the database manually so the SQLite database and WAL stay consistent. Automated backup and OPML export commands are added in later milestones described by `CODEX_HANDOFF.md`.
+Your entire state is `data/brew.db`. To back up manually, **stop Brew first** so the SQLite database and WAL stay consistent, then copy the file. Automated backup and OPML export commands arrive in later milestones (see `CODEX_HANDOFF.md`).
+
+## Troubleshooting
+
+- **Port already in use** → something else owns 4400/4401; stop it or change ports.
+- **Feeds not refreshing** → check the server terminal for fetch errors; some feeds rate-limit aggressively.
+- **Started fresh unexpectedly** → the app looks for `./data/brew.db` relative to where it runs; check `BREW_DB_PATH` and your working directory.
