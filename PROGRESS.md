@@ -132,7 +132,7 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 
 ### M7 — Core extraction, capabilities, mode chip
 - [x] Workspaces created; domain logic moved to `packages/core` with ports. All v1 unit and e2e tests pass unchanged.
-- [ ] Hono API replaces the Fastify routes in the Node target, with identical REST contracts (contract tests against v1 responses).
+- [x] Hono API replaces the Fastify routes in the Node target, with identical REST contracts (contract tests against v1 responses).
 - [ ] `/api/capabilities` implemented for the Node target. A `useCapabilities()` hook exists in the web app.
 - [ ] Sidebar Mode chip and Settings → Where Brew runs (`15:2010`) render from capabilities.
 
@@ -212,6 +212,8 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - 2026-11-25: Preserve `server/`, `shared/` and `web/vite.config.ts` as compatibility exports while implementation moves into workspaces — the v1 unit/e2e test cases and visual baselines remain unchanged. Hono and capabilities follow in the next M7 iterations.
 - 2026-11-25: Inject storage, search, fetch, XML parsing, clock, hash, regex and notification ports into core services — Node-only libraries and side effects remain in `targets/node`; the shared SQLite schema and migrations live in `packages/db`.
 - 2026-11-25: Copy migrations and SPA assets into the build and resolve them from module URLs — production startup works outside the repository working directory.
+- 2026-11-25: Hono owns every REST/media/event route in `packages/api`; keep Fastify as the Node socket, content parser and SPA host allowed by §5.1 — preserve v1 injection, parser limits, errors and production serving while the API stays portable. Service interfaces accept synchronous or asynchronous implementations for future targets.
+- 2026-11-25: Capture 96 golden REST responses from commit `8165e73` before replacing routes — compare real v1 bodies, statuses, media bytes and product headers, normalizing only validated timestamps, random undo tokens and timings.
 
 ### Discoveries / gotchas
 
@@ -222,7 +224,8 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 
 ### Dependency justifications
 
-- No new third-party packages. Existing dependencies are assigned to their owning workspaces; local @brew/core, @brew/db, @brew/web and @brew/node packages share the domain core and platform adapters.
+- M7.1 added no new third-party packages. Existing dependencies are assigned to their owning workspaces; local @brew/core, @brew/db, @brew/web and @brew/node packages share the domain core and platform adapters.
+- `hono`: portable Web Request/Response REST router shared by Node and future targets, required by M7.
 
 ### Iteration M7.1 — DONE (2026-11-25)
 
@@ -231,3 +234,11 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - Verified: clean `npm ci --no-audit --no-fund`; `npm run typecheck`; `npm run lint`; `npm test` (66 passed: 63 unchanged v1 cases plus 3 portability cases); `npm run test:e2e` (23 passed, including eight unchanged light/dark visual baselines, accessibility and performance); `npm run build` (compiled Node target loads migrations, SPA assets and API outside the repository cwd).
 - Discovery: the initial parallel e2e run captured the title list before its entry animation completed; the focused rerun and final full suite passed without baseline updates or test changes.
 - Next unchecked criterion: replace Fastify routes with Hono while preserving REST contracts. M7 remains in progress; M8–M20 are pending.
+
+### Iteration M7.2 — DONE (2026-11-25)
+
+- Completed: Hono API replaces all Fastify REST handlers, with injected service interfaces and Web Request/Response streams. Fastify retains only the Node transport bridge, content parsing and SPA hosting.
+- Files changed: `packages/api` (Hono router, route modules, service ports, security headers, event stream and browser-bundle test); `targets/node/src` (service/data adapters, transport bridge, broker lifecycle and route compatibility exports); `targets/node/contracts` (captured v1 corpus and provenance); Node contract/stream tests; workspace lockfile, Node manifest, server TypeScript config, README and this checklist.
+- Verified: `npm run typecheck`; `npm run lint`; `npm test` (171 passed, including 96 captured v1 contracts, five body-adaptation cases, API browser portability and three stream lifecycle cases); `npm run test:e2e` (23 passed, unchanged light/dark visual baselines, accessibility and performance); `npm run build` (compiled Hono API, migrations, SPA and assets verified outside repository cwd).
+- Discoveries: parsed JSON strings must be re-encoded when forwarded to Web Request; OPML accepts both XML text and a JSON string under the v1 contract. SSE cancellation must release subscriptions and heartbeat timers, and Node shutdown must close streams before waiting for sockets to drain. These cases are covered by regression tests.
+- Next unchecked criterion: Node `/api/capabilities` and the web `useCapabilities()` hook. M7 remains in progress; M8–M20 are pending.

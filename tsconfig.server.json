@@ -16,9 +16,8 @@
     "shared/**/*.ts",
     "targets/node/src/**/*.ts",
     "packages/core/src/**/*.ts",
-    "packages/db/src/**/*.ts"
+    "packages/db/src/**/*.ts",
+    "packages/api/src/**/*.ts"
   ],
-  "exclude": [
-    "**/*.test.ts"
-  ]
+  "exclude": ["**/*.test.ts"]
 }

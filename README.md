@@ -20,7 +20,8 @@ Brew fetches your RSS/Atom feeds, stores everything locally, lets you build rule
 │        │  HTTP (dev: Vite :4401 proxies → API :4400;       │
 │        │        prod: one Fastify process serves both)     │
 │        ▼                                                   │
-│   targets/node/ — Fastify API and platform adapters        │
+│   targets/node/ — Fastify transport and platform adapters  │
+│   packages/api/ — portable Hono REST router                │
 │   packages/core/ — rules, ingest, search, Brew composition │
 │   packages/db/ — shared Drizzle schema and SQL migrations  │
 │        │                                                   │
@@ -35,7 +36,7 @@ Brew fetches your RSS/Atom feeds, stores everything locally, lets you build rule
       the feeds you subscribe to
 ```
 
-Why it's shaped this way: npm workspaces keep one domain core usable in Node, Workers, the browser and CI. The core uses storage, search, fetch, clock, hash and regex ports; the Node target supplies SQLite and platform operations. Production still runs one process (Fastify serves the compiled SPA and the API) with one file of state (SQLite + WAL). The only network traffic is Brew fetching your feeds.
+Why it's shaped this way: npm workspaces keep one domain core usable in Node, Workers, the browser and CI. The core uses storage, search, fetch, clock, hash and regex ports; the Node target supplies SQLite and platform operations. Hono owns REST routing through injected service interfaces. Production still runs one process (Fastify hosts Hono and the compiled SPA) with one file of state (SQLite + WAL). The only network traffic is Brew fetching your feeds.
 
 ## Getting started (from zero)
 
@@ -80,8 +81,9 @@ Environment knobs: `BREW_DB_PATH` points at a different SQLite file; set `NODE_E
 ```
 packages/core/   portable domain services, ports and shared types
 packages/db/     canonical Drizzle SQLite schema and SQL migrations
+packages/api/    Hono REST router with target-independent service interfaces
 packages/web/    React SPA and Vite configuration
-targets/node/   Fastify API, SQLite, feed fetching and platform adapters
+targets/node/   Fastify transport, SQLite, feed fetching and platform adapters
 server/         unchanged v1 unit tests, fixtures and compatibility exports
 web/e2e/        unchanged Playwright tests and visual baselines
 shared/         compatibility exports for v1 type imports

@@ -1,0 +1,14 @@
+{
+  "name": "@brew/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/app.ts",
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@brew/core": "0.1.0",
+    "hono": "^4.13.22"
+  }
+}

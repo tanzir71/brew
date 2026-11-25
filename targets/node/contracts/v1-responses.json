@@ -1,0 +1,1723 @@
+[
+  {
+    "name": "health",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "ok": true
+    }
+  },
+  {
+    "name": "feeds",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": [
+      {
+        "id": 1,
+        "folderId": 1,
+        "url": "https://contract.test/feed",
+        "siteUrl": "https://contract.test",
+        "title": "Journal",
+        "description": null,
+        "fetchIntervalMinutes": 30,
+        "retentionDays": 90,
+        "lastFetchedAt": null,
+        "lastStatus": null,
+        "consecutiveFailures": 0,
+        "failingSince": null,
+        "healthWarning": false
+      }
+    ]
+  },
+  {
+    "name": "folders",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": [
+      {
+        "id": 1,
+        "title": "Design",
+        "position": 0
+      }
+    ]
+  },
+  {
+    "name": "discover",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "candidates": [
+        {
+          "url": "https://contract.test/feed",
+          "title": "Contract feed",
+          "type": "rss"
+        }
+      ]
+    }
+  },
+  {
+    "name": "discover missing url",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "url is required"
+    }
+  },
+  {
+    "name": "add feed",
+    "status": 201,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "id": 2,
+      "folderId": 1,
+      "url": "https://new.test/feed",
+      "siteUrl": "https://contract.test",
+      "title": "Contract feed",
+      "description": "Feed description",
+      "fetchIntervalMinutes": 30,
+      "retentionDays": 90,
+      "lastFetchedAt": null,
+      "lastStatus": null,
+      "consecutiveFailures": 0,
+      "failingSince": null,
+      "healthWarning": false
+    }
+  },
+  {
+    "name": "duplicate feed",
+    "status": 409,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Feed already exists"
+    }
+  },
+  {
+    "name": "invalid feed URL",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Only HTTP and HTTPS URLs are supported"
+    }
+  },
+  {
+    "name": "rename feed",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "id": 1,
+      "folderId": null,
+      "url": "https://contract.test/feed",
+      "siteUrl": "https://contract.test",
+      "title": "Renamed",
+      "description": null,
+      "fetchIntervalMinutes": 30,
+      "retentionDays": 90,
+      "lastFetchedAt": null,
+      "lastStatus": null,
+      "consecutiveFailures": 0,
+      "failingSince": null,
+      "healthWarning": false
+    }
+  },
+  {
+    "name": "rename missing feed",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Feed not found"
+    }
+  },
+  {
+    "name": "rename blank feed",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "title is required"
+    }
+  },
+  {
+    "name": "delete feed",
+    "status": 204,
+    "headers": {
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": ""
+  },
+  {
+    "name": "delete missing feed",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Feed not found"
+    }
+  },
+  {
+    "name": "retention",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "id": 1,
+      "folderId": 1,
+      "url": "https://contract.test/feed",
+      "siteUrl": "https://contract.test",
+      "title": "Journal",
+      "description": null,
+      "fetchIntervalMinutes": 30,
+      "retentionDays": 30,
+      "lastFetchedAt": null,
+      "lastStatus": null,
+      "consecutiveFailures": 0,
+      "failingSince": null,
+      "healthWarning": false
+    }
+  },
+  {
+    "name": "invalid retention",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Retention must be 1–3650 days"
+    }
+  },
+  {
+    "name": "favicon",
+    "status": 200,
+    "headers": {
+      "content-type": "image/png",
+      "cache-control": "private, max-age=86400",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": [
+      1,
+      2,
+      3
+    ]
+  },
+  {
+    "name": "missing favicon",
+    "status": 404,
+    "headers": {
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": ""
+  },
+  {
+    "name": "create folder",
+    "status": 201,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "id": 2,
+      "title": "New",
+      "position": 1,
+      "createdAt": "<timestamp>"
+    }
+  },
+  {
+    "name": "blank folder",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "title is required"
+    }
+  },
+  {
+    "name": "rename folder",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "id": 1,
+      "title": "New name",
+      "position": 0,
+      "createdAt": "<timestamp>"
+    }
+  },
+  {
+    "name": "rename missing folder",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Folder not found"
+    }
+  },
+  {
+    "name": "delete folder",
+    "status": 204,
+    "headers": {
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": ""
+  },
+  {
+    "name": "delete missing folder",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Folder not found"
+    }
+  },
+  {
+    "name": "navigation",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "counts": {
+        "all": 2,
+        "today": 1,
+        "starred": 1
+      },
+      "folders": [
+        {
+          "id": 1,
+          "title": "Design",
+          "unreadCount": 2,
+          "feeds": [
+            {
+              "id": 1,
+              "folderId": 1,
+              "title": "Journal",
+              "unreadCount": 2,
+              "muted": false
+            }
+          ]
+        }
+      ],
+      "unfiled": []
+    }
+  },
+  {
+    "name": "articles",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "items": [
+        {
+          "id": 1,
+          "url": "https://contract.test/one",
+          "title": "Design story",
+          "author": null,
+          "summaryHtml": null,
+          "imageUrl": null,
+          "highlightColor": null,
+          "enclosureUrl": null,
+          "enclosureType": null,
+          "publishedAt": "2026-11-25T10:00:00.000Z",
+          "readAt": null,
+          "starredAt": null,
+          "feedId": 1,
+          "feedTitle": "Journal",
+          "folderId": 1,
+          "folderTitle": "Design"
+        },
+        {
+          "id": 2,
+          "url": "https://contract.test/two",
+          "title": "Earlier story",
+          "author": null,
+          "summaryHtml": null,
+          "imageUrl": null,
+          "highlightColor": null,
+          "enclosureUrl": null,
+          "enclosureType": null,
+          "publishedAt": "2026-11-23T10:00:00.000Z",
+          "readAt": null,
+          "starredAt": "<timestamp>",
+          "feedId": 1,
+          "feedTitle": "Journal",
+          "folderId": 1,
+          "folderTitle": "Design"
+        }
+      ],
+      "nextCursor": null
+    }
+  },
+  {
+    "name": "today",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "items": [
+        {
+          "id": 1,
+          "url": "https://contract.test/one",
+          "title": "Design story",
+          "author": null,
+          "summaryHtml": null,
+          "imageUrl": null,
+          "highlightColor": null,
+          "enclosureUrl": null,
+          "enclosureType": null,
+          "publishedAt": "2026-11-25T10:00:00.000Z",
+          "readAt": null,
+          "starredAt": null,
+          "feedId": 1,
+          "feedTitle": "Journal",
+          "folderId": 1,
+          "folderTitle": "Design"
+        }
+      ],
+      "nextCursor": null
+    }
+  },
+  {
+    "name": "starred",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "items": [
+        {
+          "id": 2,
+          "url": "https://contract.test/two",
+          "title": "Earlier story",
+          "author": null,
+          "summaryHtml": null,
+          "imageUrl": null,
+          "highlightColor": null,
+          "enclosureUrl": null,
+          "enclosureType": null,
+          "publishedAt": "2026-11-23T10:00:00.000Z",
+          "readAt": null,
+          "starredAt": "<timestamp>",
+          "feedId": 1,
+          "feedTitle": "Journal",
+          "folderId": 1,
+          "folderTitle": "Design"
+        }
+      ],
+      "nextCursor": null
+    }
+  },
+  {
+    "name": "oldest filtered page",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "items": [
+        {
+          "id": 2,
+          "url": "https://contract.test/two",
+          "title": "Earlier story",
+          "author": null,
+          "summaryHtml": null,
+          "imageUrl": null,
+          "highlightColor": null,
+          "enclosureUrl": null,
+          "enclosureType": null,
+          "publishedAt": "2026-11-23T10:00:00.000Z",
+          "readAt": null,
+          "starredAt": "<timestamp>",
+          "feedId": 1,
+          "feedTitle": "Journal",
+          "folderId": 1,
+          "folderTitle": "Design"
+        }
+      ],
+      "nextCursor": "1795428000000:2"
+    }
+  },
+  {
+    "name": "invalid view",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Invalid article view"
+    }
+  },
+  {
+    "name": "invalid sort",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Invalid sort order"
+    }
+  },
+  {
+    "name": "invalid cursor",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Invalid cursor"
+    }
+  },
+  {
+    "name": "article",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "id": 1,
+      "title": "Design story",
+      "author": null,
+      "summaryHtml": null,
+      "contentHtml": "<p>Thoughtful reading.</p>",
+      "fullTextHtml": null,
+      "imageUrl": null,
+      "highlightColor": null,
+      "enclosureUrl": null,
+      "enclosureType": null,
+      "url": "https://contract.test/one",
+      "publishedAt": "2026-11-25T10:00:00.000Z",
+      "readAt": null,
+      "starredAt": null,
+      "feedId": 1,
+      "feedTitle": "Journal",
+      "folderId": 1,
+      "folderTitle": "Design",
+      "readTimeMinutes": 1,
+      "tags": []
+    }
+  },
+  {
+    "name": "missing article",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Article not found"
+    }
+  },
+  {
+    "name": "mark article",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "id": 1,
+      "title": "Design story",
+      "author": null,
+      "summaryHtml": null,
+      "contentHtml": "<p>Thoughtful reading.</p>",
+      "fullTextHtml": null,
+      "imageUrl": null,
+      "highlightColor": null,
+      "enclosureUrl": null,
+      "enclosureType": null,
+      "url": "https://contract.test/one",
+      "publishedAt": "2026-11-25T10:00:00.000Z",
+      "readAt": "<timestamp>",
+      "starredAt": "<timestamp>",
+      "feedId": 1,
+      "feedTitle": "Journal",
+      "folderId": 1,
+      "folderTitle": "Design",
+      "readTimeMinutes": 1,
+      "tags": []
+    }
+  },
+  {
+    "name": "invalid article state",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "A read or starred state is required"
+    }
+  },
+  {
+    "name": "missing article state",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Article not found"
+    }
+  },
+  {
+    "name": "hidden articles",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": [
+      {
+        "id": 3,
+        "title": "Hidden story",
+        "feedTitle": "Journal",
+        "publishedAt": 1795597200000
+      }
+    ]
+  },
+  {
+    "name": "unhide",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "ok": true
+    }
+  },
+  {
+    "name": "unhide missing",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Article not found"
+    }
+  },
+  {
+    "name": "bulk read",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "updated": 2,
+      "undoToken": "<token>",
+      "expiresAt": "<timestamp>"
+    }
+  },
+  {
+    "name": "invalid bulk view",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Invalid article view"
+    }
+  },
+  {
+    "name": "undo missing token",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "undoToken is required"
+    }
+  },
+  {
+    "name": "undo expired token",
+    "status": 410,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Undo window has expired"
+    }
+  },
+  {
+    "name": "missing full text",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Article not found"
+    }
+  },
+  {
+    "name": "tags",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": [
+      {
+        "id": 1,
+        "name": "Keep",
+        "color": "#123456"
+      }
+    ]
+  },
+  {
+    "name": "create tag",
+    "status": 201,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "id": 2,
+      "name": "Read next",
+      "color": "#b45309"
+    }
+  },
+  {
+    "name": "blank tag",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Tag name is required"
+    }
+  },
+  {
+    "name": "set tags",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "id": 1,
+      "title": "Design story",
+      "author": null,
+      "summaryHtml": null,
+      "contentHtml": "<p>Thoughtful reading.</p>",
+      "fullTextHtml": null,
+      "imageUrl": null,
+      "highlightColor": null,
+      "enclosureUrl": null,
+      "enclosureType": null,
+      "url": "https://contract.test/one",
+      "publishedAt": "2026-11-25T10:00:00.000Z",
+      "readAt": null,
+      "starredAt": null,
+      "feedId": 1,
+      "feedTitle": "Journal",
+      "folderId": 1,
+      "folderTitle": "Design",
+      "readTimeMinutes": 1,
+      "tags": [
+        {
+          "id": 1,
+          "name": "Keep",
+          "color": "#123456"
+        }
+      ]
+    }
+  },
+  {
+    "name": "unknown tag",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "One or more tags do not exist"
+    }
+  },
+  {
+    "name": "invalid tags",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "tagIds must be an array of integers"
+    }
+  },
+  {
+    "name": "search",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer",
+      "server-timing": "search;dur=<duration>"
+    },
+    "body": {
+      "items": [
+        {
+          "id": 1,
+          "url": "https://contract.test/one",
+          "title": "Design story",
+          "author": null,
+          "summaryHtml": null,
+          "imageUrl": null,
+          "highlightColor": null,
+          "enclosureUrl": null,
+          "enclosureType": null,
+          "publishedAt": "2026-11-25T10:00:00.000Z",
+          "readAt": null,
+          "starredAt": null,
+          "feedId": 1,
+          "feedTitle": "Journal",
+          "folderId": 1,
+          "folderTitle": "Design"
+        }
+      ],
+      "nextOffset": null,
+      "durationMs": "<duration>"
+    }
+  },
+  {
+    "name": "folder search",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer",
+      "server-timing": "search;dur=<duration>"
+    },
+    "body": {
+      "items": [
+        {
+          "id": 2,
+          "url": "https://contract.test/two",
+          "title": "Earlier story",
+          "author": null,
+          "summaryHtml": null,
+          "imageUrl": null,
+          "highlightColor": null,
+          "enclosureUrl": null,
+          "enclosureType": null,
+          "publishedAt": "2026-11-23T10:00:00.000Z",
+          "readAt": null,
+          "starredAt": "<timestamp>",
+          "feedId": 1,
+          "feedTitle": "Journal",
+          "folderId": 1,
+          "folderTitle": "Design"
+        }
+      ],
+      "nextOffset": 1,
+      "durationMs": "<duration>"
+    }
+  },
+  {
+    "name": "invalid search scope",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Invalid search scope"
+    }
+  },
+  {
+    "name": "search missing folder",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "folderId is required for folder search"
+    }
+  },
+  {
+    "name": "duplicate filter",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "enabled": false
+    }
+  },
+  {
+    "name": "set duplicate filter",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "enabled": true
+    }
+  },
+  {
+    "name": "rules",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": [
+      {
+        "id": 1,
+        "name": "Design",
+        "enabled": true,
+        "position": 0,
+        "matchType": "all",
+        "scope": {},
+        "conditions": [
+          {
+            "field": "title",
+            "operator": "contains",
+            "value": "Design"
+          }
+        ],
+        "actions": [
+          {
+            "type": "star"
+          }
+        ],
+        "stopProcessing": false,
+        "hits24h": 0,
+        "hits30d": 0
+      }
+    ]
+  },
+  {
+    "name": "create rule",
+    "status": 201,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "id": 2,
+      "name": "Design",
+      "enabled": true,
+      "position": 1,
+      "matchType": "all",
+      "scope": {},
+      "conditions": [
+        {
+          "field": "title",
+          "operator": "contains",
+          "value": "Design"
+        }
+      ],
+      "actions": [
+        {
+          "type": "star"
+        }
+      ],
+      "stopProcessing": false,
+      "hits24h": 0,
+      "hits30d": 0
+    }
+  },
+  {
+    "name": "invalid rule",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Rule name is required"
+    }
+  },
+  {
+    "name": "update rule",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "id": 1,
+      "name": "Renamed",
+      "enabled": true,
+      "position": 0,
+      "matchType": "all",
+      "scope": {},
+      "conditions": [
+        {
+          "field": "title",
+          "operator": "contains",
+          "value": "Design"
+        }
+      ],
+      "actions": [
+        {
+          "type": "star"
+        }
+      ],
+      "stopProcessing": false,
+      "hits24h": 0,
+      "hits30d": 0
+    }
+  },
+  {
+    "name": "missing rule",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Rule not found"
+    }
+  },
+  {
+    "name": "delete rule",
+    "status": 204,
+    "headers": {
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": ""
+  },
+  {
+    "name": "delete missing rule",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Rule not found"
+    }
+  },
+  {
+    "name": "rule logs",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": []
+  },
+  {
+    "name": "preview rule",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "items": [
+        {
+          "id": 1,
+          "title": "Design story",
+          "feedTitle": "Journal",
+          "publishedAt": "2026-11-25T10:00:00.000Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "apply rule",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "matched": 1
+    }
+  },
+  {
+    "name": "apply missing rule",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Rule not found"
+    }
+  },
+  {
+    "name": "brew configs",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": [
+      {
+        "id": 1,
+        "name": "Weekend",
+        "scheduleCron": "0 7 * * *",
+        "enabled": true,
+        "sections": [
+          {
+            "id": "one",
+            "title": "Stories",
+            "source": "feed",
+            "sourceId": 1,
+            "maxItems": 5,
+            "layout": "list",
+            "sort": "newest",
+            "onlyUnread": false
+          }
+        ],
+        "createdAt": "<timestamp>"
+      }
+    ]
+  },
+  {
+    "name": "create Brew",
+    "status": 201,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "id": 2,
+      "name": "Weekend",
+      "scheduleCron": "0 7 * * *",
+      "enabled": true,
+      "sections": [
+        {
+          "id": "one",
+          "title": "Stories",
+          "source": "feed",
+          "sourceId": 1,
+          "maxItems": 5,
+          "layout": "list",
+          "sort": "newest",
+          "onlyUnread": false
+        }
+      ],
+      "createdAt": "<timestamp>"
+    }
+  },
+  {
+    "name": "invalid Brew",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Brew name is required"
+    }
+  },
+  {
+    "name": "update Brew",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "id": 1,
+      "name": "Updated",
+      "scheduleCron": "0 7 * * *",
+      "enabled": true,
+      "sections": [
+        {
+          "id": "one",
+          "title": "Stories",
+          "source": "feed",
+          "sourceId": 1,
+          "maxItems": 5,
+          "layout": "list",
+          "sort": "newest",
+          "onlyUnread": false
+        }
+      ],
+      "createdAt": "<timestamp>"
+    }
+  },
+  {
+    "name": "missing Brew",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Brew not found"
+    }
+  },
+  {
+    "name": "delete Brew",
+    "status": 204,
+    "headers": {
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": ""
+  },
+  {
+    "name": "delete missing Brew",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Brew not found"
+    }
+  },
+  {
+    "name": "generate Brew",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "id": 1,
+      "brewConfigId": 1,
+      "generatedAt": "<timestamp>",
+      "scrollPosition": 0,
+      "configName": "Weekend",
+      "sections": [
+        {
+          "id": "one",
+          "title": "Stories",
+          "source": "feed",
+          "sourceId": 1,
+          "maxItems": 5,
+          "layout": "list",
+          "sort": "newest",
+          "onlyUnread": false,
+          "items": [
+            {
+              "id": 1,
+              "title": "Design story",
+              "url": "https://contract.test/one",
+              "author": null,
+              "summaryHtml": null,
+              "imageUrl": null,
+              "publishedAt": "2026-11-25T10:00:00.000Z",
+              "readAt": null,
+              "feedTitle": "Journal",
+              "readTimeMinutes": 1
+            },
+            {
+              "id": 2,
+              "title": "Earlier story",
+              "url": "https://contract.test/two",
+              "author": null,
+              "summaryHtml": null,
+              "imageUrl": null,
+              "publishedAt": "2026-11-23T10:00:00.000Z",
+              "readAt": null,
+              "feedTitle": "Journal",
+              "readTimeMinutes": 1
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "generate missing Brew",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Brew not found"
+    }
+  },
+  {
+    "name": "history",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": []
+  },
+  {
+    "name": "missing snapshot",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Snapshot not found"
+    }
+  },
+  {
+    "name": "scroll",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "ok": true
+    }
+  },
+  {
+    "name": "OPML export",
+    "status": 200,
+    "headers": {
+      "content-type": "text/x-opml; charset=utf-8",
+      "content-disposition": "attachment; filename=\"brew-subscriptions.opml\"",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<opml version=\"2.0\">\n  <head><title>Brew subscriptions</title></head>\n  <body>\n    <outline text=\"Design\" title=\"Design\">\n      <outline type=\"rss\" text=\"Journal\" title=\"Journal\" xmlUrl=\"https://contract.test/feed\" htmlUrl=\"https://contract.test\"/>\n    </outline>\n  </body>\n</opml>\n"
+  },
+  {
+    "name": "OPML import",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "imported": 1,
+      "skipped": 0,
+      "foldersCreated": 1
+    }
+  },
+  {
+    "name": "invalid OPML",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Invalid OPML document"
+    }
+  },
+  {
+    "name": "poll",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "feedId": 1,
+      "status": 200,
+      "newItems": 1,
+      "outcome": "success"
+    }
+  },
+  {
+    "name": "poll missing feed",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Feed not found"
+    }
+  },
+  {
+    "name": "image",
+    "status": 200,
+    "headers": {
+      "content-type": "image/png",
+      "cache-control": "private, max-age=86400",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": [
+      1,
+      2,
+      3
+    ]
+  },
+  {
+    "name": "image without src",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "src is required"
+    }
+  },
+  {
+    "name": "invalid image URL",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "Unsupported image URL"
+    }
+  },
+  {
+    "name": "audio",
+    "status": 200,
+    "headers": {
+      "content-type": "audio/mpeg",
+      "cache-control": "private, max-age=86400",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": [
+      4,
+      5,
+      6
+    ]
+  },
+  {
+    "name": "missing audio",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "error": "src is required"
+    }
+  },
+  {
+    "name": "unknown API route",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "message": "Route GET:/api/unknown not found",
+      "error": "Not Found",
+      "statusCode": 404
+    }
+  },
+  {
+    "name": "unsupported method",
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "message": "Route POST:/api/health not found",
+      "error": "Not Found",
+      "statusCode": 404
+    }
+  },
+  {
+    "name": "malformed JSON",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "statusCode": 400,
+      "code": "FST_ERR_CTP_INVALID_JSON_BODY",
+      "error": "Bad Request",
+      "message": "Body is not valid JSON but content-type is set to 'application/json'"
+    }
+  },
+  {
+    "name": "empty JSON",
+    "status": 400,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "statusCode": 400,
+      "code": "FST_ERR_CTP_EMPTY_JSON_BODY",
+      "error": "Bad Request",
+      "message": "Body cannot be empty when content-type is set to 'application/json'"
+    }
+  },
+  {
+    "name": "unsupported content type",
+    "status": 415,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "statusCode": 415,
+      "code": "FST_ERR_CTP_INVALID_MEDIA_TYPE",
+      "error": "Unsupported Media Type",
+      "message": "Unsupported Media Type"
+    }
+  },
+  {
+    "name": "invalid Brew update",
+    "status": 500,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": {
+      "statusCode": 500,
+      "error": "Internal Server Error",
+      "message": "Brew name is required"
+    }
+  },
+  {
+    "name": "HEAD health",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer"
+    },
+    "body": ""
+  }
+]

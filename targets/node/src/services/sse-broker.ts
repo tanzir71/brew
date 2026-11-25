@@ -1,10 +1,25 @@
-import type { ServerResponse } from 'node:http';
+import type { EventsPort } from '../../../../packages/api/src/ports.js';
 
-export class SseBroker {
-  private readonly clients = new Set<ServerResponse>();
-  add(response: ServerResponse): () => void { this.clients.add(response); return () => this.clients.delete(response); }
+export class SseBroker implements EventsPort {
+  private readonly clients = new Map<(event: string, data: unknown) => void, () => void>();
+  subscribe(listener: (event: string, data: unknown) => void, onClose: () => void): () => void {
+    this.clients.set(listener, onClose);
+    return () => {
+      this.clients.delete(listener);
+    };
+  }
   publish(event: string, data: unknown): void {
-    const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-    for (const client of this.clients) { try { client.write(payload); } catch { this.clients.delete(client); } }
+    for (const [write, close] of this.clients) {
+      try {
+        write(event, data);
+      } catch {
+        close();
+        this.clients.delete(write);
+      }
+    }
+  }
+  close(): void {
+    for (const close of this.clients.values()) close();
+    this.clients.clear();
   }
 }
