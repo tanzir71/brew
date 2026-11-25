@@ -1,10 +1,11 @@
 import { marked } from 'marked';
+import { Temporal } from '@js-temporal/polyfill';
 import { outputColors } from './output-colors.generated.js';
 import { sanitizeArticleHtml } from './html-sanitizer.js';
 import { validateComposition } from './composition-model.js';
 import { nextBrewAt, weekdayAt } from './brew-schedule.js';
 import { matchingContexts } from './rule-matching.js';
-import type { BrewStoragePort, ClockPort, RegexPort, BrewCandidate } from './ports.js';
+import type { BrewPreviewStoragePort, ClockPort, RegexPort, BrewCandidate } from './ports.js';
 import type {
   BrewConfigDraft,
   BrewPreview,
@@ -36,6 +37,17 @@ const text = (html: string) =>
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+
+export function parsePreviewTime(at: unknown): Date {
+  try {
+    if (typeof at !== 'string') throw new Error();
+    const value = new Date(Temporal.Instant.from(at).epochMilliseconds);
+    if (!Number.isFinite(value.getTime())) throw new Error();
+    return value;
+  } catch {
+    throw new Error('Choose a valid preview time with Z or a UTC offset.');
+  }
+}
 
 export function previewOutputs(snapshot: BrewSnapshot): BrewPreview['outputs'] {
   const date = new Intl.DateTimeFormat('en-GB', {
@@ -71,13 +83,17 @@ export function previewOutputs(snapshot: BrewSnapshot): BrewPreview['outputs'] {
 }
 export class CompositionPreview {
   constructor(
-    private storage: BrewStoragePort,
+    private storage: BrewPreviewStoragePort,
     private clock: ClockPort,
     private regex: RegexPort,
   ) {}
   async build(draft: BrewConfigDraft, configId = 0, at?: Date): Promise<BrewPreview> {
     validateComposition(draft);
-    const when = at ?? nextBrewAt(draft.schedule, draft.timezone, this.clock.now());
+    // A caller can keep editing while an asynchronous section filter is running.
+    draft = structuredClone(draft);
+    const when = new Date(
+      (at ?? nextBrewAt(draft.schedule, draft.timezone, this.clock.now())).getTime(),
+    );
     if (!Number.isFinite(when.getTime())) throw new Error('Choose a valid preview time.');
     const warnings: string[] = [];
     const sections: BrewSnapshotSection[] = [];

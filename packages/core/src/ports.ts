@@ -95,6 +95,10 @@ export interface BrewStoragePort {
   setting(key: string): string | undefined;
   setSetting(key: string, value: string): void;
 }
+export type BrewPreviewStoragePort = Pick<
+  BrewStoragePort,
+  'compositionItems' | 'savedSourceSearch' | 'nextIssueNumber'
+>;
 export interface BrewItemQuery {
   onlyUnread: boolean;
   searchQuery?: string;

@@ -88,13 +88,11 @@ export function registerBrewRoutes(
     }
   });
   app.post('/api/brew-configs/:id/preview', async (c) => {
+    c.header('Cache-Control', 'no-store');
     try {
-      const input = await body<{ draft: CompositionDraft; at?: string }>(c);
-      c.header('Cache-Control', 'no-store');
-      return json(
-        c,
-        await service.previewComposition(input.draft, Number(c.req.param('id')), input.at),
-      );
+      const input = await body<{ draft?: CompositionDraft; at?: string }>(c);
+      const preview = await service.previewBrew(Number(c.req.param('id')), input.at, input.draft);
+      return preview ? json(c, preview) : json(c, { error: 'Brew not found' }, 404);
     } catch (error) {
       return json(c, { error: errorMessage(error, 'Could not preview the Brew') }, 422);
     }

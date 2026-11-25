@@ -150,6 +150,20 @@ while adding the canonical Compose model. Node applies its portable data step
 (`packages/db/src/composition-migration.ts`) in the same transaction as the SQL;
 future targets must do the same. Old REST config routes retain their v1 shape;
 Compose uses `/api/brew-configs/:id/composition` and `POST .../:id/preview`.
+For a dry run, post `{ "at": "2026-11-27T07:00:00+06:00" }` to
+`/api/brew-configs/:id/preview`. The saved Brew is used unless an optional `draft`
+is supplied. Timestamps must include `Z` or a UTC offset; impossible dates and
+ambiguous local times are rejected. Omitting `at` previews the next proposed
+scheduled time, including for a paused Brew. The core `previewBrew(id, at?, draft?)`
+method exposes the same behavior for future tool adapters.
+
+Dry runs use the current library, restricted to articles published by `at`, with
+rolling 24-hour Today and seven-day Weekly review windows. Per-section days use
+the Brew's IANA zone. They do not reconstruct past read/star state or fetch future
+articles. Previewing does not save a config or issue, consume an issue number,
+send mail, run a webhook or prune the archive. Stored issue content stays frozen
+when library articles or Compose settings change.
+
 Add source discovers feeds from websites and native YouTube, Mastodon, Bluesky,
 subreddit and podcast URLs. It validates feed responses before offering them,
 with multi-select, library filters and capability-gated newsletter address copy.

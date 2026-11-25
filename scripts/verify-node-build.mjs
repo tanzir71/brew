@@ -70,6 +70,25 @@ try {
   assert.equal(preview.statusCode, 200);
   assert.equal(preview.json().snapshot.version, 2);
   assert.match(preview.json().outputs.feed, /<feed xmlns=/);
+  const savedPreview = await app.inject({
+    method: 'POST',
+    url: `/api/brew-configs/${composed.json().id}/preview`,
+    payload: { at: '2026-11-25T07:00:00+06:00' },
+  });
+  assert.equal(savedPreview.statusCode, 200);
+  assert.equal(savedPreview.headers['cache-control'], 'no-store');
+  assert.deepEqual(savedPreview.json(), preview.json());
+  assert.deepEqual(
+    (await app.inject(`/api/brew-configs/${composed.json().id}/history`)).json(),
+    [],
+  );
+  const ambiguousPreview = await app.inject({
+    method: 'POST',
+    url: `/api/brew-configs/${composed.json().id}/preview`,
+    payload: { at: '2026-11-25T07:00:00' },
+  });
+  assert.equal(ambiguousPreview.statusCode, 422);
+  assert.equal(ambiguousPreview.headers['cache-control'], 'no-store');
   const schedule = await app.inject({
     method: 'POST',
     url: `/api/brew-configs/${composed.json().id}/schedule-preview`,

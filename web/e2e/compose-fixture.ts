@@ -10,11 +10,14 @@ export async function composeFixture(
   page: Page,
   theme = 'light',
   fetcher?: typeof fetch,
-  runtime: Pick<NonNullable<Parameters<typeof createApp>[0]>, 'clock' | 'outboundMail'> = {},
+  runtime: Pick<NonNullable<Parameters<typeof createApp>[0]>, 'clock' | 'outboundMail'> & {
+    previewAt?: () => string;
+  } = {},
 ) {
   process.env.NODE_ENV = 'test';
   const database = openDatabase(':memory:');
-  const app = await createApp({ database, fetcher, ...runtime });
+  const { previewAt, ...options } = runtime;
+  const app = await createApp({ database, fetcher, ...options });
   const design = database.db.insert(folders).values({ title: 'Design' }).returning().get();
   const independent = database.db
     .insert(folders)
@@ -148,7 +151,10 @@ export async function composeFixture(
       }
     }
     if (url.pathname.endsWith('/preview')) {
-      payload = JSON.stringify({ ...JSON.parse(payload!), at: '2026-11-25T01:00:00Z' });
+      payload = JSON.stringify({
+        ...JSON.parse(payload!),
+        at: previewAt?.() ?? '2026-11-25T01:00:00Z',
+      });
       if (pausePreview) {
         const pause = pausePreview;
         pausePreview = null;

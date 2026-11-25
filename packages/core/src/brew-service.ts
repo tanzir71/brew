@@ -16,7 +16,7 @@ import {
   validateBrewSchedule,
   BREW_RETENTION_DAYS,
 } from './composition-model.js';
-import { CompositionPreview } from './composition-preview.js';
+import { CompositionPreview, parsePreviewTime } from './composition-preview.js';
 import { nextBrewAt } from './brew-schedule.js';
 
 export class BrewService {
@@ -139,8 +139,13 @@ export class BrewService {
     return new CompositionPreview(this.storage, this.clock, this.regex).build(
       draft,
       id,
-      at === undefined ? undefined : new Date(at),
+      at === undefined ? undefined : parsePreviewTime(at),
     );
+  }
+  async previewBrew(id: number, at?: string, draft?: CompositionDraft) {
+    const config = Number.isSafeInteger(id) && id > 0 ? this.composition(id) : null;
+    if (!config) return null;
+    return this.previewComposition(draft === undefined ? config : draft, id, at);
   }
   async generateComposition(id: number) {
     const config = this.composition(id);
