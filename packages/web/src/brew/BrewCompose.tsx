@@ -8,7 +8,7 @@ import type {
   BrewPreview,
 } from '@brew/core/types/brew';
 import type { ReaderNavigation, TagSummary } from '@brew/core/types/api';
-import { newBrewSection } from '@brew/core/composition-model';
+import { newBrewSection, sectionWithSources } from '@brew/core/composition-model';
 import { Button, Chip, IconButton, Input, SegmentedControl, Toggle } from '../components/controls';
 import { SectionCard, SentenceToken, Stepper, Select, TopBar } from '../components/patterns';
 import { ModalSheet } from '../components/Sheet';
@@ -18,6 +18,18 @@ import { useCapabilities } from '../hooks/useCapabilities';
 import { ComposePreview } from './ComposePreview';
 import { composeJson, useComposeDraft } from './useComposeDraft';
 import { SourcePicker, ScheduleEditor } from './CompositionSheets';
+
+function newsletterSourceName(source: BrewSourceRef): string {
+  const choices = [
+    source.senderIds?.length
+      ? `${source.senderIds.length} sender${source.senderIds.length === 1 ? '' : 's'}`
+      : '',
+    source.tagIds?.length
+      ? `${source.tagIds.length} tag${source.tagIds.length === 1 ? '' : 's'}`
+      : '',
+  ].filter(Boolean);
+  return choices.length ? `Newsletters · ${choices.join(' · ')}` : 'All senders';
+}
 
 type Props = {
   id: number;
@@ -127,7 +139,7 @@ function ComposeEditor({ initial, ...props }: Props & { initial: BrewConfig }) {
               starred: 'Starred',
               featured: 'Featured by rules',
               weekly_review: 'Weekly review',
-              newsletters: 'All senders',
+              newsletters: newsletterSourceName(source),
               saved_search:
                 searches.data?.find((search) => search.id === source.id)?.name ?? 'Saved search',
             }[source.kind];
@@ -600,7 +612,7 @@ function ComposeEditor({ initial, ...props }: Props & { initial: BrewConfig }) {
           section={active}
           onClose={() => showSheet(null)}
           onApply={(sources) => {
-            sectionUpdate(active.id, { sources });
+            sectionUpdate(active.id, sectionWithSources(active, sources));
             showSheet(null);
           }}
         />

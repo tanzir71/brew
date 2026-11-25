@@ -102,6 +102,7 @@ export type BrewPreviewStoragePort = Pick<
 export interface BrewItemQuery {
   onlyUnread: boolean;
   searchQuery?: string;
+  newsletters?: { senderIds?: number[]; tagIds?: number[] };
   folderId?: number;
   feedId?: number;
   tagId?: number;

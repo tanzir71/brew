@@ -255,6 +255,19 @@ the sender to a managed Grid section without changing saved issues or custom sou
 lists and bulk-read actions. Newsletters, search, direct sender access and Starred remain
 available. Deleting the assigned Brew clears that restriction.
 
+In Compose, open **+ Source → Newsletters** to follow all senders (including future
+senders), or choose individual senders and tags. A filtered newsletter source includes
+letters from any chosen sender **or** carrying any chosen tag; an RSS story with the
+same tag is excluded. Retained letters remain eligible after Skip or Block; Block stops
+future deliveries. Section unread/filter/date/order/item-limit settings still apply.
+Choosing newsletter-only sources for the first time initializes the default Magazine
+layout to Grid; later layout choices and mixed-source sections keep their layout.
+
+Composition JSON stores one newsletter source per section, for example
+`{"kind":"newsletters","senderIds":[12],"tagIds":[3]}`. Omitted selectors mean all senders. Each supplied selector is a
+nonempty list of up to 500 unique positive IDs; missing/deleted IDs match nothing and
+remain visible for removal in the picker. No database migration is needed.
+
 The address card reflects the configured mail capability and copies the receiving address.
 **Forward from Gmail** explains address verification and a narrow forwarding filter for
 new mail; it does not use OAuth or connect your Google account. Unconfigured instances

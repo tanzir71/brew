@@ -6,6 +6,7 @@ import process from 'node:process';
 import { createApp } from '../dist/targets/node/src/app.js';
 import { openDatabase } from '../dist/targets/node/src/db/database.js';
 import { NewsletterService } from '../dist/targets/node/src/services/newsletter-service.js';
+import { newBrewSection, sectionWithSources } from '../dist/packages/core/src/composition-model.js';
 import { inboundConfigFromEnv } from '../dist/targets/node/src/inbound-config.js';
 
 // A built install must find migrations and the SPA outside the repository cwd.
@@ -166,6 +167,26 @@ try {
   assert.match(original.headers['content-security-policy'], /^sandbox; default-src 'none'/);
   assert.match(original.body, /A compiled story/);
   assert.doesNotMatch(original.body, /<script|<img|metrics\.test/);
+  const newsletterSection = sectionWithSources(newBrewSection('letters'), [
+    { kind: 'newsletters', senderIds: [letter.feedId] },
+  ]);
+  const newsletterComposition = await app.inject({
+    method: 'PUT',
+    url: `/api/brew-configs/${composed.json().id}/composition`,
+    payload: { ...composed.json(), sections: [newsletterSection] },
+  });
+  assert.equal(newsletterComposition.statusCode, 200);
+  assert.equal(newsletterComposition.json().sections[0].layout, 'grid');
+  const newsletterPreview = await app.inject({
+    method: 'POST',
+    url: `/api/brew-configs/${composed.json().id}/preview`,
+    payload: { at: new Date().toISOString() },
+  });
+  assert.equal(newsletterPreview.statusCode, 200);
+  assert.deepEqual(
+    newsletterPreview.json().snapshot.sections[0].items.map((item) => item.id),
+    [letter.articleId],
+  );
   assert.equal(
     database.sqlite
       .prepare('SELECT raw_html FROM articles WHERE id=?')

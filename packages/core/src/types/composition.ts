@@ -16,6 +16,9 @@ export interface BrewSourceRef {
     | 'newsletters'
     | 'saved_search';
   id?: number;
+  /** Newsletter sources match any chosen sender or tag; omitted selectors mean all senders. */
+  senderIds?: number[];
+  tagIds?: number[];
 }
 export interface BrewSection {
   id: string;

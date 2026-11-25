@@ -86,8 +86,14 @@ export class NodeBrewStorage implements BrewStoragePort {
   }
   delete(id: number): boolean {
     return this.database.sqlite.transaction(() => {
-      const deleted = this.database.db.delete(brewConfigs).where(eq(brewConfigs.id, id)).run().changes > 0;
-      if (deleted) this.database.sqlite.prepare("UPDATE feeds SET settings_json=json_set(json_remove(settings_json,'$.brewId'),'$.onlyInBrew',json('false')) WHERE kind='newsletter' AND json_extract(settings_json,'$.brewId')=?").run(id);
+      const deleted =
+        this.database.db.delete(brewConfigs).where(eq(brewConfigs.id, id)).run().changes > 0;
+      if (deleted)
+        this.database.sqlite
+          .prepare(
+            "UPDATE feeds SET settings_json=json_set(json_remove(settings_json,'$.brewId'),'$.onlyInBrew',json('false')) WHERE kind='newsletter' AND json_extract(settings_json,'$.brewId')=?",
+          )
+          .run(id);
       return deleted;
     })();
   }
@@ -284,6 +290,27 @@ export class NodeBrewStorage implements BrewStoragePort {
     const clauses = ['a.hidden=0', 'a.excluded_from_brew=0'];
     if (query.searchQuery !== undefined && !compileFtsQuery(query.searchQuery)) return [];
     const params: Array<number | string> = [];
+    if (query.newsletters) {
+      clauses.push("f.kind='newsletter'");
+      const selectors: string[] = [];
+      if (query.newsletters.senderIds !== undefined) {
+        selectors.push(
+          query.newsletters.senderIds.length
+            ? `f.id IN (${query.newsletters.senderIds.map(() => '?').join(',')})`
+            : '0=1',
+        );
+        params.push(...query.newsletters.senderIds);
+      }
+      if (query.newsletters.tagIds !== undefined) {
+        selectors.push(
+          query.newsletters.tagIds.length
+            ? `EXISTS(SELECT 1 FROM article_tags at WHERE at.article_id=a.id AND at.tag_id IN (${query.newsletters.tagIds.map(() => '?').join(',')}))`
+            : '0=1',
+        );
+        params.push(...query.newsletters.tagIds);
+      }
+      if (selectors.length) clauses.push(`(${selectors.join(' OR ')})`);
+    }
     if (query.onlyUnread) clauses.push('a.read_at IS NULL');
     if (query.folderId !== undefined) {
       clauses.push('f.folder_id=?');

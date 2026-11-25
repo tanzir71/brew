@@ -6,6 +6,18 @@ import type {
 import type { RuleCondition } from './types/rules.js';
 
 export const defaultDelivery = () => ({ web: true as const, feed: false, publicCopy: false });
+/** Initialize a newly chosen newsletter-only section to Grid; keep later layout choices. */
+export function sectionWithSources(
+  section: BrewSection,
+  sources: BrewSection['sources'],
+): BrewSection {
+  const initializeGrid =
+    section.layout === 'magazine' &&
+    !section.sources.some((source) => source.kind === 'newsletters') &&
+    sources.length > 0 &&
+    sources.every((source) => source.kind === 'newsletters');
+  return { ...section, sources, ...(initializeGrid ? { layout: 'grid' as const } : {}) };
+}
 export function newBrewSection(id: string, kind: BrewSection['kind'] = 'items'): BrewSection {
   return {
     id,
@@ -165,6 +177,8 @@ export function validateComposition(value: unknown): asserts value is BrewConfig
       throw new Error('Section size must be 1–20.');
     if (!Array.isArray(section.sources) || (section.kind === 'items' && !section.sources.length))
       throw new Error('Choose a section source.');
+    if (section.sources.filter((source) => source?.kind === 'newsletters').length > 1)
+      throw new Error('Choose one newsletter selection per section.');
     for (const source of section.sources) {
       if (
         !source ||
@@ -181,6 +195,24 @@ export function validateComposition(value: unknown): asserts value is BrewConfig
         ].includes(source.kind)
       )
         throw new Error('Choose a valid source.');
+      if (source.kind === 'newsletters') {
+        if (Object.keys(source).some((key) => !['kind', 'id', 'senderIds', 'tagIds'].includes(key)))
+          throw new Error('Unknown newsletter selector. Choose senderIds or tagIds.');
+        if (source.id !== undefined) throw new Error('Choose newsletter senders with senderIds.');
+        for (const field of ['senderIds', 'tagIds'] as const) {
+          const ids = source[field];
+          if (
+            ids !== undefined &&
+            (!Array.isArray(ids) ||
+              ids.length === 0 ||
+              ids.length > 500 ||
+              ids.some((id) => !Number.isSafeInteger(id) || id < 1) ||
+              new Set(ids).size !== ids.length)
+          )
+            throw new Error('Choose 1–500 unique newsletter senders or tags.');
+        }
+      } else if (source.senderIds !== undefined || source.tagIds !== undefined)
+        throw new Error('Sender and tag selections require a newsletter source.');
       if (
         ['folder', 'feed', 'tag', 'saved_search'].includes(source.kind) &&
         (!Number.isSafeInteger(source.id) || source.id! < 1)

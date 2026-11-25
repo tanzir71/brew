@@ -116,10 +116,6 @@ export class CompositionPreview {
       }
       const unique = new Map<number, BrewCandidate>();
       for (const source of section.sources) {
-        if (source.kind === 'newsletters') {
-          warnings.push(`${section.title}: Newsletters needs setup.`);
-          continue;
-        }
         const search =
           source.kind === 'saved_search' ? this.storage.savedSourceSearch(source.id!) : undefined;
         if (source.kind === 'saved_search' && !search) {
@@ -127,6 +123,10 @@ export class CompositionPreview {
           continue;
         }
         const rows = this.storage.compositionItems({
+          newsletters:
+            source.kind === 'newsletters'
+              ? { senderIds: source.senderIds, tagIds: source.tagIds }
+              : undefined,
           searchQuery: search?.query,
           onlyUnread: section.onlyUnread,
           folderId: source.kind === 'folder' ? source.id : undefined,

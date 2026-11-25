@@ -23,6 +23,7 @@ import { Badge } from '../components/Badge';
 import { ModalSheet } from '../components/Sheet';
 import { useCapabilities } from '../hooks/useCapabilities';
 import { composeJson } from './useComposeDraft';
+import { NewsletterSources } from './NewsletterSources';
 
 const key = (source: BrewSourceRef) => `${source.kind}:${source.id ?? ''}`;
 type LocalSearch = { clientId: string; name: string; query: string };
@@ -59,7 +60,9 @@ export function SourcePicker({
   const [selected, setSelected] = useState(section.sources);
   const [candidates, setCandidates] = useState<SourceCandidate[]>([]);
   const [selectedSearches, setSelectedSearches] = useState<LocalSearch[]>([]);
-  const [tab, setTab] = useState('Feeds');
+  const [tab, setTab] = useState(() =>
+    section.sources.some((source) => source.kind === 'newsletters') ? 'Newsletters' : 'Feeds',
+  );
   const [filter, setFilter] = useState('');
   const [input, setInput] = useState('');
   const [retry, setRetry] = useState(0);
@@ -581,7 +584,11 @@ export function SourcePicker({
                 label={`Filter ${tab.toLowerCase()}`}
                 hideLabel
                 className="source-filter"
-                placeholder={`Filter ${list.length} ${tab.toLowerCase()}`}
+                placeholder={
+                  tab === 'Newsletters'
+                    ? 'Filter senders or tags'
+                    : `Filter ${list.length} ${tab.toLowerCase()}`
+                }
                 icon={<Icon name="search" size={14} />}
                 value={filter}
                 onChange={(event) => setFilter(event.target.value)}
@@ -644,22 +651,19 @@ export function SourcePicker({
                     </p>
                   )}
                 {tab === 'Newsletters' && (
-                  <div className="source-empty">
-                    <Checkbox
-                      label="All newsletter senders"
-                      checked={selected.some((source) => source.kind === 'newsletters')}
-                      disabled={busy || !selected.some((source) => source.kind === 'newsletters')}
-                      onChange={() =>
-                        setSelected((current) =>
-                          current.filter((source) => source.kind !== 'newsletters'),
-                        )
-                      }
-                    />
-                    <Badge tone="warning">
-                      {caps.data?.inboundMail ? 'Set up Newsletters' : 'Needs mail add-on'}
-                    </Badge>
-                    <a href="/settings/runs#setup-newsletters">Set up Newsletters</a>
-                  </div>
+                  <NewsletterSources
+                    source={selected.find((source) => source.kind === 'newsletters')}
+                    tags={tags.data ?? []}
+                    term={term}
+                    busy={busy}
+                    inboundMail={caps.data?.inboundMail ?? null}
+                    onChange={(source) =>
+                      setSelected((current) => [
+                        ...current.filter((item) => item.kind !== 'newsletters'),
+                        ...(source ? [source] : []),
+                      ])
+                    }
+                  />
                 )}
               </div>
             </div>
