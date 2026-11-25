@@ -16,9 +16,7 @@ import type {
   RegexPort,
   RuleStoragePort,
 } from './ports.js';
-import { safeRegexTest } from './safe-regex.js';
-
-const normalized = (value: string) => value.normalize('NFKC').toLocaleLowerCase();
+import { matchCondition } from './rule-matching.js';
 
 export class RulesService {
   constructor(
@@ -54,24 +52,7 @@ export class RulesService {
   }
 
   async conditionMatches(context: ArticleContext, condition: RuleCondition): Promise<boolean> {
-    const source = normalized(String(context[condition.field] ?? ''));
-    const target = normalized(condition.value);
-    switch (condition.operator) {
-      case 'contains':
-        return source.includes(target);
-      case 'not_contains':
-        return !source.includes(target);
-      case 'equals':
-        return source === target;
-      case 'starts_with':
-        return source.startsWith(target);
-      case 'ends_with':
-        return source.endsWith(target);
-      case 'matches_regex':
-        return (
-          await safeRegexTest(this.regex, condition.value, String(context[condition.field] ?? ''))
-        ).matched;
-    }
+    return matchCondition(this.regex, context, condition);
   }
 
   private async executeActions(rule: RuleRecord, context: ArticleContext): Promise<ActionResult[]> {

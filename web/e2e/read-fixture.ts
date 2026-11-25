@@ -4,7 +4,7 @@ import type {
   BrewItem,
   BrewReadState,
   BrewSnapshot,
-} from '../../packages/core/src/types/brew';
+} from '../../packages/core/src/types/legacy-brew';
 
 const titles = [
   [

@@ -6,8 +6,8 @@ import type {
   BrewConfig,
   BrewItem,
   BrewReadState,
-  BrewSnapshot,
-} from '@brew/core/types/brew';
+} from '@brew/core/types/legacy-brew';
+import type { BrewIssue } from '@brew/core/types/brew';
 import type { ArticleDetail } from '@brew/core/types/api';
 import { Avatar, Button, Chip } from '../components/controls';
 import { Icon } from '../components/Icon';
@@ -78,10 +78,10 @@ export function BrewRead({
   markAllRequested,
   onMarkAllClosed,
 }: {
-  snapshot: BrewSnapshot | null;
+  snapshot: BrewIssue | null;
   config?: BrewConfig;
-  previous?: BrewSnapshot;
-  onSelect: (issue: BrewSnapshot) => void;
+  previous?: BrewIssue;
+  onSelect: (issue: BrewIssue) => void;
   onCompose: () => void;
   markAllRequested: boolean;
   onMarkAllClosed: () => void;
@@ -148,6 +148,7 @@ export function BrewRead({
     state.data?.articles.flatMap((item) => item.rules.map((rule) => rule.id)) ?? [],
   ).size;
   const timeZone = state.data?.timeZone ?? 'UTC';
+  const issueTimeZone = snapshot && 'timezone' in snapshot ? snapshot.timezone : timeZone;
   const choose = (id: number) => {
     void import('../Reader');
     setSelected(id);
@@ -231,10 +232,10 @@ export function BrewRead({
                 {format(
                   snapshot.generatedAt,
                   { weekday: 'long', day: 'numeric', month: 'long' },
-                  timeZone,
+                  issueTimeZone,
                 )}
               </time>{' '}
-              · No. {snapshot.id}
+              · No. {'issueNumber' in snapshot ? snapshot.issueNumber : snapshot.id}
             </p>
             <h1 className="type-display-l">{snapshot.configName}</h1>
             <p className="type-reading-lede">
@@ -249,8 +250,8 @@ export function BrewRead({
                 {format(
                   snapshot.generatedAt,
                   { hour: '2-digit', minute: '2-digit' },
-                  timeZone,
-                )} · {timeZone}
+                  issueTimeZone,
+                )} · {issueTimeZone}
               </span>
               <span>
                 <Icon name="check" size={14} />
@@ -271,6 +272,30 @@ export function BrewRead({
             </div>
           )}
           {snapshot.sections.map((section) => {
+            if ('kind' in section && section.kind !== 'items')
+              return (
+                <section
+                  key={section.id}
+                  id={sectionAnchor(section.id)}
+                  data-section-id={section.id}
+                  data-brew-kind="section"
+                  data-brew-id={section.id}
+                  className="brew-edition-section brew-edition-note"
+                  aria-label={section.title}
+                >
+                  <header>
+                    <h2>{section.title}</h2>
+                  </header>
+                  {section.kind === 'note' ? (
+                    <div
+                      className="compose-note-preview"
+                      dangerouslySetInnerHTML={{ __html: section.noteHtml ?? '' }}
+                    />
+                  ) : (
+                    <hr />
+                  )}
+                </section>
+              );
             const layout =
               section.layout === 'hero'
                 ? 'lead'
@@ -317,8 +342,14 @@ export function BrewRead({
                     Mark section read
                   </Button>
                 </header>
-                {section.divider && (
+                {'divider' in section && section.divider && (
                   <p className="brew-section-lede type-reading-lede">{section.divider}</p>
+                )}
+                {'depth' in section && section.depth === 'brief' && (
+                  <p className="compose-brief-gate">
+                    <Badge tone="locked">Set up AI</Badge>
+                    <a href="/settings/runs#setup-ai">Configure Briefs</a>
+                  </p>
                 )}
                 {!section.items.length ? (
                   <p className="brew-section-empty">No stories for this section today.</p>
@@ -328,6 +359,13 @@ export function BrewRead({
                       <ReadItem
                         key={item.id}
                         item={item}
+                        depth={
+                          'depth' in section
+                            ? section.depth
+                            : section.layout === 'list'
+                              ? 'title'
+                              : 'excerpt'
+                        }
                         state={current(item)}
                         layout={layout === 'lead' ? (index === 0 ? 'lead' : 'magazine') : layout}
                         selected={selected === item.id}
@@ -523,6 +561,7 @@ function ReadItem({
   item,
   state,
   layout,
+  depth,
   selected,
   busy,
   onSelect,
@@ -530,9 +569,10 @@ function ReadItem({
   onStar,
   onRead,
 }: {
-  item: BrewItem;
+  item: BrewItem & { contentHtml?: string | null };
   state: BrewArticleState;
   layout: string;
+  depth: string;
   selected: boolean;
   busy: boolean;
   onSelect: () => void;
@@ -591,10 +631,15 @@ function ReadItem({
               {item.title}
             </button>
           </h3>
-          {layout !== 'headlines' && item.summaryHtml && (
+          {depth !== 'title' && depth !== 'brief' && (item.summaryHtml || item.contentHtml) && (
             <div
-              className="brew-read-excerpt"
-              dangerouslySetInnerHTML={{ __html: item.summaryHtml }}
+              className={`brew-read-excerpt ${depth === 'full' ? 'brew-read-excerpt--full' : ''}`}
+              dangerouslySetInnerHTML={{
+                __html:
+                  depth === 'full'
+                    ? (item.contentHtml ?? item.summaryHtml ?? '')
+                    : (item.summaryHtml ?? ''),
+              }}
             />
           )}
         </div>

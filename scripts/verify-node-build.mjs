@@ -25,6 +25,7 @@ try {
   const route = await app.inject('/reader');
   assert.equal(route.body, page.body);
   assert.equal((await app.inject('/settings/runs')).body, page.body);
+  assert.equal((await app.inject('/b/1/compose')).body, page.body);
   const fonts = ['instrument-sans', 'newsreader', 'geist-mono'].flatMap((name) =>
     ['latin', 'latin-ext'].map((subset) => `/fonts/${name}-${subset}.woff2`),
   );
@@ -36,6 +37,9 @@ try {
     '/figma/components/872aa.svg',
     '/figma/components/291ba.svg',
     '/figma/components/fb52b.svg',
+    '/figma/compose/lead.svg',
+    '/figma/compose/variables.svg',
+    '/figma/compose/lines.png',
   ]) {
     const response = await app.inject(asset);
     assert.equal(response.statusCode, 200);
@@ -45,6 +49,27 @@ try {
       assert.match(response.headers['content-type'], /font\/woff2/);
     }
   }
+  const composed = await app.inject({
+    method: 'POST',
+    url: '/api/brew-configs/composition',
+    payload: {
+      name: 'Build check',
+      enabled: true,
+      timezone: 'Asia/Dhaka',
+      schedule: { kind: 'daily', time: '07:00' },
+      delivery: { web: true, feed: false, publicCopy: false },
+      sections: [],
+    },
+  });
+  assert.equal(composed.statusCode, 201);
+  const preview = await app.inject({
+    method: 'POST',
+    url: `/api/brew-configs/${composed.json().id}/preview`,
+    payload: { draft: composed.json(), at: '2026-11-25T01:00:00Z' },
+  });
+  assert.equal(preview.statusCode, 200);
+  assert.equal(preview.json().snapshot.version, 2);
+  assert.match(preview.json().outputs.feed, /<feed xmlns=/);
   assert.equal((await app.inject('/api/missing')).statusCode, 404);
   log(
     'Built Node target: migrations, health, SPA, assets and fallback passed outside the repository cwd.',

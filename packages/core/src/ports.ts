@@ -1,5 +1,5 @@
 import type { ArticleSummary } from './types/api.js';
-import type { BrewConfig, BrewConfigDraft, BrewItem, BrewSnapshot } from './types/brew.js';
+import type { BrewConfig, BrewConfigDraft, BrewItem, BrewSnapshot } from './types/legacy-brew.js';
 import type { RuleAction, RuleDraft, RuleLogRecord, RuleRecord } from './types/rules.js';
 
 export interface ClockPort {
@@ -19,6 +19,11 @@ export interface RegexResult {
 }
 export interface RegexPort {
   test(pattern: string, value: string, timeoutMs?: number): Promise<RegexResult>;
+  testMany?(
+    pattern: string,
+    values: string[],
+    timeoutMs?: number,
+  ): Promise<{ matches: boolean[]; timedOut: boolean; error?: string }>;
 }
 export interface NotificationPort {
   notify(article: { id: number; title: string; url: string }): void;
@@ -69,11 +74,22 @@ export interface BrewStoragePort {
   update(id: number, draft: BrewConfigDraft): boolean;
   delete(id: number): boolean;
   items(query: BrewItemQuery): BrewItemRow[];
-  save(configId: number, payload: Pick<BrewSnapshot, 'configName' | 'sections'>): number;
+  save(
+    configId: number,
+    payload:
+      | Pick<BrewSnapshot, 'configName' | 'sections'>
+      | Omit<import('./types/brew.js').BrewSnapshot, 'id' | 'brewConfigId' | 'scrollPosition'>,
+  ): number;
   prune(configId: number, keep: number): void;
   historyIds(configId: number): number[];
-  snapshot(id: number): BrewSnapshot | null;
-  articleStates(ids: number[]): import('./types/brew.js').BrewArticleState[];
+  snapshot(id: number): import('./types/brew.js').BrewIssue | null;
+  composition(id: number): import('./types/brew.js').BrewConfig | null;
+  createComposition(draft: import('./types/brew.js').BrewConfigDraft): number;
+  updateComposition(id: number, draft: import('./types/brew.js').BrewConfigDraft): boolean;
+  usesComposition(id: number): boolean;
+  nextIssueNumber(id: number): number;
+  compositionItems(query: BrewItemQuery): BrewCandidate[];
+  articleStates(ids: number[]): import('./types/legacy-brew.js').BrewArticleState[];
   setting(key: string): string | undefined;
   setSetting(key: string, value: string): void;
 }
@@ -85,8 +101,15 @@ export interface BrewItemQuery {
   starred: boolean;
   featured: boolean;
   publishedSince?: number;
-  sort: 'newest' | 'longest';
-  limit: number;
+  sort: 'newest' | 'oldest' | 'longest';
+  limit?: number;
+}
+export interface BrewCandidate extends ArticleContext {
+  summaryHtml: string | null;
+  imageUrl: string | null;
+  body: string | null;
+  publishedAt: number;
+  readAt: number | null;
 }
 export type BrewItemRow = Omit<BrewItem, 'publishedAt' | 'readAt' | 'readTimeMinutes'> & {
   publishedAt: number;

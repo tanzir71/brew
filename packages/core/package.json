@@ -11,7 +11,9 @@
     "./types/*": "./src/types/*.ts"
   },
   "dependencies": {
+    "@js-temporal/polyfill": "0.5.1",
     "dompurify": "latest",
-    "linkedom": "latest"
+    "linkedom": "latest",
+    "marked": "18.3.0"
   }
 }

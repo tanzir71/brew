@@ -1,7 +1,8 @@
 import type { Hono } from 'hono';
-import type { BrewConfigDraft } from '../../../core/src/types/brew.js';
+import type { BrewConfigDraft } from '../../../core/src/types/legacy-brew.js';
 import type { ApiServices } from '../ports.js';
 import { body, errorMessage, json } from '../http.js';
+import type { BrewConfigDraft as CompositionDraft } from '../../../core/src/types/brew.js';
 
 export function registerBrewRoutes(app: Hono, { brews: service }: ApiServices): void {
   app.get('/api/brew-configs', async (c) => json(c, await service.listConfigs()));
@@ -23,9 +24,49 @@ export function registerBrewRoutes(app: Hono, { brews: service }: ApiServices): 
   );
   app.post('/api/brew-configs/:id/generate', async (c) => {
     try {
-      return json(c, await service.generate(Number(c.req.param('id'))));
+      const id = Number(c.req.param('id'));
+      return json(
+        c,
+        (await service.usesComposition(id))
+          ? await service.generateComposition(id)
+          : await service.generate(id),
+      );
     } catch (error) {
       return json(c, { error: errorMessage(error, 'Brew not found') }, 404);
+    }
+  });
+  app.get('/api/brew-configs/:id/composition', async (c) => {
+    const value = await service.composition(Number(c.req.param('id')));
+    return value ? json(c, value) : json(c, { error: 'Brew not found' }, 404);
+  });
+  app.post('/api/brew-configs/composition', async (c) => {
+    try {
+      return json(c, await service.createComposition(await body<CompositionDraft>(c)), 201);
+    } catch (error) {
+      return json(c, { error: errorMessage(error, 'Invalid composition') }, 400);
+    }
+  });
+  app.put('/api/brew-configs/:id/composition', async (c) => {
+    try {
+      const value = await service.updateComposition(
+        Number(c.req.param('id')),
+        await body<CompositionDraft>(c),
+      );
+      return value ? json(c, value) : json(c, { error: 'Brew not found' }, 404);
+    } catch (error) {
+      return json(c, { error: errorMessage(error, 'Invalid composition') }, 400);
+    }
+  });
+  app.post('/api/brew-configs/:id/preview', async (c) => {
+    try {
+      const input = await body<{ draft: CompositionDraft; at?: string }>(c);
+      c.header('Cache-Control', 'no-store');
+      return json(
+        c,
+        await service.previewComposition(input.draft, Number(c.req.param('id')), input.at),
+      );
+    } catch (error) {
+      return json(c, { error: errorMessage(error, 'Could not preview the Brew') }, 422);
     }
   });
   app.get('/api/brew-configs/:id/history', async (c) =>

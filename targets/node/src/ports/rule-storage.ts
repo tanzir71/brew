@@ -1,5 +1,5 @@
 import { and, asc, eq } from 'drizzle-orm';
-import { parseHTML } from 'linkedom';
+import { articleText as text } from './article-text.js';
 import type {
   RuleDraft,
   RuleLogRecord,
@@ -16,11 +16,6 @@ import type {
 } from '../../../../packages/core/src/ports.js';
 import type { BrewDatabase } from '../db/database.js';
 import { articleTags, articles, ruleLogs, rules, tags } from '../db/schema.js';
-const text = (html: string | null): string =>
-  html
-    ? (parseHTML(`<!doctype html><html><body>${html}</body></html>`).document.body.textContent ??
-      '')
-    : '';
 export class NodeRuleStorage implements RuleStoragePort {
   constructor(private readonly database: BrewDatabase) {}
   definitions(): RuleRecord[] {

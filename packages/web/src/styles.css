@@ -4,6 +4,7 @@
 @import './styles/runs.css';
 @import './styles/components.css';
 @import './styles/read.css';
+@import './styles/compose.css';
 @source './';
 @source '../test';
 :root {

@@ -1,10 +1,11 @@
+import { articleText } from './article-text.js';
 import { desc, eq } from 'drizzle-orm';
 import type {
   BrewConfig,
   BrewConfigDraft,
   BrewSnapshot,
   BrewArticleState,
-} from '../../../../packages/core/src/types/brew.js';
+} from '../../../../packages/core/src/types/legacy-brew.js';
 import type {
   BrewStoragePort,
   BrewItemQuery,
@@ -12,6 +13,18 @@ import type {
 } from '../../../../packages/core/src/ports.js';
 import type { BrewDatabase } from '../db/database.js';
 import { brewConfigs, brews } from '../db/schema.js';
+import {
+  upgradeLegacyDraft,
+  legacySections,
+  scheduleCron,
+} from '../../../../packages/core/src/composition-model.js';
+import type {
+  BrewConfig as Composition,
+  BrewConfigDraft as CompositionDraft,
+  BrewIssue,
+  BrewSnapshot as ModernSnapshot,
+} from '../../../../packages/core/src/types/brew.js';
+import type { BrewCandidate } from '../../../../packages/core/src/ports.js';
 export class NodeBrewStorage implements BrewStoragePort {
   constructor(private readonly database: BrewDatabase) {}
   listConfigs(): BrewConfig[] {
@@ -24,23 +37,33 @@ export class NodeBrewStorage implements BrewStoragePort {
         name: row.name,
         scheduleCron: row.scheduleCron,
         enabled: row.enabled,
-        sections: JSON.parse(row.sectionsJson),
+        sections: row.legacySectionsJson
+          ? JSON.parse(row.legacySectionsJson)
+          : JSON.parse(row.sectionsJson)[0]?.kind
+            ? legacySections(JSON.parse(row.sectionsJson))
+            : JSON.parse(row.sectionsJson),
         createdAt: row.createdAt.toISOString(),
       }));
   }
   create(draft: BrewConfigDraft): number {
+    const value = upgradeLegacyDraft(draft, Intl.DateTimeFormat().resolvedOptions().timeZone);
     return this.database.db
       .insert(brewConfigs)
       .values({
         name: draft.name,
         scheduleCron: draft.scheduleCron,
         enabled: draft.enabled,
-        sectionsJson: JSON.stringify(draft.sections),
+        sectionsJson: JSON.stringify(value.sections),
+        legacySectionsJson: JSON.stringify(draft.sections),
+        timezone: value.timezone,
+        scheduleJson: JSON.stringify(value.schedule),
+        deliveryJson: JSON.stringify(value.delivery),
       })
       .returning()
       .get().id;
   }
   update(id: number, draft: BrewConfigDraft): boolean {
+    const value = upgradeLegacyDraft(draft, Intl.DateTimeFormat().resolvedOptions().timeZone);
     return Boolean(
       this.database.db
         .update(brewConfigs)
@@ -48,7 +71,12 @@ export class NodeBrewStorage implements BrewStoragePort {
           name: draft.name,
           scheduleCron: draft.scheduleCron,
           enabled: draft.enabled,
-          sectionsJson: JSON.stringify(draft.sections),
+          sectionsJson: JSON.stringify(value.sections),
+          legacySectionsJson: JSON.stringify(draft.sections),
+          timezone: value.timezone,
+          scheduleJson: JSON.stringify(value.schedule),
+          deliveryJson: JSON.stringify(value.delivery),
+          compositionVersion: 1,
         })
         .where(eq(brewConfigs.id, id))
         .returning()
@@ -86,20 +114,35 @@ export class NodeBrewStorage implements BrewStoragePort {
       query.sort === 'longest'
         ? "length(coalesce(a.full_text_html,a.content_html,a.summary_html,'')) DESC"
         : 'a.published_at DESC';
-    params.push(query.limit);
+    params.push(query.limit ?? 20);
     return this.database.sqlite
       .prepare(
         `SELECT a.id,a.title,a.url,a.author,a.summary_html AS summaryHtml,a.image_url AS imageUrl,a.published_at AS publishedAt,a.read_at AS readAt,f.title AS feedTitle,coalesce(a.full_text_html,a.content_html,a.summary_html) AS body FROM articles a JOIN feeds f ON f.id=a.feed_id WHERE ${clauses.join(' AND ')} ORDER BY ${order} LIMIT ?`,
       )
       .all(...params) as BrewItemRow[];
   }
-  save(configId: number, payload: Pick<BrewSnapshot, 'configName' | 'sections'>): number {
-    return this.database.db
-      .insert(brews)
-      .values({ brewConfigId: configId, payloadJson: JSON.stringify(payload) })
-      .returning()
-      .get().id;
+  save(
+    configId: number,
+    payload:
+      | Pick<BrewSnapshot, 'configName' | 'sections'>
+      | Omit<ModernSnapshot, 'id' | 'brewConfigId' | 'scrollPosition'>,
+  ): number {
+    return this.database.sqlite.transaction(() => {
+      const issueNumber = this.nextIssueNumber(configId);
+      const value = 'version' in payload ? { ...payload, issueNumber } : payload;
+      return this.database.db
+        .insert(brews)
+        .values({
+          brewConfigId: configId,
+          payloadJson: JSON.stringify(value),
+          issueNumber,
+          ...('version' in payload ? { generatedAt: new Date(payload.generatedAt) } : {}),
+        })
+        .returning()
+        .get().id;
+    })();
   }
+
   prune(configId: number, keep: number): void {
     for (const id of this.historyIds(configId).slice(keep))
       this.database.db.delete(brews).where(eq(brews.id, id)).run();
@@ -113,10 +156,10 @@ export class NodeBrewStorage implements BrewStoragePort {
       .all()
       .map(({ id }) => id);
   }
-  snapshot(id: number): BrewSnapshot | null {
+  snapshot(id: number): BrewIssue | null {
     const row = this.database.db.select().from(brews).where(eq(brews.id, id)).get();
     if (!row) return null;
-    const payload = JSON.parse(row.payloadJson) as Pick<BrewSnapshot, 'configName' | 'sections'>;
+    const payload = JSON.parse(row.payloadJson);
     const scroll = (
       this.database.sqlite
         .prepare('SELECT value FROM settings WHERE key=?')
@@ -129,6 +172,122 @@ export class NodeBrewStorage implements BrewStoragePort {
       scrollPosition: Number(scroll ?? 0),
       ...payload,
     };
+  }
+  composition(id: number): Composition | null {
+    const row = this.database.db.select().from(brewConfigs).where(eq(brewConfigs.id, id)).get();
+    if (!row) return null;
+    const sections = JSON.parse(row.sectionsJson);
+    const value =
+      sections[0] && !sections[0].kind
+        ? upgradeLegacyDraft(
+            { name: row.name, scheduleCron: row.scheduleCron, enabled: row.enabled, sections },
+            row.timezone,
+          )
+        : {
+            sections,
+            timezone: row.timezone,
+            schedule: JSON.parse(row.scheduleJson),
+            delivery: JSON.parse(row.deliveryJson),
+          };
+    return {
+      id: row.id,
+      name: row.name,
+      enabled: row.enabled,
+      createdAt: row.createdAt.toISOString(),
+      scheduleCron: row.scheduleCron,
+      ...value,
+    };
+  }
+  usesComposition(id: number): boolean {
+    return (
+      this.database.db
+        .select({ version: brewConfigs.compositionVersion })
+        .from(brewConfigs)
+        .where(eq(brewConfigs.id, id))
+        .get()?.version === 2
+    );
+  }
+  createComposition(draft: CompositionDraft): number {
+    return this.database.db
+      .insert(brewConfigs)
+      .values({
+        name: draft.name.trim(),
+        enabled: draft.enabled,
+        sectionsJson: JSON.stringify(draft.sections),
+        timezone: draft.timezone,
+        scheduleJson: JSON.stringify(draft.schedule),
+        deliveryJson: JSON.stringify(draft.delivery),
+        scheduleCron: scheduleCron(draft.schedule),
+        compositionVersion: 2,
+      })
+      .returning()
+      .get().id;
+  }
+  updateComposition(id: number, draft: CompositionDraft): boolean {
+    const previous = this.composition(id);
+    const cron =
+      previous && JSON.stringify(previous.schedule) === JSON.stringify(draft.schedule)
+        ? previous.scheduleCron
+        : scheduleCron(draft.schedule);
+    return (
+      this.database.db
+        .update(brewConfigs)
+        .set({
+          name: draft.name.trim(),
+          enabled: draft.enabled,
+          sectionsJson: JSON.stringify(draft.sections),
+          legacySectionsJson: null,
+          timezone: draft.timezone,
+          scheduleJson: JSON.stringify(draft.schedule),
+          deliveryJson: JSON.stringify(draft.delivery),
+          scheduleCron: cron,
+          compositionVersion: 2,
+        })
+        .where(eq(brewConfigs.id, id))
+        .run().changes > 0
+    );
+  }
+  nextIssueNumber(id: number): number {
+    return Number(
+      (
+        this.database.sqlite
+          .prepare(
+            'SELECT coalesce(max(issue_number),0)+1 AS next FROM brews WHERE brew_config_id=?',
+          )
+          .get(id) as { next: number }
+      ).next,
+    );
+  }
+  compositionItems(query: BrewItemQuery): BrewCandidate[] {
+    const clauses = ['a.hidden=0', 'a.excluded_from_brew=0'];
+    const params: Array<number | string> = [];
+    if (query.onlyUnread) clauses.push('a.read_at IS NULL');
+    if (query.folderId !== undefined) {
+      clauses.push('f.folder_id=?');
+      params.push(query.folderId);
+    }
+    if (query.feedId !== undefined) {
+      clauses.push('a.feed_id=?');
+      params.push(query.feedId);
+    }
+    if (query.tagId !== undefined) {
+      clauses.push(
+        'EXISTS(SELECT 1 FROM article_tags at WHERE at.article_id=a.id AND at.tag_id=?)',
+      );
+      params.push(query.tagId);
+    }
+    if (query.starred) clauses.push('a.starred_at IS NOT NULL');
+    if (query.featured) clauses.push('a.featured_in_brew=1');
+    if (query.publishedSince !== undefined) {
+      clauses.push('a.published_at>=?');
+      params.push(query.publishedSince);
+    }
+    const rows = this.database.sqlite
+      .prepare(
+        `SELECT a.id,a.title,a.url,coalesce(a.author,'') AS author,a.feed_id AS feedId,f.title AS feed,f.folder_id AS folderId,coalesce(fo.title,'') AS folder,a.summary_html AS summaryHtml,a.image_url AS imageUrl,a.published_at AS publishedAt,a.read_at AS readAt,coalesce(a.full_text_html,a.content_html,a.summary_html,'') AS body FROM articles a JOIN feeds f ON f.id=a.feed_id LEFT JOIN folders fo ON fo.id=f.folder_id WHERE ${clauses.join(' AND ')}`,
+      )
+      .all(...params) as Array<Omit<BrewCandidate, 'content'>>;
+    return rows.map((row) => ({ ...row, content: articleText(row.body) }));
   }
   setting(key: string): string | undefined {
     return (

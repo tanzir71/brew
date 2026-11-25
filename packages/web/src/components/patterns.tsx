@@ -20,6 +20,7 @@ export function TopBar({
   onNext,
   onMarkAllRead,
   onMore,
+  rightActions,
 }: {
   brews: readonly { id: string; name: string }[];
   brewId: string;
@@ -31,6 +32,7 @@ export function TopBar({
   onNext?: () => void;
   onMarkAllRead?: () => void;
   onMore?: () => void;
+  rightActions?: ReactNode;
 }) {
   return (
     <header className="brew-topbar">
@@ -58,29 +60,38 @@ export function TopBar({
         onValueChange={(value) => onViewChange(value as 'read' | 'compose')}
       />
       <div className="brew-topbar-right">
-        <IconButton
-          icon="chevron-left"
-          label="Previous Brew"
-          disabled={!onPrevious}
-          onClick={onPrevious}
-        />
-        <span>{date}</span>
-        <IconButton icon="chevron-right" label="Next Brew" disabled={!onNext} onClick={onNext} />
-        {onMarkAllRead && (
+        {rightActions ?? (
           <>
-            <span className="brew-topbar-divider" />
-            <button
-              type="button"
-              className="brew-topbar-mark"
-              data-brew-action="mark-all-read"
-              onClick={onMarkAllRead}
-            >
-              <Icon name="check" size={14} />
-              Mark all read
-            </button>
+            <IconButton
+              icon="chevron-left"
+              label="Previous Brew"
+              disabled={!onPrevious}
+              onClick={onPrevious}
+            />
+            <span>{date}</span>
+            <IconButton
+              icon="chevron-right"
+              label="Next Brew"
+              disabled={!onNext}
+              onClick={onNext}
+            />
+            {onMarkAllRead && (
+              <>
+                <span className="brew-topbar-divider" />
+                <button
+                  type="button"
+                  className="brew-topbar-mark"
+                  data-brew-action="mark-all-read"
+                  onClick={onMarkAllRead}
+                >
+                  <Icon name="check" size={14} />
+                  Mark all read
+                </button>
+              </>
+            )}
+            {onMore && <IconButton icon="more" label="More actions" onClick={onMore} />}
           </>
         )}
-        {onMore && <IconButton icon="more" label="More actions" onClick={onMore} />}
       </div>
     </header>
   );
@@ -96,6 +107,8 @@ export function SectionCard({
   onDrop,
   summary,
   children,
+  titleEditor,
+  sectionId,
 }: {
   title: string;
   expanded: boolean;
@@ -107,6 +120,8 @@ export function SectionCard({
   onDrop?: DragEventHandler<HTMLElement>;
   summary?: ReactNode;
   children: ReactNode;
+  titleEditor?: ReactNode;
+  sectionId?: string;
 }) {
   const id = useId();
   return (
@@ -114,6 +129,8 @@ export function SectionCard({
       className="brew-section-card"
       data-expanded={expanded}
       aria-label={title}
+      data-brew-kind="section"
+      data-brew-id={sectionId}
       onDragOver={onDragOver}
       onDrop={onDrop}
       onKeyDown={(event) => {
@@ -137,7 +154,7 @@ export function SectionCard({
         >
           <Icon name="grip" size={16} />
         </button>
-        <h3>{title}</h3>
+        <h3>{titleEditor ?? title}</h3>
         <span className="brew-spacer" />
         <IconButton
           icon="arrow-up"

@@ -4,13 +4,24 @@ import type {
   BrewItem,
   BrewSection,
   BrewSnapshot,
+} from './types/legacy-brew.js';
+import type { BrewStoragePort, ClockPort, RegexPort } from './ports.js';
+import type {
+  BrewConfigDraft as CompositionDraft,
+  BrewIssue,
+  BrewSnapshot as CompositionSnapshot,
 } from './types/brew.js';
-import type { BrewStoragePort, ClockPort } from './ports.js';
+import { validateComposition } from './composition-model.js';
+import { CompositionPreview } from './composition-preview.js';
+import { nextBrewAt } from './brew-schedule.js';
 
 export class BrewService {
   constructor(
     private readonly storage: BrewStoragePort,
     private readonly clock: ClockPort,
+    private readonly regex: RegexPort = {
+      test: async () => ({ matched: false, timedOut: false, error: 'Regex is unavailable.' }),
+    },
   ) {}
   listConfigs(): BrewConfig[] {
     return this.storage.listConfigs();
@@ -51,7 +62,7 @@ export class BrewService {
     };
     const id = this.storage.save(configId, payload);
     this.storage.prune(configId, 30);
-    return this.snapshot(id)!;
+    return this.snapshot(id)! as BrewSnapshot;
   }
   private items(section: BrewSection, now: Date): BrewItem[] {
     const rows = this.storage.items({
@@ -80,15 +91,116 @@ export class BrewService {
       ),
     }));
   }
-  history(configId: number): BrewSnapshot[] {
+  history(configId: number): BrewIssue[] {
     return this.storage.historyIds(configId).map((id) => this.snapshot(id)!);
   }
-  snapshot(id: number): BrewSnapshot | null {
+  snapshot(id: number): BrewIssue | null {
     return this.storage.snapshot(id);
+  }
+  composition(id: number) {
+    return this.storage.composition(id);
+  }
+  usesComposition(id: number) {
+    return this.storage.usesComposition(id);
+  }
+  createComposition(draft: CompositionDraft) {
+    validateComposition(draft);
+    return this.composition(this.storage.createComposition(draft))!;
+  }
+  updateComposition(id: number, draft: CompositionDraft) {
+    validateComposition(draft);
+    return this.storage.updateComposition(id, draft) ? this.composition(id) : null;
+  }
+  previewComposition(draft: CompositionDraft, id = 0, at?: string) {
+    return new CompositionPreview(this.storage, this.clock, this.regex).build(
+      draft,
+      id,
+      at === undefined ? undefined : new Date(at),
+    );
+  }
+  async generateComposition(id: number) {
+    const config = this.composition(id);
+    if (!config) throw new Error('Brew not found');
+    const { snapshot } = await new CompositionPreview(this.storage, this.clock, this.regex).build(
+      config,
+      id,
+      this.clock.now(),
+    );
+    return this.freezeComposition(snapshot);
+  }
+  private freezeComposition(snapshot: CompositionSnapshot) {
+    const payload = {
+      version: snapshot.version,
+      issueNumber: snapshot.issueNumber,
+      configName: snapshot.configName,
+      generatedAt: snapshot.generatedAt,
+      timezone: snapshot.timezone,
+      sections: snapshot.sections,
+    };
+    const issueId = this.storage.save(snapshot.brewConfigId, payload);
+    this.storage.prune(snapshot.brewConfigId, 30);
+    return this.snapshot(issueId)!;
+  }
+  private readonly runningCompositions = new Set<number>();
+  async runCompositionScheduled(now = this.clock.now()): Promise<number> {
+    let generated = 0;
+    for (const legacy of this.listConfigs()) {
+      if (
+        !this.usesComposition(legacy.id) ||
+        !legacy.enabled ||
+        this.runningCompositions.has(legacy.id)
+      )
+        continue;
+      const config = this.composition(legacy.id)!;
+      const scheduled = nextBrewAt(
+        config.schedule,
+        config.timezone,
+        new Date(now.getTime() - 60_000),
+      );
+      if (scheduled.getTime() > now.getTime()) continue;
+      const key = `brew_composed_${legacy.id}_${scheduled.toISOString()}`;
+      if (this.storage.setting(key)) continue;
+      this.runningCompositions.add(legacy.id);
+      try {
+        const preview = await this.previewComposition(config, config.id, scheduled.toISOString());
+        const count = new Set(
+          preview.snapshot.sections.flatMap((section) => section.items.map((item) => item.id)),
+        ).size;
+        if (count >= (config.schedule.skipIfFewerThan ?? 0)) {
+          this.freezeComposition(preview.snapshot);
+          generated++;
+        }
+        this.storage.setSetting(key, scheduled.toISOString());
+      } finally {
+        this.runningCompositions.delete(legacy.id);
+      }
+    }
+    return generated;
   }
   readState(id: number) {
     const issue = this.snapshot(id);
     if (!issue) return null;
+    if (this.usesComposition(issue.brewConfigId)) {
+      const config = this.composition(issue.brewConfigId)!;
+      return {
+        articles: this.storage.articleStates([
+          ...new Set(issue.sections.flatMap((section) => section.items.map((item) => item.id))),
+        ]),
+        timeZone: config.timezone,
+        nextAt: config.enabled
+          ? nextBrewAt(config.schedule, config.timezone, this.clock.now()).toISOString()
+          : null,
+        scheduleLabel: config.enabled
+          ? config.schedule.kind === 'weekdays'
+            ? 'Weekdays'
+            : config.schedule.kind === 'weekly'
+              ? 'Weekly'
+              : config.schedule.kind === 'monthly'
+                ? 'Monthly'
+                : 'Daily'
+          : 'Schedule paused',
+      };
+    }
     const config = this.listConfigs().find((item) => item.id === issue.brewConfigId);
     const [minute, hour] = (config?.scheduleCron ?? '').split(/\s+/).map(Number);
     const next = new Date(this.clock.now());
@@ -122,7 +234,9 @@ export class BrewService {
   runScheduled(now = this.clock.now()): number {
     let generated = 0;
     const date = now.toISOString().slice(0, 10);
-    for (const config of this.listConfigs().filter((config) => config.enabled)) {
+    for (const config of this.listConfigs().filter(
+      (config) => config.enabled && !this.usesComposition(config.id),
+    )) {
       const [minute, hour] = config.scheduleCron.trim().split(/\s+/);
       if (minute !== String(now.getMinutes()) || hour !== String(now.getHours())) continue;
       const key = `brew_generated_${config.id}_${date}`;

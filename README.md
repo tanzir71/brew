@@ -52,8 +52,8 @@ the data guide offers the existing OPML export and Node backup command.
 
 ### Prerequisites
 
-| Tool | Why | Get it |
-|---|---|---|
+| Tool        | Why        | Get it                     |
+| ----------- | ---------- | -------------------------- |
 | Node.js 20+ | Everything | <https://nodejs.org> (LTS) |
 
 ### Development
@@ -78,13 +78,13 @@ Environment knobs: `BREW_DB_PATH` points at a different SQLite file; set `NODE_E
 
 ### Quality gates
 
-| Command | What it does |
-|---|---|
-| `npm run typecheck` | TypeScript strict check |
-| `npm run lint` | Generated tokens, semantic colors and code style |
-| `npm test` | Unit tests |
-| `npm run test:e2e` | Playwright end-to-end (starts dev servers itself) |
-| `npm run build` | Production build |
+| Command             | What it does                                      |
+| ------------------- | ------------------------------------------------- |
+| `npm run typecheck` | TypeScript strict check                           |
+| `npm run lint`      | Generated tokens, semantic colors and code style  |
+| `npm test`          | Unit tests                                        |
+| `npm run test:e2e`  | Playwright end-to-end (starts dev servers itself) |
+| `npm run build`     | Production build                                  |
 
 ## Project structure
 
@@ -137,7 +137,22 @@ layouts, selectable article actions, scoped mark-read with confirmation and
 Undo, a contents rail and reading progress. Issue content stays frozen;
 `/api/brews/:id/state` supplies current library read/star states and applied rules.
 Legacy `hero` and `list` layout names remain readable during the v2 migration.
-Compose opens the existing section editor. More actions contains generation,
+Compose at `/b/<brew id>/compose` edits v2 sections with serial autosave,
+multiple library sources, layouts, depth, image/unread options, Rules-grade
+filters, per-section days and Markdown Notes. Web, sandboxed Email and Atom
+previews use the current unsaved draft without creating an issue. Make one now
+flushes the draft before generating a frozen issue. Email, AI Briefs and
+newsletter sources show their setup requirements; their delivery/ingestion work
+remains in subsequent milestones.
+
+Migration 0006 preserves original legacy sections and frozen issue payloads,
+while adding the canonical Compose model. Node applies its portable data step
+(`packages/db/src/composition-migration.ts`) in the same transaction as the SQL;
+future targets must do the same. Old REST config routes retain their v1 shape;
+Compose uses `/api/brew-configs/:id/composition` and `POST .../:id/preview`.
+The complete Figma Add source and Schedule sheets follow in the next iterations.
+
+More actions contains generation,
 edition selection and display preferences. Output controls remain visible and
 disabled until the output renderers are implemented.
 

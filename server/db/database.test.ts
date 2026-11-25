@@ -5,7 +5,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { openDatabase } from './database.js';
 
 const temporaryDirectories: string[] = [];
-afterEach(() => { for (const directory of temporaryDirectories.splice(0)) fs.rmSync(directory, { recursive: true, force: true }); });
+afterEach(() => {
+  for (const directory of temporaryDirectories.splice(0))
+    fs.rmSync(directory, { recursive: true, force: true });
+});
 
 describe('database migrations', () => {
   it('creates every canonical table and can reopen idempotently', () => {
@@ -13,11 +16,31 @@ describe('database migrations', () => {
     temporaryDirectories.push(directory);
     const filename = path.join(directory, 'brew.db');
     const first = openDatabase(filename);
-    const tables = first.sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{ name: string }>;
-    expect(tables.map(({ name }) => name)).toEqual(expect.arrayContaining(['folders', 'feeds', 'articles', 'tags', 'article_tags', 'rules', 'rule_logs', 'brew_configs', 'brews', 'settings']));
+    const tables = first.sqlite
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+      .all() as Array<{ name: string }>;
+    expect(tables.map(({ name }) => name)).toEqual(
+      expect.arrayContaining([
+        'folders',
+        'feeds',
+        'articles',
+        'tags',
+        'article_tags',
+        'rules',
+        'rule_logs',
+        'brew_configs',
+        'brews',
+        'settings',
+      ]),
+    );
     first.close();
     const second = openDatabase(filename);
-    expect(second.sqlite.prepare('SELECT count(*) AS count FROM __brew_migrations').get()).toEqual({ count: 5 });
-    second.close();
+    try {
+      expect(
+        second.sqlite.prepare('SELECT count(*) AS count FROM __brew_migrations').get(),
+      ).toEqual({ count: 6 });
+    } finally {
+      second.close();
+    }
   });
 });

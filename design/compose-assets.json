@@ -1,0 +1,29 @@
+{
+  "fileKey": "NcqNdBhgeg6om2CCZwrYV8",
+  "frame": "10:458",
+  "purpose": "Original native-size Compose feed illustrations, used by the browser fixture. Live articles use their own images. Artwork is unchanged in both palettes.",
+  "checksumNormalization": "SVG line endings normalized to LF; PNG bytes unchanged.",
+  "assets": [
+    {
+      "file": "packages/web/public/figma/compose/lead.svg",
+      "node": "10:908",
+      "width": 468,
+      "height": 190,
+      "sha256": "07d5347a8c3e30e46c5875dcf6a60a3346ed5c177ca24e0873684c91c6726bca"
+    },
+    {
+      "file": "packages/web/public/figma/compose/lines.png",
+      "node": "10:921",
+      "width": 84,
+      "height": 58,
+      "sha256": "8a5b68b4553f5232d6157ec7e14392237c2245fc9280ad2f419c99b8f58792cb"
+    },
+    {
+      "file": "packages/web/public/figma/compose/variables.svg",
+      "node": "10:933",
+      "width": 84,
+      "height": 58,
+      "sha256": "75299bda806d7d6677756d6212bfdb838801594863d1c2fa1afe9eee8669daff"
+    }
+  ]
+}

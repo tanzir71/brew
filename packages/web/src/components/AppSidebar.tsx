@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState } from 'react';
-import type { BrewConfig } from '@brew/core/types/brew';
+import type { BrewConfig } from '@brew/core/types/legacy-brew';
 import type { ReaderNavigation } from '@brew/core/types/api';
 import { useCapabilities } from '../hooks/useCapabilities';
 import { ModeChip } from './ModeChip';

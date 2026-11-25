@@ -1,0 +1,12 @@
+ALTER TABLE brew_configs ADD COLUMN timezone TEXT NOT NULL DEFAULT 'UTC';
+ALTER TABLE brew_configs ADD COLUMN schedule_json TEXT NOT NULL DEFAULT '{"kind":"daily","time":"07:00"}';
+ALTER TABLE brew_configs ADD COLUMN delivery_json TEXT NOT NULL DEFAULT '{"web":true,"feed":false,"publicCopy":false}';
+ALTER TABLE brew_configs ADD COLUMN legacy_sections_json TEXT;
+ALTER TABLE brew_configs ADD COLUMN composition_version INTEGER NOT NULL DEFAULT 1;
+UPDATE brew_configs SET legacy_sections_json = sections_json;
+ALTER TABLE brews ADD COLUMN issue_number INTEGER;
+UPDATE brews SET issue_number = id;
+CREATE UNIQUE INDEX brews_config_issue_unique ON brews(brew_config_id, issue_number);
+ALTER TABLE brews ADD COLUMN rendered_md TEXT;
+ALTER TABLE brews ADD COLUMN rendered_json TEXT;
+ALTER TABLE brews ADD COLUMN sent_json TEXT;

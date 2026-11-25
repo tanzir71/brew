@@ -69,7 +69,10 @@ export async function createApp(
   });
   mountApi(app, api);
   const brewTimer = options.startPoller
-    ? setInterval(() => brewService.runScheduled(), 60_000)
+    ? setInterval(() => {
+        brewService.runScheduled();
+        void brewService.runCompositionScheduled().catch((error) => app.log.error(error));
+      }, 60_000)
     : null;
   if (options.startPoller) poller.start();
   // Stop live streams before Fastify waits for sockets to drain.

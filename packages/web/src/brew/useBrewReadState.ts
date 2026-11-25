@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { BrewReadState } from '@brew/core/types/brew';
+import type { BrewReadState } from '@brew/core/types/legacy-brew';
 
 export function useBrewReadState(id?: number) {
   return useQuery({
