@@ -1,10 +1,12 @@
+import { smtpConfigFromEnv } from './outbound-config.js';
 import { createApp } from './app.js';
 import { inboundConfigFromEnv } from './inbound-config.js';
 
 const app = await createApp({
   serveWeb: process.env.NODE_ENV === 'production',
-  publicUrl: process.env.BREW_PUBLIC_URL,
+  publicUrl: process.env.BREW_PUBLIC_URL || undefined,
   startPoller: true,
+  smtp: smtpConfigFromEnv(process.env),
   inbound: inboundConfigFromEnv(process.env),
 });
 

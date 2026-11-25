@@ -1,3 +1,4 @@
+import { isDeliveryAddress, isDeliveryWebhook } from './delivery-validation.js';
 import type { BrewConfigDraft, BrewSection, BrewSchedule } from './types/brew.js';
 import type {
   BrewConfigDraft as LegacyDraft,
@@ -140,16 +141,10 @@ export function validateComposition(value: unknown): asserts value is BrewConfig
     typeof draft.delivery.publicCopy !== 'boolean'
   )
     throw new Error('Choose delivery channels.');
-  if (draft.delivery.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.delivery.email.to))
-    throw new Error('Enter a valid delivery email.');
-  if (draft.delivery.webhook) {
-    try {
-      if (!['http:', 'https:'].includes(new URL(draft.delivery.webhook.url).protocol))
-        throw new Error();
-    } catch {
-      throw new Error('Enter an HTTP webhook URL.');
-    }
-  }
+  if (draft.delivery.email && !isDeliveryAddress(draft.delivery.email.to))
+    throw new Error('Enter one valid delivery email.');
+  if (draft.delivery.webhook && !isDeliveryWebhook(draft.delivery.webhook.url))
+    throw new Error('Enter an HTTP webhook URL without credentials or a fragment.');
   const ids = new Set<string>();
   for (const section of draft.sections) {
     if (!section || typeof section.id !== 'string' || !section.id || ids.has(section.id))

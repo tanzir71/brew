@@ -7,6 +7,7 @@ import { createApp } from '../dist/targets/node/src/app.js';
 import { openDatabase } from '../dist/targets/node/src/db/database.js';
 import { NewsletterService } from '../dist/targets/node/src/services/newsletter-service.js';
 import { newBrewSection, sectionWithSources } from '../dist/packages/core/src/composition-model.js';
+import { smtpConfigFromEnv } from '../dist/targets/node/src/outbound-config.js';
 import { inboundConfigFromEnv } from '../dist/targets/node/src/inbound-config.js';
 
 // A built install must find migrations and the SPA outside the repository cwd.
@@ -117,7 +118,7 @@ try {
   assert.equal(schedule.statusCode, 200);
   assert.equal(schedule.headers['cache-control'], 'no-store');
   assert.ok(Date.parse(schedule.json().nextAt) > Date.parse(schedule.json().now));
-  assert.deepEqual(capabilities.json().outputs, { twins: true, feed: true, webhook: false });
+  assert.deepEqual(capabilities.json().outputs, { twins: true, feed: true, webhook: true });
   assert.equal(
     (
       await app.inject({
@@ -299,8 +300,76 @@ try {
   const compiledFeed = (await app.inject(`/b/${configId}.json`)).json();
   assert.equal(compiledFeed.items[0].url, `http://localhost${outputPath}`);
   assert.equal((await app.inject({ method: 'HEAD', url: `${outputPath}.md` })).body, '');
+  const smtpConfig = smtpConfigFromEnv({
+    BREW_SMTP_HOST: 'smtp.example.test',
+    BREW_SMTP_FROM: 'brew@example.test',
+  });
+  const smtpApp = await createApp({
+    database: openDatabase(':memory:'),
+    publicUrl: 'https://compiled.example.test',
+    smtp: smtpConfig,
+  });
+  try {
+    assert.equal((await smtpApp.inject('/api/capabilities')).json().emailDelivery, 'smtp');
+  } finally {
+    await smtpApp.close();
+  }
+  const delivered = [];
+  const posted = [];
+  const deliveryApp = await createApp({
+    database: openDatabase(':memory:'),
+    publicUrl: 'https://compiled.example.test',
+    outboundMail: {
+      kind: 'smtp',
+      send: async (message) => {
+        delivered.push(message);
+        return { messageId: 'compiled-message' };
+      },
+    },
+    fetcher: async (_url, init) => {
+      posted.push(JSON.parse(init.body));
+      return new globalThis.Response(null, { status: 204 });
+    },
+  });
+  try {
+    const config = (
+      await deliveryApp.inject({
+        method: 'POST',
+        url: '/api/brew-configs/composition',
+        payload: {
+          name: 'Compiled delivery',
+          enabled: false,
+          timezone: 'UTC',
+          schedule: { kind: 'daily', time: '07:00' },
+          delivery: {
+            web: true,
+            feed: false,
+            publicCopy: false,
+            email: { to: 'reader@example.test' },
+            webhook: { url: 'https://receiver.example.test/hook' },
+          },
+          sections: [{ ...newBrewSection('note', 'note'), note: 'A compiled delivery.' }],
+        },
+      })
+    ).json();
+    const generated = await deliveryApp.inject({
+      method: 'POST',
+      url: `/api/brew-configs/${config.id}/generate`,
+    });
+    assert.equal(generated.statusCode, 200);
+    assert.equal(delivered.length, 1);
+    assert.equal(posted.length, 1);
+    assert.match(delivered[0].text, /A compiled delivery/);
+    assert.match(delivered[0].html, /width="600"/);
+    const results = (await deliveryApp.inject(`/api/brews/${generated.json().id}/delivery`)).json()
+      .results;
+    assert.equal(results.email.status, 'sent');
+    assert.equal(results.webhook.status, 'sent');
+  } finally {
+    await deliveryApp.close();
+  }
   log(
-    'Built Node target: migrations, MIME/cleaning, signed inbound webhook/replay, health, output twins/feeds, SPA, assets and fallback passed outside the repository cwd.',
+    'Built Node target: migrations, MIME/cleaning, signed inbound webhook/replay, health, output twins/feeds/delivery, SMTP setup, SPA, assets and fallback passed outside the repository cwd.',
   );
 } finally {
   if (app) await app.close();

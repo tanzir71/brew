@@ -1,3 +1,5 @@
+import { BrewDeliveryRunner } from './brew-delivery.js';
+import type { BrewDeliveryOptions } from './types/delivery.js';
 import type {
   BrewConfig,
   BrewConfigDraft,
@@ -26,6 +28,7 @@ export class BrewService {
     private readonly regex: RegexPort = {
       test: async () => ({ matched: false, timedOut: false, error: 'Regex is unavailable.' }),
     },
+    private readonly delivery: BrewDeliveryOptions = {},
   ) {}
   listConfigs(): BrewConfig[] {
     return this.storage.listConfigs();
@@ -155,7 +158,12 @@ export class BrewService {
       id,
       this.clock.now(),
     );
-    return this.freezeComposition(snapshot);
+    const issue = this.freezeComposition(snapshot) as CompositionSnapshot;
+    await new BrewDeliveryRunner(this.storage, this.clock, this.delivery).deliver(
+      issue,
+      config.delivery,
+    );
+    return issue;
   }
   private freezeComposition(snapshot: CompositionSnapshot) {
     const payload = {
@@ -203,15 +211,25 @@ export class BrewService {
           ),
         ).size;
         if (count >= (config.schedule.skipIfFewerThan ?? 0)) {
-          this.freezeComposition(preview.snapshot);
+          const issue = this.freezeComposition(preview.snapshot) as CompositionSnapshot;
+          // Commit the schedule receipt before delivery can wait on the network.
+          this.storage.setSetting(key, scheduled.toISOString());
           generated++;
+          await new BrewDeliveryRunner(this.storage, this.clock, this.delivery).deliver(
+            issue,
+            config.delivery,
+          );
+        } else {
+          this.storage.setSetting(key, scheduled.toISOString());
         }
-        this.storage.setSetting(key, scheduled.toISOString());
       } finally {
         this.runningCompositions.delete(legacy.id);
       }
     }
     return generated;
+  }
+  deliveryResults(id: number) {
+    return this.storage.deliveryResults(id);
   }
   readState(id: number) {
     const issue = this.snapshot(id);

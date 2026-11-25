@@ -170,6 +170,32 @@ export class NodeBrewStorage implements BrewStoragePort {
         .run(configId, before);
     })();
   }
+  claimDelivery(
+    id: number,
+    results: import('../../../../packages/core/src/types/delivery.js').BrewDeliveryResults,
+  ): boolean {
+    return (
+      this.database.sqlite
+        .prepare('UPDATE brews SET sent_json=? WHERE id=? AND sent_json IS NULL')
+        .run(JSON.stringify(results), id).changes === 1
+    );
+  }
+  saveDelivery(
+    id: number,
+    results: import('../../../../packages/core/src/types/delivery.js').BrewDeliveryResults,
+  ): void {
+    this.database.sqlite
+      .prepare('UPDATE brews SET sent_json=? WHERE id=?')
+      .run(JSON.stringify(results), id);
+  }
+  deliveryResults(
+    id: number,
+  ): import('../../../../packages/core/src/types/delivery.js').BrewDeliveryResults | null {
+    const row = this.database.sqlite
+      .prepare('SELECT sent_json AS results FROM brews WHERE id=?')
+      .get(id) as { results: string | null } | undefined;
+    return row?.results ? JSON.parse(row.results) : null;
+  }
   historyIds(configId: number): number[] {
     return this.database.db
       .select({ id: brews.id })

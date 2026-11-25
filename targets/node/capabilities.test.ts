@@ -21,7 +21,7 @@ it('reports wired Node capabilities without accepting client mode overrides', as
       ai: { available: [], configured: false },
       readState: 'server',
       publicCopy: false,
-      outputs: { twins: true, feed: true, webhook: false },
+      outputs: { twins: true, feed: true, webhook: true },
     });
   } finally {
     await app.close();

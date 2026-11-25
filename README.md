@@ -189,8 +189,7 @@ with stable issue IDs and deterministic empty-feed metadata. Their formats follo
 Pass the instance origin as `baseUrl` when rendering externally consumed output.
 Email previews retain local links and proxy images before an origin is supplied;
 feeds omit unresolved local URLs. These are private owner outputs: this renderer
-layer does not publish files. Output HTTP routes are now available in Node; SMTP
-and webhook delivery adapters remain M11 work.
+layer does not publish files. Output HTTP routes are now available in Node; SMTP and JSON webhook delivery are also available in Node.
 
 Use the Read rail’s Markdown or JSON links for the selected frozen issue:
 `/b/<brew id>/<snapshot id>.md` and `.json`. The immutable snapshot ID is the same
@@ -236,8 +235,9 @@ of unique unread selected items. Changes stay local until Save; closing the
 sheet cancels them. Delivery controls follow capabilities and keep unavailable
 channels visible with setup links. Test email sends the unsaved preview through
 a configured `OutboundMailPort` and saves no issue or settings; Node's SMTP
-adapter and published feed/webhook/public-copy outputs arrive in M11. A default
-Node install keeps those controls gated.
+adapter is configured through environment variables; webhook and feed delivery
+work in Node. A default Node install keeps email gated until SMTP is configured,
+and public-copy publishing remains pending.
 
 V2 issues are retained for 30 days, with monotonic issue numbers even after the
 archive expires. The scheduler prunes expired issues even for paused Brews.
@@ -333,3 +333,14 @@ Your entire state is `data/brew.db`. To back up manually, **stop Brew first** so
 - **Port already in use** → something else owns 4400/4401; stop it or change ports.
 - **Feeds not refreshing** → check the server terminal for fetch errors; some feeds rate-limit aggressively.
 - **Started fresh unexpectedly** → the app looks for `./data/brew.db` relative to where it runs; check `BREW_DB_PATH` and your working directory.
+
+
+Node outbound delivery is documented in [docs/outbound-delivery.md](docs/outbound-delivery.md).
+Set SMTP sender/connection settings and `BREW_PUBLIC_URL`, then restart the Node
+process. Choose a single recipient or an HTTP(S) webhook in Schedule & delivery.
+Generated issues freeze first, then deliver their frozen HTML/plain text and
+content-only JSON. Failures preserve the issue and appear separately at
+`GET /api/brews/:id/delivery`; credentials and raw provider replies are omitted.
+A test send uses the current unsaved draft and does not create an issue or send
+a webhook. Webhooks use a five-second timeout per attempt and one retry, with a
+stable `Idempotency-Key`. Existing issues are never silently resent on restart.

@@ -1,3 +1,6 @@
+import { SmtpMail } from './ports/smtp-mail.js';
+import type { NodeSmtpConfig } from './outbound-config.js';
+import type { ConnectionOptions } from 'node:tls';
 import { outputBaseUrl } from '../../../packages/core/src/brew-output-content.js';
 import type { ClockPort } from '../../../packages/core/src/ports.js';
 import type { OutboundMailPort } from '../../../packages/core/src/types/delivery.js';
@@ -32,11 +35,17 @@ export async function createApp(
     startPoller?: boolean;
     clock?: ClockPort;
     outboundMail?: OutboundMailPort;
+    smtp?: NodeSmtpConfig | null;
+    smtpTls?: Pick<ConnectionOptions, 'ca'>;
     inbound?: NodeInboundConfig | null;
     imapClientFactory?: ImapClientFactory;
   } = {},
 ): Promise<FastifyInstance> {
   const publicUrl = outputBaseUrl(options.publicUrl);
+  if (options.smtp && !publicUrl)
+    throw new Error('BREW_PUBLIC_URL is required for SMTP links and images.');
+  const smtp = options.smtp ? new SmtpMail(options.smtp, options.smtpTls) : undefined;
+  const outboundMail = options.outboundMail ?? smtp;
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
   app.addHook('onSend', async (_request, reply, payload) => {
     for (const [name, value] of Object.entries(securityHeaders)) {
@@ -52,7 +61,11 @@ export async function createApp(
   );
   const database = options.database ?? openDatabase();
   const broker = new SseBroker();
-  const brewService = new BrewService(database, options.clock);
+  const brewService = new BrewService(database, options.clock, {
+    mail: outboundMail,
+    fetcher: options.fetcher ?? globalThis.fetch,
+    baseUrl: publicUrl,
+  });
   const rules = new RulesService(database, options.fetcher, (article) =>
     broker.publish('notification', article),
   );
@@ -99,6 +112,7 @@ export async function createApp(
     nodeApiServices(database, poller, broker, options.fetcher, {
       ...options,
       publicUrl,
+      outboundMail,
       inboundEmail,
       inboundMail: inbound ? (inbound.kind === 'imap' ? 'imap' : 'webhook') : null,
     }),
@@ -118,11 +132,14 @@ export async function createApp(
     },
   );
   mountApi(app, api);
+  const brewRuns = new Set<Promise<number>>();
   const brewTimer = options.startPoller
     ? setInterval(() => {
         newsletters.prune();
         brewService.runScheduled();
-        void brewService.runCompositionScheduled().catch((error) => app.log.error(error));
+        const pending = brewService.runCompositionScheduled();
+        brewRuns.add(pending);
+        void pending.catch((error) => app.log.error(error)).finally(() => brewRuns.delete(pending));
       }, 60_000)
     : null;
   if (options.startPoller) {
@@ -132,12 +149,15 @@ export async function createApp(
   }
   // Stop live streams before Fastify waits for sockets to drain.
   app.addHook('preClose', async () => {
+    if (brewTimer) clearInterval(brewTimer);
     broker.close();
   });
   app.addHook('onClose', async () => {
     poller.stop();
     await imap?.stop();
     if (brewTimer) clearInterval(brewTimer);
+    await Promise.allSettled(brewRuns);
+    smtp?.close();
     database.close();
   });
 

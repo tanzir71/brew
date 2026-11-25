@@ -1,3 +1,4 @@
+import { renderBrewEmail } from '../../../core/src/brew-outputs.js';
 import type { Hono } from 'hono';
 import type { BrewConfigDraft } from '../../../core/src/types/legacy-brew.js';
 import type { ApiServices } from '../ports.js';
@@ -6,7 +7,7 @@ import type { BrewConfigDraft as CompositionDraft } from '../../../core/src/type
 
 export function registerBrewRoutes(
   app: Hono,
-  { brews: service, outboundMail, capabilities }: ApiServices,
+  { brews: service, outboundMail, capabilities, outputBaseUrl }: ApiServices,
 ): void {
   app.post('/api/brew-configs/:id/schedule-preview', async (c) => {
     c.header('Cache-Control', 'no-store');
@@ -25,10 +26,14 @@ export function registerBrewRoutes(
       const preview = await service.previewCompositionNow(draft, Number(c.req.param('id')));
       const to = draft.delivery.email?.to;
       if (!to) return json(c, { error: 'Enable Email and choose a recipient for the test.' }, 422);
+      const rendered = renderBrewEmail(preview.snapshot, {
+        baseUrl: outputBaseUrl ?? new URL(c.req.url).origin,
+      });
       const result = await outboundMail.send({
         to,
         subject: `Test · ${draft.name}`,
-        html: preview.outputs.email,
+        html: rendered.html,
+        text: rendered.text,
       });
       return json(c, { sent: true, to, ...result });
     } catch (error) {
@@ -103,6 +108,13 @@ export function registerBrewRoutes(
   app.get('/api/brews/:id', async (c) => {
     const snapshot = await service.snapshot(Number(c.req.param('id')));
     return snapshot ? json(c, snapshot) : json(c, { error: 'Snapshot not found' }, 404);
+  });
+  app.get('/api/brews/:id/delivery', async (c) => {
+    c.header('Cache-Control', 'private, no-store');
+    const id = Number(c.req.param('id'));
+    if (!Number.isSafeInteger(id) || id < 1 || !(await service.snapshot(id)))
+      return json(c, { error: 'Snapshot not found' }, 404);
+    return json(c, { issueId: id, results: await service.deliveryResults(id) });
   });
   app.get('/api/brews/:id/state', async (c) => {
     const state = await service.readState(Number(c.req.param('id')));

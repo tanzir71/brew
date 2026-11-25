@@ -47,7 +47,11 @@ export function nodeApiServices(
     feeds: new FeedService(database, fetcher),
     articles: new ArticleService(database, fetcher, now),
     reader: new ReaderService(database, now),
-    brews: new BrewService(database, options.clock),
+    brews: new BrewService(database, options.clock, {
+      mail: options.outboundMail,
+      fetcher,
+      baseUrl: options.publicUrl,
+    }),
     rules: new RulesService(database, fetcher, (article) =>
       broker.publish('notification', article),
     ),

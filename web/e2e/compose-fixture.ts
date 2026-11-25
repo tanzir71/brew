@@ -12,7 +12,7 @@ export async function composeFixture(
   fetcher?: typeof fetch,
   runtime: Pick<
     NonNullable<Parameters<typeof createApp>[0]>,
-    'clock' | 'outboundMail' | 'inbound'
+    'clock' | 'outboundMail' | 'inbound' | 'publicUrl'
   > & {
     previewAt?: () => string;
   } = {},

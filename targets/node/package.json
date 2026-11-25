@@ -18,6 +18,10 @@
     "imapflow": "2.12.2",
     "linkedom": "latest",
     "node-cron": "latest",
+    "nodemailer": "10.6.1",
     "rss-parser": "latest"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "8.0.2"
   }
 }

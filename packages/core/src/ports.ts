@@ -82,6 +82,9 @@ export interface BrewStoragePort {
   ): number;
   prune(configId: number, keep: number): void;
   pruneBefore(configId: number, before: number): void;
+  claimDelivery(id: number, results: import('./types/delivery.js').BrewDeliveryResults): boolean;
+  saveDelivery(id: number, results: import('./types/delivery.js').BrewDeliveryResults): void;
+  deliveryResults(id: number): import('./types/delivery.js').BrewDeliveryResults | null;
   historyIds(configId: number): number[];
   snapshot(id: number): import('./types/brew.js').BrewIssue | null;
   composition(id: number): import('./types/brew.js').BrewConfig | null;
