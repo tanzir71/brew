@@ -112,7 +112,7 @@ test('failed mutations keep read state, retry recovers, and unavailable formats 
   const item = page.getByRole('article', { name: fixture.items[2]!.title });
   fixture.failUpdates(true);
   await item.getByRole('button', { name: 'Mark read', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('Could not update this Brew. Try again.');
+  await expect(page.getByRole('status')).toContainText('Could not update article. Try again.');
   await expect(item).toHaveAttribute('data-brew-state', 'unread highlighted');
   fixture.failUpdates(false);
   await item.getByRole('button', { name: 'Open', exact: true }).click();

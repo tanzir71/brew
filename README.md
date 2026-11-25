@@ -136,6 +136,13 @@ through its archive. The Read view has lead, magazine, grid and headlines
 layouts, selectable article actions, scoped mark-read with confirmation and
 Undo, a contents rail and reading progress. Issue content stays frozen;
 `/api/brews/:id/state` supplies current library read/star states and applied rules.
+Opening an article from Brew, Reader or search marks it read in the shared
+library. Mark unread and star changes update live article, list, search and Brew
+state, including archived issues, while their saved content stays frozen. Article
+content opens before the read write completes. Failed writes restore confirmed
+state and allow retry; queued actions on one article keep their order. Reader's
+optional read-on-scroll has an explicit retry for failed saves, and bulk read/Undo
+refreshes both views. Selecting a Brew card alone does not mark it read.
 Legacy `hero` and `list` layout names remain readable during the v2 migration.
 Compose at `/b/<brew id>/compose` edits v2 sections with serial autosave,
 multiple library sources, layouts, depth, image/unread options, Rules-grade

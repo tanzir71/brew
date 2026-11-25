@@ -50,6 +50,8 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
   await expect(page.getByText('2 min read')).toBeVisible();
   await page.getByRole('button', { name: '☆ Star' }).click();
   await expect(page.getByRole('button', { name: '★ Starred' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Mark unread' }).click();
+  await expect(page.getByRole('button', { name: 'Mark read' })).toBeVisible();
   await page.getByRole('button', { name: 'Mark read' }).click();
   await expect(page.getByRole('button', { name: 'Mark unread' })).toBeVisible();
   await page.getByRole('button', { name: 'Tag' }).click();

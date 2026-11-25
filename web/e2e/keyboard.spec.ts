@@ -41,6 +41,8 @@ test('supports the complete Reader keyboard map and cheat sheet', async ({ page 
   await expect.poll(() => page.evaluate(() => localStorage.getItem('brew:reading-prefs'))).toContain('compact');
   await expect(page.getByRole('button', { name: '☆ Star' })).toBeVisible();
   await page.keyboard.press('s'); await expect(page.getByRole('button', { name: '★ Starred' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mark unread' })).toBeVisible();
+  await page.keyboard.press('m'); await expect(page.getByRole('button', { name: 'Mark read' })).toBeVisible();
   await page.keyboard.press('m'); await expect(page.getByRole('button', { name: 'Mark unread' })).toBeVisible();
   await page.keyboard.press('t'); await expect(page.getByText('Tags', { exact: true })).toBeVisible();
   await page.keyboard.press('Escape'); await expect(page.getByRole('dialog', { name: 'Article reader' })).toBeHidden();

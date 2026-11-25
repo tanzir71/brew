@@ -139,6 +139,7 @@ test('OPML import updates the library, reports invalid files, and imports withou
   ).not.toBeChecked();
   await fixture.sheet.getByRole('checkbox', { name: 'New Dispatch', exact: true }).check();
   await fixture.sheet.getByRole('button', { name: 'Add 3 sources', exact: true }).click();
+  await expect(fixture.sheet).not.toBeVisible();
   await expect(page.getByLabel('Autosave')).toHaveText('All changes saved');
   const stored = new BrewService(fixture.database).composition(1)!;
   expect(stored.sections[0]!.sources).toHaveLength(3);

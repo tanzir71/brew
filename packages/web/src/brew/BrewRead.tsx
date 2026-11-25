@@ -1,14 +1,9 @@
 import { useEffect, useRef, useState, lazy, Suspense, type CSSProperties } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useBrewReadState } from './useBrewReadState';
-import type {
-  BrewArticleState,
-  BrewConfig,
-  BrewItem,
-  BrewReadState,
-} from '@brew/core/types/legacy-brew';
+import type { BrewArticleState, BrewConfig, BrewItem } from '@brew/core/types/legacy-brew';
 import type { BrewIssue } from '@brew/core/types/brew';
-import type { ArticleDetail } from '@brew/core/types/api';
+import { updateArticleState } from '../articleState';
 import { Avatar, Button, Chip } from '../components/controls';
 import { Icon } from '../components/Icon';
 import { Badge } from '../components/Badge';
@@ -17,11 +12,6 @@ const ArticleReader = lazy(() =>
   import('../Reader').then((module) => ({ default: module.ArticleReader })),
 );
 
-async function json<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
-  if (!response.ok) throw new Error('Could not update this Brew. Try again.');
-  return response.json() as Promise<T>;
-}
 const numberWords = (value: number): string => {
   const small = [
     'zero',
@@ -156,26 +146,8 @@ export function BrewRead({
     url.searchParams.set('selected', String(id));
     window.history.replaceState({}, '', url);
   };
-  const update = async (id: number, values: { read?: boolean; starred?: boolean }) => {
-    const next = await json<ArticleDetail>(`/api/articles/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(values),
-    });
-    client.setQueryData<BrewReadState>(['brew-state', snapshot.id], (old) =>
-      old
-        ? {
-            ...old,
-            articles: old.articles.map((item) =>
-              item.id === id ? { ...item, readAt: next.readAt, starredAt: next.starredAt } : item,
-            ),
-          }
-        : old,
-    );
-    client.setQueryData(['article', id], next);
-    void client.invalidateQueries({ queryKey: ['reader-navigation'] });
-    void client.invalidateQueries({ queryKey: ['articles'] });
-  };
+  const update = (id: number, values: { read?: boolean; starred?: boolean }) =>
+    updateArticleState(client, id, values);
   const change = async (id: number, values: { read?: boolean; starred?: boolean }) => {
     setUndo([]);
     setBusy(true);
@@ -251,7 +223,8 @@ export function BrewRead({
                   snapshot.generatedAt,
                   { hour: '2-digit', minute: '2-digit' },
                   issueTimeZone,
-                )} · {issueTimeZone}
+                )}{' '}
+                · {issueTimeZone}
               </span>
               <span>
                 <Icon name="check" size={14} />
@@ -371,14 +344,9 @@ export function BrewRead({
                         selected={selected === item.id}
                         busy={busy}
                         onSelect={() => choose(item.id)}
-                        onOpen={async () => {
+                        onOpen={() => {
                           opener.current = document.activeElement as HTMLElement;
-                          try {
-                            if (!current(item).readAt) await update(item.id, { read: true });
-                            setOpen(item.id);
-                          } catch (error) {
-                            setMessage((error as Error).message);
-                          }
+                          setOpen(item.id);
                         }}
                         onStar={() => void change(item.id, { starred: !current(item).starredAt })}
                         onRead={() => void change(item.id, { read: !current(item).readAt })}

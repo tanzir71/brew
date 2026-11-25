@@ -1,5 +1,4 @@
 import {
-  type InfiniteData,
   useInfiniteQuery,
   useQuery,
   useQueryClient,
@@ -7,6 +6,7 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ModeChip } from './components/ModeChip';
+import { cachedArticleState, patchArticleStates, refreshArticleStates, updateArticleState } from './articleState';
 import type {
   ArticleDetail,
   ArticlePage,
@@ -28,8 +28,8 @@ const emptyNavigation: ReaderNavigation = {
   unfiled: [],
 };
 
-async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
+async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(url, { signal });
   if (!response.ok) throw new Error('Could not load your library');
   return response.json() as Promise<T>;
 }
@@ -640,43 +640,14 @@ function ArticleList({ selection }: { selection: Selection }) {
     if (last && last.index >= rows.length - 4 && query.hasNextPage && !query.isFetchingNextPage)
       void query.fetchNextPage();
   }, [virtualItems, rows.length, query]);
-  const patchReadState = useCallback(
-    (ids: number[], readAt: string | null) => {
-      const selected = new Set(ids);
-      client.setQueriesData<InfiniteData<ArticlePage>>({ queryKey: ['articles'] }, (current) =>
-        current
-          ? {
-              ...current,
-              pages: current.pages.map((page) => ({
-                ...page,
-                items: page.items.map((article) =>
-                  selected.has(article.id) ? { ...article, readAt } : article,
-                ),
-              })),
-            }
-          : current,
-      );
-    },
-    [client],
-  );
-  const patchStarState = useCallback(
-    (id: number, starredAt: string | null) => {
-      client.setQueriesData<InfiniteData<ArticlePage>>({ queryKey: ['articles'] }, (current) =>
-        current
-          ? {
-              ...current,
-              pages: current.pages.map((page) => ({
-                ...page,
-                items: page.items.map((article) =>
-                  article.id === id ? { ...article, starredAt } : article,
-                ),
-              })),
-            }
-          : current,
-      );
-    },
-    [client],
-  );
+  const [failedScroll, setFailedScroll] = useState<number[]>([]);
+  const [readError, setReadError] = useState('');
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const markScrolled = useCallback(async (ids: number[]) => {
+    const results = await Promise.allSettled(ids.map((id) => updateArticleState(client, id, { read: true })));
+    const failed = ids.filter((_, index) => results[index]!.status === 'rejected');
+    setFailedScroll((previous) => [...new Set([...previous.filter((id) => !ids.includes(id)), ...failed])]);
+  }, [client]);
   useEffect(() => {
     if (!markOnScroll) return;
     const offset = virtualizer.scrollOffset ?? 0;
@@ -692,17 +663,8 @@ function ArticleList({ selection }: { selection: Selection }) {
       .map(({ row }) => (row as { kind: 'article'; article: ArticleSummary }).article.id);
     if (!passed.length) return;
     for (const id of passed) scrolledIds.current.add(id);
-    patchReadState(passed, new Date().toISOString());
-    void Promise.all(
-      passed.map((id) =>
-        fetch(`/api/articles/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ read: true }),
-        }),
-      ),
-    ).then(() => window.dispatchEvent(new Event('brew:navigation-refresh')));
-  }, [markOnScroll, patchReadState, rows, virtualItems, virtualizer.scrollOffset]);
+    void markScrolled(passed);
+  }, [markOnScroll, markScrolled, rows, virtualItems, virtualizer.scrollOffset]);
   useEffect(() => {
     if (!undo) return;
     const timeout = window.setTimeout(
@@ -719,8 +681,11 @@ function ArticleList({ selection }: { selection: Selection }) {
     [scope],
   );
   const markAll = useCallback(async () => {
+    if (bulkBusy) return;
+    setBulkBusy(true);
+    setReadError('');
     const articleIds = articles.filter((article) => !article.readAt).map((article) => article.id);
-    patchReadState(articleIds, new Date().toISOString());
+    patchArticleStates(client, articleIds, { readAt: new Date().toISOString() });
     const body: { view: 'all' | 'today' | 'starred'; feedId?: number; folderId?: number } = {
       view: selection.kind === 'today' || selection.kind === 'starred' ? selection.kind : 'all',
     };
@@ -728,56 +693,50 @@ function ArticleList({ selection }: { selection: Selection }) {
     if (selection.kind === 'folder' && selection.id) body.folderId = selection.id;
     try {
       const response = await fetch('/api/articles/mark-all-read', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
-      if (!response.ok) throw new Error('Could not mark articles read');
+      if (!response.ok) throw new Error('Could not mark articles read. Try again.');
       const result = (await response.json()) as MarkAllReadResult;
       setUndo({ ...result, articleIds });
-      window.dispatchEvent(new Event('brew:navigation-refresh'));
-    } catch {
-      patchReadState(articleIds, null);
+    } catch (error) {
+      patchArticleStates(client, articleIds, { readAt: null });
+      setReadError((error as Error).message);
+    } finally {
+      setBulkBusy(false);
+      refreshArticleStates(client);
     }
-  }, [articles, patchReadState, selection.id, selection.kind]);
+  }, [articles, bulkBusy, client, selection.id, selection.kind]);
   const undoMarkAll = async () => {
-    if (!undo) return;
+    if (!undo || bulkBusy) return;
     const current = undo;
+    const previous = current.articleIds.map((id) => ({ id, readAt: cachedArticleState(client, id).readAt }));
     setUndo(null);
-    patchReadState(current.articleIds, null);
-    const response = await fetch('/api/articles/mark-all-read/undo', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ undoToken: current.undoToken }),
-    });
-    if (!response.ok) {
-      void query.refetch();
-      return;
-    }
-    window.dispatchEvent(new Event('brew:navigation-refresh'));
-  };
-  const updateFocused = useCallback(
-    async (article: ArticleSummary, values: { read?: boolean; starred?: boolean }) => {
-      if (values.read !== undefined)
-        patchReadState([article.id], values.read ? new Date().toISOString() : null);
-      if (values.starred !== undefined)
-        patchStarState(article.id, values.starred ? new Date().toISOString() : null);
-      const response = await fetch(`/api/articles/${article.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+    setBulkBusy(true);
+    setReadError('');
+    patchArticleStates(client, current.articleIds, { readAt: null });
+    try {
+      const response = await fetch('/api/articles/mark-all-read/undo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ undoToken: current.undoToken }),
       });
-      if (!response.ok) {
-        void query.refetch();
-        return;
-      }
-      const saved = (await response.json()) as ArticleDetail;
-      patchReadState([article.id], saved.readAt);
-      patchStarState(article.id, saved.starredAt);
-      window.dispatchEvent(new Event('brew:navigation-refresh'));
-    },
-    [patchReadState, patchStarState, query],
-  );
+      if (!response.ok) throw new Error('Could not undo the read update. Try again.');
+    } catch (error) {
+      for (const item of previous) patchArticleStates(client, [item.id], { readAt: item.readAt });
+      setReadError((error as Error).message);
+      if (Date.parse(current.expiresAt) > Date.now()) setUndo(current);
+    } finally {
+      setBulkBusy(false);
+      refreshArticleStates(client);
+    }
+  };
+  const updateFocused = useCallback(async (article: ArticleSummary, values: { read?: boolean; starred?: boolean }) => {
+    setReadError('');
+    try {
+      await updateArticleState(client, article.id, values);
+    } catch (error) {
+      setReadError((error as Error).message);
+    }
+  }, [client]);
   useLayoutEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return;
@@ -890,6 +849,7 @@ function ArticleList({ selection }: { selection: Selection }) {
           </div>
           <button
             onClick={markAll}
+            disabled={bulkBusy}
             className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs font-semibold"
           >
             Mark all read
@@ -901,6 +861,8 @@ function ArticleList({ selection }: { selection: Selection }) {
               onChange={(event) => {
                 setMarkOnScroll(event.target.checked);
                 localStorage.setItem('brew:mark-read-on-scroll', String(event.target.checked));
+                scrolledIds.current.clear();
+                setFailedScroll([]);
               }}
             />{' '}
             Read on scroll
@@ -946,6 +908,11 @@ function ArticleList({ selection }: { selection: Selection }) {
           </div>
         </div>
       </header>
+      {readError && <p role="alert" className="px-8 py-2 text-sm text-danger">{readError}</p>}
+      {failedScroll.length > 0 && <p role="alert" className="px-8 py-2 text-sm text-danger">
+        Could not save {failedScroll.length} read updates.{' '}
+        <button type="button" className="underline" onClick={() => void markScrolled(failedScroll)}>Retry read updates</button>
+      </p>}
       <div ref={parent} data-reader-scroll data-testid="virtual-article-list" className="min-h-0 flex-1 overflow-auto">
         <div
           className="relative mx-auto max-w-5xl px-8"
@@ -1144,8 +1111,10 @@ export function ArticleReader({
   const client = useQueryClient();
   const detail = useQuery({
     queryKey: ['article', id],
-    queryFn: () => getJson<ArticleDetail>(`/api/articles/${id}`),
+    staleTime: 0,
+    queryFn: ({ signal }) => getJson<ArticleDetail>(`/api/articles/${id}`, signal),
   });
+  const opened = useRef<number | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [message, setMessage] = useState('');
   const [showTags, setShowTags] = useState(false);
@@ -1177,55 +1146,20 @@ export function ArticleReader({
     await navigator.clipboard.writeText(detail.data.url);
     setMessage('Link copied.');
   };
-  const patchLists = (next: ArticleDetail) =>
-    client.setQueriesData<InfiniteData<ArticlePage>>({ queryKey: ['articles'] }, (current) =>
-      current
-        ? {
-            ...current,
-            pages: current.pages.map((page) => ({
-              ...page,
-              items: page.items.map((article) =>
-                article.id === next.id
-                  ? { ...article, readAt: next.readAt, starredAt: next.starredAt }
-                  : article,
-              ),
-            })),
-          }
-        : current,
-    );
   const updateState = async (values: { read?: boolean; starred?: boolean }) => {
-    const previous = detail.data;
-    if (!previous) return;
-    const optimistic: ArticleDetail = {
-      ...previous,
-      readAt:
-        values.read === undefined ? previous.readAt : values.read ? new Date().toISOString() : null,
-      starredAt:
-        values.starred === undefined
-          ? previous.starredAt
-          : values.starred
-            ? new Date().toISOString()
-            : null,
-    };
-    client.setQueryData(['article', id], optimistic);
-    patchLists(optimistic);
+    setMessage('');
     try {
-      const response = await fetch(`/api/articles/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      });
-      if (!response.ok) throw new Error('Could not update article');
-      const saved = (await response.json()) as ArticleDetail;
-      client.setQueryData(['article', id], saved);
-      patchLists(saved);
-      window.dispatchEvent(new Event('brew:navigation-refresh'));
+      await updateArticleState(client, id, values);
     } catch (error) {
-      client.setQueryData(['article', id], previous);
-      patchLists(previous);
-      setMessage(error instanceof Error ? error.message : 'Could not update article');
+      setMessage((error as Error).message);
     }
   };
+  useEffect(() => {
+    if (!detail.data || detail.isFetching || detail.isError || opened.current === id) return;
+    opened.current = id;
+    if (!detail.data.readAt)
+      void updateArticleState(client, id, { read: true }).catch((error: Error) => setMessage(error.message));
+  }, [client, detail.data, detail.isError, detail.isFetching, id]);
   const shell =
     mode === 'overlay'
       ? 'fixed inset-0 top-16 z-40 bg-scrim/30 p-4 md:p-8'
