@@ -139,7 +139,7 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 ### M8 — Design system v2
 - [x] `tokens.css` generated from §4.2 (light and dark); Tailwind theme reads the CSS variables; stone/amber utilities removed.
 - [x] Newsreader, Instrument Sans and Geist Mono self-hosted (woff2, `font-display: swap`); no third-party font requests (asserted in e2e).
-- [ ] Components of §4.3 built with stories or fixtures. Icon set ported from Figma `5:2` as an inline SVG sprite.
+- [x] Components of §4.3 built with stories or fixtures. Icon set ported from Figma `5:2` as an inline SVG sprite.
 - [ ] Zero italics: a lint rule or test fails on `font-style: italic`, `<em>` without a reset, or `italic` utilities.
 
 ### M9 — Read and Compose
@@ -222,6 +222,9 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - 2026-11-25: Record the Figma light/dark variables (including eight artwork fills) and shared elevation effects in `design/tokens.json`, with frame provenance; dimensions follow §4.2. Generate CSS and Tailwind aliases from this manifest, with drift and legacy-palette checks in lint and build — one palette now drives all app screens and settings.
 - 2026-11-25: Preserve the exact raw Figma muted color and derive a stronger caption token for small text. Primary controls and toggles use ink; links and rule editing use copper. User-selected highlight and tag colors remain data rather than theme colors.
 - 2026-11-25: Generate all 17 Figma type styles from `22:2508` alongside color tokens; bind Tailwind sans/serif/mono to Instrument Sans, Newsreader and Geist Mono. Use Newsreader 19/31 for article content by default, keep an explicit saved sans preference, and keep article controls in the UI family. Disable synthetic font faces and retain optical sizing for Newsreader.
+- 2026-11-25: Port the 53 Figma `5:2` exports into a generated inline sprite as explicitly required by M8. Preserve every exported path, stroke and viewBox; namespace IDs and replace the monochrome paint with currentColor. Keep checked originals and normalized checksums. The actual exports use 20×20 viewBoxes despite the component description's “24px grid”; exported geometry wins.
+- 2026-11-25: Use labelled native controls, controlled composite patterns and native dialog sheets with explicit Tab wrapping, scroll locking and opener focus restoration. Reuse the new wordmark, Kbd, navigation items, badge and capability row in the existing settings UI; future feature screens compose this library.
+- 2026-11-25: Preserve original primitive icon alpha geometry at its native dimensions using local SVG masks, allowing the exact theme paint without changing the exports. Strengthen derived caption ink from 80% to 75% muted: axe found 4.36:1 on subtle surfaces. Raw Figma color variables remain unchanged.
 
 ### Discoveries / gotchas
 
@@ -286,3 +289,12 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - Discoveries: the existing variable WOFF2 files cover the required Newsreader and Instrument Sans weights. Scope the reading preference to content so toolbar controls retain Instrument Sans; explicit saved sans preferences survive the new serif default. Figma's type foundation has no static image/SVG assets.
 - Dependency justifications: no new packages.
 - Next unchecked criterion: build §4.3 components and fixtures, and port Figma `5:2` to an inline icon sprite. M8 remains in progress; M9–M20 remain pending.
+
+### Iteration M8.3 — DONE (2026-11-25)
+
+- Completed: all §4.3 primitives and 11 repeated composite patterns, with real controls and controlled state; 53-symbol inline SVG sprite and typed Icon API; original primitive masks, deterministic avatar fills, native modal/side sheets, roving radio focus, numeric bounds, visible unavailable controls, section drag/move/Alt+Arrow alternatives, selected article actions and code-copy feedback. Sidebar/settings reuse the shared library.
+- Files changed: icon/component provenance manifests; 53 original icon exports and primitive reference assets; icon generator and generated symbols; control, pattern, sheet, mask, icon and avatar modules plus library documentation; shared component CSS and caption token; AppSidebar, Badge, app entry and settings capability rows; fixture HTML/TSX/CSS; 11 browser tests, 12 new light/dark snapshots and one reviewed dark settings baseline; lint/build scripts, Node asset smoke check, README and this checklist.
+- Verified: `npm run typecheck`; `npm run lint` (no warnings, token drift and icon source/output checks included); `npm test` (186 passed); `npm run test:e2e` (47 passed, including exact comparison of every source vector/stroke/viewBox, native SVG mask dimensions, both palettes, pointer/keyboard interaction, disabled-option skipping, Calm counts, gating, focus trapping/restoration, accessibility and v1 performance budgets); `npm run build` (new SVG assets, fonts, migrations and SPA served outside repository cwd).
+- Discoveries: Chromium's SVG image and inline rasterizers can differ slightly at edge pixels even with identical paths. Compare the rendered symbols' complete vector attributes to the source XML, retain source checksums, and separately keep visual snapshots. Hidden section bodies have zero rendered dimensions; verify asset loading for all references and native geometry when visible. Modal and side-sheet scrims are distinct in Figma (32% and 24% inverse).
+- Dependency justifications: no new packages; native React/HTML controls and the existing Prettier runtime cover the library and generator.
+- Next unchecked criterion: enforce zero italics in lint/tests, then perform the M8 exit review. M8 remains in progress; M9–M20 remain pending.

@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { AppSidebar } from '../components/AppSidebar';
 import { Badge } from '../components/Badge';
+import { CapabilityRow } from '../components/patterns';
 import { runAssets } from '../components/figmaAssets';
 import { runtimeNames } from '../components/runtimeNames';
 import { useCapabilities } from '../hooks/useCapabilities';
@@ -160,23 +161,15 @@ export function WhereBrewRuns() {
             aria-busy={query.isPending}
           >
             {rows.map((row) => (
-              <div
-                className="runs-capability-row"
+              <CapabilityRow
                 key={row.id}
-                data-brew-kind="capability"
-                data-brew-state={row.tone}
-              >
-                <div>
-                  <h3>{row.title}</h3>
-                  <p>{row.description}</p>
-                </div>
-                {row.setup && (
-                  <a href={`#setup-${row.id}`} aria-label={`${row.setup} ${row.title}`}>
-                    {row.setup}
-                  </a>
-                )}
-                <Badge tone={row.tone}>{row.label}</Badge>
-              </div>
+                id={row.id}
+                appearance="table"
+                title={row.title}
+                description={row.description}
+                badge={{ tone: row.tone, label: row.label }}
+                setup={row.setup ? { label: row.setup, href: `#setup-${row.id}` } : undefined}
+              />
             ))}
           </section>
           <section className="runs-move" aria-labelledby="move-title">

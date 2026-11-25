@@ -28,7 +28,15 @@ try {
   const fonts = ['instrument-sans', 'newsreader', 'geist-mono'].flatMap((name) =>
     ['latin', 'latin-ext'].map((subset) => `/fonts/${name}-${subset}.woff2`),
   );
-  for (const asset of [...fonts, '/figma/runs/7b5f9.svg']) {
+  for (const asset of [
+    ...fonts,
+    '/figma/runs/7b5f9.svg',
+    '/figma/icons/brew.svg',
+    '/figma/components/82232.svg',
+    '/figma/components/872aa.svg',
+    '/figma/components/291ba.svg',
+    '/figma/components/fb52b.svg',
+  ]) {
     const response = await app.inject(asset);
     assert.equal(response.statusCode, 200);
     assert.ok(response.rawPayload.byteLength > 0);

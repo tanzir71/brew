@@ -2,6 +2,7 @@
 @import './styles/tokens.css';
 @import './styles/fonts.css';
 @import './styles/runs.css';
+@import './styles/components.css';
 :root {
   font-family: var(--brew-font-ui);
   font-optical-sizing: auto;

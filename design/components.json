@@ -1,0 +1,112 @@
+{
+  "fileKey": "NcqNdBhgeg6om2CCZwrYV8",
+  "checked": "2026-11-25",
+  "foundations": "6:2",
+  "components": [
+    {
+      "name": "Button",
+      "nodeId": "6:35"
+    },
+    {
+      "name": "Badge",
+      "nodeId": "6:53"
+    },
+    {
+      "name": "Toggle",
+      "nodeId": "6:58"
+    },
+    {
+      "name": "Segment",
+      "nodeId": "6:63"
+    },
+    {
+      "name": "NavItem",
+      "nodeId": "6:78"
+    },
+    {
+      "name": "Checkbox",
+      "nodeId": "6:83"
+    },
+    {
+      "name": "Avatar",
+      "nodeId": "6:88"
+    },
+    {
+      "name": "Kbd",
+      "nodeId": "6:89"
+    },
+    {
+      "name": "Input",
+      "nodeId": "6:91"
+    },
+    {
+      "name": "Chip",
+      "nodeId": "6:96"
+    },
+    {
+      "name": "Wordmark",
+      "nodeId": "6:100"
+    },
+    {
+      "name": "AppSidebar",
+      "nodeId": "7:33"
+    },
+    {
+      "name": "TopBar",
+      "nodeId": "8:191"
+    },
+    {
+      "name": "SectionCard/expanded",
+      "nodeId": "10:644"
+    },
+    {
+      "name": "SectionCard/collapsed",
+      "nodeId": "10:761"
+    },
+    {
+      "name": "SentenceToken/field",
+      "nodeId": "13:2003"
+    },
+    {
+      "name": "SentenceToken/value",
+      "nodeId": "13:2011"
+    },
+    {
+      "name": "Stepper",
+      "nodeId": "10:690"
+    },
+    {
+      "name": "Select",
+      "nodeId": "10:722"
+    },
+    {
+      "name": "LetterCard",
+      "nodeId": "8:386"
+    },
+    {
+      "name": "ArticleRow",
+      "nodeId": "13:1568"
+    },
+    {
+      "name": "CapabilityRow",
+      "nodeId": "11:1620"
+    },
+    {
+      "name": "SideSheet",
+      "nodeId": "11:1550"
+    },
+    {
+      "name": "ModalSheet",
+      "nodeId": "11:930"
+    },
+    {
+      "name": "CodeBlock",
+      "nodeId": "15:2646"
+    }
+  ],
+  "notes": [
+    "Icons retain the 20px exported viewBoxes; the source component descriptions say 24px grid.",
+    "Caption ink is derived from the raw muted token for AA contrast on surface, canvas and subtle backgrounds.",
+    "The fixture catalog displays every variant. Product views should use at most one accent button."
+  ]
+}

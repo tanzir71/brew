@@ -1,0 +1,484 @@
+{
+  "fileKey": "NcqNdBhgeg6om2CCZwrYV8",
+  "frame": "5:2",
+  "checked": "2026-11-25",
+  "icons": [
+    {
+      "name": "brew",
+      "nodeId": "5:7",
+      "asset": "9090c.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "3697e98d82168893ec3a672ebcd7dbedf7531541d7ff09d80f77d95b6f4dc5a0"
+    },
+    {
+      "name": "newspaper",
+      "nodeId": "5:12",
+      "asset": "88ef6.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "cca73632137e74231aa5b619285a648c805506b6ecd15ed01cf024196f8e3ce3"
+    },
+    {
+      "name": "inbox",
+      "nodeId": "5:16",
+      "asset": "ae9f7.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "ac34f05eeff7088bcf35ae3e960e2329ad31a51d2b1ffbdb0c447212c0f61188"
+    },
+    {
+      "name": "calendar",
+      "nodeId": "5:20",
+      "asset": "0cf1b.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "74a89c1f5a9d61c059041cd606b777b1ab0fa7fd5b72f647eb33e088cbf10da6"
+    },
+    {
+      "name": "layers",
+      "nodeId": "5:24",
+      "asset": "f28ca.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "0b7e7eec4fcfb7b1ce21f1a7db371ddee6b542af90beb29765a7d7581bbeccbc"
+    },
+    {
+      "name": "star",
+      "nodeId": "5:27",
+      "asset": "50fe5.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "c728e22c82c9ebb98dd02597a52f283977f0655e0b5a58bd955dd73c012e8549"
+    },
+    {
+      "name": "search",
+      "nodeId": "5:31",
+      "asset": "f7956.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "8c1aa6841708666383344c56655c8a05538bce9ed0e9a087be0f598d10f2910e"
+    },
+    {
+      "name": "sliders",
+      "nodeId": "5:36",
+      "asset": "51c95.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "ce455dce535773851ff7dac0d8109fbb9012ed677002442c563acfec4761d59d"
+    },
+    {
+      "name": "rules",
+      "nodeId": "5:41",
+      "asset": "5d5d6.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "c2b936bb0f5ecc5ed4a7320d486b74431e588b9bee38e70dcaae348e5f2c0a8f"
+    },
+    {
+      "name": "plus",
+      "nodeId": "5:44",
+      "asset": "fa5c4.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "e67e5861c00b948b0a7e173f9e143a7ed0b9d7292426f76e92815a60367941af"
+    },
+    {
+      "name": "rss",
+      "nodeId": "5:48",
+      "asset": "b4b36.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "29fce3caa9163ecceacb4b1a34b81d5fc093feabd9787c744676c72780759d45"
+    },
+    {
+      "name": "mail",
+      "nodeId": "5:52",
+      "asset": "e7bff.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "94163217b8ccf71e7acfdafe6f25d20665b2356b8effb16a1fcc2d35014279c3"
+    },
+    {
+      "name": "grip",
+      "nodeId": "5:60",
+      "asset": "8d474.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "775e70b05da65f2f3895c7767ec540d92ee0aa9b4df7d5e92a4a404832ba3f8e"
+    },
+    {
+      "name": "more",
+      "nodeId": "5:65",
+      "asset": "bbf9f.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "8d17ed1d08053ac47a645406dc0f9f6c2b0d7abf4cc11b2d4cc963701a6b3441"
+    },
+    {
+      "name": "chevron-down",
+      "nodeId": "5:68",
+      "asset": "510d1.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "354a9be3db6547c4280575c4df1c3a5b954a637b13b5705e543b5230d80c686e"
+    },
+    {
+      "name": "chevron-right",
+      "nodeId": "5:71",
+      "asset": "ead4d.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "7025c60f12d91d5c8d508b55738c48ad58f429c594b68bb9b4854e4d7b4f2278"
+    },
+    {
+      "name": "chevron-left",
+      "nodeId": "5:74",
+      "asset": "df785.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "99e10e70ef1ef66d631b9c9e910591062f0aa5c9af110a9ec5e6c0b765027e8d"
+    },
+    {
+      "name": "check",
+      "nodeId": "5:77",
+      "asset": "1e45d.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "d2656c6baa89a7142994ac58aa3bccd14663614750268be145cc8f09f888fb18"
+    },
+    {
+      "name": "copy",
+      "nodeId": "5:81",
+      "asset": "611cd.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "97ee4a0d402fda94802b1f80323412f27d8f55bfaddf8af2178c75b20726d30b"
+    },
+    {
+      "name": "external",
+      "nodeId": "5:84",
+      "asset": "04b94.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "a48601ce17ba23e0761ea9e1d2c2669fbcc1dc2c6484da07d223b809a4c66308"
+    },
+    {
+      "name": "agent",
+      "nodeId": "5:89",
+      "asset": "094d1.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "381a028255b9cde2adf0e67bd4b9e440b221ea27e269d2566baeee164b80d665"
+    },
+    {
+      "name": "cloud",
+      "nodeId": "5:92",
+      "asset": "f7e11.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "3dfb6fbc1e8b81b2192db2147f6f5ba81d3ac8145528abda425d14594f2d2144"
+    },
+    {
+      "name": "globe",
+      "nodeId": "5:96",
+      "asset": "0a080.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "7c40358e4b8f787bf8786bc963c54606e7d7719bf8da80114406ce53528a74ab"
+    },
+    {
+      "name": "server",
+      "nodeId": "5:101",
+      "asset": "3c20d.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "ce6cb2c0780ae4747e59b733628161fc97b63bcb2b1f3ee051002ac72fc7cea0"
+    },
+    {
+      "name": "browser",
+      "nodeId": "5:105",
+      "asset": "f99c0.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "55441ecd543ba5ab9663b2de0960aac6b3218ba5457172e3b8ebb708648cf99c"
+    },
+    {
+      "name": "file",
+      "nodeId": "5:109",
+      "asset": "e4d0b.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "a315e85817f143b3dfacc8b026aadaf3869fae108c1916bf92c8da090c45fed5"
+    },
+    {
+      "name": "clock",
+      "nodeId": "5:113",
+      "asset": "ff0be.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "014f23b444ba098d8fec9cdac0a1718bdcb8f65a9a664e5a70cdfb3008989465"
+    },
+    {
+      "name": "eye",
+      "nodeId": "5:117",
+      "asset": "0df17.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "89a14b4a844c8940941a5063f88bbc262110995aba2efb59bf83e0958d5366e6"
+    },
+    {
+      "name": "arrow-up",
+      "nodeId": "5:120",
+      "asset": "93541.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "b6997eb5b4fbfa8b794ca13c47c822cdac0ee40e1762fa271af0aea27f67385d"
+    },
+    {
+      "name": "arrow-down",
+      "nodeId": "5:123",
+      "asset": "d057f.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "744bb62d05f5ad28544a2af636c72b2c74b9485374ab08c6977a6bb80b2b1423"
+    },
+    {
+      "name": "arrow-right",
+      "nodeId": "5:126",
+      "asset": "76dab.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "f97756ab1574d2a20b0db5179d1faf6a7c88b0336e730f7767063d50d598d798"
+    },
+    {
+      "name": "x",
+      "nodeId": "5:129",
+      "asset": "256f4.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "4ea8e0c2be0a377639a01d9b2feaac846191f12b7bbf86c305b42363b8166a27"
+    },
+    {
+      "name": "tag",
+      "nodeId": "5:133",
+      "asset": "9f17c.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "7feb7c795d18b33486051ca9bd5c291cc7bd2ec07641c83e413f8590dbb9e387"
+    },
+    {
+      "name": "sparkle",
+      "nodeId": "5:137",
+      "asset": "2afab.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "a8cf479a0bdf10e9f5c10c45e93b0bb06c41c302ebcab9d7813029e36cdf36ce"
+    },
+    {
+      "name": "send",
+      "nodeId": "5:140",
+      "asset": "6047d.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "737ce3cb1fe5d18fe5b8671523908e414f0d3344f678915b01ea43906019d21a"
+    },
+    {
+      "name": "filter",
+      "nodeId": "5:143",
+      "asset": "7136d.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "5721048d7a563db42540dde8d66adbe88bb7c272050eaea77574d17fad906bf1"
+    },
+    {
+      "name": "columns",
+      "nodeId": "5:147",
+      "asset": "45291.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "c41d8acd2c159f5e6fcb6306208614618ad5633a860704d31bda3886e62ce5fd"
+    },
+    {
+      "name": "shield",
+      "nodeId": "5:150",
+      "asset": "c6bb2.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "6042c7c487c7dbe9a03530f3f3c18480567c0e46b9f9aae73a68a0aefb06772f"
+    },
+    {
+      "name": "key",
+      "nodeId": "5:154",
+      "asset": "9f0fd.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "d05121bdc99bec3d77b6e6226fdb9c64f027026a650bb459e2510ce84a3d6619"
+    },
+    {
+      "name": "refresh",
+      "nodeId": "5:157",
+      "asset": "789f7.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "9b9c97109c3f1d8e3647257a56012c7bd9d5d211bf39446b7f79dd8d61941c42"
+    },
+    {
+      "name": "download",
+      "nodeId": "5:160",
+      "asset": "bfd53.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "f408ef188cbf1b202a541cb754049df5f77b558285da4186348716eeb78d081d"
+    },
+    {
+      "name": "read",
+      "nodeId": "5:163",
+      "asset": "c2094.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "b8e4b0df29b099967606d944fc1d822c4520f0acc234bb5879192cd640ff673c"
+    },
+    {
+      "name": "pencil",
+      "nodeId": "5:166",
+      "asset": "4ecfc.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "dd8290877f8cfa66e6c2d4b4477502124fa1d3f517d96d4d247e789264b7d892"
+    },
+    {
+      "name": "play",
+      "nodeId": "5:169",
+      "asset": "d8699.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "517750ac4f865cdf2eb02d9fa07ad6710e5ad725f98cb5da5ea24f08df5e00a7"
+    },
+    {
+      "name": "folder",
+      "nodeId": "5:172",
+      "asset": "21a53.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "da021dc7d493dca469f26b67d462eeef629f4c5e0c22de4eec111d9ca632a654"
+    },
+    {
+      "name": "lock",
+      "nodeId": "5:176",
+      "asset": "f4fce.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "6eca04c1ef726cbad03b77e572cfa9e706ac14a08439e9d571d3963b3c0bfa8d"
+    },
+    {
+      "name": "link",
+      "nodeId": "5:179",
+      "asset": "59984.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "e9611807528ba04e2148e78206e603bcde910da254b007c7a7ed02d21766306e"
+    },
+    {
+      "name": "code",
+      "nodeId": "5:182",
+      "asset": "41f7f.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "ee6fe4116315865c4a8b4e3738febee820e1d7435a02a00a8fda3044a14f3611"
+    },
+    {
+      "name": "sun",
+      "nodeId": "5:186",
+      "asset": "bb153.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "ea300cbbcc973448fe1457d00a5797ace45f3fd369871f4950516cdc959f1ede"
+    },
+    {
+      "name": "moon",
+      "nodeId": "5:189",
+      "asset": "64708.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "2f3cd59439b6e52f2737a3139660639780c5e097fb27ad1d7a2f42c7b4d61351"
+    },
+    {
+      "name": "phone",
+      "nodeId": "5:193",
+      "asset": "15b4b.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "5fe98ca8f0312870b078d452bf440a6abd00ce6714395788f3c39e24567df0cd"
+    },
+    {
+      "name": "undo",
+      "nodeId": "5:197",
+      "asset": "c283e.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "abd1dcf330aa46130d7e7d2811bb8941b510c00ce71560f2e76eef356302074b"
+    },
+    {
+      "name": "headphones",
+      "nodeId": "5:202",
+      "asset": "a868e.svg",
+      "viewBox": "0 0 20 20",
+      "width": 20,
+      "height": 20,
+      "sha256": "20eb5b778943915846394c770e7048ca8f0f98730c9e66b574875b4a7b7ff221"
+    }
+  ]
+}

@@ -118,6 +118,13 @@ utilities apply each style's family, size, line height, weight and tracking.
 Fonts are served locally with swap loading; browser tests check actual custom
 font use, both WOFF2 subsets and no third-party font or stylesheet requests.
 
+The shared [component library](packages/web/src/components/README.md) includes
+the Figma primitives, repeated patterns and controlled modal/side sheets.
+Preview `/test/components.html` in development, with `?view=icons`,
+`?view=composites` or `?view=sidebar` and `&theme=dark` for other fixtures.
+`npm run icons:generate` rebuilds the inline sprite from the 53 original exports;
+lint and builds check the source checksums and generated output.
+
 ## Data ownership
 
 Your entire state is `data/brew.db`. To back up manually, **stop Brew first** so the SQLite database and WAL stay consistent, then copy the file. Automated backup and OPML export commands arrive in later milestones (see `CODEX_HANDOFF.md`).

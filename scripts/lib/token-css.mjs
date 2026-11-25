@@ -84,7 +84,7 @@ export async function renderTokenCss(tokens) {
       ${declarations(tokens.effects)}
       ${declarations(typeTokens)}
       /* Derived caption ink meets AA on the canvas; raw Figma text/muted stays intact. */
-      --brew-text-caption: color-mix(in srgb, var(--brew-text-muted) 80%, var(--brew-text-primary));
+      --brew-text-caption: color-mix(in srgb, var(--brew-text-muted) 75%, var(--brew-text-primary));
       --brew-bg-scrim: ${tokens.colors.dark['bg/canvas']};
       color-scheme: light;
     }

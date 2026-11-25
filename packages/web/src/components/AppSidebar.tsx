@@ -4,6 +4,7 @@ import type { BrewConfig } from '@brew/core/types/brew';
 import type { ReaderNavigation } from '@brew/core/types/api';
 import { useCapabilities } from '../hooks/useCapabilities';
 import { ModeChip } from './ModeChip';
+import { Kbd, NavItem, Wordmark } from './controls';
 import { runAssets } from './figmaAssets';
 import { Badge } from './Badge';
 import { capabilityRows } from '../settings/capabilityRows';
@@ -14,7 +15,11 @@ async function getJson<T>(url: string, signal: AbortSignal): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export function AppSidebar() {
+export function AppSidebar({
+  activeHref = location.pathname + location.search,
+}: {
+  activeHref?: string;
+}) {
   const capabilities = useCapabilities();
   const newsletterState = capabilityRows(capabilities.data, capabilities.isError).find(
     (row) => row.id === 'newsletters',
@@ -48,8 +53,7 @@ export function AppSidebar() {
     <aside className="runs-library">
       <header className="runs-library-header">
         <a className="runs-wordmark" href="/?view=brew" aria-label="Brew home">
-          Brew
-          <img src={runAssets.point} alt="" />
+          <Wordmark />
         </a>
         <ModeChip />
       </header>
@@ -57,16 +61,20 @@ export function AppSidebar() {
         <img src={runAssets.search} alt="" />
         <input type="hidden" name="view" value="reader" />
         <input aria-label="Search library" name="q" placeholder="Search" />
-        <kbd>/</kbd>
+        <Kbd>/</Kbd>
       </form>
       <nav aria-label="Library" className="runs-library-nav">
         <div className="runs-nav-group">
           {configs.data?.length ? (
             configs.data.map((config) => (
-              <a key={config.id} href={`/?view=brew&brew=${config.id}`}>
-                <img src={runAssets.brew} alt="" />
+              <NavItem
+                key={config.id}
+                href={`/?view=brew&brew=${config.id}`}
+                active={activeHref === `/?view=brew&brew=${config.id}`}
+                icon={<img src={runAssets.brew} alt="" />}
+              >
                 {config.name}
-              </a>
+              </NavItem>
             ))
           ) : (
             <a href="/?view=brew">
@@ -92,18 +100,33 @@ export function AppSidebar() {
               </a>
             </div>
           )}
-          <a href="/?view=reader&scope=today">
-            <img src={runAssets.calendar} alt="" />
-            Today{count(navigation.data?.counts.today)}
-          </a>
-          <a href="/?view=reader&scope=all">
-            <img src={runAssets.layers} alt="" />
-            All articles{count(navigation.data?.counts.all)}
-          </a>
-          <a href="/?view=reader&scope=starred">
-            <img src={runAssets.star} alt="" />
-            Starred{count(navigation.data?.counts.starred)}
-          </a>
+          <NavItem
+            href="/?view=reader&scope=today"
+            active={activeHref === '/?view=reader&scope=today'}
+            icon={<img src={runAssets.calendar} alt="" />}
+            calm={calm}
+            count={navigation.data?.counts.today}
+          >
+            Today
+          </NavItem>
+          <NavItem
+            href="/?view=reader&scope=all"
+            active={activeHref === '/?view=reader&scope=all'}
+            icon={<img src={runAssets.layers} alt="" />}
+            calm={calm}
+            count={navigation.data?.counts.all}
+          >
+            All articles
+          </NavItem>
+          <NavItem
+            href="/?view=reader&scope=starred"
+            active={activeHref === '/?view=reader&scope=starred'}
+            icon={<img src={runAssets.star} alt="" />}
+            calm={calm}
+            count={navigation.data?.counts.starred}
+          >
+            Starred
+          </NavItem>
         </div>
         <div className="runs-nav-group">
           <p className="runs-overline">Folders</p>
@@ -140,10 +163,13 @@ export function AppSidebar() {
             <img src={runAssets.rules} alt="" />
             Rules
           </a>
-          <a href="/settings/runs" aria-current="page">
-            <img src={runAssets.settings} alt="" />
+          <NavItem
+            href="/settings/runs"
+            active={activeHref === '/settings/runs'}
+            icon={<img src={runAssets.settings} alt="" />}
+          >
             Settings
-          </a>
+          </NavItem>
           <p className="runs-library-status">
             <span aria-hidden="true">●</span>
             {navigation.isError ? 'Library unavailable' : 'Your own library'}

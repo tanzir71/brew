@@ -1,0 +1,100 @@
+.component-foundations {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 40px;
+  padding: 32px;
+  width: 730px;
+  min-height: 990px;
+  background: var(--brew-bg-canvas);
+  border-radius: 16px;
+}
+.foundation-variants {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: 1px dashed var(--brew-border-default);
+  border-radius: 12px;
+  background: var(--brew-bg-surface);
+}
+.foundation-input {
+  width: 280px;
+}
+.foundation-variants .brew-badge {
+  flex-shrink: 0;
+}
+.icon-foundations {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 16px;
+  padding: 24px;
+  width: 760px;
+  height: 140px;
+  background: var(--brew-bg-surface);
+  border-radius: 12px;
+  color: var(--brew-text-soft);
+}
+.icon-foundations + .icon-foundations {
+  margin-top: 24px;
+}
+.composite-foundations {
+  width: 1176px;
+  background: var(--brew-bg-surface);
+  min-height: 900px;
+}
+.composite-grid {
+  display: grid;
+  grid-template-columns: 411px 1fr;
+  gap: 32px;
+  padding: 24px;
+}
+.composite-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.composite-column .brew-letter-card {
+  width: 332px;
+}
+.composite-column .brew-article-row {
+  width: 499px;
+}
+.foundation-link {
+  color: var(--brew-accent-default);
+  font: 500 12px/16px var(--brew-font-ui);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.foundation-caption {
+  font: 400 12px/16px var(--brew-font-ui);
+  color: var(--brew-text-caption);
+}
+.foundation-capabilities {
+  border: 1px solid var(--brew-border-default);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.foundation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.foundation-sheet-copy {
+  margin-top: 24px;
+  font: 400 13px/19px var(--brew-font-ui);
+  color: var(--brew-text-soft);
+}
+.sidebar-foundations {
+  width: 256px;
+  height: 900px;
+  min-height: 900px;
+  padding: 0;
+  display: block;
+}
+.sidebar-foundations .runs-library {
+  height: 900px;
+  min-height: 900px;
+}
