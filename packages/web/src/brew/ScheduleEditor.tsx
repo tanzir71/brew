@@ -486,10 +486,10 @@ function DeliveryRow({
   return (
     <div className="schedule-channel">
       <Icon name={icon} size={18} />
-      <div>
+      <div className="schedule-channel-content">
         <header>
           <h4>{label}</h4>
-          {badge}
+          {onChange && badge}
         </header>
         <p>{description}</p>
         {children}
@@ -508,6 +508,7 @@ function DeliveryRow({
           </p>
         )}
       </div>
+      {!onChange && badge}
       {onChange && (
         <Toggle
           label={label}

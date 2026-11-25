@@ -49,6 +49,18 @@ for (const theme of ['light', 'dark'])
           ]),
         ),
     ).toEqual(Array(7).fill([34, 34]));
+    const stepper = await sheet
+      .getByRole('group', { name: 'Skip threshold', exact: true })
+      .boundingBox();
+    expect(stepper && [stepper.width, stepper.height]).toEqual([84, 30]);
+    expect((await sheet.locator(':scope > footer').boundingBox())?.height).toBe(69);
+    const inBrew = sheet
+      .locator('.schedule-channel')
+      .filter({ has: page.getByRole('heading', { name: 'In Brew', exact: true }) });
+    const row = await inBrew.boundingBox();
+    const badge = await inBrew.getByText('Works here', { exact: true }).boundingBox();
+    expect(row?.height).toBe(65);
+    expect(row && badge && row.x + row.width - badge.x - badge.width).toBe(14);
     await expect(sheet.getByRole('switch', { name: 'Email', exact: true })).toBeDisabled();
     await expect(
       sheet.getByRole('switch', { name: 'Atom and JSON feed', exact: true }),

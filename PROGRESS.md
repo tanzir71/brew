@@ -125,7 +125,7 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 
 ## v2
 
-### Current milestone: M9
+### Current milestone: M10
 
 ### Checklist state
 
@@ -142,14 +142,14 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - [x] Components of §4.3 built with stories or fixtures. Icon set ported from Figma `5:2` as an inline SVG sprite.
 - [x] Zero italics: a lint rule or test fails on `font-style: italic`, `<em>` without a reset, or `italic` utilities.
 
-### M9 — Read and Compose
+### M9 — Read and Compose — DONE
 - [x] Read view matches `8:2`/`9:270`: masthead (date · No. · title · lede · meta), section headers with "Mark section read", the four layouts, selected item with visible actions, rule highlight with chip, rail (In this Brew, progress, formats, next Brew), end-of-Brew state.
 - [x] Compose matches `10:458`: schedule summary card, section cards (collapsed/expanded), **visible drag handle + Move up/down buttons + Alt+↑/↓**, From/Layout/Items/Show/Options/Order/Filter fields, Note block, live preview with Web/Email/Feed tabs, Desktop/Phone toggle, "Editing" outline linked to the expanded card. Autosave shows "All changes saved".
 - [x] Add source sheet matches `11:694`: URL discovery, multi-select, "is also a newsletter" hint with Copy address, library tabs, detection hint for YouTube/subreddit/Mastodon/Bluesky/podcast URLs (convert to their native feed URLs), OPML import.
 - [x] Schedule & delivery sheet matches `11:1314`: Daily/Weekdays/Weekly/Monthly, day chips, time, IANA time zone, skip-if-fewer-than, channels gated by capabilities, "Send a test now".
 - [x] `preview_brew(at)` builds an uncommitted issue for any time ("dry run"). Snapshots stay immutable.
 - [x] Two-way read state: reading in a Brew marks the article read in the Reader, and the reverse.
-- [ ] Exit review: golden screenshots for `8:2`, `9:270`, `10:458`, `11:694`, `11:1314`, and an e2e test that composes a four-section Brew by keyboard only.
+- [x] Exit review: golden screenshots for `8:2`, `9:270`, `10:458`, `11:694`, `11:1314`, and an e2e test that composes a four-section Brew by keyboard only.
 
 ### M10 — Newsletters
 - [ ] Inbound pipeline in core: parse MIME → sender feed (auto-create) → clean (strip tracking pixels, known tracker links, sponsor blocks by heuristics + per-sender selectors, footers/unsubscribe chrome) → sanitize → article. Keep `raw_html` for "Show original".
@@ -208,6 +208,9 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - [ ] Phone layout per `17:2314`: compact top bar, masthead, progress, tab bar (Brews, Letters, Today, Library, Search), safe areas.
 
 ### Decisions
+
+- 2026-11-26: Make the M9 exit journey create an empty Brew's four sections through native Tab/Enter/Space/arrow/text input only. Exercise multiple library sources, layouts/depth/options/filter/days, a Markdown Note, both reorder methods, all three preview formats, phone preview, weekly time/zone/skip settings, actual autosave and generation. Read DOM state only for assertions; record pointer events to prove no mouse interaction was used. The longer journey has its own 90-second test timeout; every existing per-interaction performance budget remains unchanged.
+- 2026-11-26: Review M9 against fresh Figma renders of `8:2`, `9:270`, `10:458`, `11:694` and `11:1314`. Correct Schedule's trailing In Brew status badge, 84×30 skip stepper and 16px vertical footer padding from high-fidelity nodes `11:1620`, `11:1606` and `11:1676`. Reuse the existing controls, fonts, icon sprite and illustration exports. Dates, counts, mode labels and unavailable-feature setup states stay grounded in actual data/capabilities; newsletter and Brief content remain M10/M17 work.
 
 - 2026-11-26: Opening an article in Brew, Reader or search marks it read once per opening after its content loads. Open immediately while the read write runs; selecting a Brew card alone does not mark it read. An explicit Mark unread remains unread while that opening stays mounted. Read-on-scroll remains opt-in.
 - 2026-11-26: Share article state updates across detail, paginated Reader/search lists and every cached Brew live-state record. Keep frozen issue/history caches untouched. Serialize writes per article within each query client, track read/star revisions independently, restore confirmed fields on failure, cancel older reads before optimistic changes and refresh live queries/counts after queued writes settle.
@@ -408,3 +411,14 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - Discoveries: Reader opening previously did not mark read, separate mutation paths left detail/search/Brew caches stale, and failed scroll writes had no rollback. An older response can overwrite a newer field choice unless writes are ordered and patches apply only to current field revisions. Keyboard/navigation tests now assert automatic-read and both explicit toggle directions. The OPML test could observe the previous All changes saved message before asynchronous source application; wait for the sheet to close before awaiting the completed save. No test tolerance or budget changed.
 - Dependency justifications: no new packages or artwork. Reuse TanStack Query, native fetch, existing Reader controls and the shared Figma shell. Reviewed both edited React components against the React best-practices checklist.
 - Next unchecked criterion: M9 exit review, including the keyboard-only four-section composition and all five Figma frame screenshots. M9 remains in progress until that review passes; M10–M20 remain pending.
+
+### Iteration M9.7 — DONE (2026-11-26)
+
+- Completed: M9 exit review against fresh Figma renders for Read `8:2` / `9:270`, Compose `10:458`, Add source `11:694` and Schedule `11:1314`. Reviewed all eight light/dark golden images, existing icon/native-art geometry checks and the 11 non-empty Read/Compose illustration exports. Actual counts, dates, mode labels and unavailable-feature setup states remain data/capability driven. Letter cleaning/panels and Brief content remain their M10/M17 work.
+- Completed: a real-Node keyboard-only creation journey starts from an empty Brew, renames it, creates three item sections and a Markdown Note, chooses multiple folders and a feed, edits layouts/depth/limits/images/unread/order/filter/days, reorders through Alt+Arrow and the visible Move button, checks Web/Email/decoded Atom and phone preview, saves weekly time/UTC/skip settings, generates one frozen four-section issue and verifies its actual stored sections/content. All interactions use native keyboard input, with role/label targets reached by Tab; a pointer-event recorder stays empty. The generated Read page also passes axe.
+- Corrected: Schedule's In Brew badge now occupies the trailing status slot, the skip stepper matches 84×30, and its footer uses the specified 16px vertical padding (69px total height). Added exact row/badge/stepper/footer checks from high-fidelity Figma nodes `11:1620`, `11:1606` and `11:1676`; reviewed and updated only the two Schedule golden images. Existing shared controls and all artwork are reused.
+- Files changed: ScheduleEditor row structure and scoped schedule styles; strengthened Schedule geometry checks and its two snapshots; new `web/e2e/compose-keyboard.spec.ts`; this checklist. Reference screenshots remain local ignored review artifacts, with no temporary Figma URLs in application code.
+- Verified: `npm run typecheck`; `npm run lint` (no warnings, normal typography across 245 authored files); `npm test` (269 passed, including captured v1 REST and portable-core checks); `npm run test:e2e -- --workers=2` (86 passed, keyboard journey, every existing Figma light/dark visual/accessibility check and v1 cold-load/open/scroll/search budgets); `npm run build` (compiled Node target, API/SPA/assets/fonts/migrations pass outside repository cwd). The focused keyboard journey and both corrected Schedule visual/geometry checks also pass.
+- Discoveries: Atom's content is escaped HTML inside XML, so verify the decoded section headings rather than expecting a raw apostrophe in its source. The original Schedule implementation reused the shared stepper/footer dimensions and inline status position; scoped geometry corrections preserve the design without changing other components. No visual tolerance or existing performance budget changed.
+- Dependency justifications: no new packages or artwork. Reuse Playwright keyboard input, native DOM parsers, axe, existing Node fixtures and the shared Figma controls/icon library.
+- M9 exit review passed 2026-11-26. M9 is complete. Next unchecked criterion: M10 core inbound MIME → sender feed → newsletter cleaning/sanitization → article pipeline, retaining original HTML for Show original. M10–M20 remain pending.
