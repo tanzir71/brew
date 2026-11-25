@@ -31,10 +31,10 @@ export function useComposeDraft(initial: BrewConfig) {
   const timer = useRef(0);
   const alive = useRef(true);
   const flush = useCallback(
-    (force = false): Promise<boolean> => {
+    function flushDraft(force = false): Promise<boolean> {
       clearTimeout(timer.current);
       if (force) revision.current++;
-      if (pending.current) return pending.current;
+      if (pending.current) return pending.current.then((ok) => (ok ? flushDraft() : false));
       const run = async () => {
         while (saved.current < revision.current) {
           const version = revision.current;
@@ -73,6 +73,50 @@ export function useComposeDraft(initial: BrewConfig) {
     },
     [client, initial.id],
   );
+  const applySettings = async (
+    settings: Pick<BrewConfigDraft, 'schedule' | 'timezone' | 'enabled' | 'delivery'>,
+  ): Promise<boolean> => {
+    if (!(await flush())) return false;
+    const value = structuredClone({ ...latest.current, ...settings });
+    validateComposition(value);
+    setStatus('Saving…');
+    setFailed(false);
+    let failure: unknown;
+    const task = (async () => {
+      try {
+        const next = await composeJson<BrewConfig>(`/api/brew-configs/${initial.id}/composition`, {
+          method: 'PUT',
+          body: JSON.stringify(value),
+        });
+        // Keep the sheet's candidate out of autosave until the server accepts it.
+        // Merge only settings so an edit made during this request is preserved.
+        latest.current = {
+          ...latest.current,
+          schedule: next.schedule,
+          timezone: next.timezone,
+          enabled: next.enabled,
+          delivery: next.delivery,
+        };
+        if (alive.current) setDraft(latest.current);
+        client.setQueryData(['composition', initial.id], next);
+        void client.invalidateQueries({ queryKey: ['brew-configs'] });
+        return true;
+      } catch (error) {
+        failure = error;
+        if (alive.current)
+          setStatus(saved.current < revision.current ? 'Unsaved changes' : 'All changes saved');
+        return false;
+      }
+    })().finally(() => {
+      pending.current = null;
+    });
+    pending.current = task;
+    if (!(await task)) {
+      if (saved.current < revision.current) void flush();
+      throw failure;
+    }
+    return flush();
+  };
   const update = (change: (previous: BrewConfigDraft) => BrewConfigDraft) => {
     const next = change(latest.current);
     latest.current = next;
@@ -86,7 +130,7 @@ export function useComposeDraft(initial: BrewConfig) {
   useEffect(() => {
     alive.current = true;
     const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (saved.current < revision.current) {
+      if (pending.current || saved.current < revision.current) {
         event.preventDefault();
         event.returnValue = '';
       }
@@ -123,5 +167,5 @@ export function useComposeDraft(initial: BrewConfig) {
       document.removeEventListener('click', navigate, true);
     };
   }, [flush]);
-  return { draft, update, flush, status, failed };
+  return { draft, update, flush, applySettings, status, failed };
 }

@@ -64,7 +64,7 @@ export function BrewCompose(props: Props) {
   return <ComposeEditor {...props} initial={query.data} />;
 }
 function ComposeEditor({ initial, ...props }: Props & { initial: BrewConfig }) {
-  const { draft, update, flush, status, failed } = useComposeDraft(initial);
+  const { draft, update, flush, applySettings, status, failed } = useComposeDraft(initial);
   const [expanded, setExpanded] = useState<string | null>(
     () => new URLSearchParams(location.search).get('section') ?? initial.sections[0]?.id ?? null,
   );
@@ -623,10 +623,7 @@ function ComposeEditor({ initial, ...props }: Props & { initial: BrewConfig }) {
           draft={draft}
           saveError={failed ? status : ''}
           onClose={() => showSheet(null)}
-          onApply={async (value) => {
-            update((current) => ({ ...current, ...value }));
-            return flush();
-          }}
+          onApply={applySettings}
         />
       )}
       <ModalSheet open={sheet === 'brew'} title="Brew options" onClose={() => showSheet(null)}>
