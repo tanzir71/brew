@@ -1,3 +1,5 @@
+import { upgradeLegacyDraft } from '../../packages/core/src/composition-model';
+import { nodeCapabilities } from '../../targets/node/src/capabilities';
 import type { Page } from '@playwright/test';
 import type {
   BrewConfig,
@@ -148,6 +150,16 @@ export async function mockRead(page: Page, theme = 'light') {
       JSON.stringify([{ id: 'figma', name: 'Figma mentions', query: 'Figma' }]),
     );
   }, theme);
+  await page.route('**/api/capabilities', (route) => route.fulfill({ json: nodeCapabilities() }));
+  await page.route('**/api/brew-configs/1/composition', (route) =>
+    route.fulfill({
+      json: {
+        ...fixture.config,
+        ...upgradeLegacyDraft(fixture.config, 'Asia/Dhaka'),
+        delivery: { web: true, feed: true, publicCopy: false },
+      },
+    }),
+  );
   await page.route('**/api/brew-configs', (route) =>
     route.fulfill({ json: [fixture.config, { ...fixture.config, id: 2, name: 'Weekend' }] }),
   );

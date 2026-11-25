@@ -17,3 +17,5 @@ export * from './newsletter-settings.js';
 export * from './newsletter-original.js';
 export * from './brew-outputs.js';
 export * from './types/outputs.js';
+export * from './brew-output-paths.js';
+export * from './brew-output-snapshot.js';

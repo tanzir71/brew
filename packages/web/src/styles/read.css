@@ -429,19 +429,24 @@
 }
 .brew-format-links > div {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding-block: 5px;
 }
-.brew-format-links button {
+.brew-format-link {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 24px;
+  width: 100%;
+  min-height: 29px;
+  padding: 5px 10px;
+  font: 400 13px/19px var(--brew-font-ui);
   color: var(--brew-text-soft);
 }
+.brew-format-link:focus-visible {
+  outline: 2px solid var(--brew-accent-default);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
 .brew-format-links code {
+  margin-left: auto;
   font: 400 11px/14px var(--brew-font-mono);
   color: var(--brew-text-caption);
 }

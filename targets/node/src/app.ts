@@ -1,3 +1,4 @@
+import { outputBaseUrl } from '../../../packages/core/src/brew-output-content.js';
 import type { ClockPort } from '../../../packages/core/src/ports.js';
 import type { OutboundMailPort } from '../../../packages/core/src/types/delivery.js';
 import fastifyStatic from '@fastify/static';
@@ -25,6 +26,7 @@ const webDirectory = fileURLToPath(new URL('../../../packages/web/dist/', import
 export async function createApp(
   options: {
     serveWeb?: boolean;
+    publicUrl?: string;
     database?: BrewDatabase;
     fetcher?: typeof fetch;
     startPoller?: boolean;
@@ -34,6 +36,7 @@ export async function createApp(
     imapClientFactory?: ImapClientFactory;
   } = {},
 ): Promise<FastifyInstance> {
+  const publicUrl = outputBaseUrl(options.publicUrl);
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
   app.addHook('onSend', async (_request, reply, payload) => {
     for (const [name, value] of Object.entries(securityHeaders)) {
@@ -95,6 +98,7 @@ export async function createApp(
   const api = createApi(
     nodeApiServices(database, poller, broker, options.fetcher, {
       ...options,
+      publicUrl,
       inboundEmail,
       inboundMail: inbound ? (inbound.kind === 'imap' ? 'imap' : 'webhook') : null,
     }),

@@ -3,6 +3,7 @@ import { inboundConfigFromEnv } from './inbound-config.js';
 
 const app = await createApp({
   serveWeb: process.env.NODE_ENV === 'production',
+  publicUrl: process.env.BREW_PUBLIC_URL,
   startPoller: true,
   inbound: inboundConfigFromEnv(process.env),
 });

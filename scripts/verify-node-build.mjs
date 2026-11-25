@@ -117,7 +117,7 @@ try {
   assert.equal(schedule.statusCode, 200);
   assert.equal(schedule.headers['cache-control'], 'no-store');
   assert.ok(Date.parse(schedule.json().nextAt) > Date.parse(schedule.json().now));
-  assert.deepEqual(capabilities.json().outputs, { feed: false, webhook: false });
+  assert.deepEqual(capabilities.json().outputs, { twins: true, feed: true, webhook: false });
   assert.equal(
     (
       await app.inject({
@@ -267,8 +267,40 @@ try {
   } finally {
     await inboundApp.close();
   }
+  const configId = composed.json().id;
+  const generatedOutput = await app.inject({
+    method: 'POST',
+    url: `/api/brew-configs/${configId}/generate`,
+  });
+  assert.equal(generatedOutput.statusCode, 200);
+  const outputIssue = generatedOutput.json();
+  const outputPath = `/b/${configId}/${outputIssue.id}`;
+  const markdownOutput = await app.inject(`${outputPath}.md`);
+  assert.equal(markdownOutput.statusCode, 200);
+  assert.match(markdownOutput.headers['content-type'], /text\/markdown/);
+  assert.match(markdownOutput.headers['cache-control'], /private/);
+  assert.equal((await app.inject(`${outputPath}.json`)).json().id, outputIssue.id);
+  assert.equal((await app.inject(`${outputPath}999.json`)).statusCode, 404);
+  assert.equal((await app.inject(`/b/${configId}.atom`)).statusCode, 404);
+  const outputConfig = (await app.inject(`/api/brew-configs/${configId}/composition`)).json();
+  assert.equal(
+    (
+      await app.inject({
+        method: 'PUT',
+        url: `/api/brew-configs/${configId}/composition`,
+        payload: { ...outputConfig, delivery: { ...outputConfig.delivery, feed: true } },
+      })
+    ).statusCode,
+    200,
+  );
+  const compiledAtom = await app.inject(`/b/${configId}.atom`);
+  assert.equal(compiledAtom.statusCode, 200);
+  assert.match(compiledAtom.headers['content-type'], /application\/atom\+xml/);
+  const compiledFeed = (await app.inject(`/b/${configId}.json`)).json();
+  assert.equal(compiledFeed.items[0].url, `http://localhost${outputPath}`);
+  assert.equal((await app.inject({ method: 'HEAD', url: `${outputPath}.md` })).body, '');
   log(
-    'Built Node target: migrations, MIME/cleaning, signed inbound webhook/replay, health, SPA, assets and fallback passed outside the repository cwd.',
+    'Built Node target: migrations, MIME/cleaning, signed inbound webhook/replay, health, output twins/feeds, SPA, assets and fallback passed outside the repository cwd.',
   );
 } finally {
   if (app) await app.close();

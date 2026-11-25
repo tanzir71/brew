@@ -16,7 +16,7 @@ export interface Capabilities {
   };
   readState: 'server' | 'local';
   publicCopy: boolean;
-  outputs?: { feed: boolean; webhook: boolean };
+  outputs?: { twins?: boolean; feed: boolean; webhook: boolean };
   limits?: { maxFetchesPerRun?: number };
 }
 
@@ -58,6 +58,7 @@ export function isCapabilities(value: unknown): value is Capabilities {
     typeof value.publicCopy === 'boolean' &&
     (outputs === undefined ||
       (record(outputs) &&
+        (outputs.twins === undefined || typeof outputs.twins === 'boolean') &&
         typeof outputs.feed === 'boolean' &&
         typeof outputs.webhook === 'boolean')) &&
     (limits === undefined ||

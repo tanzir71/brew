@@ -7,6 +7,7 @@ import { registerFeedRoutes } from './routes/feeds.js';
 import { registerArticleRoutes } from './routes/articles.js';
 import { registerReaderRoutes } from './routes/reader.js';
 import { registerRulesRoutes } from './routes/rules.js';
+import { registerBrewOutputRoutes } from './routes/brew-outputs.js';
 import { registerBrewRoutes } from './routes/brews.js';
 import { registerSearchRoutes } from './routes/search.js';
 import { registerOpmlRoutes } from './routes/opml.js';
@@ -44,6 +45,7 @@ export function createApi(
   registerReaderRoutes(app, services);
   registerRulesRoutes(app, services);
   registerBrewRoutes(app, services);
+  registerBrewOutputRoutes(app, services);
   registerSearchRoutes(app, services);
   registerOpmlRoutes(app, services);
   registerPollerRoutes(app, services);

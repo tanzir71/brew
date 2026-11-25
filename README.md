@@ -189,8 +189,32 @@ with stable issue IDs and deterministic empty-feed metadata. Their formats follo
 Pass the instance origin as `baseUrl` when rendering externally consumed output.
 Email previews retain local links and proxy images before an origin is supplied;
 feeds omit unresolved local URLs. These are private owner outputs: this renderer
-layer does not publish files. HTTP twins, enabled feed routes and transport
-adapters are the remaining M11 work.
+layer does not publish files. Output HTTP routes are now available in Node; SMTP
+and webhook delivery adapters remain M11 work.
+
+Use the Read rail’s Markdown or JSON links for the selected frozen issue:
+`/b/<brew id>/<snapshot id>.md` and `.json`. The immutable snapshot ID is the same
+identifier used by the existing Read URL and `/api/brews/:id`; v2 issue numbers
+are display metadata. Links from feeds use that exact Read URL as well. This
+keeps interleaved Brews and mixed legacy/v2 archives unambiguous.
+
+Enable **Atom and JSON feed** in Schedule & delivery to subscribe at
+`/b/<brew id>.atom` or `/b/<brew id>.json`. Turning it off returns 404 for both
+feed URLs; issue twins remain available. Enabled empty archives produce valid
+empty feeds. Missing output issues and cross-Brew issue IDs return JSON 404 responses,
+never the latest issue or the SPA. Node supports GET and HEAD; responses have
+explicit media types, `private, no-store` caching, no-index and nosniff headers.
+Read emits alternate Markdown/JSON links in its document head, plus Atom/JSON
+Feed discovery when enabled. Twins include HTTP alternate links too.
+
+`BREW_PUBLIC_URL=https://brew.your-domain.example` pins the canonical origin for
+absolute twin/feed links behind a TLS-terminating reverse proxy. Without it,
+Node uses the request’s actual protocol and Host. Only HTTP(S) origins without
+credentials are accepted; paths are rooted at the origin. The Vite development
+proxy forwards output URLs while keeping Read and Compose as SPA routes.
+Legacy snapshots are adapted from their stored content in memory, using UTC
+because they did not freeze a timezone; their stored payloads and v1 API DTOs
+stay unchanged.
 
 Add source discovers feeds from websites and native YouTube, Mastodon, Bluesky,
 subreddit and podcast URLs. It validates feed responses before offering them,

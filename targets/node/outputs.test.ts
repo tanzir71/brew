@@ -259,8 +259,9 @@ describe('feeds of issues', () => {
   it('emits independently parseable Atom with required metadata and one entry per whole issue, newest first', async () => {
     const older = {
       ...snapshot(),
-      issueNumber: 41,
-      generatedAt: '2026-11-24T20:00:00Z',
+      id: 49,
+      issueNumber: 99,
+      generatedAt: snapshot().generatedAt,
       configName: 'Earlier name',
     };
     const latest = snapshot();
@@ -269,8 +270,8 @@ describe('feeds of issues', () => {
     expect(parsed.title).toBe(info.name);
     expect(parsed.feedUrl).toBe(`${baseUrl}/b/7.atom`);
     expect(parsed.items).toHaveLength(2);
-    expect(parsed.items.map((item) => item.id)).toEqual([`${baseUrl}/b/7/42`, `${baseUrl}/b/7/41`]);
-    expect(parsed.items[0]!.link).toBe(`${baseUrl}/b/7/42`);
+    expect(parsed.items.map((item) => item.id)).toEqual([`${baseUrl}/b/7/50`, `${baseUrl}/b/7/49`]);
+    expect(parsed.items[0]!.link).toBe(`${baseUrl}/b/7/50`);
     expect(parsed.items[0]!.content).toContain('<h2>Section note</h2>');
     expect(parsed.items[0]!.content).toContain('<h2>Section grid</h2>');
     const dom = new DOMParser().parseFromString(xml, 'text/xml');
@@ -282,7 +283,7 @@ describe('feeds of issues', () => {
 
   it('emits JSON Feed 1.1 with the same issue identities, dates, absolute URLs and content', () => {
     const latest = snapshot();
-    const older = { ...snapshot(), issueNumber: 41, generatedAt: '2026-11-24T20:00:00Z' };
+    const older = { ...snapshot(), id: 49, issueNumber: 41, generatedAt: '2026-11-24T20:00:00Z' };
     const json = JSON.parse(renderBrewJsonFeed(info, [older, latest], { baseUrl }));
     expect(json).toMatchObject({
       version: 'https://jsonfeed.org/version/1.1',
@@ -292,11 +293,11 @@ describe('feeds of issues', () => {
       authors: [{ name: info.name }],
     });
     expect(json.items.map((item: { id: string }) => item.id)).toEqual([
-      `${baseUrl}/b/7/42`,
-      `${baseUrl}/b/7/41`,
+      `${baseUrl}/b/7/50`,
+      `${baseUrl}/b/7/49`,
     ]);
     expect(json.items[0]).toMatchObject({
-      url: `${baseUrl}/b/7/42`,
+      url: `${baseUrl}/b/7/50`,
       date_published: '2026-11-25T20:00:00.000Z',
       title: 'Weekend & reading · No. 42',
     });

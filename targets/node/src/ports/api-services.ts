@@ -25,6 +25,7 @@ export function nodeApiServices(
   fetcher: typeof fetch = globalThis.fetch,
   options: {
     outboundMail?: OutboundMailPort;
+    publicUrl?: string;
     clock?: ClockPort;
     inboundEmail?: InboundEmailPort;
     inboundMail?: Capabilities['inboundMail'];
@@ -33,6 +34,7 @@ export function nodeApiServices(
   const clock = options.clock;
   const now = clock ? () => clock.now() : undefined;
   return {
+    outputBaseUrl: options.publicUrl,
     newsletters: new NewsletterLibrary(database, options.clock),
     capabilities: () => ({
       ...nodeCapabilities(),

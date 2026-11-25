@@ -64,7 +64,7 @@ for (const theme of ['light', 'dark'])
     await expect(sheet.getByRole('switch', { name: 'Email', exact: true })).toBeDisabled();
     await expect(
       sheet.getByRole('switch', { name: 'Atom and JSON feed', exact: true }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     await expect(sheet.getByRole('switch', { name: 'Webhook', exact: true })).toBeDisabled();
     await expect(sheet.getByRole('switch', { name: 'Public page', exact: true })).toBeDisabled();
     await expect(

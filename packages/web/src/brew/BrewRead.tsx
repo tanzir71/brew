@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, lazy, Suspense, type CSSProperties } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { BrewFormats } from './BrewFormats';
 import { useBrewReadState } from './useBrewReadState';
 import type { BrewArticleState, BrewConfig, BrewItem } from '@brew/core/types/legacy-brew';
 import type { BrewSnapshotItem, BrewIssue } from '@brew/core/types/brew';
@@ -444,32 +445,7 @@ export function BrewRead({
               value={read}
             />
           </div>
-          <div className="brew-format-links">
-            <h2>Open this Brew as</h2>
-            {(
-              [
-                ['file', 'Markdown', `.md`],
-                ['code', 'JSON', '.json'],
-                ['rss', 'Atom feed', '.atom'],
-              ] as const
-            ).map(([icon, label, suffix]) => (
-              <div key={label}>
-                <button disabled>
-                  <Icon name={icon} size={14} />
-                  {label}
-                </button>
-                <code>
-                  /b/{snapshot.brewConfigId}
-                  {suffix === '.atom' ? '' : `/${snapshot.id}`}
-                  {suffix}
-                </code>
-              </div>
-            ))}
-            <p>
-              <Badge tone="locked">Not available yet</Badge>{' '}
-              <a href="/settings/runs#setup-data">About formats</a>
-            </p>
-          </div>
+          <BrewFormats snapshot={snapshot} />
           <div className="brew-next">
             <h2>Next Brew</h2>
             <p>

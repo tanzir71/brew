@@ -88,6 +88,20 @@ export function SetupDialog({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const guide = guides[topic];
+  const steps =
+    topic === 'outputs'
+      ? [
+          capabilities?.outputs?.twins
+            ? 'Open a saved issue and use its Markdown or JSON link in the Read rail.'
+            : 'Issue text formats need a supported instance. Read saved issues in Brew or preview them in Compose.',
+          capabilities?.outputs?.feed
+            ? 'Enable Atom and JSON feed in Schedule & delivery, then subscribe using the Read rail’s Atom feed link. Turning the channel off disables the subscription.'
+            : 'Issue feeds need a supported instance. You can preview an Atom issue in Compose.',
+          capabilities?.outputs?.webhook
+            ? 'Enable Webhook in Schedule & delivery and choose its destination.'
+            : 'Webhook delivery needs setup on this instance.',
+        ]
+      : guide.steps;
   useEffect(() => {
     const dialog = ref.current!;
     dialog.showModal();
@@ -115,7 +129,7 @@ export function SetupDialog({
       </div>
       <p>{guide.description}</p>
       <ol>
-        {guide.steps.map((step) => (
+        {steps.map((step) => (
           <li key={step}>{step}</li>
         ))}
       </ol>
@@ -124,7 +138,11 @@ export function SetupDialog({
           Export OPML
         </a>
       )}
-      {topic === 'newsletters' && <a className="runs-button" href="/letters">Open Newsletters</a>}
+      {topic === 'newsletters' && (
+        <a className="runs-button" href="/letters">
+          Open Newsletters
+        </a>
+      )}
       <p className="runs-guide-note">
         <Badge tone="neutral">Setup guide</Badge>Available connections appear in “What works here”.
       </p>

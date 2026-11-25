@@ -38,6 +38,33 @@ for (const theme of ['light', 'dark'])
       { width: 120, height: 84 },
       { width: 120, height: 84 },
     ]);
+    await expect(page.locator('.brew-format-link').first()).toHaveCSS(
+      'font-family',
+      /Instrument Sans/,
+    );
+    await expect(page.locator('.brew-format-link').first()).toHaveCSS('font-size', '13px');
+    await expect(page.locator('.brew-format-link').first()).toHaveCSS('line-height', '19px');
+    const formatGeometry = await page.locator('.brew-format-links > div').evaluateAll((rows) =>
+      rows.map((row) => {
+        const link = row.querySelector('a')!;
+        const icon = link.querySelector('svg')!;
+        return {
+          height: row.getBoundingClientRect().height,
+          padding: getComputedStyle(link).padding,
+          icon: {
+            width: icon.getBoundingClientRect().width,
+            height: icon.getBoundingClientRect().height,
+          },
+        };
+      }),
+    );
+    expect(formatGeometry).toEqual(
+      Array.from({ length: 3 }, () => ({
+        height: 29,
+        padding: '5px 10px',
+        icon: { width: 14, height: 14 },
+      })),
+    );
     await expect(page).toHaveScreenshot(`read-${theme}.png`, {
       fullPage: true,
       animations: 'disabled',
@@ -120,7 +147,7 @@ test('failed mutations keep read state, retry recovers, and unavailable formats 
   await page.getByRole('button', { name: 'Close article' }).click();
   await expect(item).toHaveAttribute('data-brew-state', 'read highlighted');
   for (const name of ['Markdown', 'JSON', 'Atom feed'])
-    await expect(page.getByRole('button', { name, exact: true })).toBeDisabled();
+    await expect(page.getByRole('link', { name, exact: true })).toBeVisible();
   await page.route('**/api/brews/*/state', (route) => route.fulfill({ status: 503 }));
   await page.reload();
   await expect(page.getByRole('alert')).toContainText('Live article state is unavailable.');

@@ -1,3 +1,4 @@
+import { isBrewOutputPath } from '../../../packages/core/src/brew-output-paths.js';
 import type { createApi } from '../../../packages/api/src/app.js';
 import { isJsonContentType } from '../../../packages/api/src/http.js';
 import type { FastifyInstance, RouteHandlerMethod } from 'fastify';
@@ -9,6 +10,8 @@ import { MAX_INBOUND_REQUEST_BYTES } from './services/inbound-webhook.js';
 // The portable Hono app owns all API routing and response contracts.
 export function mountApi(server: FastifyInstance, api: ReturnType<typeof createApi>): void {
   const handler: RouteHandlerMethod = async (request, reply) => {
+    const path = request.url.split('?')[0]!;
+    if (path.startsWith('/b/') && !isBrewOutputPath(path)) return reply.callNotFound();
     const controller = new AbortController();
     const abort = () => controller.abort();
     reply.raw.once('close', abort);
@@ -26,7 +29,7 @@ export function mountApi(server: FastifyInstance, api: ReturnType<typeof createA
           : String(request.body)
       : undefined;
     const response = await api.fetch(
-      new Request(`http://brew.internal${request.url}`, {
+      new Request(new URL(request.url, `${request.protocol}://${request.host}`), {
         method: request.method,
         headers,
         body,
@@ -54,4 +57,5 @@ export function mountApi(server: FastifyInstance, api: ReturnType<typeof createA
       scope.post(url, { bodyLimit: MAX_INBOUND_REQUEST_BYTES }, handler);
   });
   server.all('/api/*', handler);
+  server.all('/b/*', handler);
 }

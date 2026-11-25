@@ -1,3 +1,4 @@
+import { brewIssuePath } from './brew-output-paths.js';
 import { outputColors } from './output-colors.generated.js';
 import {
   cleanOutputText as cleanText,
@@ -170,24 +171,30 @@ function feedDocuments(
 ) {
   const seen = new Set<number>();
   for (const issue of snapshots) {
-    if (issue.brewConfigId !== info.id || seen.has(issue.issueNumber))
+    if (issue.brewConfigId !== info.id || seen.has(issue.id || issue.issueNumber))
       throw new Error('A Brew feed needs distinct issues from the same Brew.');
-    seen.add(issue.issueNumber);
+    seen.add(issue.id || issue.issueNumber);
   }
   return snapshots
     .map((issue) => documentFor(issue, options, false))
-    .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt) || b.issueNumber - a.issueNumber);
+    .sort(
+      (a, b) =>
+        b.generatedAt.localeCompare(a.generatedAt) ||
+        (b.id || b.issueNumber) - (a.id || a.issueNumber),
+    );
 }
 
 const feedId = (configId: number, baseUrl?: string) =>
   baseUrl ? `${baseUrl}/b/${configId}` : `urn:brew:${configId}`;
 const issueId = (issue: BrewIssueDocument, baseUrl?: string) =>
   baseUrl
-    ? `${feedId(issue.brewConfigId, baseUrl)}/${issue.issueNumber}`
-    : `${feedId(issue.brewConfigId)}:${issue.issueNumber}`;
+    ? `${baseUrl}${brewIssuePath({ ...issue, id: issue.id || issue.issueNumber })}`
+    : `${feedId(issue.brewConfigId)}:${issue.id || issue.issueNumber}`;
 const issueTitle = (issue: BrewIssueDocument) => `${issue.configName} · No. ${issue.issueNumber}`;
 const issueUrl = (issue: BrewIssueDocument, baseUrl?: string) =>
-  baseUrl ? `${baseUrl}/b/${issue.brewConfigId}/${issue.issueNumber}` : undefined;
+  baseUrl
+    ? `${baseUrl}${brewIssuePath({ ...issue, id: issue.id || issue.issueNumber })}`
+    : undefined;
 
 function atomDocument(info: BrewFeedInfo, issues: BrewIssueDocument[], baseUrl?: string): string {
   const updated = [date(info.updatedAt), ...issues.map((issue) => issue.generatedAt)]
