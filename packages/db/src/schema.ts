@@ -25,7 +25,9 @@ export const feeds = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     folderId: integer('folder_id').references(() => folders.id, { onDelete: 'set null' }),
     url: text('url').notNull(),
-    kind: text('kind', { enum: ['rss', 'newsletter'] }).notNull().default('rss'),
+    kind: text('kind', { enum: ['rss', 'newsletter'] })
+      .notNull()
+      .default('rss'),
     settingsJson: text('settings_json').notNull().default('{}'),
     siteUrl: text('site_url'),
     title: text('title').notNull(),
@@ -191,7 +193,31 @@ export const savedSourceSearches = sqliteTable('saved_source_searches', {
   query: text('query').notNull(),
 });
 
+export const inboundAddresses = sqliteTable('inbound_addresses', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  address: text('address').notNull().unique(),
+  mechanism: text('mechanism', {
+    enum: ['imap', 'webhook', 'cloudflare-email', 'email-to-feed'],
+  }).notNull(),
+  createdAt: timestamp('created_at')
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+});
+export const inboundReceipts = sqliteTable(
+  'inbound_receipts',
+  {
+    key: text('key').primaryKey(),
+    requestHash: text('request_hash').notNull(),
+    resultJson: text('result_json').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+  },
+  (table) => [index('inbound_receipts_expiry').on(table.expiresAt)],
+);
+
 export const schema = {
+  inboundAddresses,
+  inboundReceipts,
   savedSourceSearches,
   folders,
   feeds,

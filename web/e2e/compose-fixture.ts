@@ -10,7 +10,10 @@ export async function composeFixture(
   page: Page,
   theme = 'light',
   fetcher?: typeof fetch,
-  runtime: Pick<NonNullable<Parameters<typeof createApp>[0]>, 'clock' | 'outboundMail'> & {
+  runtime: Pick<
+    NonNullable<Parameters<typeof createApp>[0]>,
+    'clock' | 'outboundMail' | 'inbound'
+  > & {
     previewAt?: () => string;
   } = {},
 ) {
@@ -170,7 +173,16 @@ export async function composeFixture(
       method: request.method() as 'GET' | 'POST' | 'PUT' | 'DELETE',
       url: url.pathname + url.search,
       payload,
-      headers: payload ? { 'content-type': 'application/json' } : {},
+      headers: {
+        ...(payload
+          ? { 'content-type': request.headers()['content-type'] ?? 'application/json' }
+          : {}),
+        ...Object.fromEntries(
+          Object.entries(request.headers()).filter(
+            ([name]) => name === 'authorization' || name.startsWith('x-mailgun-'),
+          ),
+        ),
+      },
     });
     await route.fulfill({
       status: response.statusCode,

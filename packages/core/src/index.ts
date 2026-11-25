@@ -12,3 +12,4 @@ export * from './newsletter-cleaner.js';
 export * from './newsletter-mime.js';
 export * from './newsletter-pipeline.js';
 export * from './types/newsletters.js';
+export * from './inbound-email.js';

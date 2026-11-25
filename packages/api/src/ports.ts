@@ -18,6 +18,7 @@ import type { BrewService } from '../../core/src/brew-service.js';
 import type { RulesService } from '../../core/src/rules-service.js';
 import type { SearchService } from '../../core/src/search-service.js';
 import type { Capabilities } from '../../core/src/types/capabilities.js';
+import type { InboundEmailPort } from './inbound.js';
 
 type MaybePromise<T> = T | Promise<T>;
 type ServicePort<T> = {
@@ -81,6 +82,7 @@ export interface EventsPort {
   subscribe(listener: (event: string, data: unknown) => void, onClose: () => void): () => void;
 }
 export interface ApiServices {
+  inboundEmail?: InboundEmailPort;
   outboundMail?: OutboundMailPort;
   sources: {
     discover(url: string): Promise<SourceDiscovery>;

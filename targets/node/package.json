@@ -10,12 +10,13 @@
     "@brew/api": "0.1.0",
     "@brew/core": "0.1.0",
     "@brew/db": "0.1.0",
-    "drizzle-orm": "latest",
-    "linkedom": "latest",
     "@fastify/static": "latest",
     "@mozilla/readability": "latest",
     "better-sqlite3": "latest",
+    "drizzle-orm": "latest",
     "fastify": "latest",
+    "imapflow": "2.12.2",
+    "linkedom": "latest",
     "node-cron": "latest",
     "rss-parser": "latest"
   }

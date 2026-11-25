@@ -31,12 +31,12 @@ Brew fetches your RSS/Atom feeds, stores everything locally, lets you build rule
 │                                                            │
 │   packages/core/src/types/ — shared TypeScript contracts   │
 └──────────────────────────────────────────────────────────┘
-              │ outbound only
+              │ feeds + configured mail
               ▼
       the feeds you subscribe to
 ```
 
-Why it's shaped this way: npm workspaces keep one domain core usable in Node, Workers, the browser and CI. The core uses storage, search, fetch, clock, hash and regex ports; the Node target supplies SQLite and platform operations. Hono owns REST routing through injected service interfaces. Production still runs one process (Fastify hosts Hono and the compiled SPA) with one file of state (SQLite + WAL). The only network traffic is Brew fetching your feeds.
+Why it's shaped this way: npm workspaces keep one domain core usable in Node, Workers, the browser and CI. The core uses storage, search, fetch, clock, hash and regex ports; the Node target supplies SQLite and platform operations. Hono owns REST routing through injected service interfaces. Production still runs one process (Fastify hosts Hono and the compiled SPA) with one file of state (SQLite + WAL). Network connections serve your subscribed feeds and services you explicitly configure, including optional inbound mail.
 
 `GET /api/capabilities` describes the active target and its supported features.
 Web components read it through `useCapabilities()`. Features remain unavailable
@@ -209,8 +209,11 @@ The portable `NewsletterPipeline` accepts MIME bytes or a decoded `NewsletterMes
 becomes a `newsletter` feed at `mailto:<address>`; ordinary Reader, search, tags and
 feed-sourced Brew sections can consume its letters. Letters without a public archive
 use a local `/a/:id` link that opens the existing Reader panel. Newsletter feeds are excluded
-from RSS polling. Inbound transport setup and the Newsletters screen follow in M10;
-the default install continues to report `inboundMail: null` until a transport exists.
+from RSS polling. Node supports a dedicated IMAP mailbox and authenticated Postmark/
+Mailgun inbound webhooks. Follow the [mail setup guide](docs/inbound-mail.md) and
+[environment example](.env.example). The Newsletters screen follows in M10; the default
+install reports `inboundMail: null` until a connection is configured. Migration 0009
+stores active receiving addresses and replay receipts, never provider credentials.
 
 Cleaning removes pixels, known click redirects, tracking query parameters, small
 sponsor disclosures, configured per-sender CSS matches and email footer controls,

@@ -14,6 +14,11 @@ import { SseBroker } from './services/sse-broker.js';
 import { RulesService } from './services/rules-service.js';
 import { BrewService } from './services/brew-service.js';
 import { NewsletterService } from './services/newsletter-service.js';
+import { InboundWebhook } from './services/inbound-webhook.js';
+import { ImapPoller, type ImapClientFactory } from './services/imap-poller.js';
+import type { NodeInboundConfig } from './inbound-config.js';
+import type { NewsletterIngestResult } from '../../../packages/core/src/types/newsletters.js';
+import { activateInboundAddress } from './ports/inbound-address.js';
 
 const webDirectory = fileURLToPath(new URL('../../../packages/web/dist/', import.meta.url));
 
@@ -25,6 +30,8 @@ export async function createApp(
     startPoller?: boolean;
     clock?: ClockPort;
     outboundMail?: OutboundMailPort;
+    inbound?: NodeInboundConfig | null;
+    imapClientFactory?: ImapClientFactory;
   } = {},
 ): Promise<FastifyInstance> {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
@@ -45,6 +52,29 @@ export async function createApp(
   );
   const ingest = new IngestPipeline(database, rules);
   const newsletters = new NewsletterService(database, options.clock, rules);
+  const notifyLetter = (result: NewsletterIngestResult) => {
+    broker.publish('article:new', { count: 1, feeds: [{ feedId: result.feedId, count: 1 }] });
+  };
+  const inbound = options.inbound;
+  activateInboundAddress(database, inbound);
+  const inboundEmail =
+    inbound && inbound.kind !== 'imap'
+      ? new InboundWebhook(database, inbound, newsletters, notifyLetter, options.clock)
+      : undefined;
+  const imap =
+    inbound?.kind === 'imap'
+      ? new ImapPoller(
+          database,
+          inbound.imap,
+          (raw) => newsletters.ingest(raw),
+          notifyLetter,
+          options.imapClientFactory,
+          (result) => {
+            if (result.error || result.rejected)
+              app.log.warn({ inbound: 'imap', ...result }, 'Inbound mailbox poll needs attention.');
+          },
+        )
+      : null;
   const poller = new PollerService(
     database,
     options.fetcher,
@@ -59,20 +89,27 @@ export async function createApp(
         });
     },
   );
-  const api = createApi(nodeApiServices(database, poller, broker, options.fetcher, options), {
-    notFound: options.serveWeb
-      ? undefined
-      : (c) =>
-          json(
-            c,
-            {
-              message: `Route ${c.req.method}:${new URL(c.req.url).pathname}${new URL(c.req.url).search} not found`,
-              error: 'Not Found',
-              statusCode: 404,
-            },
-            404,
-          ),
-  });
+  const api = createApi(
+    nodeApiServices(database, poller, broker, options.fetcher, {
+      ...options,
+      inboundEmail,
+      inboundMail: inbound ? (inbound.kind === 'imap' ? 'imap' : 'webhook') : null,
+    }),
+    {
+      notFound: options.serveWeb
+        ? undefined
+        : (c) =>
+            json(
+              c,
+              {
+                message: `Route ${c.req.method}:${new URL(c.req.url).pathname}${new URL(c.req.url).search} not found`,
+                error: 'Not Found',
+                statusCode: 404,
+              },
+              404,
+            ),
+    },
+  );
   mountApi(app, api);
   const brewTimer = options.startPoller
     ? setInterval(() => {
@@ -84,13 +121,15 @@ export async function createApp(
   if (options.startPoller) {
     newsletters.prune();
     poller.start();
+    imap?.start();
   }
   // Stop live streams before Fastify waits for sockets to drain.
   app.addHook('preClose', async () => {
     broker.close();
   });
-  app.addHook('onClose', () => {
+  app.addHook('onClose', async () => {
     poller.stop();
+    await imap?.stop();
     if (brewTimer) clearInterval(brewTimer);
     database.close();
   });

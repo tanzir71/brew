@@ -179,7 +179,7 @@ test('Copy address uses a configured active address and the sheet traps and rest
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const fixture = await setup(page);
   fixture.database.sqlite.exec(
-    "CREATE TABLE inbound_addresses(id INTEGER PRIMARY KEY,address TEXT,active INTEGER);INSERT INTO inbound_addresses VALUES(1,'letters@example.test',1)",
+    "INSERT INTO inbound_addresses(id,address,mechanism,active) VALUES(1,'letters@example.test','imap',1)",
   );
   await fixture.sheet.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.route('**/api/capabilities', (route) =>

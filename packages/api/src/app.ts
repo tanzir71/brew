@@ -12,6 +12,7 @@ import { registerSearchRoutes } from './routes/search.js';
 import { registerOpmlRoutes } from './routes/opml.js';
 import { registerPollerRoutes } from './routes/poller.js';
 import { registerMediaRoutes } from './routes/media.js';
+import { registerInboundRoutes } from './inbound.js';
 
 export const securityHeaders = {
   'Content-Security-Policy':
@@ -43,6 +44,7 @@ export function createApi(
   registerOpmlRoutes(app, services);
   registerPollerRoutes(app, services);
   registerMediaRoutes(app, services);
+  registerInboundRoutes(app, services);
   app.get('/api/capabilities', async (c) => {
     c.header('Cache-Control', 'no-store');
     return json(c, await services.capabilities());

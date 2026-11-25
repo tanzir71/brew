@@ -1,6 +1,11 @@
 import { createApp } from './app.js';
+import { inboundConfigFromEnv } from './inbound-config.js';
 
-const app = await createApp({ serveWeb: process.env.NODE_ENV === 'production', startPoller: true });
+const app = await createApp({
+  serveWeb: process.env.NODE_ENV === 'production',
+  startPoller: true,
+  inbound: inboundConfigFromEnv(process.env),
+});
 
 try {
   await app.listen({ port: 4400, host: '127.0.0.1' });
@@ -9,6 +14,9 @@ try {
   process.exit(1);
 }
 
-const close = async () => { await app.close(); process.exit(0); };
+const close = async () => {
+  await app.close();
+  process.exit(0);
+};
 process.on('SIGINT', close);
 process.on('SIGTERM', close);

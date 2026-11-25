@@ -171,7 +171,7 @@ describe('source state and REST integration', () => {
     const sources = new SourceService(database);
     expect(sources.mailbox()).toEqual({ address: null });
     database.sqlite.exec(
-      "CREATE TABLE inbound_addresses(id INTEGER PRIMARY KEY,address TEXT,active INTEGER);INSERT INTO inbound_addresses VALUES(1,'inactive@example.test',0),(2,'letters@example.test',1)",
+      "INSERT INTO inbound_addresses(id,address,mechanism,active) VALUES(1,'inactive@example.test','imap',0),(2,'letters@example.test','imap',1)",
     );
     expect(sources.mailbox()).toEqual({ address: 'letters@example.test' });
   });

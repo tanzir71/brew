@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
 import { log } from 'node:console';
 import { tmpdir } from 'node:os';
 import process from 'node:process';
 import { createApp } from '../dist/targets/node/src/app.js';
 import { openDatabase } from '../dist/targets/node/src/db/database.js';
 import { NewsletterService } from '../dist/targets/node/src/services/newsletter-service.js';
+import { inboundConfigFromEnv } from '../dist/targets/node/src/inbound-config.js';
 
 // A built install must find migrations and the SPA outside the repository cwd.
 const previousDirectory = process.cwd();
@@ -150,8 +152,64 @@ try {
     true,
   );
   assert.equal(capabilities.json().inboundMail, null);
+  const inbound = inboundConfigFromEnv({
+    BREW_INBOUND_MODE: 'mailgun',
+    BREW_INBOUND_ADDRESS: 'letters@in.example.test',
+    BREW_MAILGUN_SIGNING_KEY: 'build-test-signing-key',
+  });
+  const inboundDatabase = openDatabase(':memory:');
+  const inboundApp = await createApp({ database: inboundDatabase, inbound });
+  try {
+    assert.equal((await inboundApp.inject('/api/capabilities')).json().inboundMail, 'webhook');
+    assert.deepEqual((await inboundApp.inject('/api/sources/mailbox')).json(), {
+      address: 'letters@in.example.test',
+    });
+    const payload =
+      JSON.stringify(
+        {
+          from: 'Build Notes <build@journal.test>',
+          recipient: 'letters@in.example.test',
+          subject: 'Webhook build',
+          'body-html': '<p>Webhook story.</p><img width="1" src="https://metrics.test/open">',
+          'message-headers': [['Message-ID', '<compiled-webhook@journal.test>']],
+        },
+        null,
+        2,
+      ) + '\n';
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const request = {
+      method: 'POST',
+      url: '/api/inbound/email/json',
+      payload,
+      headers: {
+        'content-type': 'application/json',
+        'x-mailgun-timestamp': timestamp,
+        'x-mailgun-signature': createHmac('sha256', 'build-test-signing-key')
+          .update(timestamp)
+          .update(payload)
+          .digest('hex'),
+      },
+    };
+    const received = await inboundApp.inject(request);
+    assert.equal(received.statusCode, 200);
+    assert.deepEqual((await inboundApp.inject(request)).json(), received.json());
+    assert.equal(
+      (await inboundApp.inject(`/api/articles/${received.json().articleId}`)).json().contentHtml,
+      '<p>Webhook story.</p>',
+    );
+    assert.deepEqual(inboundDatabase.sqlite.prepare('SELECT count(*) AS n FROM articles').get(), {
+      n: 1,
+    });
+    assert.equal(
+      (await inboundApp.inject({ ...request, headers: { 'content-type': 'application/json' } }))
+        .statusCode,
+      401,
+    );
+  } finally {
+    await inboundApp.close();
+  }
   log(
-    'Built Node target: migrations, newsletter MIME/cleaning, health, SPA, assets and fallback passed outside the repository cwd.',
+    'Built Node target: migrations, MIME/cleaning, signed inbound webhook/replay, health, SPA, assets and fallback passed outside the repository cwd.',
   );
 } finally {
   if (app) await app.close();
