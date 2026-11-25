@@ -163,7 +163,19 @@ The source API lives at `/api/sources/discover`, `/api/sources/searches` and
 `/api/sources/mailbox`. Discovery does not write to the database. Adding selected
 feeds updates the library. The section changes only after all selected sources
 resolve. Partial failures retain completed subscriptions for retry.
-The full Schedule & delivery sheet follows in the next iteration.
+Schedule & delivery supports daily, weekdays, weekly day selections and monthly
+schedules, all minute values and IANA time zones. The next issue is calculated by
+the server with DST handling. Pause scheduling or skip issues below a threshold
+of unique unread selected items. Changes stay local until Save; closing the
+sheet cancels them. Delivery controls follow capabilities and keep unavailable
+channels visible with setup links. Test email sends the unsaved preview through
+a configured `OutboundMailPort` and saves no issue or settings; Node's SMTP
+adapter and published feed/webhook/public-copy outputs arrive in M11. A default
+Node install keeps those controls gated.
+
+V2 issues are retained for 30 days, with monotonic issue numbers even after the
+archive expires. The scheduler prunes expired issues even for paused Brews.
+Legacy v1 issues retain their existing 30-edition policy.
 
 More actions contains generation,
 edition selection and display preferences. Output controls remain visible and

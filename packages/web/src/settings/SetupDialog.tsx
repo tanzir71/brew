@@ -4,6 +4,15 @@ import type { Capabilities } from '@brew/core/types/capabilities';
 import { Badge } from '../components/Badge';
 
 const guides: Record<SetupTopic, { title: string; description: string; steps: string[] }> = {
+  outputs: {
+    title: 'Publishing outputs',
+    description: 'Choose how to read and share a finished Brew.',
+    steps: [
+      'Read saved issues in Brew and use Compose to preview the Web, Email and Atom versions.',
+      'Published feeds and webhook delivery are unavailable on this copy. Their controls keep your saved preferences.',
+      'When a publishing connection is available, enable its channel in Schedule & delivery.',
+    ],
+  },
   newsletters: {
     title: 'Newsletters by email',
     description: 'Keep newsletters in your own library, beside your feeds.',

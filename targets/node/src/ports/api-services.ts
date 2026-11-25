@@ -1,3 +1,5 @@
+import type { OutboundMailPort } from '../../../../packages/core/src/types/delivery.js';
+import type { ClockPort } from '../../../../packages/core/src/ports.js';
 import { SourceService } from '../services/source-service.js';
 import type { ApiServices } from '../../../../packages/api/src/ports.js';
 import type { BrewDatabase } from '../db/database.js';
@@ -18,14 +20,19 @@ export function nodeApiServices(
   poller: PollerService,
   broker: SseBroker,
   fetcher: typeof fetch = globalThis.fetch,
+  options: { outboundMail?: OutboundMailPort; clock?: ClockPort } = {},
 ): ApiServices {
   return {
-    capabilities: nodeCapabilities,
+    capabilities: () => ({
+      ...nodeCapabilities(),
+      emailDelivery: options.outboundMail?.kind ?? null,
+    }),
+    outboundMail: options.outboundMail,
     sources: new SourceService(database, fetcher),
     feeds: new FeedService(database, fetcher),
     articles: new ArticleService(database, fetcher),
     reader: new ReaderService(database),
-    brews: new BrewService(database),
+    brews: new BrewService(database, options.clock),
     rules: new RulesService(database, fetcher, (article) =>
       broker.publish('notification', article),
     ),

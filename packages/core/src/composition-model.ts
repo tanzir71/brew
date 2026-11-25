@@ -120,38 +120,7 @@ export function validateComposition(value: unknown): asserts value is BrewConfig
     !Array.isArray(draft.sections)
   )
     throw new Error('Brew name and sections are required.');
-  if (typeof draft.timezone !== 'string' || /^[+-]/.test(draft.timezone))
-    throw new Error('Choose an IANA time zone.');
-  try {
-    new Intl.DateTimeFormat('en', { timeZone: draft.timezone }).format();
-  } catch {
-    throw new Error('Choose an IANA time zone.');
-  }
-  const schedule = draft.schedule;
-  if (
-    !schedule ||
-    !['daily', 'weekdays', 'weekly', 'monthly'].includes(schedule.kind) ||
-    !/^([01]\d|2[0-3]):[0-5]\d$/.test(schedule.time)
-  )
-    throw new Error('Choose a valid schedule and time.');
-  if (
-    schedule.kind === 'weekly' &&
-    (!schedule.days?.length ||
-      schedule.days.some((day) => !Number.isInteger(day) || day < 0 || day > 6))
-  )
-    throw new Error('Choose a weekday.');
-  if (
-    schedule.kind === 'monthly' &&
-    (!Number.isInteger(schedule.dayOfMonth) ||
-      schedule.dayOfMonth! < 1 ||
-      schedule.dayOfMonth! > 31)
-  )
-    throw new Error('Choose a day from 1–31.');
-  if (
-    schedule.skipIfFewerThan !== undefined &&
-    (!Number.isInteger(schedule.skipIfFewerThan) || schedule.skipIfFewerThan < 0)
-  )
-    throw new Error('The skip threshold must be a non-negative whole number.');
+  validateBrewSchedule(draft.schedule, draft.timezone);
   if (
     !draft.delivery ||
     draft.delivery.web !== true ||
@@ -242,4 +211,40 @@ export function validateComposition(value: unknown): asserts value is BrewConfig
           throw new Error('Choose a filter field, operator and value.');
     }
   }
+}
+
+export const BREW_RETENTION_DAYS = 30;
+export function validateBrewSchedule(schedule: BrewSchedule, timezone: string) {
+  if (typeof timezone !== 'string' || /^[+-]/.test(timezone))
+    throw new Error('Choose an IANA time zone.');
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: timezone }).format();
+  } catch {
+    throw new Error('Choose an IANA time zone.');
+  }
+  if (
+    !schedule ||
+    !['daily', 'weekdays', 'weekly', 'monthly'].includes(schedule.kind) ||
+    !/^([01]\d|2[0-3]):[0-5]\d$/.test(schedule.time)
+  )
+    throw new Error('Choose a valid schedule and time.');
+  if (
+    schedule.kind === 'weekly' &&
+    (!Array.isArray(schedule.days) ||
+      !schedule.days.length ||
+      schedule.days.some((day) => !Number.isInteger(day) || day < 0 || day > 6))
+  )
+    throw new Error('Choose a weekday.');
+  if (
+    schedule.kind === 'monthly' &&
+    (!Number.isInteger(schedule.dayOfMonth) ||
+      schedule.dayOfMonth! < 1 ||
+      schedule.dayOfMonth! > 31)
+  )
+    throw new Error('Choose a day from 1–31.');
+  if (
+    schedule.skipIfFewerThan !== undefined &&
+    (!Number.isSafeInteger(schedule.skipIfFewerThan) || schedule.skipIfFewerThan < 0)
+  )
+    throw new Error('The skip threshold must be a non-negative whole number.');
 }

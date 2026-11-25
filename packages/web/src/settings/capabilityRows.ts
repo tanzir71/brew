@@ -2,7 +2,7 @@ import type { Capabilities } from '@brew/core/types/capabilities';
 import type { BadgeTone } from '../components/Badge';
 
 export type SetupTopic =
-  'newsletters' | 'delivery' | 'apps' | 'agents' | 'briefs' | 'data' | 'fetch';
+  'newsletters' | 'delivery' | 'apps' | 'agents' | 'briefs' | 'data' | 'fetch' | 'outputs';
 export interface CapabilityRow {
   id: SetupTopic;
   title: string;

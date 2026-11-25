@@ -81,6 +81,7 @@ export interface BrewStoragePort {
       | Omit<import('./types/brew.js').BrewSnapshot, 'id' | 'brewConfigId' | 'scrollPosition'>,
   ): number;
   prune(configId: number, keep: number): void;
+  pruneBefore(configId: number, before: number): void;
   historyIds(configId: number): number[];
   snapshot(id: number): import('./types/brew.js').BrewIssue | null;
   composition(id: number): import('./types/brew.js').BrewConfig | null;

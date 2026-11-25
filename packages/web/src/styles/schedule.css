@@ -1,0 +1,200 @@
+.schedule-sheet .brew-sheet-description {
+  padding-bottom: 18px;
+}
+.schedule-fields {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.schedule-fields h3 {
+  font: 500 13px/16px var(--brew-font-ui);
+}
+.schedule-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.schedule-heading .brew-toggle-label {
+  font: 400 12px/16px var(--brew-font-ui);
+  color: var(--brew-text-caption);
+}
+.schedule-repeat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.schedule-days {
+  display: flex;
+  gap: 6px;
+}
+.schedule-days button {
+  width: 34px;
+  height: 34px;
+  border-radius: 17px;
+  border: 1px solid var(--brew-border-strong);
+  font: 500 12px/16px var(--brew-font-ui);
+  color: var(--brew-text-soft);
+}
+.schedule-days button[aria-pressed='true'] {
+  background: var(--brew-text-primary);
+  color: var(--brew-text-inverse);
+  border-color: var(--brew-text-primary);
+}
+.schedule-days button:focus-visible {
+  outline: 2px solid var(--brew-accent-default);
+  outline-offset: 2px;
+}
+.schedule-time-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 12px;
+}
+.schedule-time-row .brew-select-label {
+  gap: 8px;
+  font: 500 13px/16px var(--brew-font-ui);
+}
+.schedule-time-row .brew-select {
+  height: 34px;
+}
+.schedule-month {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+}
+.schedule-month .brew-input-label {
+  width: 120px;
+}
+.schedule-month p {
+  flex: 1;
+  font: 400 12px/16px var(--brew-font-ui);
+  color: var(--brew-text-caption);
+}
+.schedule-skip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--brew-border-default);
+  border-radius: 10px;
+  background: var(--brew-bg-canvas);
+}
+.schedule-skip > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  min-width: 0;
+  font: 400 13px/19px var(--brew-font-ui);
+}
+.schedule-next {
+  color: var(--brew-text-caption);
+  font: 400 12px/16px var(--brew-font-ui);
+  margin-top: -12px;
+}
+.schedule-fields > hr {
+  border-top: 1px solid var(--brew-border-default);
+}
+.schedule-delivery {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.schedule-channel-list {
+  border: 1px solid var(--brew-border-default);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.schedule-channel {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border-bottom: 1px solid var(--brew-border-default);
+}
+.schedule-channel:last-child {
+  border-bottom: 0;
+}
+.schedule-channel > svg {
+  color: var(--brew-text-soft);
+  flex-shrink: 0;
+}
+.schedule-channel > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.schedule-channel header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 16px;
+}
+.schedule-channel h4 {
+  font: 500 13px/16px var(--brew-font-ui);
+}
+.schedule-channel p {
+  color: var(--brew-text-caption);
+  font: 400 12px/16px var(--brew-font-ui);
+  overflow-wrap: anywhere;
+}
+.schedule-channel .brew-toggle-label {
+  flex-shrink: 0;
+}
+.schedule-channel .brew-input-label {
+  margin-block: 6px;
+}
+.schedule-setup {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+.schedule-setup a,
+.schedule-setup button {
+  color: var(--brew-accent-default);
+  min-height: 24px;
+  font: 500 12px/16px var(--brew-font-ui);
+}
+.schedule-error {
+  color: var(--brew-status-danger);
+  font: 400 13px/19px var(--brew-font-ui);
+}
+.schedule-message {
+  color: var(--brew-status-positive);
+  font: 400 13px/19px var(--brew-font-ui);
+}
+@media (max-width: 480px) {
+  .schedule-sheet {
+    max-width: calc(100vw - 16px);
+  }
+  .schedule-time-row {
+    grid-template-columns: 100px minmax(0, 1fr);
+  }
+  .schedule-channel {
+    padding: 12px;
+    gap: 8px;
+  }
+  .schedule-sheet > footer {
+    padding: 14px;
+  }
+}
+
+.schedule-footer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.schedule-footer-actions {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

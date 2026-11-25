@@ -11,7 +11,11 @@ import type {
   BrewIssue,
   BrewSnapshot as CompositionSnapshot,
 } from './types/brew.js';
-import { validateComposition } from './composition-model.js';
+import {
+  validateComposition,
+  validateBrewSchedule,
+  BREW_RETENTION_DAYS,
+} from './composition-model.js';
 import { CompositionPreview } from './composition-preview.js';
 import { nextBrewAt } from './brew-schedule.js';
 
@@ -111,6 +115,26 @@ export class BrewService {
     validateComposition(draft);
     return this.storage.updateComposition(id, draft) ? this.composition(id) : null;
   }
+  scheduleInfo(
+    value: Pick<CompositionDraft, 'schedule' | 'timezone' | 'enabled'>,
+  ): import('./types/delivery.js').ScheduleInfo {
+    if (!value || typeof value.enabled !== 'boolean')
+      throw new Error('Choose whether the schedule is enabled.');
+    validateBrewSchedule(value.schedule, value.timezone);
+    const now = this.clock.now();
+    return {
+      now: now.toISOString(),
+      nextAt: value.enabled ? nextBrewAt(value.schedule, value.timezone, now).toISOString() : null,
+      timezone: value.timezone,
+    };
+  }
+  previewCompositionNow(draft: CompositionDraft, id: number) {
+    return new CompositionPreview(this.storage, this.clock, this.regex).build(
+      draft,
+      id,
+      this.clock.now(),
+    );
+  }
   previewComposition(draft: CompositionDraft, id = 0, at?: string) {
     return new CompositionPreview(this.storage, this.clock, this.regex).build(
       draft,
@@ -138,13 +162,18 @@ export class BrewService {
       sections: snapshot.sections,
     };
     const issueId = this.storage.save(snapshot.brewConfigId, payload);
-    this.storage.prune(snapshot.brewConfigId, 30);
+    this.storage.pruneBefore(
+      snapshot.brewConfigId,
+      this.clock.now().getTime() - BREW_RETENTION_DAYS * 86_400_000,
+    );
     return this.snapshot(issueId)!;
   }
   private readonly runningCompositions = new Set<number>();
   async runCompositionScheduled(now = this.clock.now()): Promise<number> {
     let generated = 0;
     for (const legacy of this.listConfigs()) {
+      if (this.usesComposition(legacy.id))
+        this.storage.pruneBefore(legacy.id, now.getTime() - BREW_RETENTION_DAYS * 86_400_000);
       if (
         !this.usesComposition(legacy.id) ||
         !legacy.enabled ||
@@ -164,7 +193,9 @@ export class BrewService {
       try {
         const preview = await this.previewComposition(config, config.id, scheduled.toISOString());
         const count = new Set(
-          preview.snapshot.sections.flatMap((section) => section.items.map((item) => item.id)),
+          preview.snapshot.sections.flatMap((section) =>
+            section.items.filter((item) => !item.readAt).map((item) => item.id),
+          ),
         ).size;
         if (count >= (config.schedule.skipIfFewerThan ?? 0)) {
           this.freezeComposition(preview.snapshot);

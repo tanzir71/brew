@@ -1,3 +1,4 @@
+import type { OutboundMailPort } from '../../core/src/types/delivery.js';
 import type {
   SourceDiscovery,
   SavedSourceSearch,
@@ -80,6 +81,7 @@ export interface EventsPort {
   subscribe(listener: (event: string, data: unknown) => void, onClose: () => void): () => void;
 }
 export interface ApiServices {
+  outboundMail?: OutboundMailPort;
   sources: {
     discover(url: string): Promise<SourceDiscovery>;
     searches(): MaybePromise<SavedSourceSearch[]>;

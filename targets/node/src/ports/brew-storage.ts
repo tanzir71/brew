@@ -131,6 +131,7 @@ export class NodeBrewStorage implements BrewStoragePort {
     return this.database.sqlite.transaction(() => {
       const issueNumber = this.nextIssueNumber(configId);
       const value = 'version' in payload ? { ...payload, issueNumber } : payload;
+      this.setSetting(`brew_issue_number_${configId}`, String(issueNumber));
       return this.database.db
         .insert(brews)
         .values({
@@ -147,6 +148,17 @@ export class NodeBrewStorage implements BrewStoragePort {
   prune(configId: number, keep: number): void {
     for (const id of this.historyIds(configId).slice(keep))
       this.database.db.delete(brews).where(eq(brews.id, id)).run();
+  }
+  pruneBefore(configId: number, before: number): void {
+    this.database.sqlite.transaction(() => {
+      const last = this.nextIssueNumber(configId) - 1;
+      const stored = Number(this.setting(`brew_issue_number_${configId}`) ?? 0);
+      if (last > 0 && (!Number.isSafeInteger(stored) || last > stored))
+        this.setSetting(`brew_issue_number_${configId}`, String(last));
+      this.database.sqlite
+        .prepare('DELETE FROM brews WHERE brew_config_id=? AND generated_at<?')
+        .run(configId, before);
+    })();
   }
   historyIds(configId: number): number[] {
     return this.database.db
@@ -249,15 +261,15 @@ export class NodeBrewStorage implements BrewStoragePort {
     );
   }
   nextIssueNumber(id: number): number {
-    return Number(
+    const last = Number(this.setting(`brew_issue_number_${id}`) ?? 0);
+    const retained = Number(
       (
         this.database.sqlite
-          .prepare(
-            'SELECT coalesce(max(issue_number),0)+1 AS next FROM brews WHERE brew_config_id=?',
-          )
-          .get(id) as { next: number }
-      ).next,
+          .prepare('SELECT coalesce(max(issue_number),0) AS last FROM brews WHERE brew_config_id=?')
+          .get(id) as { last: number }
+      ).last,
     );
+    return Math.max(Number.isSafeInteger(last) && last >= 0 ? last : 0, retained) + 1;
   }
   savedSourceSearch(id: number): { query: string } | undefined {
     return this.database.sqlite

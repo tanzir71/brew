@@ -14,5 +14,6 @@ export function nodeCapabilities(): Capabilities {
     ai: { available: [], configured: false },
     readState: 'server',
     publicCopy: false,
+    outputs: { feed: false, webhook: false },
   };
 }

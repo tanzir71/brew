@@ -141,9 +141,10 @@ export function BrewPage({ preferences }: { preferences: ReactNode }) {
     const next = await composeJson<BrewIssue>(`/api/brew-configs/${id}/generate`, {
       method: 'POST',
     });
-    client.setQueryData<BrewIssue[]>(['brew-history', id], (old) =>
-      [next, ...(old ?? []).filter((value) => value.id !== next.id)].slice(0, 30),
-    );
+    client.setQueryData<BrewIssue[]>(['brew-history', id], (old) => {
+      const issues = [next, ...(old ?? []).filter((value) => value.id !== next.id)];
+      return 'version' in next ? issues : issues.slice(0, 30);
+    });
     if (selectedRef.current === id) {
       setIssueId(next.id);
       setEditing(false);
@@ -214,7 +215,8 @@ export function BrewPage({ preferences }: { preferences: ReactNode }) {
                       weekday: 'short',
                       day: 'numeric',
                       month: 'short',
-                      timeZone: 'timezone' in issue ? issue.timezone : state.data?.timeZone ?? 'UTC',
+                      timeZone:
+                        'timezone' in issue ? issue.timezone : (state.data?.timeZone ?? 'UTC'),
                     }).format(new Date(issue.generatedAt))
                   : ''
               }

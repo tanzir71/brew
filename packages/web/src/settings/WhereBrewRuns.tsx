@@ -21,6 +21,7 @@ const topics: SetupTopic[] = [
   'briefs',
   'data',
   'fetch',
+  'outputs',
 ];
 const subscribeHash = (notify: () => void) => {
   window.addEventListener('hashchange', notify);

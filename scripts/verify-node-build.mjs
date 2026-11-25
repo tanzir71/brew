@@ -70,6 +70,29 @@ try {
   assert.equal(preview.statusCode, 200);
   assert.equal(preview.json().snapshot.version, 2);
   assert.match(preview.json().outputs.feed, /<feed xmlns=/);
+  const schedule = await app.inject({
+    method: 'POST',
+    url: `/api/brew-configs/${composed.json().id}/schedule-preview`,
+    payload: {
+      schedule: { kind: 'weekly', time: '08:17', days: [0] },
+      timezone: 'Europe/Paris',
+      enabled: true,
+    },
+  });
+  assert.equal(schedule.statusCode, 200);
+  assert.equal(schedule.headers['cache-control'], 'no-store');
+  assert.ok(Date.parse(schedule.json().nextAt) > Date.parse(schedule.json().now));
+  assert.deepEqual(capabilities.json().outputs, { feed: false, webhook: false });
+  assert.equal(
+    (
+      await app.inject({
+        method: 'POST',
+        url: `/api/brew-configs/${composed.json().id}/test-email`,
+        payload: { draft: composed.json() },
+      })
+    ).statusCode,
+    501,
+  );
   assert.deepEqual((await app.inject('/api/sources/mailbox')).json(), { address: null });
   const sourceSearch = await app.inject({
     method: 'POST',

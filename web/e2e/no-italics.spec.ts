@@ -3,8 +3,10 @@ import { readFile } from 'node:fs/promises';
 import { sanitizeArticleHtml } from '../../packages/core/src/html-sanitizer.js';
 
 async function expectNormalText(page: Page) {
-  const slanted = await page.locator('body *').evaluateAll((elements) =>
-    elements.flatMap((element) =>
+  // Query and inspect in one evaluation: React can replace sidebar links between
+  // locator resolution and inspection, giving detached nodes empty computed styles.
+  const slanted = await page.evaluate(() =>
+    [...document.querySelectorAll('body *')].flatMap((element) =>
       ['', '::before', '::after'].flatMap((pseudo) => {
         const style = getComputedStyle(element, pseudo || null).fontStyle;
         return style === 'normal' ? [] : [`${element.tagName}${pseudo}: ${style}`];

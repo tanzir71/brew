@@ -4,7 +4,37 @@ import type { ApiServices } from '../ports.js';
 import { body, errorMessage, json } from '../http.js';
 import type { BrewConfigDraft as CompositionDraft } from '../../../core/src/types/brew.js';
 
-export function registerBrewRoutes(app: Hono, { brews: service }: ApiServices): void {
+export function registerBrewRoutes(
+  app: Hono,
+  { brews: service, outboundMail, capabilities }: ApiServices,
+): void {
+  app.post('/api/brew-configs/:id/schedule-preview', async (c) => {
+    c.header('Cache-Control', 'no-store');
+    try {
+      return json(c, await service.scheduleInfo(await body(c)));
+    } catch (error) {
+      return json(c, { error: errorMessage(error, 'Could not check the schedule.') }, 422);
+    }
+  });
+  app.post('/api/brew-configs/:id/test-email', async (c) => {
+    c.header('Cache-Control', 'no-store');
+    if (!outboundMail || !(await capabilities()).emailDelivery)
+      return json(c, { error: 'Email delivery needs setup on this instance.' }, 501);
+    try {
+      const { draft } = await body<{ draft: CompositionDraft }>(c);
+      const preview = await service.previewCompositionNow(draft, Number(c.req.param('id')));
+      const to = draft.delivery.email?.to;
+      if (!to) return json(c, { error: 'Enable Email and choose a recipient for the test.' }, 422);
+      const result = await outboundMail.send({
+        to,
+        subject: `Test · ${draft.name}`,
+        html: preview.outputs.email,
+      });
+      return json(c, { sent: true, to, ...result });
+    } catch (error) {
+      return json(c, { error: errorMessage(error, 'Could not send the test email.') }, 422);
+    }
+  });
   app.get('/api/brew-configs', async (c) => json(c, await service.listConfigs()));
   app.post('/api/brew-configs', async (c) => {
     try {

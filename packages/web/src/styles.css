@@ -6,6 +6,7 @@
 @import './styles/read.css';
 @import './styles/compose.css';
 @import './styles/sources.css';
+@import './styles/schedule.css';
 @source './';
 @source '../test';
 :root {

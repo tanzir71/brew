@@ -495,22 +495,10 @@
 }
 .compose-add-choices,
 .compose-source-choices,
-.compose-schedule-fields,
 .compose-section-options {
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-.compose-schedule-fields > label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.compose-schedule-fields select {
-  border: 1px solid var(--brew-border-strong);
-  border-radius: 8px;
-  padding: 8px;
-  background: var(--brew-bg-surface);
 }
 .compose-day-choices {
   display: flex;

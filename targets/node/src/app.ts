@@ -1,3 +1,5 @@
+import type { ClockPort } from '../../../packages/core/src/ports.js';
+import type { OutboundMailPort } from '../../../packages/core/src/types/delivery.js';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +22,8 @@ export async function createApp(
     database?: BrewDatabase;
     fetcher?: typeof fetch;
     startPoller?: boolean;
+    clock?: ClockPort;
+    outboundMail?: OutboundMailPort;
   } = {},
 ): Promise<FastifyInstance> {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
@@ -34,7 +38,7 @@ export async function createApp(
   );
   const database = options.database ?? openDatabase();
   const broker = new SseBroker();
-  const brewService = new BrewService(database);
+  const brewService = new BrewService(database, options.clock);
   const rules = new RulesService(database, options.fetcher, (article) =>
     broker.publish('notification', article),
   );
@@ -53,7 +57,7 @@ export async function createApp(
         });
     },
   );
-  const api = createApi(nodeApiServices(database, poller, broker, options.fetcher), {
+  const api = createApi(nodeApiServices(database, poller, broker, options.fetcher, options), {
     notFound: options.serveWeb
       ? undefined
       : (c) =>

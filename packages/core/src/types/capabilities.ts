@@ -16,6 +16,7 @@ export interface Capabilities {
   };
   readState: 'server' | 'local';
   publicCopy: boolean;
+  outputs?: { feed: boolean; webhook: boolean };
   limits?: { maxFetchesPerRun?: number };
 }
 
@@ -33,6 +34,7 @@ export function isCapabilities(value: unknown): value is Capabilities {
   const background = value.backgroundFetch;
   const ai = value.ai;
   const limits = value.limits;
+  const outputs = value.outputs;
   return (
     oneOf(value.mode, ['browser', 'node', 'cloudflare', 'php-lite', 'static']) &&
     oneOf(value.fetch, ['direct', 'relay', 'extension', 'build-time']) &&
@@ -54,6 +56,10 @@ export function isCapabilities(value: unknown): value is Capabilities {
     typeof ai.configured === 'boolean' &&
     oneOf(value.readState, ['server', 'local']) &&
     typeof value.publicCopy === 'boolean' &&
+    (outputs === undefined ||
+      (record(outputs) &&
+        typeof outputs.feed === 'boolean' &&
+        typeof outputs.webhook === 'boolean')) &&
     (limits === undefined ||
       (record(limits) &&
         (limits.maxFetchesPerRun === undefined ||

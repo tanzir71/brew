@@ -226,7 +226,8 @@ function ComposeEditor({ initial, ...props }: Props & { initial: BrewConfig }) {
               size="sm"
               variant="secondary"
               icon={<Icon name="send" size={14} />}
-              disabled
+              disabled={!capabilities.data?.emailDelivery}
+              onClick={() => showSheet('schedule')}
               aria-describedby="compose-mail-state"
             >
               Send test
@@ -277,7 +278,7 @@ function ComposeEditor({ initial, ...props }: Props & { initial: BrewConfig }) {
                     {capabilities.data?.emailDelivery ? 'Preview only' : 'Needs mail add-on'}
                   </Badge>
                 </span>
-                <a href="/settings/runs#setup-email">Set up</a>
+                <a href="/settings/runs#setup-delivery">Set up</a>
               </div>
             </section>
             <div className="compose-sections-heading">
@@ -606,11 +607,13 @@ function ComposeEditor({ initial, ...props }: Props & { initial: BrewConfig }) {
       )}
       {sheet === 'schedule' && (
         <ScheduleEditor
+          id={props.id}
           draft={draft}
+          saveError={failed ? status : ''}
           onClose={() => showSheet(null)}
-          onApply={(value) => {
-            update(() => value);
-            showSheet(null);
+          onApply={async (value) => {
+            update((current) => ({ ...current, ...value }));
+            return flush();
           }}
         />
       )}
