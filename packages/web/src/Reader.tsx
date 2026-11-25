@@ -155,13 +155,13 @@ export function Reader({
     };
   }, [choose, queryClient, showShortcuts]);
   const itemClass = (active: boolean) =>
-    `flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${active ? 'bg-amber-50 font-semibold text-amber-950' : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'}`;
+    `flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${active ? 'bg-subtle font-semibold text-ink' : 'text-soft hover:bg-subtle hover:text-ink'}`;
   return (
     <>
       <div className="grid min-h-[calc(100vh-4rem)] grid-cols-[15.5rem_minmax(0,1fr)]">
         <aside
           aria-label="Reader navigation"
-          className="flex flex-col border-r border-stone-200 bg-stone-50 px-4 py-6"
+          className="flex flex-col border-r border-line bg-canvas px-4 py-6"
         >
           <nav className="space-y-1">
             <button
@@ -192,14 +192,14 @@ export function Reader({
               <Count value={navigation.counts.starred} />
             </button>
           </nav>
-          <div className="my-5 h-px bg-stone-200" />
-          {savedSearches.length>0&&<section className="mb-5"><p className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-stone-400">Saved searches</p>{savedSearches.map((saved)=><div key={saved.id} className="group flex items-center"><button className={`${itemClass(searchQuery===saved.query)} min-w-0 flex-1`} onClick={()=>onSearch(saved.query)}><span className="truncate">⌕ {saved.name}</span></button><button aria-label={`Delete saved search ${saved.name}`} onClick={()=>persistSearches(savedSearches.filter((item)=>item.id!==saved.id))} className="px-1 text-xs text-stone-400 opacity-0 group-hover:opacity-100">×</button></div>)}</section>}
+          <div className="my-5 h-px bg-line" />
+          {savedSearches.length>0&&<section className="mb-5"><p className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted">Saved searches</p>{savedSearches.map((saved)=><div key={saved.id} className="group flex items-center"><button className={`${itemClass(searchQuery===saved.query)} min-w-0 flex-1`} onClick={()=>onSearch(saved.query)}><span className="truncate">⌕ {saved.name}</span></button><button aria-label={`Delete saved search ${saved.name}`} onClick={()=>persistSearches(savedSearches.filter((item)=>item.id!==saved.id))} className="px-1 text-xs text-muted opacity-0 group-hover:opacity-100">×</button></div>)}</section>}
           <div className="space-y-4">
             {navigation.folders.map((folder) => (
               <section key={folder.id}>
                 <button
                   onClick={() => choose({ kind: 'folder', id: folder.id, title: folder.title })}
-                  className="flex w-full items-center justify-between px-3 py-1 text-xs font-semibold uppercase tracking-wider text-stone-500"
+                  className="flex w-full items-center justify-between px-3 py-1 text-xs font-semibold uppercase tracking-wider text-soft"
                 >
                   <span>{folder.title}</span>
                   <Count value={folder.unreadCount} />
@@ -220,7 +220,7 @@ export function Reader({
             ))}
             {navigation.unfiled.length > 0 && (
               <section>
-                <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-stone-400">
+                <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted">
                   Unfiled
                 </p>
                 {navigation.unfiled.map((feed) => (
@@ -238,7 +238,7 @@ export function Reader({
           </div>
           <div className="reader-mode-footer"><ModeChip /></div>
         </aside>
-        <section className="min-w-0 bg-white">
+        <section className="min-w-0 bg-surface">
           {searchQuery ? (
             <SearchView
               query={searchQuery}
@@ -255,13 +255,13 @@ export function Reader({
               onSave={()=>{const name=window.prompt('Saved search name',searchQuery)?.trim();if(name)persistSearches([...savedSearches,{id:crypto.randomUUID(),name,query:searchQuery}])}}
             />
           ) : error ? (
-            <p role="alert" className="m-10 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+            <p role="alert" className="m-10 rounded-xl bg-danger-soft p-4 text-sm text-danger">
               {error}
             </p>
           ) : selection.kind === 'brew' ? (
             <>
-              <header className="border-b border-stone-200 px-10 py-7">
-                <p className="text-xs font-semibold uppercase tracking-[.18em] text-amber-700">
+              <header className="border-b border-line px-10 py-7">
+                <p className="text-xs font-semibold uppercase tracking-[.18em] text-soft">
                   Reader
                 </p>
                 <h1 className="mt-1 text-2xl font-semibold tracking-tight">{selection.title}</h1>
@@ -283,18 +283,18 @@ export function Reader({
 
 function Count({ value }: { value: number }) {
   return value > 0 ? (
-    <span className="ml-2 text-xs tabular-nums text-stone-400">{value}</span>
+    <span className="ml-2 text-xs tabular-nums text-muted">{value}</span>
   ) : null;
 }
-function FeedIcon({id,title}:{id:number;title:string}){const [failed,setFailed]=useState(false);return <span aria-hidden className="grid h-5 w-5 shrink-0 place-items-center overflow-hidden rounded-md bg-amber-100 text-[10px] font-bold text-amber-900">{failed?title.trim().charAt(0).toUpperCase():<img src={`/api/feeds/${id}/icon`} alt="" className="h-full w-full object-cover" onError={()=>setFailed(true)}/>}</span>}
+function FeedIcon({id,title}:{id:number;title:string}){const [failed,setFailed]=useState(false);return <span aria-hidden className="grid h-5 w-5 shrink-0 place-items-center overflow-hidden rounded-md bg-art-1 text-[10px] font-bold text-ink">{failed?title.trim().charAt(0).toUpperCase():<img src={`/api/feeds/${id}/icon`} alt="" className="h-full w-full object-cover" onError={()=>setFailed(true)}/>}</span>}
 function BrewWelcome() {
   return (
     <div className="mx-auto max-w-2xl px-10 py-20 text-center">
-      <p className="text-xs font-semibold uppercase tracking-[.24em] text-amber-700">
+      <p className="text-xs font-semibold uppercase tracking-[.24em] text-soft">
         Your morning paper
       </p>
       <h2 className="mt-3 text-4xl font-semibold tracking-tight">A calmer way to catch up.</h2>
-      <p className="mx-auto mt-4 max-w-md text-stone-500">
+      <p className="mx-auto mt-4 max-w-md text-soft">
         Your frozen daily Brew will appear here. Until then, Today gathers the last 24 hours.
       </p>
     </div>
@@ -340,7 +340,7 @@ function ShortcutSheet({ onClose }: { onClose: () => void }) {
   ] as const;
   return (
     <div
-      className="fixed inset-0 z-[70] grid place-items-center bg-black/40 p-6"
+      className="fixed inset-0 z-[70] grid place-items-center bg-scrim/40 p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -349,11 +349,11 @@ function ShortcutSheet({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-label="Keyboard shortcuts"
-        className="w-full max-w-2xl rounded-3xl border border-stone-200 bg-white p-7 shadow-2xl"
+        className="w-full max-w-2xl rounded-3xl border border-line bg-surface p-7 shadow-overlay"
       >
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+            <p className="text-xs font-semibold uppercase tracking-wider text-soft">
               Keyboard first
             </p>
             <h2 className="mt-1 text-2xl font-semibold">Shortcuts</h2>
@@ -361,7 +361,7 @@ function ShortcutSheet({ onClose }: { onClose: () => void }) {
           <button
             onClick={onClose}
             aria-label="Close shortcuts"
-            className="rounded-full px-3 py-2 text-stone-500 hover:bg-stone-100"
+            className="rounded-full px-3 py-2 text-soft hover:bg-subtle"
           >
             ✕
           </button>
@@ -369,15 +369,15 @@ function ShortcutSheet({ onClose }: { onClose: () => void }) {
         <div className="mt-7 grid gap-7 sm:grid-cols-2">
           {groups.map(([title, rows]) => (
             <section key={title}>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-400">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
                 {title}
               </h3>
               <dl className="mt-2 space-y-2">
                 {rows.map(([keys, label]) => (
                   <div key={keys} className="flex items-center justify-between gap-4 text-sm">
-                    <dt className="text-stone-600">{label}</dt>
+                    <dt className="text-soft">{label}</dt>
                     <dd>
-                      <kbd className="rounded-md border border-stone-300 bg-stone-50 px-2 py-1 font-mono text-xs">
+                      <kbd className="rounded-md border border-line-strong bg-canvas px-2 py-1 font-mono text-xs">
                         {keys}
                       </kbd>
                     </dd>
@@ -471,18 +471,18 @@ function SearchView({
   }, [focusedIndex, items, selectedArticle, virtualizer]);
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-stone-200 px-8 py-5">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line px-8 py-5">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[.18em] text-amber-700">Search</p>
+          <p className="text-xs font-semibold uppercase tracking-[.18em] text-soft">Search</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">“{query}”</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={onSave} className="rounded-lg border border-stone-300 px-3 py-2 text-xs">Save search</button>
-          <div className="flex rounded-lg bg-stone-100 p-1" aria-label="Search scope">
+          <button onClick={onSave} className="rounded-lg border border-line-strong px-3 py-2 text-xs">Save search</button>
+          <div className="flex rounded-lg bg-subtle p-1" aria-label="Search scope">
             <button
               onClick={() => setScope('all')}
               aria-pressed={scope === 'all'}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium ${scope === 'all' ? 'bg-white shadow-sm' : 'text-stone-500'}`}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium ${scope === 'all' ? 'bg-surface shadow-raised' : 'text-soft'}`}
             >
               All
             </button>
@@ -490,27 +490,27 @@ function SearchView({
               disabled={currentFolderId === undefined}
               onClick={() => setScope('folder')}
               aria-pressed={scope === 'folder'}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-40 ${scope === 'folder' ? 'bg-white shadow-sm' : 'text-stone-500'}`}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-40 ${scope === 'folder' ? 'bg-surface shadow-raised' : 'text-soft'}`}
             >
               Current folder
             </button>
             <button
               onClick={() => setScope('starred')}
               aria-pressed={scope === 'starred'}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium ${scope === 'starred' ? 'bg-white shadow-sm' : 'text-stone-500'}`}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium ${scope === 'starred' ? 'bg-surface shadow-raised' : 'text-soft'}`}
             >
               Starred
             </button>
           </div>
           <button
             onClick={onClear}
-            className="rounded-lg border border-stone-300 px-3 py-2 text-xs font-semibold"
+            className="rounded-lg border border-line-strong px-3 py-2 text-xs font-semibold"
           >
             Close search
           </button>
         </div>
       </header>
-      <div className="border-b border-stone-100 px-8 py-2 text-xs text-stone-500">
+      <div className="border-b border-line px-8 py-2 text-xs text-soft">
         {items.length} result{items.length === 1 ? '' : 's'}
         {results.data?.pages.at(-1)
           ? ` · ${results.data.pages.at(-1)!.durationMs.toFixed(1)} ms`
@@ -543,14 +543,14 @@ function SearchView({
                     }}
                   />
                 ) : (
-                  <p className="py-6 text-center text-xs text-stone-400">Searching more…</p>
+                  <p className="py-6 text-center text-xs text-muted">Searching more…</p>
                 )}
               </div>
             );
           })}
         </div>
         {!results.isLoading && !items.length && (
-          <p className="px-10 py-20 text-center text-sm text-stone-500">
+          <p className="px-10 py-20 text-center text-sm text-soft">
             No matching articles. Try fewer or broader words.
           </p>
         )}
@@ -868,33 +868,33 @@ function ArticleList({ selection }: { selection: Selection }) {
 
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-stone-200 px-8 py-5">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line px-8 py-5">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[.18em] text-amber-700">Reader</p>
+          <p className="text-xs font-semibold uppercase tracking-[.18em] text-soft">Reader</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">{selection.title}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-lg bg-stone-100 p-1" aria-label="Article filter">
+          <div className="flex rounded-lg bg-subtle p-1" aria-label="Article filter">
             <button
               onClick={() => setUnreadOnly(false)}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium ${!unreadOnly ? 'bg-white shadow-sm' : 'text-stone-500'}`}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium ${!unreadOnly ? 'bg-surface shadow-raised' : 'text-soft'}`}
             >
               All
             </button>
             <button
               onClick={() => setUnreadOnly(true)}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium ${unreadOnly ? 'bg-white shadow-sm' : 'text-stone-500'}`}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium ${unreadOnly ? 'bg-surface shadow-raised' : 'text-soft'}`}
             >
               Unread
             </button>
           </div>
           <button
             onClick={markAll}
-            className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-semibold"
+            className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs font-semibold"
           >
             Mark all read
           </button>
-          <label className="flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs">
+          <label className="flex items-center gap-2 rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs">
             <input
               type="checkbox"
               checked={markOnScroll}
@@ -909,7 +909,7 @@ function ArticleList({ selection }: { selection: Selection }) {
             aria-label="Sort articles"
             value={sort}
             onChange={(event) => setSort(event.target.value as 'newest' | 'oldest')}
-            className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs"
+            className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs"
           >
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
@@ -922,13 +922,13 @@ function ArticleList({ selection }: { selection: Selection }) {
               setOpenMode(mode);
               localStorage.setItem('brew:article-open-mode', mode);
             }}
-            className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs"
+            className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs"
           >
             <option value="overlay">Open in overlay</option>
             <option value="pane">Open in pane</option>
           </select>
           <div
-            className="flex rounded-lg border border-stone-300 bg-white p-0.5"
+            className="flex rounded-lg border border-line-strong bg-surface p-0.5"
             aria-label="View density"
           >
             {(['title', 'magazine', 'cards'] as const).map((value) => (
@@ -938,7 +938,7 @@ function ArticleList({ selection }: { selection: Selection }) {
                 aria-label={`${value} view`}
                 aria-pressed={density === value}
                 onClick={() => chooseDensity(value)}
-                className={`rounded-md px-2.5 py-1.5 text-xs capitalize ${density === value ? 'bg-stone-900 text-white' : 'text-stone-500'}`}
+                className={`rounded-md px-2.5 py-1.5 text-xs capitalize ${density === value ? 'bg-inverse text-on-inverse' : 'text-soft'}`}
               >
                 {value === 'title' ? '☰' : value === 'magazine' ? '▤' : '▦'}
               </button>
@@ -968,7 +968,7 @@ function ArticleList({ selection }: { selection: Selection }) {
               >
                 {row ? (
                   row.kind === 'header' ? (
-                    <h2 className="border-b border-stone-200 py-3 text-xs font-semibold uppercase tracking-wider text-stone-400">
+                    <h2 className="border-b border-line py-3 text-xs font-semibold uppercase tracking-wider text-muted">
                       {row.title}
                     </h2>
                   ) : (
@@ -985,14 +985,14 @@ function ArticleList({ selection }: { selection: Selection }) {
                     />
                   )
                 ) : (
-                  <p className="py-6 text-center text-xs text-stone-400">Loading more…</p>
+                  <p className="py-6 text-center text-xs text-muted">Loading more…</p>
                 )}
               </div>
             );
           })}
         </div>
         {!query.isLoading && rows.length === 0 && (
-          <p className="px-10 py-20 text-center text-sm text-stone-500">
+          <p className="px-10 py-20 text-center text-sm text-soft">
             Nothing here yet. A quiet inbox is a good inbox.
           </p>
         )}
@@ -1000,10 +1000,10 @@ function ArticleList({ selection }: { selection: Selection }) {
       {undo && (
         <div
           role="status"
-          className="brew-undo-toast fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-full bg-stone-900 px-5 py-3 text-sm text-white shadow-xl"
+          className="brew-undo-toast fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-full bg-inverse px-5 py-3 text-sm text-on-inverse shadow-overlay"
         >
           <span>Marked {undo.updated} read.</span>
-          <button onClick={undoMarkAll} className="font-semibold text-amber-300">
+          <button onClick={undoMarkAll} className="font-semibold text-on-inverse">
             Undo
           </button>
         </div>
@@ -1034,7 +1034,7 @@ function ArticleRow({
     ? { borderLeftColor: article.highlightColor, borderLeftWidth: 4 }
     : undefined;
   const meta = (
-    <div className="flex items-center gap-2 text-xs text-stone-500">
+    <div className="flex items-center gap-2 text-xs text-soft">
       <span>{article.feedTitle}</span>
       <span>·</span>
       <time>
@@ -1043,7 +1043,7 @@ function ArticleRow({
         )}
       </time>
       {article.starredAt && (
-        <span aria-label="Starred" className="text-amber-600">
+        <span aria-label="Starred" className="text-ink">
           ★
         </span>
       )}
@@ -1064,7 +1064,7 @@ function ArticleRow({
         data-focused={focused}
         onClick={onOpen}
         onKeyDown={activate}
-        className={`brew-list-item flex min-h-14 cursor-pointer items-center justify-between border-b border-stone-100 bg-white py-3 outline-none focus-visible:ring-2 focus-visible:ring-amber-600 ${focused ? 'ring-2 ring-inset ring-amber-500' : ''} ${article.readAt ? 'opacity-50' : ''}`}
+        className={`brew-list-item flex min-h-14 cursor-pointer items-center justify-between border-b border-line bg-surface py-3 outline-none focus-visible:ring-2 focus-visible:ring-ink ${focused ? 'ring-2 ring-inset ring-ink' : ''} ${article.readAt ? 'opacity-50' : ''}`}
       >
         <h3 className="truncate pr-4 text-sm font-semibold">{article.title}</h3>
         {meta}
@@ -1079,12 +1079,12 @@ function ArticleRow({
         data-focused={focused}
         onClick={onOpen}
         onKeyDown={activate}
-        className={`h-[258px] cursor-pointer overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-amber-600 ${focused ? 'ring-2 ring-amber-500' : ''} ${article.readAt ? 'opacity-55' : ''}`}
+        className={`h-[258px] cursor-pointer overflow-hidden rounded-2xl border border-line bg-surface shadow-raised outline-none focus-visible:ring-2 focus-visible:ring-ink ${focused ? 'ring-2 ring-ink' : ''} ${article.readAt ? 'opacity-55' : ''}`}
       >
         {article.imageUrl ? (
           <img src={imageSource(article.imageUrl)} alt="" loading="lazy" className="h-28 w-full object-cover" />
         ) : (
-          <div className="h-28 bg-gradient-to-br from-amber-50 to-stone-100" />
+          <div className="h-28 bg-gradient-to-br from-art-1 to-art-3" />
         )}
         <div className="p-4">
           {meta}
@@ -1093,7 +1093,7 @@ function ArticleRow({
           </h3>
           {article.summaryHtml && (
             <div
-              className="mt-2 line-clamp-2 text-sm text-stone-500"
+              className="mt-2 line-clamp-2 text-sm text-soft"
               dangerouslySetInnerHTML={{ __html: article.summaryHtml }}
             />
           )}
@@ -1108,14 +1108,14 @@ function ArticleRow({
       data-focused={focused}
       onClick={onOpen}
       onKeyDown={activate}
-      className={`flex min-h-[116px] cursor-pointer gap-5 border-b border-stone-100 bg-white py-4 outline-none focus-visible:ring-2 focus-visible:ring-amber-600 ${focused ? 'ring-2 ring-inset ring-amber-500' : ''} ${article.readAt ? 'opacity-55' : ''}`}
+      className={`flex min-h-[116px] cursor-pointer gap-5 border-b border-line bg-surface py-4 outline-none focus-visible:ring-2 focus-visible:ring-ink ${focused ? 'ring-2 ring-inset ring-ink' : ''} ${article.readAt ? 'opacity-55' : ''}`}
     >
       <div className="min-w-0 flex-1">
         {meta}
         <h3 className="mt-1 text-lg font-semibold tracking-tight">{article.title}</h3>
         {article.summaryHtml && (
           <div
-            className="mt-1 line-clamp-2 text-sm text-stone-500"
+            className="mt-1 line-clamp-2 text-sm text-soft"
             dangerouslySetInnerHTML={{ __html: article.summaryHtml }}
           />
         )}
@@ -1228,8 +1228,8 @@ function ArticleReader({
   };
   const shell =
     mode === 'overlay'
-      ? 'fixed inset-0 top-16 z-40 bg-black/30 p-4 md:p-8'
-      : 'fixed bottom-0 right-0 top-16 z-30 w-[min(48rem,58vw)] border-l border-stone-200 bg-white shadow-2xl';
+      ? 'fixed inset-0 top-16 z-40 bg-scrim/30 p-4 md:p-8'
+      : 'fixed bottom-0 right-0 top-16 z-30 w-[min(48rem,58vw)] border-l border-line bg-surface shadow-overlay';
   return (
     <div
       className={shell}
@@ -1241,14 +1241,14 @@ function ArticleReader({
         role="dialog"
         aria-modal={mode === 'overlay'}
         aria-label="Article reader"
-        className={`${mode === 'overlay' ? 'mx-auto h-full max-w-3xl rounded-2xl' : 'h-full'} overflow-y-auto bg-white shadow-2xl`}
+        className={`${mode === 'overlay' ? 'mx-auto h-full max-w-3xl rounded-2xl' : 'h-full'} overflow-y-auto bg-surface shadow-overlay`}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-stone-200 bg-white/95 px-6 py-3 backdrop-blur">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface/95 px-6 py-3 backdrop-blur">
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
               aria-label="Close article"
-              className="rounded-full px-3 py-2 text-stone-500 hover:bg-stone-100"
+              className="rounded-full px-3 py-2 text-soft hover:bg-subtle"
             >
               ✕
             </button>
@@ -1258,13 +1258,13 @@ function ArticleReader({
                   href={detail.data.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-lg px-3 py-2 text-xs font-medium hover:bg-stone-100"
+                  className="rounded-lg px-3 py-2 text-xs font-medium hover:bg-subtle"
                 >
                   View original ↗
                 </a>
                 <button
                   onClick={copy}
-                  className="rounded-lg px-3 py-2 text-xs font-medium hover:bg-stone-100"
+                  className="rounded-lg px-3 py-2 text-xs font-medium hover:bg-subtle"
                 >
                   Copy link
                 </button>
@@ -1274,20 +1274,20 @@ function ArticleReader({
           <div className="flex gap-1" aria-label="Reading preferences"><select aria-label="Reader font" value={readingPrefs.font??'sans'} onChange={(event)=>updatePrefs({font:event.target.value as 'sans'|'serif'})} className="rounded border px-2 py-1 text-xs"><option value="sans">Sans</option><option value="serif">Serif</option></select><select aria-label="Reader width" value={readingPrefs.width??'narrow'} onChange={(event)=>updatePrefs({width:event.target.value as 'narrow'|'wide'})} className="rounded border px-2 py-1 text-xs"><option value="narrow">Narrow</option><option value="wide">Wide</option></select><select aria-label="Reader line height" value={readingPrefs.lineHeight??'relaxed'} onChange={(event)=>updatePrefs({lineHeight:event.target.value as 'compact'|'relaxed'})} className="rounded border px-2 py-1 text-xs"><option value="compact">Compact</option><option value="relaxed">Relaxed</option></select></div>
         </div>
         {detail.isLoading ? (
-          <p className="p-12 text-center text-sm text-stone-500">Opening article…</p>
+          <p className="p-12 text-center text-sm text-soft">Opening article…</p>
         ) : detail.isError || !detail.data ? (
-          <p role="alert" className="p-12 text-center text-sm text-red-700">
+          <p role="alert" className="p-12 text-center text-sm text-danger">
             Could not open this article.
           </p>
         ) : (
           <div className={`mx-auto px-7 py-12 ${readingPrefs.width==='wide'?'max-w-[880px]':'max-w-[680px]'} ${readingPrefs.font==='serif'?'font-serif':'font-sans'}`}>
-            <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+            <p className="text-xs font-semibold uppercase tracking-wider text-soft">
               {detail.data.feedTitle}
             </p>
             <h1 className="mt-3 text-4xl font-semibold leading-tight tracking-tight">
               {detail.data.title}
             </h1>
-            <div className="mt-4 flex flex-wrap gap-2 text-sm text-stone-500">
+            <div className="mt-4 flex flex-wrap gap-2 text-sm text-soft">
               {detail.data.author && <span>By {detail.data.author}</span>}
               <span>{detail.data.readTimeMinutes} min read</span>
               <time>
@@ -1300,7 +1300,7 @@ function ArticleReader({
               <button
                 data-shortcut="m"
                 onClick={() => updateState({ read: !detail.data.readAt })}
-                className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold"
+                className="rounded-full border border-line-strong px-4 py-2 text-sm font-semibold"
               >
                 {detail.data.readAt ? 'Mark unread' : 'Mark read'}
               </button>
@@ -1308,14 +1308,14 @@ function ArticleReader({
                 data-shortcut="s"
                 onClick={() => updateState({ starred: !detail.data.starredAt })}
                 aria-pressed={Boolean(detail.data.starredAt)}
-                className={`rounded-full border px-4 py-2 text-sm font-semibold ${detail.data.starredAt ? 'starred-burst border-amber-300 bg-amber-50 text-amber-800' : 'border-stone-300'}`}
+                className={`rounded-full border px-4 py-2 text-sm font-semibold ${detail.data.starredAt ? 'starred-burst border-line-strong bg-subtle text-soft' : 'border-line-strong'}`}
               >
                 {detail.data.starredAt ? '★ Starred' : '☆ Star'}
               </button>
               <button
                 data-shortcut="t"
                 onClick={() => setShowTags((value) => !value)}
-                className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold"
+                className="rounded-full border border-line-strong px-4 py-2 text-sm font-semibold"
               >
                 Tag{detail.data.tags.length ? ` · ${detail.data.tags.length}` : ''}
               </button>
@@ -1330,13 +1330,13 @@ function ArticleReader({
               <button
                 disabled={extracting}
                 onClick={extract}
-                className="mt-8 rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold hover:bg-stone-50 disabled:opacity-50"
+                className="mt-8 rounded-full border border-line-strong px-4 py-2 text-sm font-semibold hover:bg-canvas disabled:opacity-50"
               >
                 {extracting ? 'Loading full article…' : 'Load full article'}
               </button>
             )}
             {message && (
-              <p role="status" className="mt-3 text-sm text-stone-500">
+              <p role="status" className="mt-3 text-sm text-soft">
                 {message}
               </p>
             )}
@@ -1350,7 +1350,7 @@ function ArticleReader({
               />
             )}
             <div
-              className={`article-content mt-9 text-[18px] ${readingPrefs.lineHeight==='compact'?'leading-[1.45]':'leading-[1.8]'} text-stone-800 [&_a]:text-amber-800 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-5 [&_h2]:mt-9 [&_h2]:text-2xl [&_img]:my-7 [&_img]:h-auto [&_img]:max-w-full [&_p]:my-5`}
+              className={`article-content mt-9 text-[18px] ${readingPrefs.lineHeight==='compact'?'leading-[1.45]':'leading-[1.8]'} text-ink [&_a]:text-accent [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-5 [&_h2]:mt-9 [&_h2]:text-2xl [&_img]:my-7 [&_img]:h-auto [&_img]:max-w-full [&_p]:my-5`}
               dangerouslySetInnerHTML={{
                 __html:
                   detail.data.fullTextHtml ??
@@ -1400,8 +1400,8 @@ function TagEditor({
     await save([...article.tags, tag]);
   };
   return (
-    <div className="mt-4 rounded-2xl border border-stone-200 bg-stone-50 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">Tags</p>
+    <div className="mt-4 rounded-2xl border border-line bg-canvas p-4">
+      <p className="text-xs font-semibold uppercase tracking-wider text-soft">Tags</p>
       <div className="mt-3 flex flex-wrap gap-2">
         {tags.data?.map((tag) => {
           const active = article.tags.some((item) => item.id === tag.id);
@@ -1416,7 +1416,7 @@ function TagEditor({
                     : [...article.tags, tag],
                 )
               }
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${active ? 'bg-stone-900 text-white' : 'border border-stone-300 bg-white'}`}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${active ? 'bg-inverse text-on-inverse' : 'border border-line-strong bg-surface'}`}
             >
               {tag.name}
             </button>
@@ -1432,9 +1432,9 @@ function TagEditor({
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="New tag"
-          className="min-w-0 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm"
+          className="min-w-0 flex-1 rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm"
         />
-        <button className="rounded-lg bg-stone-900 px-3 text-xs font-semibold text-white">
+        <button className="rounded-lg bg-inverse px-3 text-xs font-semibold text-on-inverse">
           Add
         </button>
       </form>

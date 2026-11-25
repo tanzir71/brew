@@ -50,8 +50,8 @@ function AppContent() {
   useEffect(() => { document.title = `${isRuns ? 'Where Brew runs' : mode === 'brew' ? 'The Brew' : mode === 'reader' ? 'Reader' : mode === 'rules' ? 'Rules' : 'Feeds'} · Brew`; }, [mode, isRuns]);
   if (isRuns) return <Suspense fallback={<main role="status" className="p-8">Loading settings…</main>}><WhereBrewRuns /></Suspense>;
   return (
-    <main className="min-h-screen bg-stone-50 text-stone-900">
-      <header className="flex h-16 items-center justify-between border-b border-stone-200 px-8">
+    <main className="min-h-screen bg-canvas text-ink">
+      <header className="flex h-16 items-center justify-between border-b border-line px-8">
         <div className="flex items-center gap-3"><button onClick={() => setMode('brew')} className="font-semibold tracking-tight">
           Brew
         </button><a href="/settings/runs" className="legacy-settings-link" aria-label="Settings · Where Brew runs"><img src={runAssets.settings} alt="" /></a></div>
@@ -77,11 +77,11 @@ function AppContent() {
               }
             }}
             placeholder="Search  /"
-            className="w-36 rounded-full border border-stone-300 bg-white px-4 py-2 text-xs outline-none focus:w-56 focus:border-amber-600"
+            className="w-36 rounded-full border border-line-strong bg-surface px-4 py-2 text-xs outline-none focus:w-56 focus:border-ink"
           />
           <button
             onClick={() => setMode(mode === 'reader' ? 'brew' : 'reader')}
-            className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium"
+            className="rounded-full border border-line-strong px-4 py-2 text-sm font-medium"
           >
             {mode === 'reader' ? 'The Brew' : 'Reader'}
           </button>
@@ -89,7 +89,7 @@ function AppContent() {
             aria-label="Keyboard shortcuts"
             title="Keyboard shortcuts (?)"
             onClick={() => window.dispatchEvent(new Event('brew:show-shortcuts'))}
-            className="grid h-9 w-9 place-items-center rounded-full border border-stone-300 text-sm font-semibold"
+            className="grid h-9 w-9 place-items-center rounded-full border border-line-strong text-sm font-semibold"
           >
             ?
           </button>
@@ -104,26 +104,26 @@ function AppContent() {
               setTheme(next);
               localStorage.setItem('brew:theme', next);
             }}
-            className="rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-medium"
+            className="rounded-full border border-line-strong bg-surface px-3 py-2 text-xs font-medium"
           >
             <option value="system">System theme</option>
             <option value="light">Light theme</option>
             <option value="dark">Dark theme</option>
           </select>
           <label className="sr-only" htmlFor="image-privacy">Image privacy</label>
-          <select id="image-privacy" value={directImages?'direct':'proxy'} onChange={(event)=>{const direct=event.target.value==='direct';setDirectImages(direct);localStorage.setItem('brew:direct-images',String(direct))}} className="rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-medium">
+          <select id="image-privacy" value={directImages?'direct':'proxy'} onChange={(event)=>{const direct=event.target.value==='direct';setDirectImages(direct);localStorage.setItem('brew:direct-images',String(direct))}} className="rounded-full border border-line-strong bg-surface px-3 py-2 text-xs font-medium">
             <option value="proxy">Private images</option><option value="direct">Load images directly</option>
           </select>
-          <label className="sr-only" htmlFor="landing-picker">Default landing page</label><select id="landing-picker" aria-label="Default landing page" value={localStorage.getItem('brew:landing')??'brew'} onChange={(event)=>{localStorage.setItem('brew:landing',event.target.value);setMode(event.target.value as 'brew'|'reader')}} className="rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-medium"><option value="brew">Start at Brew</option><option value="reader">Start at Reader</option></select>
+          <label className="sr-only" htmlFor="landing-picker">Default landing page</label><select id="landing-picker" aria-label="Default landing page" value={localStorage.getItem('brew:landing')??'brew'} onChange={(event)=>{localStorage.setItem('brew:landing',event.target.value);setMode(event.target.value as 'brew'|'reader')}} className="rounded-full border border-line-strong bg-surface px-3 py-2 text-xs font-medium"><option value="brew">Start at Brew</option><option value="reader">Start at Reader</option></select>
           <button
             onClick={() => setMode(mode === 'rules' ? 'reader' : 'rules')}
-            className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
+            className="rounded-full border border-line-strong px-4 py-2 text-sm font-medium hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
             {mode === 'rules' ? 'Back to Brew' : 'Rules'}
           </button>
           <button
             onClick={() => setMode(mode === 'feeds' ? 'reader' : 'feeds')}
-            className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
+            className="rounded-full border border-line-strong px-4 py-2 text-sm font-medium hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
             {mode === 'feeds' ? 'Back to Brew' : 'Manage feeds'}
           </button>
@@ -149,7 +149,7 @@ function AppContent() {
   );
 }
 
-class ErrorBoundary extends Component<{children:ReactNode},{error:boolean}>{state={error:false};static getDerivedStateFromError(){return{error:true}}render(){return this.state.error?<main className="grid min-h-screen place-items-center bg-stone-50 p-8 text-center"><div><p className="text-xs font-semibold uppercase tracking-wider text-amber-700">Brew</p><h1 className="mt-2 text-3xl font-semibold">Something went wrong.</h1><p className="mt-2 text-stone-500">Your local data is safe. Reload to try again.</p><button onClick={()=>location.reload()} className="mt-6 rounded-full bg-stone-900 px-5 py-2 text-white">Reload Brew</button></div></main>:this.props.children}}
+class ErrorBoundary extends Component<{children:ReactNode},{error:boolean}>{state={error:false};static getDerivedStateFromError(){return{error:true}}render(){return this.state.error?<main className="grid min-h-screen place-items-center bg-canvas p-8 text-center"><div><p className="text-xs font-semibold uppercase tracking-wider text-soft">Brew</p><h1 className="mt-2 text-3xl font-semibold">Something went wrong.</h1><p className="mt-2 text-soft">Your local data is safe. Reload to try again.</p><button onClick={()=>location.reload()} className="mt-6 rounded-full bg-inverse px-5 py-2 text-on-inverse">Reload Brew</button></div></main>:this.props.children}}
 
 function FeedManager() {
   const [feeds, setFeeds] = useState<FeedSummary[]>([]);
@@ -287,34 +287,34 @@ function FeedManager() {
     }
   }
 
-  if(section==='hidden')return <section className="mx-auto max-w-4xl px-8 py-12"><div className="flex items-end justify-between"><div><p className="text-xs font-semibold uppercase tracking-wider text-amber-700">Audit</p><h1 className="mt-2 text-3xl font-semibold">Hidden articles</h1></div><button onClick={()=>setSection('feeds')} className="rounded-lg border px-4 py-2 text-sm">Manage feeds</button></div><div className="mt-8 divide-y rounded-2xl border bg-white">{hiddenArticles.length?hiddenArticles.map((article)=><article key={article.id} className="flex items-center justify-between p-4"><div><h2 className="font-medium">{article.title}</h2><p className="text-xs text-stone-500">{article.feedTitle}</p></div><button onClick={()=>void api(`/api/articles/${article.id}/unhide`,{method:'POST'}).then(()=>setHiddenArticles((current)=>current.filter((item)=>item.id!==article.id)))} className="rounded-lg border px-3 py-2 text-xs">Unhide</button></article>):<p className="p-10 text-center text-sm text-stone-500">No hidden articles.</p>}</div></section>;
+  if(section==='hidden')return <section className="mx-auto max-w-4xl px-8 py-12"><div className="flex items-end justify-between"><div><p className="text-xs font-semibold uppercase tracking-wider text-soft">Audit</p><h1 className="mt-2 text-3xl font-semibold">Hidden articles</h1></div><button onClick={()=>setSection('feeds')} className="rounded-lg border px-4 py-2 text-sm">Manage feeds</button></div><div className="mt-8 divide-y rounded-2xl border bg-surface">{hiddenArticles.length?hiddenArticles.map((article)=><article key={article.id} className="flex items-center justify-between p-4"><div><h2 className="font-medium">{article.title}</h2><p className="text-xs text-soft">{article.feedTitle}</p></div><button onClick={()=>void api(`/api/articles/${article.id}/unhide`,{method:'POST'}).then(()=>setHiddenArticles((current)=>current.filter((item)=>item.id!==article.id)))} className="rounded-lg border px-3 py-2 text-xs">Unhide</button></article>):<p className="p-10 text-center text-sm text-soft">No hidden articles.</p>}</div></section>;
   if (section === 'health')
     return (
       <section className="mx-auto max-w-5xl px-8 py-12">
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[.2em] text-amber-700">
+            <p className="text-xs font-semibold uppercase tracking-[.2em] text-soft">
               Settings
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">Feed health</h1>
-            <p className="mt-2 text-sm text-stone-500">
+            <p className="mt-2 text-sm text-soft">
               Fetch status and failure history stay on this machine.
             </p>
           </div>
           <button
             onClick={() => setSection('feeds')}
-            className="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm"
+            className="rounded-lg border border-line-strong bg-surface px-4 py-2 text-sm"
           >
             Manage feeds
           </button>
         </div>
         {message && (
-          <p role="status" className="mt-5 rounded-xl bg-stone-100 px-4 py-3 text-sm">
+          <p role="status" className="mt-5 rounded-xl bg-subtle px-4 py-3 text-sm">
             {message}
           </p>
         )}
-        <div className="mt-8 overflow-hidden rounded-2xl border border-stone-200 bg-white">
-          <div className="hidden grid-cols-[minmax(0,1fr)_8rem_7rem_7rem_auto] gap-4 border-b border-stone-200 px-5 py-3 text-xs font-semibold uppercase tracking-wider text-stone-500 md:grid">
+        <div className="mt-8 overflow-hidden rounded-2xl border border-line bg-surface">
+          <div className="hidden grid-cols-[minmax(0,1fr)_8rem_7rem_7rem_auto] gap-4 border-b border-line px-5 py-3 text-xs font-semibold uppercase tracking-wider text-soft md:grid">
             <span>Feed</span>
             <span>Last attempt</span>
             <span>Status</span>
@@ -322,22 +322,22 @@ function FeedManager() {
             <span></span>
           </div>
           {feeds.length === 0 ? (
-            <p className="p-8 text-center text-sm text-stone-500">No feeds to monitor.</p>
+            <p className="p-8 text-center text-sm text-soft">No feeds to monitor.</p>
           ) : (
             feeds.map((feed) => (
               <article
                 key={feed.id}
-                className="grid items-center gap-3 border-b border-stone-100 px-5 py-4 last:border-0 md:grid-cols-[minmax(0,1fr)_8rem_7rem_7rem_auto]"
+                className="grid items-center gap-3 border-b border-line px-5 py-4 last:border-0 md:grid-cols-[minmax(0,1fr)_8rem_7rem_7rem_auto]"
               >
                 <div className="min-w-0">
                   <h2 className="truncate text-sm font-medium">{feed.title}</h2>
                   {feed.healthWarning && (
-                    <span className="mt-1 inline-flex rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                    <span className="mt-1 inline-flex rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-semibold text-danger">
                       Failing over 7 days
                     </span>
                   )}
                 </div>
-                <span className="text-xs text-stone-500">
+                <span className="text-xs text-soft">
                   {feed.lastFetchedAt
                     ? new Intl.DateTimeFormat(undefined, {
                         month: 'short',
@@ -348,15 +348,15 @@ function FeedManager() {
                     : 'Never'}
                 </span>
                 <span
-                  className={`w-fit rounded-full px-2 py-1 text-xs font-semibold ${feed.lastStatus && feed.lastStatus >= 200 && feed.lastStatus < 400 ? 'bg-emerald-50 text-emerald-700' : feed.lastStatus ? 'bg-red-50 text-red-700' : 'bg-stone-100 text-stone-600'}`}
+                  className={`w-fit rounded-full px-2 py-1 text-xs font-semibold ${feed.lastStatus && feed.lastStatus >= 200 && feed.lastStatus < 400 ? 'bg-positive-soft text-positive' : feed.lastStatus ? 'bg-danger-soft text-danger' : 'bg-subtle text-soft'}`}
                 >
                   {feed.lastStatus ?? '—'}
                 </span>
-                <span className="text-xs text-stone-600">{feed.consecutiveFailures || 'None'}</span>
+                <span className="text-xs text-soft">{feed.consecutiveFailures || 'None'}</span>
                 <button
                   disabled={busy}
                   onClick={() => retryFeed(feed)}
-                  className="rounded-lg border border-stone-300 px-3 py-2 text-xs font-medium disabled:opacity-50"
+                  className="rounded-lg border border-line-strong px-3 py-2 text-xs font-medium disabled:opacity-50"
                 >
                   Fetch now
                 </button>
@@ -370,18 +370,18 @@ function FeedManager() {
   return (
     <div className="mx-auto grid max-w-5xl gap-12 px-8 py-12 md:grid-cols-[minmax(0,1fr)_18rem]">
       <section>
-        <p className="text-xs font-semibold uppercase tracking-[.2em] text-amber-700">Library</p>
+        <p className="text-xs font-semibold uppercase tracking-[.2em] text-soft">Library</p>
         <div className="mt-2 flex items-center justify-between gap-4">
           <h1 className="text-3xl font-semibold tracking-tight">Feeds</h1>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSection('health')}
-              className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-medium hover:bg-stone-50"
+              className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs font-medium hover:bg-canvas"
             >
               Feed health
             </button>
-            <button onClick={()=>void api<Array<{id:number;title:string;feedTitle:string;publishedAt:number}>>('/api/articles-hidden').then((items)=>{setHiddenArticles(items);setSection('hidden')})} className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-medium">Hidden articles</button>
-            <label className="cursor-pointer rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-medium hover:bg-stone-50">
+            <button onClick={()=>void api<Array<{id:number;title:string;feedTitle:string;publishedAt:number}>>('/api/articles-hidden').then((items)=>{setHiddenArticles(items);setSection('hidden')})} className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs font-medium">Hidden articles</button>
+            <label className="cursor-pointer rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs font-medium hover:bg-canvas">
               Import OPML
               <input
                 type="file"
@@ -397,13 +397,13 @@ function FeedManager() {
             <a
               href="/api/opml/export"
               download
-              className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-medium hover:bg-stone-50"
+              className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs font-medium hover:bg-canvas"
             >
               Export OPML
             </a>
           </div>
         </div>
-        <p className="mt-2 text-sm text-stone-500">
+        <p className="mt-2 text-sm text-soft">
           Paste a feed or website address. Brew will find RSS, Atom, and JSON feeds.
         </p>
         <form onSubmit={discover} className="mt-8 flex gap-2">
@@ -417,23 +417,23 @@ function FeedManager() {
             value={url}
             onChange={(event) => setUrl(event.target.value)}
             placeholder="https://example.com"
-            className="min-w-0 flex-1 rounded-xl border border-stone-300 bg-white px-4 py-3 outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-100"
+            className="min-w-0 flex-1 rounded-xl border border-line-strong bg-surface px-4 py-3 outline-none focus:border-ink focus:ring-2 focus:ring-line"
           />
           <button
             disabled={busy}
-            className="rounded-xl bg-stone-900 px-5 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded-xl bg-inverse px-5 text-sm font-semibold text-on-inverse disabled:opacity-50"
           >
             {busy ? 'Looking…' : 'Find feed'}
           </button>
         </form>
         {message && (
-          <p role="status" className="mt-3 text-sm text-stone-600">
+          <p role="status" className="mt-3 text-sm text-soft">
             {message}
           </p>
         )}
         {candidates.length > 0 && (
-          <div className="mt-5 rounded-2xl border border-stone-200 bg-white p-3">
-            <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wider text-stone-500">
+          <div className="mt-5 rounded-2xl border border-line bg-surface p-3">
+            <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wider text-soft">
               Choose a feed
             </p>
             {candidates.map((candidate) => (
@@ -441,28 +441,28 @@ function FeedManager() {
                 key={candidate.url}
                 disabled={busy}
                 onClick={() => addFeed(candidate)}
-                className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left hover:bg-stone-50"
+                className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left hover:bg-canvas"
               >
                 <span>
                   <span className="block font-medium">{candidate.title}</span>
-                  <span className="block max-w-lg truncate text-xs text-stone-500">
+                  <span className="block max-w-lg truncate text-xs text-soft">
                     {candidate.url}
                   </span>
                 </span>
-                <span className="rounded-full bg-stone-100 px-2 py-1 text-[10px] font-bold uppercase">
+                <span className="rounded-full bg-subtle px-2 py-1 text-[10px] font-bold uppercase">
                   {candidate.type}
                 </span>
               </button>
             ))}
-            <div className="mt-2 border-t border-stone-100 px-2 pt-3">
-              <label className="text-xs text-stone-500">
+            <div className="mt-2 border-t border-line px-2 pt-3">
+              <label className="text-xs text-soft">
                 Save in{' '}
                 <select
                   value={folderId ?? ''}
                   onChange={(event) =>
                     setFolderId(event.target.value ? Number(event.target.value) : null)
                   }
-                  className="ml-2 rounded-lg border border-stone-300 px-2 py-1"
+                  className="ml-2 rounded-lg border border-line-strong px-2 py-1"
                 >
                   <option value="">Unfiled</option>
                   {folders.map((folder) => (
@@ -477,32 +477,32 @@ function FeedManager() {
         )}
         <div className="mt-10 space-y-2">
           {feeds.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-stone-300 p-10 text-center text-sm text-stone-500">
+            <div className="rounded-2xl border border-dashed border-line-strong p-10 text-center text-sm text-soft">
               No feeds yet.
             </div>
           ) : (
             feeds.map((feed) => (
               <article
                 key={feed.id}
-                className="flex items-center justify-between rounded-2xl border border-stone-200 bg-white px-5 py-4"
+                className="flex items-center justify-between rounded-2xl border border-line bg-surface px-5 py-4"
               >
                 <div className="min-w-0">
                   <h2 className="font-medium">{feed.title}</h2>
-                  <p className="truncate text-xs text-stone-500">{feed.url}</p>
+                  <p className="truncate text-xs text-soft">{feed.url}</p>
                 </div>
                 <div className="ml-4 flex gap-2">
-                  <label className="flex items-center gap-1 text-xs text-stone-500">Keep
-                    <input aria-label={`Retention days for ${feed.title}`} type="number" min="1" max="3650" value={feed.retentionDays} onChange={(event)=>{const days=Number(event.target.value);setFeeds((current)=>current.map((item)=>item.id===feed.id?{...item,retentionDays:days}:item));}} onBlur={(event)=>void api(`/api/feeds/${feed.id}/retention`,{method:'PATCH',body:JSON.stringify({days:Number(event.target.value)})}).then(refresh)} className="w-16 rounded border border-stone-300 px-2 py-1"/> days
+                  <label className="flex items-center gap-1 text-xs text-soft">Keep
+                    <input aria-label={`Retention days for ${feed.title}`} type="number" min="1" max="3650" value={feed.retentionDays} onChange={(event)=>{const days=Number(event.target.value);setFeeds((current)=>current.map((item)=>item.id===feed.id?{...item,retentionDays:days}:item));}} onBlur={(event)=>void api(`/api/feeds/${feed.id}/retention`,{method:'PATCH',body:JSON.stringify({days:Number(event.target.value)})}).then(refresh)} className="w-16 rounded border border-line-strong px-2 py-1"/> days
                   </label>
                   <button
                     onClick={() => renameFeed(feed)}
-                    className="rounded-lg px-3 py-2 text-xs font-medium hover:bg-stone-100"
+                    className="rounded-lg px-3 py-2 text-xs font-medium hover:bg-subtle"
                   >
                     Rename
                   </button>
                   <button
                     onClick={() => removeFeed(feed)}
-                    className="rounded-lg px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-50"
+                    className="rounded-lg px-3 py-2 text-xs font-medium text-danger hover:bg-danger-soft"
                   >
                     Delete
                   </button>
@@ -523,10 +523,10 @@ function FeedManager() {
             value={folderTitle}
             onChange={(event) => setFolderTitle(event.target.value)}
             placeholder="New folder"
-            className="min-w-0 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm"
+            className="min-w-0 flex-1 rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm"
           />
           <button
-            className="rounded-lg border border-stone-300 bg-white px-3 text-lg"
+            className="rounded-lg border border-line-strong bg-surface px-3 text-lg"
             aria-label="Create folder"
           >
             +
@@ -536,7 +536,7 @@ function FeedManager() {
           {folders.map((folder) => (
             <div
               key={folder.id}
-              className="group flex items-center justify-between rounded-lg px-2 py-2 hover:bg-stone-100"
+              className="group flex items-center justify-between rounded-lg px-2 py-2 hover:bg-subtle"
             >
               <span className="text-sm">{folder.title}</span>
               <span className="flex opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
@@ -550,7 +550,7 @@ function FeedManager() {
                 <button
                   onClick={() => removeFolder(folder)}
                   aria-label={`Delete ${folder.title}`}
-                  className="px-1 text-xs text-red-700"
+                  className="px-1 text-xs text-danger"
                 >
                   ×
                 </button>

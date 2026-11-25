@@ -81,7 +81,7 @@ Environment knobs: `BREW_DB_PATH` points at a different SQLite file; set `NODE_E
 | Command | What it does |
 |---|---|
 | `npm run typecheck` | TypeScript strict check |
-| `npm run lint` | Code style |
+| `npm run lint` | Generated tokens, semantic colors and code style |
 | `npm test` | Unit tests |
 | `npm run test:e2e` | Playwright end-to-end (starts dev servers itself) |
 | `npm run build` | Production build |
@@ -95,7 +95,7 @@ packages/api/    Hono REST router with target-independent service interfaces
 packages/web/    React SPA and Vite configuration
 targets/node/   Fastify transport, SQLite, feed fetching and platform adapters
 server/         unchanged v1 unit tests, fixtures and compatibility exports
-web/e2e/        unchanged Playwright tests and visual baselines
+web/e2e/        Playwright flows and visual baselines
 shared/         compatibility exports for v1 type imports
 data/           local runtime data (git-ignored)
 PROGRESS.md     milestone checklist and decisions
@@ -105,6 +105,15 @@ Run the quality gates from the repository root. The root scripts orchestrate the
 workspaces; `npm run dev --workspace @brew/web` also starts the SPA independently.
 The production build copies the SPA and migrations into `dist/`, so runtime
 asset paths resolve relative to the built target rather than the working directory.
+
+The Figma color, dimension and elevation values are recorded with their source
+frames in `design/tokens.json`. After updating the manifest, run
+`npm run tokens:generate` to rebuild `packages/web/src/styles/tokens.css`.
+Tailwind's semantic colors, spacing, radii and shadows read these CSS variables;
+the existing `data-resolved-theme` attribute switches the palette.
+`npm run tokens:check` rejects stale output and stone/amber utilities in the app, and runs
+with lint and production builds. Preview both palettes at `/test/colors.html`
+during development.
 
 ## Data ownership
 

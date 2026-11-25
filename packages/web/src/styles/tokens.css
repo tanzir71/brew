@@ -1,50 +1,146 @@
-/* Brew visual tokens
-   Type scale: 12 metadata · 14 controls/body-small · 18 article body ·
-   20 list headline · 24 view title · 36 article title · 48 display title. */
+/* Generated from design/tokens.json. Run npm run tokens:generate; do not edit.
+     Figma Brew / Color Light 22:2246 / Color Dark 22:2377. */
 :root {
-  --brew-canvas: #fafaf9;
-  --brew-surface: #ffffff;
-  --brew-subtle: #f5f5f4;
-  --brew-border: #e7e5e4;
-  --brew-border-strong: #d6d3d1;
-  --brew-text: #1c1917;
-  --brew-text-soft: #57534e;
-  --brew-text-muted: #78716c;
-  --brew-accent: #b45309;
-  --brew-accent-soft: #fffbeb;
+  --brew-text-primary: #1b1815;
+  --brew-bg-canvas: #f7f5f1;
+  --brew-border-default: #e5e0d8;
+  --brew-text-muted: #8a8279;
+  --brew-bg-surface: #ffffff;
+  --brew-bg-subtle: #f0ede7;
+  --brew-bg-sunken: #e9e5de;
+  --brew-bg-inverse: #1b1815;
+  --brew-border-strong: #d2cbc0;
+  --brew-text-soft: #4e4842;
+  --brew-text-inverse: #f7f5f1;
+  --brew-accent-default: #a0471d;
+  --brew-accent-soft: #f5e9e0;
+  --brew-accent-on: #ffffff;
+  --brew-status-positive: #3d6b4f;
+  --brew-status-positive-soft: #e6efe8;
+  --brew-status-warning: #8e600c;
+  --brew-status-warning-soft: #f6edd9;
+  --brew-status-danger: #a63a2b;
+  --brew-status-danger-soft: #f6e3df;
+  --brew-highlight-amber: #c98a1c;
+  --brew-highlight-sage: #6e9278;
+  --brew-highlight-plum: #8c6a9a;
+  --brew-highlight-sky: #5e86a8;
+  --brew-art-1: #dccdba;
+  --brew-art-2: #b8a38b;
+  --brew-art-3: #cbd3c6;
+  --brew-art-4: #9faf9e;
+  --brew-art-5: #d9cfdc;
+  --brew-art-6: #a99bb0;
+  --brew-art-7: #c9d5de;
+  --brew-art-8: #8ea3b4;
+  --brew-space-4: 4px;
+  --brew-space-8: 8px;
+  --brew-space-12: 12px;
+  --brew-space-16: 16px;
+  --brew-space-20: 20px;
+  --brew-space-24: 24px;
+  --brew-space-32: 32px;
+  --brew-space-40: 40px;
+  --brew-space-48: 48px;
+  --brew-space-64: 64px;
+  --brew-space-96: 96px;
+  --brew-radius-sm: 4px;
+  --brew-radius-md: 8px;
+  --brew-radius-lg: 12px;
+  --brew-radius-xl: 16px;
+  --brew-radius-full: 999px;
+  --brew-elevation-raised: 0 1px 2px 0 #1b18150f, 0 0 0 1px #1b18150a;
+  --brew-elevation-card: 0 2px 6px 0 #1b18150a, 0 12px 32px 0 #1b181512;
+  --brew-elevation-overlay: 0 4px 12px 0 #1b18150f, 0 28px 64px 0 #1b18152e;
+  /* Derived caption ink meets AA on the canvas; raw Figma text/muted stays intact. */
+  --brew-text-caption: color-mix(
+    in srgb,
+    var(--brew-text-muted) 80%,
+    var(--brew-text-primary)
+  );
+  --brew-bg-scrim: #121110;
   color-scheme: light;
 }
-
 :root[data-resolved-theme='dark'] {
-  --brew-canvas: #11100f;
-  --brew-surface: #1b1917;
-  --brew-subtle: #24211f;
-  --brew-border: #37322e;
-  --brew-border-strong: #4b4540;
-  --brew-text: #f5f3f0;
-  --brew-text-soft: #d0cbc5;
-  --brew-text-muted: #a8a19a;
-  --brew-accent: #f59e0b;
-  --brew-accent-soft: #352612;
+  --brew-text-primary: #f2eee8;
+  --brew-bg-canvas: #121110;
+  --brew-border-default: #2d2a26;
+  --brew-text-muted: #8d857b;
+  --brew-bg-surface: #1a1917;
+  --brew-bg-subtle: #22201d;
+  --brew-bg-sunken: #0d0c0b;
+  --brew-bg-inverse: #f2eee8;
+  --brew-border-strong: #423d37;
+  --brew-text-soft: #c5beb5;
+  --brew-text-inverse: #121110;
+  --brew-accent-default: #e1915f;
+  --brew-accent-soft: #33231a;
+  --brew-accent-on: #1a1210;
+  --brew-status-positive: #86b898;
+  --brew-status-positive-soft: #1d2b22;
+  --brew-status-warning: #d9a84a;
+  --brew-status-warning-soft: #2f2615;
+  --brew-status-danger: #e5806f;
+  --brew-status-danger-soft: #351d19;
+  --brew-highlight-amber: #d9a84a;
+  --brew-highlight-sage: #86b898;
+  --brew-highlight-plum: #b79ac4;
+  --brew-highlight-sky: #8db0ce;
+  --brew-art-1: #3a3029;
+  --brew-art-2: #54463a;
+  --brew-art-3: #2f3630;
+  --brew-art-4: #47534a;
+  --brew-art-5: #39323d;
+  --brew-art-6: #4f4555;
+  --brew-art-7: #2c3439;
+  --brew-art-8: #435160;
   color-scheme: dark;
 }
-
-body { background: var(--brew-canvas); color: var(--brew-text); }
-.bg-stone-50 { background-color: var(--brew-canvas) !important; }
-.bg-white { background-color: var(--brew-surface) !important; }
-.bg-white\/95 { background-color: color-mix(in srgb, var(--brew-surface) 95%, transparent) !important; }
-.bg-stone-100 { background-color: var(--brew-subtle) !important; }
-.bg-stone-200 { background-color: var(--brew-border) !important; }
-.bg-amber-50 { background-color: var(--brew-accent-soft) !important; }
-.text-stone-900, .text-stone-800, .text-amber-950 { color: var(--brew-text) !important; }
-.text-stone-600, .text-stone-500 { color: var(--brew-text-soft) !important; }
-.text-stone-400 { color: var(--brew-text-muted) !important; }
-.text-amber-700, .text-amber-800 { color: var(--brew-accent) !important; }
-.border-stone-100, .border-stone-200 { border-color: var(--brew-border) !important; }
-.border-stone-300 { border-color: var(--brew-border-strong) !important; }
-:root[data-resolved-theme='dark'] .hover\:bg-white:hover,
-:root[data-resolved-theme='dark'] .hover\:bg-stone-50:hover,
-:root[data-resolved-theme='dark'] .hover\:bg-stone-100:hover { background-color: var(--brew-subtle) !important; }
-:root[data-resolved-theme='dark'] .shadow-sm,
-:root[data-resolved-theme='dark'] .shadow-xl,
-:root[data-resolved-theme='dark'] .shadow-2xl { --tw-shadow-color: rgb(0 0 0 / 0.45); }
+@theme inline {
+  --color-*: initial;
+  --color-canvas: var(--brew-bg-canvas);
+  --color-surface: var(--brew-bg-surface);
+  --color-subtle: var(--brew-bg-subtle);
+  --color-sunken: var(--brew-bg-sunken);
+  --color-inverse: var(--brew-bg-inverse);
+  --color-on-inverse: var(--brew-text-inverse);
+  --color-ink: var(--brew-text-primary);
+  --color-soft: var(--brew-text-soft);
+  --color-muted: var(--brew-text-caption);
+  --color-quiet: var(--brew-text-muted);
+  --color-line: var(--brew-border-default);
+  --color-line-strong: var(--brew-border-strong);
+  --color-accent: var(--brew-accent-default);
+  --color-accent-soft: var(--brew-accent-soft);
+  --color-on-accent: var(--brew-accent-on);
+  --color-positive: var(--brew-status-positive);
+  --color-positive-soft: var(--brew-status-positive-soft);
+  --color-warning: var(--brew-status-warning);
+  --color-warning-soft: var(--brew-status-warning-soft);
+  --color-danger: var(--brew-status-danger);
+  --color-danger-soft: var(--brew-status-danger-soft);
+  --color-scrim: var(--brew-bg-scrim);
+  --color-highlight-amber: var(--brew-highlight-amber);
+  --color-highlight-sage: var(--brew-highlight-sage);
+  --color-highlight-plum: var(--brew-highlight-plum);
+  --color-highlight-sky: var(--brew-highlight-sky);
+  --color-art-1: var(--brew-art-1);
+  --color-art-2: var(--brew-art-2);
+  --color-art-3: var(--brew-art-3);
+  --color-art-4: var(--brew-art-4);
+  --color-art-5: var(--brew-art-5);
+  --color-art-6: var(--brew-art-6);
+  --color-art-7: var(--brew-art-7);
+  --color-art-8: var(--brew-art-8);
+  --radius-sm: var(--brew-radius-sm);
+  --radius-md: var(--brew-radius-md);
+  --radius-lg: var(--brew-radius-lg);
+  --radius-xl: var(--brew-radius-xl);
+  --radius-full: var(--brew-radius-full);
+  --radius-2xl: var(--brew-radius-xl);
+  --radius-3xl: var(--brew-radius-xl);
+  --spacing: var(--brew-space-4);
+  --shadow-raised: var(--brew-elevation-raised);
+  --shadow-card: var(--brew-elevation-card);
+  --shadow-overlay: var(--brew-elevation-overlay);
+}

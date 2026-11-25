@@ -1,19 +1,18 @@
-/* Figma 15:2010. Scoped while the v1 screens move to v2 in M8–M9. */
+/* Figma 15:2010 layout; palette and dimensions come from the shared tokens. */
 .runs-app {
-  --runs-canvas: var(--brew-bg-canvas, #f7f5f1);
-  --runs-surface: var(--brew-bg-surface, #fff);
-  --runs-subtle: var(--brew-bg-subtle, #f0ede7);
-  --runs-border: var(--brew-border-default, #e5e0d8);
-  --runs-strong: #d2cbc0;
-  --runs-text: var(--brew-text-primary, #1b1815);
-  --runs-soft: #4e4842;
-  /* Caption ink meets 4.5:1 against the Figma canvas as well as white. */
-  --runs-muted: color-mix(in srgb, #8a8279 80%, var(--runs-text));
-  --runs-accent: var(--brew-accent-default, #a0471d);
-  --runs-positive: var(--brew-status-positive, #3d6b4f);
-  --runs-positive-soft: var(--brew-status-positive-soft, #e6efe8);
-  --runs-warning: var(--brew-status-warning, #8e600c);
-  --runs-warning-soft: var(--brew-status-warning-soft, #f6edd9);
+  --runs-canvas: var(--brew-bg-canvas);
+  --runs-surface: var(--brew-bg-surface);
+  --runs-subtle: var(--brew-bg-subtle);
+  --runs-border: var(--brew-border-default);
+  --runs-strong: var(--brew-border-strong);
+  --runs-text: var(--brew-text-primary);
+  --runs-soft: var(--brew-text-soft);
+  --runs-muted: var(--brew-text-caption);
+  --runs-accent: var(--brew-accent-default);
+  --runs-positive: var(--brew-status-positive);
+  --runs-positive-soft: var(--brew-status-positive-soft);
+  --runs-warning: var(--brew-status-warning);
+  --runs-warning-soft: var(--brew-status-warning-soft);
   display: grid;
   grid-template-columns: 256px minmax(0, 1fr);
   min-height: 100vh;
@@ -28,21 +27,6 @@
 .runs-app *,
 .runs-setup-dialog * {
   font-style: normal;
-}
-:root[data-resolved-theme='dark'] .runs-app {
-  --runs-canvas: var(--brew-bg-canvas, #121110);
-  --runs-surface: var(--brew-bg-surface, #1a1917);
-  --runs-subtle: var(--brew-bg-subtle, #22201d);
-  --runs-border: var(--brew-border-default, #2d2a26);
-  --runs-strong: #423d37;
-  --runs-text: var(--brew-text-primary, #f2eee8);
-  --runs-soft: #c5beb5;
-  --runs-muted: color-mix(in srgb, #8d857b 80%, var(--runs-text));
-  --runs-accent: var(--brew-accent-default, #e1915f);
-  --runs-positive: var(--brew-status-positive, #86b898);
-  --runs-positive-soft: var(--brew-status-positive-soft, #1d2b22);
-  --runs-warning: var(--brew-status-warning, #d9a84a);
-  --runs-warning-soft: var(--brew-status-warning-soft, #2f2615);
 }
 .runs-app a {
   text-decoration: none;
@@ -109,7 +93,7 @@
   min-height: 24px;
   padding: 0 9px 0 7px;
   border-radius: 6px;
-  background: var(--runs-subtle, var(--brew-subtle));
+  background: var(--runs-subtle, var(--brew-bg-subtle));
   color: var(--runs-soft, var(--brew-text-soft));
   font:
     500 12px/16px 'Instrument Sans',
@@ -122,7 +106,7 @@
   filter: brightness(0.96);
 }
 .brew-mode-chip:focus-visible {
-  outline: 2px solid var(--brew-accent-default, var(--brew-accent));
+  outline: 2px solid var(--brew-accent-default);
   outline-offset: 3px;
 }
 .runs-search {
@@ -132,7 +116,7 @@
   height: 34px;
   padding: 0 6px 0 10px;
   border: 1px solid var(--runs-border);
-  border-radius: 8px;
+  border-radius: var(--brew-radius-md);
   background: var(--runs-surface);
 }
 .runs-search input:not([type='hidden']) {
@@ -150,7 +134,7 @@
     monospace;
   border: 1px solid var(--runs-strong);
   padding: 2px 5px;
-  border-radius: 4px;
+  border-radius: var(--brew-radius-sm);
   color: var(--runs-soft);
 }
 .runs-library-nav {
@@ -235,7 +219,7 @@
   min-width: 0;
   background: var(--runs-surface);
   border: 1px solid var(--runs-border);
-  border-radius: 12px;
+  border-radius: var(--brew-radius-lg);
 }
 .runs-settings-nav {
   padding: 20px 12px;
@@ -335,7 +319,7 @@
 }
 .runs-capabilities {
   border: 1px solid var(--runs-border);
-  border-radius: 12px;
+  border-radius: var(--brew-radius-lg);
   overflow: hidden;
 }
 .runs-capability-row {
@@ -380,28 +364,28 @@
   gap: 5px;
   min-height: 22px;
   padding: 2px 8px 2px 7px;
-  border-radius: 999px;
+  border-radius: var(--brew-radius-full);
   white-space: nowrap;
   font:
     500 12px/16px 'Instrument Sans',
     ui-sans-serif,
     sans-serif;
   color: var(--runs-soft, var(--brew-text-soft));
-  background: var(--runs-subtle, var(--brew-subtle));
+  background: var(--runs-subtle, var(--brew-bg-subtle));
 }
 .brew-badge--positive {
-  color: var(--runs-positive, #3d6b4f);
-  background: var(--runs-positive-soft, #e6efe8);
+  color: var(--runs-positive, var(--brew-status-positive));
+  background: var(--runs-positive-soft, var(--brew-status-positive-soft));
 }
 .brew-badge--warning {
-  color: var(--runs-warning, #8e600c);
-  background: var(--runs-warning-soft, #f6edd9);
+  color: var(--runs-warning, var(--brew-status-warning));
+  background: var(--runs-warning-soft, var(--brew-status-warning-soft));
 }
 .brew-badge--locked {
-  border: 1px solid var(--runs-border, var(--brew-border));
+  border: 1px solid var(--runs-border, var(--brew-border-default));
 }
 .brew-badge--accent {
-  color: var(--runs-accent);
+  color: var(--runs-accent, var(--brew-accent-default));
 }
 .runs-move p {
   color: var(--runs-soft);
@@ -435,7 +419,7 @@
   min-height: 36px;
   padding: 8px 14px;
   border: 1px solid var(--runs-strong);
-  border-radius: 8px;
+  border-radius: var(--brew-radius-md);
   font-size: 13px;
   line-height: 16px;
   font-weight: 500;
@@ -455,7 +439,7 @@
   align-items: center;
   gap: 16px;
   padding: 16px;
-  border-radius: 8px;
+  border-radius: var(--brew-radius-md);
   background: var(--runs-warning-soft);
   color: var(--runs-warning);
 }
@@ -467,16 +451,16 @@
   max-width: min(560px, calc(100vw - 32px));
   padding: 28px;
   border: 1px solid var(--runs-border);
-  border-radius: 16px;
+  border-radius: var(--brew-radius-xl);
   background: var(--runs-surface);
   color: var(--runs-text);
-  box-shadow: 0 20px 60px #0003;
+  box-shadow: var(--brew-elevation-overlay);
   font:
     400 15px/22px 'Instrument Sans',
     sans-serif;
 }
 .runs-setup-dialog::backdrop {
-  background: #12111066;
+  background: color-mix(in srgb, var(--brew-bg-scrim) 40%, transparent);
 }
 .runs-dialog-heading {
   display: flex;
@@ -518,7 +502,7 @@
   border-radius: 6px;
 }
 .legacy-settings-link:focus-visible {
-  outline: 2px solid var(--brew-accent);
+  outline: 2px solid var(--brew-accent-default);
   outline-offset: 3px;
 }
 :root[data-resolved-theme='dark'] :is(.brew-mode-chip, .legacy-settings-link) img {

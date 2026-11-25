@@ -137,7 +137,7 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - [x] Sidebar Mode chip and Settings → Where Brew runs (`15:2010`) render from capabilities.
 
 ### M8 — Design system v2
-- [ ] `tokens.css` generated from §4.2 (light and dark); Tailwind theme reads the CSS variables; stone/amber utilities removed.
+- [x] `tokens.css` generated from §4.2 (light and dark); Tailwind theme reads the CSS variables; stone/amber utilities removed.
 - [ ] Newsreader, Instrument Sans and Geist Mono self-hosted (woff2, `font-display: swap`); no third-party font requests (asserted in e2e).
 - [ ] Components of §4.3 built with stories or fixtures. Icon set ported from Figma `5:2` as an inline SVG sprite.
 - [ ] Zero italics: a lint rule or test fails on `font-style: italic`, `<em>` without a reset, or `italic` utilities.
@@ -219,6 +219,8 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - 2026-11-25: Implement Figma `15:2010` with a scoped v2 palette and self-hosted fonts before M8 — keep v1 screens stable while matching the new settings frame. Use actual host, read-state and fetch-limit data instead of the design’s sample database size, plan, feed totals or export date.
 - 2026-11-25: Capability rows branch only on feature fields; mode names are presentation metadata. Locked and setup states stay visible with working URL-addressable guides. `.brew` transfer controls remain disabled until M15; the data guide offers existing OPML export and the Node backup command. General/Reading links reach current controls, while new connection settings open guides until their feature milestones wire the configuration flows.
 - 2026-11-25: Strengthen small caption ink in the new screen to meet 4.5:1 against its canvas — axe found 4.4:1 with inherited v1 muted ink. The Figma layout, font metrics and SVG exports retain their intended geometry.
+- 2026-11-25: Record the Figma light/dark variables (including eight artwork fills) and shared elevation effects in `design/tokens.json`, with frame provenance; dimensions follow §4.2. Generate CSS and Tailwind aliases from this manifest, with drift and legacy-palette checks in lint and build — one palette now drives all app screens and settings.
+- 2026-11-25: Preserve the exact raw Figma muted color and derive a stronger caption token for small text. Primary controls and toggles use ink; links and rule editing use copper. User-selected highlight and tag colors remain data rather than theme colors.
 
 ### Discoveries / gotchas
 
@@ -265,3 +267,12 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - M7 exit review passed 2026-11-25: a separate `git clone --no-hardlinks` of the completed source installed with `npm install --no-audit --no-fund` without lockfile changes. With CI reuse disabled, Playwright started `npm run dev` and passed the default Brew landing and real Node Mode-chip/settings/keyboard-guide flows (2 tests).
 - Cleanup discovery: automatic approval review rejected deletion of the temporary clone as “blocked by policy”. The verified copy remains in Git-ignored `data/m7-exit-review`; ESLint excludes runtime data so this copy does not affect future checks.
 - Next milestone: M8 — generate the full light/dark token system and replace stone/amber utilities; then finish the shared type, component and icon system. M8–M20 remain pending.
+
+### Iteration M8.1 — DONE (2026-11-25)
+
+- Completed: generated light/dark colors, dimensions and elevation tokens; Tailwind semantic aliases; migration of all app stone/amber utilities and scoped settings colors; reproducible generation and legacy-palette checks in lint/build. Global typography remains the next criterion.
+- Files changed: Figma token manifest; token generator/library and semantic-color check; web App/Brew/Reader/Rules and shared/settings styles; development-only color foundation fixture; two token unit tests, two palette/theme-switch browser tests and a delayed-rule-preview regression; two new foundation snapshots and four reviewed Brew/Reader baselines; npm scripts, README and this checklist.
+- Verified: `npm run typecheck`; `npm run lint`; `npm test` (186 passed); `npm run test:e2e` (33 passed, including light/dark visual checks, accessibility, theme switching, settings keyboard flows and v1 performance budgets); `npm run build` (compiled Node target, assets, migrations and SPA pass outside repository cwd).
+- Discoveries: Reader's entrance fade could capture low-opacity text during visual checks; keep text visible while retaining its short positional animation. A late rules preview could clear “Rule saved.”; preview errors now have separate state, obsolete requests are cancelled, and a controlled delayed-response e2e covers the race. An initial settings Escape URL assertion failed once; four focused repeats and the final full suite passed without changing the dialog.
+- Dependency justifications: no new packages; the generator uses the existing Prettier dependency.
+- Next unchecked criterion: finish the self-hosted type system and assert no third-party font requests. M8 remains in progress; M9–M20 remain pending.

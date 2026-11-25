@@ -1,0 +1,45 @@
+.color-foundations {
+  width: 884px;
+  min-height: 782px;
+  padding: var(--brew-space-32);
+  border-radius: var(--brew-radius-xl);
+  background: var(--brew-bg-canvas);
+  color: var(--brew-text-primary);
+  font-family: 'Instrument Sans', sans-serif;
+}
+.color-foundations h1 {
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 600;
+  letter-spacing: -0.36px;
+  margin-bottom: var(--brew-space-20);
+}
+.color-foundations-grid {
+  width: 820px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--brew-space-16) var(--brew-space-12);
+}
+.color-foundations-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.color-foundations-swatch {
+  width: 122px;
+  height: 56px;
+  border: 1px solid var(--brew-border-default);
+  border-radius: var(--brew-radius-md);
+}
+.color-foundations-item p {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+.color-foundations-item code {
+  font:
+    400 11px/14px 'Geist Mono',
+    monospace;
+  color: var(--brew-text-caption);
+}

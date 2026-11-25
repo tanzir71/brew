@@ -54,7 +54,7 @@ const blankDraft = (): RuleDraft => ({
   stopProcessing: false,
 });
 const inputClass =
-  'rounded-lg border border-stone-300 bg-white px-2.5 py-2 text-sm outline-none focus:border-amber-600';
+  'rounded-lg border border-line-strong bg-surface px-2.5 py-2 text-sm outline-none focus:border-ink';
 
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -80,6 +80,7 @@ export function RulesPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [draft, setDraft] = useState<RuleDraft>(blankDraft);
   const [preview, setPreview] = useState<RulePreviewItem[]>([]);
+  const [previewError, setPreviewError] = useState('');
   const [message, setMessage] = useState('');
   const [logs, setLogs] = useState<RuleLogRecord[]>([]);
   const [duplicateFilter, setDuplicateFilter] = useState(false);
@@ -112,9 +113,11 @@ export function RulesPage() {
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => {
+    const controller = new AbortController();
     const timeout = window.setTimeout(() => {
       void json<{ items: RulePreviewItem[] }>('/api/rules/preview', {
         method: 'POST',
+        signal: controller.signal,
         body: JSON.stringify({
           scope: draft.scope,
           matchType: draft.matchType,
@@ -123,14 +126,18 @@ export function RulesPage() {
       })
         .then((result) => {
           setPreview(result.items);
-          setMessage('');
+          setPreviewError('');
         })
         .catch((error: Error) => {
+          if (controller.signal.aborted) return;
           setPreview([]);
-          setMessage(error.message);
+          setPreviewError(error.message);
         });
     }, 250);
-    return () => window.clearTimeout(timeout);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, [draft.conditions, draft.matchType, draft.scope]);
   const scopeMode = draft.scope.feedIds?.length
     ? 'feed'
@@ -218,13 +225,13 @@ export function RulesPage() {
       actions: current.actions.map((value, item) => (item === index ? action : value)),
     }));
 
-  if (loading) return <p role="status" className="p-12 text-center text-sm text-stone-500">Loading rules…</p>;
+  if (loading) return <p role="status" className="p-12 text-center text-sm text-soft">Loading rules…</p>;
   return (
     <div className="mx-auto grid max-w-7xl gap-8 px-7 py-8 lg:grid-cols-[18rem_minmax(0,1fr)_20rem]">
       <aside>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+            <p className="text-xs font-semibold uppercase tracking-wider text-soft">
               Automations
             </p>
             <h1 className="mt-1 text-2xl font-semibold">Rules</h1>
@@ -234,7 +241,7 @@ export function RulesPage() {
               setSelectedId(null);
               setDraft(blankDraft());
             }}
-            className="rounded-full bg-stone-900 px-3 py-2 text-xs font-semibold text-white"
+            className="rounded-full bg-inverse px-3 py-2 text-xs font-semibold text-on-inverse"
           >
             New
           </button>
@@ -246,13 +253,13 @@ export function RulesPage() {
             if (typeof Notification !== 'undefined')
               void Notification.requestPermission().then(setNotificationPermission);
           }}
-          className="mt-3 rounded-lg border border-stone-300 px-3 py-2 text-xs font-medium text-stone-600 disabled:opacity-60"
+          className="mt-3 rounded-lg border border-line-strong px-3 py-2 text-xs font-medium text-soft disabled:opacity-60"
         >
           {notificationPermission === 'granted'
             ? 'Notifications enabled'
             : 'Enable notifications'}
         </button>
-        <label className="mt-3 flex items-center gap-2 text-xs text-stone-600">
+        <label className="mt-3 flex items-center gap-2 text-xs text-soft">
           <input
             type="checkbox"
             checked={duplicateFilter}
@@ -264,51 +271,51 @@ export function RulesPage() {
           />
           Hide near-duplicate titles (3 days)
         </label>
-        <div className="mt-5 rounded-xl bg-stone-100 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">Templates</p>
+        <div className="mt-5 rounded-xl bg-subtle p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-soft">Templates</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <button type="button" onClick={()=>{setSelectedId(null);setDraft({...blankDraft(),name:'Mute a keyword',conditions:[{field:'title',operator:'contains',value:'keyword'}],actions:[{type:'hide'}]})}} className="text-xs text-stone-600">Mute keyword</button>
-            <button type="button" onClick={()=>{setSelectedId(null);setDraft({...blankDraft(),name:'Highlight an author',conditions:[{field:'author',operator:'equals',value:'Author name'}],actions:[{type:'highlight',color:'#f59e0b'}]})}} className="text-xs text-stone-600">Highlight author</button>
-            <button type="button" onClick={()=>{setSelectedId(null);setDraft({...blankDraft(),name:'Feature a folder',scope:{folderIds:navigation.folders[0]?[navigation.folders[0].id]:[]},conditions:[],actions:[{type:'feature_in_brew'}]})}} className="text-xs text-stone-600">Feature folder</button>
+            <button type="button" onClick={()=>{setSelectedId(null);setDraft({...blankDraft(),name:'Mute a keyword',conditions:[{field:'title',operator:'contains',value:'keyword'}],actions:[{type:'hide'}]})}} className="text-xs text-soft">Mute keyword</button>
+            <button type="button" onClick={()=>{setSelectedId(null);setDraft({...blankDraft(),name:'Highlight an author',conditions:[{field:'author',operator:'equals',value:'Author name'}],actions:[{type:'highlight',color:'#f59e0b'}]})}} className="text-xs text-soft">Highlight author</button>
+            <button type="button" onClick={()=>{setSelectedId(null);setDraft({...blankDraft(),name:'Feature a folder',scope:{folderIds:navigation.folders[0]?[navigation.folders[0].id]:[]},conditions:[],actions:[{type:'feature_in_brew'}]})}} className="text-xs text-soft">Feature folder</button>
           </div>
         </div>
         <div className="mt-5 space-y-2">
           {rules.length === 0 && (
-            <p className="rounded-xl border border-dashed border-stone-300 p-5 text-sm text-stone-500">
+            <p className="rounded-xl border border-dashed border-line-strong p-5 text-sm text-soft">
               No rules yet.
             </p>
           )}
           {rules.map((rule) => (
             <article
               key={rule.id}
-              className={`rounded-xl border p-3 ${selectedId === rule.id ? 'border-amber-500 bg-amber-50' : 'border-stone-200 bg-white'}`}
+              className={`rounded-xl border p-3 ${selectedId === rule.id ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}`}
             >
               <button onClick={() => selectRule(rule)} className="w-full text-left">
                 <span className="flex items-center justify-between gap-2">
                   <strong className="truncate text-sm">{rule.name}</strong>
                   <span
-                    className={`h-2 w-2 rounded-full ${rule.enabled ? 'bg-emerald-500' : 'bg-stone-300'}`}
+                    className={`h-2 w-2 rounded-full ${rule.enabled ? 'bg-positive' : 'bg-line-strong'}`}
                   />
                 </span>
-                <span className="mt-1 block text-xs text-stone-500">
+                <span className="mt-1 block text-xs text-soft">
                   {rule.conditions.length} condition{rule.conditions.length === 1 ? '' : 's'} ·{' '}
                   {rule.actions.length} action{rule.actions.length === 1 ? '' : 's'}
                 </span>
-                <span className="mt-1 block text-[11px] text-stone-400">
+                <span className="mt-1 block text-[11px] text-muted">
                   {rule.hits24h ?? 0} hits / 24 h · {rule.hits30d ?? 0} / 30 d
                 </span>
               </button>
               <div className="mt-2 flex gap-2">
-                <button onClick={() => duplicate(rule)} className="text-xs text-stone-500">
+                <button onClick={() => duplicate(rule)} className="text-xs text-soft">
                   Copy
                 </button>
-                <button onClick={() => remove(rule.id)} className="text-xs text-red-700">
+                <button onClick={() => remove(rule.id)} className="text-xs text-danger">
                   Delete
                 </button>
-                <button onClick={() => void showLogs(rule.id)} className="text-xs text-stone-500">
+                <button onClick={() => void showLogs(rule.id)} className="text-xs text-soft">
                   Logs
                 </button>
-                <button onClick={() => void applyExisting(rule.id)} className="text-xs text-amber-700">
+                <button onClick={() => void applyExisting(rule.id)} className="text-xs text-accent">
                   Apply 30d
                 </button>
               </div>
@@ -316,7 +323,7 @@ export function RulesPage() {
           ))}
         </div>
       </aside>
-      <form onSubmit={save} className="rounded-3xl border border-stone-200 bg-white p-7 shadow-sm">
+      <form onSubmit={save} className="rounded-3xl border border-line bg-surface p-7 shadow-raised">
         <div className="flex items-center gap-3">
           <input
             aria-label="Rule name"
@@ -324,7 +331,7 @@ export function RulesPage() {
             onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
             className="min-w-0 flex-1 border-0 bg-transparent text-2xl font-semibold outline-none"
           />
-          <label className="flex items-center gap-2 text-xs text-stone-500">
+          <label className="flex items-center gap-2 text-xs text-soft">
             <input
               type="checkbox"
               checked={draft.enabled}
@@ -335,7 +342,7 @@ export function RulesPage() {
             Enabled
           </label>
         </div>
-        <div className="mt-8 text-[17px] leading-[2.7] text-stone-600">
+        <div className="mt-8 text-[17px] leading-[2.7] text-soft">
           When an article in{' '}
           <select
             aria-label="Rule scope"
@@ -419,7 +426,7 @@ export function RulesPage() {
           {draft.conditions.map((condition, index) => (
             <div
               key={index}
-              className="flex flex-wrap items-center gap-2 rounded-xl bg-stone-50 p-3"
+              className="flex flex-wrap items-center gap-2 rounded-xl bg-canvas p-3"
             >
               <select
                 aria-label={`Condition ${index + 1} field`}
@@ -464,7 +471,7 @@ export function RulesPage() {
                     conditions: current.conditions.filter((_, item) => item !== index),
                   }))
                 }
-                className="px-2 text-stone-400 disabled:opacity-30"
+                className="px-2 text-muted disabled:opacity-30"
               >
                 ×
               </button>
@@ -482,17 +489,17 @@ export function RulesPage() {
                 ],
               }))
             }
-            className="text-xs font-semibold text-amber-700"
+            className="text-xs font-semibold text-accent"
           >
             + Add condition
           </button>
         </div>
-        <div className="mt-8 text-[17px] text-stone-600">Then:</div>
+        <div className="mt-8 text-[17px] text-soft">Then:</div>
         <div className="mt-3 space-y-3">
           {draft.actions.map((action, index) => (
             <div
               key={index}
-              className="flex flex-wrap items-center gap-2 rounded-xl bg-stone-50 p-3"
+              className="flex flex-wrap items-center gap-2 rounded-xl bg-canvas p-3"
             >
               <select
                 aria-label={`Action ${index + 1}`}
@@ -519,7 +526,7 @@ export function RulesPage() {
                     actions: current.actions.filter((_, item) => item !== index),
                   }))
                 }
-                className="px-2 text-stone-400 disabled:opacity-30"
+                className="px-2 text-muted disabled:opacity-30"
               >
                 ×
               </button>
@@ -533,12 +540,12 @@ export function RulesPage() {
                 actions: [...current.actions, { type: 'star' }],
               }))
             }
-            className="text-xs font-semibold text-amber-700"
+            className="text-xs font-semibold text-accent"
           >
             + Add action
           </button>
         </div>
-        <label className="mt-7 flex items-center gap-2 text-sm text-stone-600">
+        <label className="mt-7 flex items-center gap-2 text-sm text-soft">
           <input
             type="checkbox"
             checked={draft.stopProcessing}
@@ -548,43 +555,43 @@ export function RulesPage() {
           />{' '}
           Stop processing later rules when this matches
         </label>
-        {message && (
-          <p role="status" className="mt-4 text-sm text-stone-500">
-            {message}
+        {(message || previewError) && (
+          <p role="status" className="mt-4 text-sm text-soft">
+            {message || previewError}
           </p>
         )}
-        <button className="mt-7 rounded-full bg-stone-900 px-5 py-2.5 text-sm font-semibold text-white">
+        <button className="mt-7 rounded-full bg-inverse px-5 py-2.5 text-sm font-semibold text-on-inverse">
           Save rule
         </button>
       </form>
-      <aside className="rounded-3xl border border-stone-200 bg-white p-5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+      <aside className="rounded-3xl border border-line bg-surface p-5">
+        <p className="text-xs font-semibold uppercase tracking-wider text-soft">
           Live preview
         </p>
         <h2 className="mt-1 text-lg font-semibold">Would match {preview.length}</h2>
-        <p className="mt-1 text-xs text-stone-500">
+        <p className="mt-1 text-xs text-soft">
           Most recent matching articles, without running actions.
         </p>
         <div className="mt-4 space-y-2">
           {preview.slice(0, 50).map((article) => (
-            <article key={article.id} className="border-b border-stone-100 pb-2">
+            <article key={article.id} className="border-b border-line pb-2">
               <h3 className="text-sm font-medium leading-snug">{article.title}</h3>
-              <p className="mt-1 text-xs text-stone-500">{article.feedTitle}</p>
+              <p className="mt-1 text-xs text-soft">{article.feedTitle}</p>
             </article>
           ))}
           {preview.length === 0 && (
-            <p className="py-8 text-center text-sm text-stone-400">No matches yet.</p>
+            <p className="py-8 text-center text-sm text-muted">No matches yet.</p>
           )}
         </div>
         {logs.length > 0 && (
-          <section className="mt-7 border-t border-stone-200 pt-5" aria-label="Rule execution log">
+          <section className="mt-7 border-t border-line pt-5" aria-label="Rule execution log">
             <h2 className="text-sm font-semibold">Recent executions</h2>
             <div className="mt-3 max-h-72 space-y-3 overflow-auto">
               {logs.map((log) => (
                 <article key={log.id} className="text-xs">
                   <p className="font-medium">{log.articleTitle}</p>
-                  <p className="text-stone-400">{new Date(log.executedAt).toLocaleString()}</p>
-                  <p className="text-stone-500">{log.actions.map((action) => `${action.type}: ${action.ok ? 'ok' : action.error}`).join(', ')}</p>
+                  <p className="text-muted">{new Date(log.executedAt).toLocaleString()}</p>
+                  <p className="text-soft">{log.actions.map((action) => `${action.type}: ${action.ok ? 'ok' : action.error}`).join(', ')}</p>
                 </article>
               ))}
             </div>
@@ -625,7 +632,7 @@ function ActionValue({
         type="color"
         value={action.color}
         onChange={(event) => onChange({ ...action, color: event.target.value })}
-        className="h-10 w-12 rounded border border-stone-300"
+        className="h-10 w-12 rounded border border-line-strong"
       />
     );
   if (action.type === 'webhook')
