@@ -14,5 +14,5 @@ if (process.argv.includes('--check')) {
   }
 } else {
   await writeFile(destination, css);
-  log('Generated light/dark colors, dimensions, elevations and Tailwind aliases.');
+  log('Generated light/dark colors, dimensions, elevations, typography and Tailwind aliases.');
 }

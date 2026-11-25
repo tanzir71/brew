@@ -19,10 +19,7 @@
   padding: 8px 8px 8px 0;
   color: var(--runs-text);
   background: var(--runs-canvas);
-  font:
-    400 13px/19px 'Instrument Sans',
-    ui-sans-serif,
-    sans-serif;
+  font: 400 13px/19px var(--brew-font-ui);
 }
 .runs-app *,
 .runs-setup-dialog * {
@@ -77,10 +74,7 @@
   display: inline-flex;
   align-items: flex-end;
   gap: 1px;
-  font:
-    500 22px/24px 'Newsreader',
-    Georgia,
-    serif;
+  font: 500 22px/24px var(--brew-font-reading);
   letter-spacing: -0.44px;
 }
 .runs-library-header .brew-mode-chip {
@@ -95,10 +89,7 @@
   border-radius: 6px;
   background: var(--runs-subtle, var(--brew-bg-subtle));
   color: var(--runs-soft, var(--brew-text-soft));
-  font:
-    500 12px/16px 'Instrument Sans',
-    ui-sans-serif,
-    sans-serif;
+  font: 500 12px/16px var(--brew-font-ui);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -129,9 +120,7 @@
   color: var(--runs-muted);
 }
 .runs-search kbd {
-  font:
-    400 11px/14px 'Geist Mono',
-    monospace;
+  font: 400 11px/14px var(--brew-font-mono);
   border: 1px solid var(--runs-strong);
   padding: 2px 5px;
   border-radius: var(--brew-radius-sm);
@@ -279,9 +268,7 @@
 }
 .runs-instance-name p {
   margin-top: 3px;
-  font:
-    400 12px/16px 'Geist Mono',
-    monospace;
+  font: 400 12px/16px var(--brew-font-mono);
   color: var(--runs-muted);
   overflow-wrap: anywhere;
 }
@@ -366,10 +353,7 @@
   padding: 2px 8px 2px 7px;
   border-radius: var(--brew-radius-full);
   white-space: nowrap;
-  font:
-    500 12px/16px 'Instrument Sans',
-    ui-sans-serif,
-    sans-serif;
+  font: 500 12px/16px var(--brew-font-ui);
   color: var(--runs-soft, var(--brew-text-soft));
   background: var(--runs-subtle, var(--brew-bg-subtle));
 }
@@ -455,9 +439,7 @@
   background: var(--runs-surface);
   color: var(--runs-text);
   box-shadow: var(--brew-elevation-overlay);
-  font:
-    400 15px/22px 'Instrument Sans',
-    sans-serif;
+  font: 400 15px/22px var(--brew-font-ui);
 }
 .runs-setup-dialog::backdrop {
   background: color-mix(in srgb, var(--brew-bg-scrim) 40%, transparent);

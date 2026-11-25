@@ -1,0 +1,27 @@
+.type-foundations {
+  width: 860px;
+  min-height: 941px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: var(--brew-space-32);
+  border-radius: var(--brew-radius-xl);
+  background: var(--brew-bg-surface);
+  color: var(--brew-text-primary);
+}
+.type-foundations h1 {
+  white-space: nowrap;
+}
+.type-foundations-row {
+  display: flex;
+  align-items: center;
+  gap: var(--brew-space-24);
+}
+.type-foundations-label {
+  flex-shrink: 0;
+  width: 200px;
+  color: var(--brew-text-caption);
+}
+.type-foundations-row > p {
+  white-space: nowrap;
+}

@@ -25,10 +25,17 @@ try {
   const route = await app.inject('/reader');
   assert.equal(route.body, page.body);
   assert.equal((await app.inject('/settings/runs')).body, page.body);
-  for (const asset of ['/fonts/instrument-sans-latin.woff2', '/figma/runs/7b5f9.svg']) {
+  const fonts = ['instrument-sans', 'newsreader', 'geist-mono'].flatMap((name) =>
+    ['latin', 'latin-ext'].map((subset) => `/fonts/${name}-${subset}.woff2`),
+  );
+  for (const asset of [...fonts, '/figma/runs/7b5f9.svg']) {
     const response = await app.inject(asset);
     assert.equal(response.statusCode, 200);
     assert.ok(response.rawPayload.byteLength > 0);
+    if (asset.endsWith('.woff2')) {
+      assert.equal(response.rawPayload.subarray(0, 4).toString(), 'wOF2');
+      assert.match(response.headers['content-type'], /font\/woff2/);
+    }
   }
   assert.equal((await app.inject('/api/missing')).statusCode, 404);
   log(

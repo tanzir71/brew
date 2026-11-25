@@ -3,13 +3,17 @@
 @import './styles/fonts.css';
 @import './styles/runs.css';
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--brew-font-ui);
+  font-optical-sizing: auto;
+  font-synthesis: none;
 }
 @layer base {
   body {
     margin: 0;
     background: var(--brew-bg-canvas);
     color: var(--brew-text-primary);
+    font-size: var(--brew-type-ui-body-size);
+    line-height: var(--brew-type-ui-body-line);
   }
   *,
   ::before,
@@ -19,6 +23,23 @@
   input[type='checkbox'],
   input[type='radio'] {
     accent-color: var(--brew-text-primary);
+  }
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: var(--brew-font-mono);
+  }
+  .article-content :is(em, i, dfn) {
+    font-style: normal;
+  }
+}
+@layer utilities {
+  .article-content[data-reading-font='sans'] {
+    font-family: var(--brew-font-ui);
+  }
+  .article-content[data-reading-line-height='compact'] {
+    line-height: 1.45;
   }
 }
 @keyframes brew-in {

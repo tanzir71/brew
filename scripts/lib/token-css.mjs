@@ -53,6 +53,27 @@ export async function renderTokenCss(tokens) {
   );
   for (const name of ['raised', 'card', 'overlay'])
     theme.push(`--shadow-${name}: var(--brew-elevation-${name});`);
+  const typeTokens = {};
+  for (const [name, font] of Object.entries(tokens.fonts))
+    typeTokens[`font/${name}`] = `'${font.family}', ${font.fallback}`;
+  for (const [name, family] of Object.entries({ sans: 'ui', serif: 'reading', mono: 'mono' }))
+    theme.push(`--font-${name}: var(--brew-font-${family});`);
+  const typeUtilities = [];
+  for (const [name, style] of Object.entries(tokens.typography)) {
+    typeTokens[`type/${name}/size`] = `${style.size}px`;
+    typeTokens[`type/${name}/line`] = `${style.lineHeight}px`;
+    typeTokens[`type/${name}/weight`] = style.weight;
+    typeTokens[`type/${name}/tracking`] = `${style.tracking}em`;
+    typeUtilities.push(`@utility type-${name} {
+      font-family: var(--brew-font-${style.family});
+      font-size: var(--brew-type-${name}-size);
+      line-height: var(--brew-type-${name}-line);
+      font-weight: var(--brew-type-${name}-weight);
+      letter-spacing: var(--brew-type-${name}-tracking);
+      font-style: normal;
+      ${name === 'ui-overline' ? 'text-transform: uppercase;' : ''}
+    }`);
+  }
 
   return format(
     `/* Generated from design/tokens.json. Run npm run tokens:generate; do not edit.
@@ -61,6 +82,7 @@ export async function renderTokenCss(tokens) {
       ${declarations(tokens.colors.light)}
       ${declarations(tokens.dimensions)}
       ${declarations(tokens.effects)}
+      ${declarations(typeTokens)}
       /* Derived caption ink meets AA on the canvas; raw Figma text/muted stays intact. */
       --brew-text-caption: color-mix(in srgb, var(--brew-text-muted) 80%, var(--brew-text-primary));
       --brew-bg-scrim: ${tokens.colors.dark['bg/canvas']};
@@ -74,6 +96,7 @@ export async function renderTokenCss(tokens) {
       --color-*: initial;
       ${theme.join('\n')}
     }
+    ${typeUtilities.join('\n')}
   `,
     { parser: 'css', singleQuote: true },
   );

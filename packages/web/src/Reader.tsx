@@ -1271,7 +1271,7 @@ function ArticleReader({
               </>
             )}
           </div>
-          <div className="flex gap-1" aria-label="Reading preferences"><select aria-label="Reader font" value={readingPrefs.font??'sans'} onChange={(event)=>updatePrefs({font:event.target.value as 'sans'|'serif'})} className="rounded border px-2 py-1 text-xs"><option value="sans">Sans</option><option value="serif">Serif</option></select><select aria-label="Reader width" value={readingPrefs.width??'narrow'} onChange={(event)=>updatePrefs({width:event.target.value as 'narrow'|'wide'})} className="rounded border px-2 py-1 text-xs"><option value="narrow">Narrow</option><option value="wide">Wide</option></select><select aria-label="Reader line height" value={readingPrefs.lineHeight??'relaxed'} onChange={(event)=>updatePrefs({lineHeight:event.target.value as 'compact'|'relaxed'})} className="rounded border px-2 py-1 text-xs"><option value="compact">Compact</option><option value="relaxed">Relaxed</option></select></div>
+          <div className="flex gap-1" aria-label="Reading preferences"><select aria-label="Reader font" value={readingPrefs.font??'serif'} onChange={(event)=>updatePrefs({font:event.target.value as 'sans'|'serif'})} className="rounded border px-2 py-1 text-xs"><option value="sans">Sans</option><option value="serif">Serif</option></select><select aria-label="Reader width" value={readingPrefs.width??'narrow'} onChange={(event)=>updatePrefs({width:event.target.value as 'narrow'|'wide'})} className="rounded border px-2 py-1 text-xs"><option value="narrow">Narrow</option><option value="wide">Wide</option></select><select aria-label="Reader line height" value={readingPrefs.lineHeight??'relaxed'} onChange={(event)=>updatePrefs({lineHeight:event.target.value as 'compact'|'relaxed'})} className="rounded border px-2 py-1 text-xs"><option value="compact">Compact</option><option value="relaxed">Relaxed</option></select></div>
         </div>
         {detail.isLoading ? (
           <p className="p-12 text-center text-sm text-soft">Opening article…</p>
@@ -1280,11 +1280,11 @@ function ArticleReader({
             Could not open this article.
           </p>
         ) : (
-          <div className={`mx-auto px-7 py-12 ${readingPrefs.width==='wide'?'max-w-[880px]':'max-w-[680px]'} ${readingPrefs.font==='serif'?'font-serif':'font-sans'}`}>
+          <div className={`mx-auto px-7 py-12 ${readingPrefs.width==='wide'?'max-w-[880px]':'max-w-[680px]'}`}>
             <p className="text-xs font-semibold uppercase tracking-wider text-soft">
               {detail.data.feedTitle}
             </p>
-            <h1 className="mt-3 text-4xl font-semibold leading-tight tracking-tight">
+            <h1 className="mt-3 type-display-l">
               {detail.data.title}
             </h1>
             <div className="mt-4 flex flex-wrap gap-2 text-sm text-soft">
@@ -1350,7 +1350,9 @@ function ArticleReader({
               />
             )}
             <div
-              className={`article-content mt-9 text-[18px] ${readingPrefs.lineHeight==='compact'?'leading-[1.45]':'leading-[1.8]'} text-ink [&_a]:text-accent [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-5 [&_h2]:mt-9 [&_h2]:text-2xl [&_img]:my-7 [&_img]:h-auto [&_img]:max-w-full [&_p]:my-5`}
+              data-reading-font={readingPrefs.font??'serif'}
+              data-reading-line-height={readingPrefs.lineHeight??'relaxed'}
+              className={`article-content mt-9 type-reading-body text-ink [&_a]:text-accent [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-5 [&_h2]:mt-9 [&_h2]:text-2xl [&_img]:my-7 [&_img]:h-auto [&_img]:max-w-full [&_p]:my-5`}
               dangerouslySetInnerHTML={{
                 __html:
                   detail.data.fullTextHtml ??

@@ -106,14 +106,17 @@ workspaces; `npm run dev --workspace @brew/web` also starts the SPA independentl
 The production build copies the SPA and migrations into `dist/`, so runtime
 asset paths resolve relative to the built target rather than the working directory.
 
-The Figma color, dimension and elevation values are recorded with their source
+The Figma color, dimension, elevation and typography values are recorded with their source
 frames in `design/tokens.json`. After updating the manifest, run
 `npm run tokens:generate` to rebuild `packages/web/src/styles/tokens.css`.
-Tailwind's semantic colors, spacing, radii and shadows read these CSS variables;
+Tailwind's semantic colors, spacing, radii, shadows and font families read these CSS variables;
 the existing `data-resolved-theme` attribute switches the palette.
 `npm run tokens:check` rejects stale output and stone/amber utilities in the app, and runs
 with lint and production builds. Preview both palettes at `/test/colors.html`
-during development.
+during development, or `/test/type.html` for all 17 type styles. The `type-*`
+utilities apply each style's family, size, line height, weight and tracking.
+Fonts are served locally with swap loading; browser tests check actual custom
+font use, both WOFF2 subsets and no third-party font or stylesheet requests.
 
 ## Data ownership
 

@@ -138,7 +138,7 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 
 ### M8 — Design system v2
 - [x] `tokens.css` generated from §4.2 (light and dark); Tailwind theme reads the CSS variables; stone/amber utilities removed.
-- [ ] Newsreader, Instrument Sans and Geist Mono self-hosted (woff2, `font-display: swap`); no third-party font requests (asserted in e2e).
+- [x] Newsreader, Instrument Sans and Geist Mono self-hosted (woff2, `font-display: swap`); no third-party font requests (asserted in e2e).
 - [ ] Components of §4.3 built with stories or fixtures. Icon set ported from Figma `5:2` as an inline SVG sprite.
 - [ ] Zero italics: a lint rule or test fails on `font-style: italic`, `<em>` without a reset, or `italic` utilities.
 
@@ -221,6 +221,7 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - 2026-11-25: Strengthen small caption ink in the new screen to meet 4.5:1 against its canvas — axe found 4.4:1 with inherited v1 muted ink. The Figma layout, font metrics and SVG exports retain their intended geometry.
 - 2026-11-25: Record the Figma light/dark variables (including eight artwork fills) and shared elevation effects in `design/tokens.json`, with frame provenance; dimensions follow §4.2. Generate CSS and Tailwind aliases from this manifest, with drift and legacy-palette checks in lint and build — one palette now drives all app screens and settings.
 - 2026-11-25: Preserve the exact raw Figma muted color and derive a stronger caption token for small text. Primary controls and toggles use ink; links and rule editing use copper. User-selected highlight and tag colors remain data rather than theme colors.
+- 2026-11-25: Generate all 17 Figma type styles from `22:2508` alongside color tokens; bind Tailwind sans/serif/mono to Instrument Sans, Newsreader and Geist Mono. Use Newsreader 19/31 for article content by default, keep an explicit saved sans preference, and keep article controls in the UI family. Disable synthetic font faces and retain optical sizing for Newsreader.
 
 ### Discoveries / gotchas
 
@@ -276,3 +277,12 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - Discoveries: Reader's entrance fade could capture low-opacity text during visual checks; keep text visible while retaining its short positional animation. A late rules preview could clear “Rule saved.”; preview errors now have separate state, obsolete requests are cancelled, and a controlled delayed-response e2e covers the race. An initial settings Escape URL assertion failed once; four focused repeats and the final full suite passed without changing the dialog.
 - Dependency justifications: no new packages; the generator uses the existing Prettier dependency.
 - Next unchecked criterion: finish the self-hosted type system and assert no third-party font requests. M8 remains in progress; M9–M20 remain pending.
+
+### Iteration M8.2 — DONE (2026-11-25)
+
+- Completed: global self-hosted UI/reading/code families; generated metrics and `type-*` utilities for all 17 Figma styles; Brew typography and normal ledes; Reader article type with saved sans/serif and compact/relaxed preferences; shared font variables in settings; light/dark Figma type fixtures. The existing local OFL WOFF2 assets and swap declarations are reused.
+- Files changed: token manifest/generator/output; web base and settings styles; Brew/Reader callsites; type fixture HTML/TSX/CSS; three typography browser tests and two new snapshots; eight reviewed Brew/Reader visual baselines; production font smoke check; font provenance README, root README and this checklist.
+- Verified: `npm run typecheck`; `npm run lint` (no warnings); `npm test` (186 passed); `npm run test:e2e` (36 passed, including all 17 computed type metrics, actual Chromium custom-font use, six local Latin/Latin Extended WOFF2 responses, swap loading, zero third-party font/stylesheet requests, reading preference persistence, light/dark visuals, accessibility and v1 performance budgets); `npm run build` (all six WOFF2 signatures and MIME types, migrations, SPA and assets pass outside repository cwd).
+- Discoveries: the existing variable WOFF2 files cover the required Newsreader and Instrument Sans weights. Scope the reading preference to content so toolbar controls retain Instrument Sans; explicit saved sans preferences survive the new serif default. Figma's type foundation has no static image/SVG assets.
+- Dependency justifications: no new packages.
+- Next unchecked criterion: build §4.3 components and fixtures, and port Figma `5:2` to an inline icon sprite. M8 remains in progress; M9–M20 remain pending.
