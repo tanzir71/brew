@@ -21,7 +21,7 @@ export class PollerService {
 
   dueFeeds(): Feed[] {
     const now = this.now().getTime();
-    return this.database.db.select().from(feeds).orderBy(asc(feeds.id)).all().filter((feed) => !feed.lastFetchedAt || now - feed.lastFetchedAt.getTime() >= effectiveInterval(feed) * 60_000);
+    return this.database.db.select().from(feeds).where(eq(feeds.kind, 'rss')).orderBy(asc(feeds.id)).all().filter((feed) => !feed.lastFetchedAt || now - feed.lastFetchedAt.getTime() >= effectiveInterval(feed) * 60_000);
   }
 
   async pollDue(): Promise<PollResult[]> {
@@ -44,6 +44,7 @@ export class PollerService {
   }
 
   async pollFeed(feed: Feed): Promise<PollResult> {
+    if (feed.kind === 'newsletter') return { feedId: feed.id, status: 0, newItems: 0, outcome: 'error', error: 'Newsletter senders receive mail instead of RSS polling.' };
     const fetchedAt = this.now();
     try {
       const headers = new Headers({ Accept: 'application/rss+xml, application/atom+xml, application/feed+json, application/json, text/xml, application/xml;q=0.9' });

@@ -63,6 +63,15 @@ export class IngestPipeline {
         };
       }),
     );
+    await this.processInserted(feed, insertedIds);
+    return insertedIds.length;
+  }
+
+  /** Shared post-insert policy for feed articles and inbound letters. */
+  async processInserted(
+    feed: { id: number; retentionDays: number },
+    insertedIds: number[],
+  ): Promise<void> {
     if (this.storage.duplicateFilterEnabled()) {
       const cutoff = this.clock.now().getTime() - 3 * 86_400_000;
       for (const id of insertedIds) {
@@ -77,6 +86,5 @@ export class IngestPipeline {
     }
     if (this.rules) for (const id of insertedIds) await this.rules.evaluateArticle(id);
     this.storage.prune(feed.id, this.clock.now().getTime() - feed.retentionDays * 86_400_000);
-    return insertedIds.length;
   }
 }

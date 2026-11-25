@@ -8,3 +8,7 @@ export * from './rules-service.js';
 export * from './safe-regex.js';
 export * from './search-service.js';
 export * from './source-discovery.js';
+export * from './newsletter-cleaner.js';
+export * from './newsletter-mime.js';
+export * from './newsletter-pipeline.js';
+export * from './types/newsletters.js';

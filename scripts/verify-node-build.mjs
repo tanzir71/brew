@@ -4,13 +4,15 @@ import { tmpdir } from 'node:os';
 import process from 'node:process';
 import { createApp } from '../dist/targets/node/src/app.js';
 import { openDatabase } from '../dist/targets/node/src/db/database.js';
+import { NewsletterService } from '../dist/targets/node/src/services/newsletter-service.js';
 
 // A built install must find migrations and the SPA outside the repository cwd.
 const previousDirectory = process.cwd();
 process.chdir(tmpdir());
 let app;
 try {
-  app = await createApp({ database: openDatabase(':memory:'), serveWeb: true });
+  const database = openDatabase(':memory:');
+  app = await createApp({ database, serveWeb: true });
   const health = await app.inject('/api/health');
   assert.deepEqual(health.json(), { ok: true });
   const capabilities = await app.inject('/api/capabilities');
@@ -131,8 +133,25 @@ try {
     400,
   );
   assert.equal((await app.inject('/api/missing')).statusCode, 404);
+  const newsletters = new NewsletterService(database);
+  const letter = await newsletters.ingest(
+    `From: Notes <notes@journal.test>\r\nSubject: Compiled letter\r\nMessage-ID: <build@journal.test>\r\nContent-Type: text/html\r\n\r\n<p>A compiled story.</p><img width="1" src="https://metrics.test/open"><script>evil()</script>`,
+  );
+  assert.equal(letter.outcome, 'inserted');
+  const article = (await app.inject(`/api/articles/${letter.articleId}`)).json();
+  assert.equal(article.contentHtml, '<p>A compiled story.</p>');
+  assert.equal(article.url, `/a/${letter.articleId}`);
+  assert.equal(article.rawHtml, undefined);
+  assert.equal(
+    database.sqlite
+      .prepare('SELECT raw_html FROM articles WHERE id=?')
+      .get(letter.articleId)
+      .raw_html.includes('<script>'),
+    true,
+  );
+  assert.equal(capabilities.json().inboundMail, null);
   log(
-    'Built Node target: migrations, health, SPA, assets and fallback passed outside the repository cwd.',
+    'Built Node target: migrations, newsletter MIME/cleaning, health, SPA, assets and fallback passed outside the repository cwd.',
   );
 } finally {
   if (app) await app.close();

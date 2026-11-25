@@ -13,6 +13,7 @@ import { IngestPipeline } from './services/ingest-pipeline.js';
 import { SseBroker } from './services/sse-broker.js';
 import { RulesService } from './services/rules-service.js';
 import { BrewService } from './services/brew-service.js';
+import { NewsletterService } from './services/newsletter-service.js';
 
 const webDirectory = fileURLToPath(new URL('../../../packages/web/dist/', import.meta.url));
 
@@ -43,6 +44,7 @@ export async function createApp(
     broker.publish('notification', article),
   );
   const ingest = new IngestPipeline(database, rules);
+  const newsletters = new NewsletterService(database, options.clock, rules);
   const poller = new PollerService(
     database,
     options.fetcher,
@@ -74,11 +76,15 @@ export async function createApp(
   mountApi(app, api);
   const brewTimer = options.startPoller
     ? setInterval(() => {
+        newsletters.prune();
         brewService.runScheduled();
         void brewService.runCompositionScheduled().catch((error) => app.log.error(error));
       }, 60_000)
     : null;
-  if (options.startPoller) poller.start();
+  if (options.startPoller) {
+    newsletters.prune();
+    poller.start();
+  }
   // Stop live streams before Fastify waits for sockets to drain.
   app.addHook('preClose', async () => {
     broker.close();

@@ -4,6 +4,7 @@ const Reader = lazy(() => import('./Reader').then((module) => ({ default: module
 import { RulesPage } from './RulesPage';
 import { BrewPage } from './BrewPage';
 import { runAssets } from './components/figmaAssets';
+import { articleRouteId } from './articleRoute';
 const WhereBrewRuns = lazy(() => import('./settings/WhereBrewRuns').then((module) => ({ default: module.WhereBrewRuns })));
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -25,6 +26,7 @@ export function App() {
 }
 function AppContent() {
   const [mode, setMode] = useState<'brew' | 'reader' | 'feeds' | 'rules'>(()=>{
+    if (articleRouteId(location.pathname) !== null) return 'reader';
     if (location.pathname.startsWith('/b/')) return 'brew';
     const view = new URLSearchParams(location.search).get('view');
     return view === 'brew' || view === 'reader' || view === 'feeds' || view === 'rules' ? view : localStorage.getItem('brew:landing')==='reader'?'reader':'brew';

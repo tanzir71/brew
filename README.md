@@ -202,6 +202,39 @@ More actions contains generation,
 edition selection and display preferences. Output controls remain visible and
 disabled until the output renderers are implemented.
 
+## Newsletter ingestion
+
+The portable `NewsletterPipeline` accepts MIME bytes or a decoded `NewsletterMessage`.
+`NewsletterService` connects it to Node's SQLite database and rules engine. A sender
+becomes a `newsletter` feed at `mailto:<address>`; ordinary Reader, search, tags and
+feed-sourced Brew sections can consume its letters. Letters without a public archive
+use a local `/a/:id` link that opens the existing Reader panel. Newsletter feeds are excluded
+from RSS polling. Inbound transport setup and the Newsletters screen follow in M10;
+the default install continues to report `inboundMail: null` until a transport exists.
+
+Cleaning removes pixels, known click redirects, tracking query parameters, small
+sponsor disclosures, configured per-sender CSS matches and email footer controls,
+then applies the shared article sanitizer and image proxy. Embedded HTTP redirect
+targets can be recovered; opaque redirects keep their label without a link. Cleaning
+never follows links. Heuristics cannot identify every publisher's ad or tracker;
+sender selectors provide overrides. Attachments and inline CID images are omitted.
+
+Migration 0008 stores decoded original HTML separately in `articles.raw_html`, with
+cleaning counts in `cleaning_json`. Reader/search/Brew consume cleaned HTML. Original
+HTML is untrusted and is not included in the existing article REST response. A later
+Show original view must render it inert. Text-only messages retain escaped text.
+Sender retention defaults to the existing 90 days; expired originals are cleared
+even when starred/tagged cleaned stories are kept, at ingestion and during Node's
+minute maintenance cycle (also on startup). RSS retention keeps its existing policy.
+
+Delivery replay deduplication uses sender plus Message-ID, with a deterministic
+subject/date/body fallback when it is absent. Identical undated messages without an
+ID therefore count as one delivery. Missing/invalid dates and dates more than a day
+in the future use receipt time. Raw messages are limited to 10 MiB, decoded HTML/text
+to 2 MiB each, headers to 256 KiB, MIME parts to 200 and nesting to 30. Sender addresses
+are normalized for grouping, not authenticated by the MIME parser; ingress adapters
+must authenticate the mailbox/webhook before calling the pipeline.
+
 ## Data ownership
 
 Your entire state is `data/brew.db`. To back up manually, **stop Brew first** so the SQLite database and WAL stay consistent, then copy the file. Automated backup and OPML export commands arrive in later milestones (see `CODEX_HANDOFF.md`).

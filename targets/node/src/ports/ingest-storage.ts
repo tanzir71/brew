@@ -4,7 +4,7 @@ import type { BrewDatabase } from '../db/database.js';
 import { articles } from '../db/schema.js';
 
 export class NodeIngestStorage implements IngestStoragePort {
-  constructor(private readonly database: BrewDatabase) {}
+  constructor(protected readonly database: BrewDatabase) {}
   insertBatch(items: IngestCandidate[]): number[] {
     return this.database.sqlite.transaction(() => {
       const ids: number[] = [];
@@ -58,6 +58,13 @@ export class NodeIngestStorage implements IngestStoragePort {
     this.database.db.update(articles).set({ hidden: true }).where(eq(articles.id, id)).run();
   }
   prune(feedId: number, before: number): void {
+    // Starred/tagged stories keep their cleaned text, but never retain original
+    // email HTML beyond the sender's retention window.
+    this.database.sqlite
+      .prepare(
+        'UPDATE articles SET raw_html = NULL WHERE feed_id = ? AND published_at < ? AND raw_html IS NOT NULL',
+      )
+      .run(feedId, before);
     this.database.sqlite
       .prepare(
         'DELETE FROM articles WHERE feed_id = ? AND published_at < ? AND starred_at IS NULL AND NOT EXISTS (SELECT 1 FROM article_tags WHERE article_id = articles.id)',

@@ -6,6 +6,7 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ModeChip } from './components/ModeChip';
+import { articleRouteId } from './articleRoute';
 import { cachedArticleState, patchArticleStates, refreshArticleStates, updateArticleState } from './articleState';
 import type {
   ArticleDetail,
@@ -50,6 +51,7 @@ export function Reader({
   const queryClient = useQueryClient();
   const [navigation, setNavigation] = useState(emptyNavigation);
   const [selection, setSelection] = useState<Selection>(() => {
+    if (articleRouteId(location.pathname) !== null) return { kind: 'all', title: 'All articles' };
     const params = new URLSearchParams(location.search);
     for (const kind of ['feed', 'folder'] as const) {
       const id = Number(params.get(kind));
@@ -406,7 +408,7 @@ function SearchView({
   onSave:()=>void;
 }) {
   const [scope, setScope] = useState<'all' | 'folder' | 'starred'>('all');
-  const [selectedArticle, setSelectedArticle] = useState<number | null>(null);
+  const [selectedArticle, setSelectedArticle] = useState<number | null>(() => articleRouteId(location.pathname));
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const results = useInfiniteQuery({
     queryKey: ['search', query, scope, currentFolderId],
@@ -571,7 +573,7 @@ function ArticleList({ selection }: { selection: Selection }) {
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
   const [densityByScope, setDensityByScope] = useState<Record<string, Density>>({});
-  const [selectedArticle, setSelectedArticle] = useState<number | null>(null);
+  const [selectedArticle, setSelectedArticle] = useState<number | null>(() => articleRouteId(location.pathname));
   const [openMode, setOpenMode] = useState<'overlay' | 'pane'>(() =>
     localStorage.getItem('brew:article-open-mode') === 'pane' ? 'pane' : 'overlay',
   );

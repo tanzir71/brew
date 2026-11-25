@@ -38,7 +38,7 @@ describe('database migrations', () => {
     try {
       expect(
         second.sqlite.prepare('SELECT count(*) AS count FROM __brew_migrations').get(),
-      ).toEqual({ count: 7 });
+      ).toEqual({ count: 8 });
     } finally {
       second.close();
     }
