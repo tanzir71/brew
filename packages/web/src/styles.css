@@ -1,8 +1,10 @@
-@import 'tailwindcss';
+@import 'tailwindcss' source(none);
 @import './styles/tokens.css';
 @import './styles/fonts.css';
 @import './styles/runs.css';
 @import './styles/components.css';
+@source './';
+@source '../test';
 :root {
   font-family: var(--brew-font-ui);
   font-optical-sizing: auto;
@@ -20,6 +22,7 @@
   ::before,
   ::after {
     border-color: var(--brew-border-default);
+    font-style: normal !important;
   }
   input[type='checkbox'],
   input[type='radio'] {
@@ -30,9 +33,6 @@
   kbd,
   samp {
     font-family: var(--brew-font-mono);
-  }
-  .article-content :is(em, i, dfn) {
-    font-style: normal;
   }
 }
 @layer utilities {

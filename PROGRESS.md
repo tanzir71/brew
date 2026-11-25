@@ -125,7 +125,7 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 
 ## v2
 
-### Current milestone: M8
+### Current milestone: M9
 
 ### Checklist state
 
@@ -136,11 +136,11 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - [x] `/api/capabilities` implemented for the Node target. A `useCapabilities()` hook exists in the web app.
 - [x] Sidebar Mode chip and Settings → Where Brew runs (`15:2010`) render from capabilities.
 
-### M8 — Design system v2
+### M8 — Design system v2 — DONE
 - [x] `tokens.css` generated from §4.2 (light and dark); Tailwind theme reads the CSS variables; stone/amber utilities removed.
 - [x] Newsreader, Instrument Sans and Geist Mono self-hosted (woff2, `font-display: swap`); no third-party font requests (asserted in e2e).
 - [x] Components of §4.3 built with stories or fixtures. Icon set ported from Figma `5:2` as an inline SVG sprite.
-- [ ] Zero italics: a lint rule or test fails on `font-style: italic`, `<em>` without a reset, or `italic` utilities.
+- [x] Zero italics: a lint rule or test fails on `font-style: italic`, `<em>` without a reset, or `italic` utilities.
 
 ### M9 — Read and Compose
 - [ ] Read view matches `8:2`/`9:270`: masthead (date · No. · title · lede · meta), section headers with "Mark section read", the four layouts, selected item with visible actions, rule highlight with chip, rail (In this Brew, progress, formats, next Brew), end-of-Brew state.
@@ -208,6 +208,8 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 
 ### Decisions
 
+- 2026-11-25: Keep semantic emphasis markup and apply an unconditional important normal-font reset to all elements and pseudo-elements in the app, landing and demo. Check CSS, JSX/script class/style contexts and SVG attributes in lint/build; reject unreset semantic emphasis. Restrict Tailwind scanning to web source and browser fixtures so adversarial test strings never generate production italic utilities.
+- 2026-11-25: Promote the already-installed PostCSS 8.5.16 to a direct dev dependency — parse stylesheets and font shorthands reliably for the no-italics guard; the existing TypeScript parser checks JSX and scripts.
 - 2026-11-25: Use npm workspaces — one domain core must run in Node, Workers, the browser and CI.
 - 2026-11-25: Preserve `server/`, `shared/` and `web/vite.config.ts` as compatibility exports while implementation moves into workspaces — the v1 unit/e2e test cases and visual baselines remain unchanged. Hono and capabilities follow in the next M7 iterations.
 - 2026-11-25: Inject storage, search, fetch, XML parsing, clock, hash, regex and notification ports into core services — Node-only libraries and side effects remain in `targets/node`; the shared SQLite schema and migrations live in `packages/db`.
@@ -236,6 +238,7 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 ### Dependency justifications
 
 - M7.1 added no new third-party packages. Existing dependencies are assigned to their owning workspaces; local @brew/core, @brew/db, @brew/web and @brew/node packages share the domain core and platform adapters.
+- `postcss` (direct dev dependency, already installed through Vite): parse CSS for the no-italics guard, including shorthand declarations, comments and unconditional resets.
 - `hono`: portable Web Request/Response REST router shared by Node and future targets, required by M7.
 
 ### Iteration M7.1 — DONE (2026-11-25)
@@ -298,3 +301,12 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - Discoveries: Chromium's SVG image and inline rasterizers can differ slightly at edge pixels even with identical paths. Compare the rendered symbols' complete vector attributes to the source XML, retain source checksums, and separately keep visual snapshots. Hidden section bodies have zero rendered dimensions; verify asset loading for all references and native geometry when visible. Modal and side-sheet scrims are distinct in Figma (32% and 24% inverse).
 - Dependency justifications: no new packages; native React/HTML controls and the existing Prettier runtime cover the library and generator.
 - Next unchecked criterion: enforce zero italics in lint/tests, then perform the M8 exit review. M8 remains in progress; M9–M20 remain pending.
+
+### Iteration M8.4 — DONE (2026-11-25)
+
+- Completed: zero-italics policy across app UI, feed summaries, Reader content, landing, interactive demo and social SVG; lint/build typography guard; semantic markup preserved; italic marketing font requests removed. Tailwind source paths exclude adversarial policy tests.
+- Files changed: normal-font guard/library and 32 unit regression cases; three browser tests covering real Brew/Reader content in both themes, all current app views, semantic tags, inline-style resistance, landing/demo/dynamic content and SVG text; global app/marketing styles, social SVG, npm scripts/lockfile, README and this checklist.
+- Verified: `npm run typecheck`; `npm run lint` (no warnings; normal typography verified across 210 authored files); `npm test` (218 passed); `npm run test:e2e` (50 passed, all existing visual baselines unchanged); `npm run build` (compiled Node target, migrations, SPA, fonts and SVG assets pass outside repository cwd); `npm run website:verify` (all nine marketing artifacts and existing site contracts pass).
+- M8 exit review passed 2026-11-25: Playwright's primitive, icon, composite, sidebar, modal and side-sheet gallery screenshots match in light/dark; their axe checks report no serious or critical findings. Existing Brew, Reader, settings, token and type visual/accessibility checks also pass.
+- Dependency justification: PostCSS is now explicit for the guard; it was already installed through Vite, so no new transitive package was added.
+- Next unchecked criterion: M9 Read view matching Figma `8:2` / `9:270`. M8 is complete; M9–M20 remain pending.

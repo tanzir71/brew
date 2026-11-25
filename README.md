@@ -125,6 +125,12 @@ Preview `/test/components.html` in development, with `?view=icons`,
 `npm run icons:generate` rebuilds the inline sprite from the 53 original exports;
 lint and builds check the source checksums and generated output.
 
+`npm run typography:check` enforces normal font styles in app and marketing
+CSS, JSX, scripts and SVGs, and runs with lint and builds. Global resets keep
+semantic emphasis tags in articles and feed summaries upright. Tailwind scans
+only the web source and browser fixtures so adversarial test strings do not
+generate italic utilities in shipped CSS.
+
 ## Data ownership
 
 Your entire state is `data/brew.db`. To back up manually, **stop Brew first** so the SQLite database and WAL stay consistent, then copy the file. Automated backup and OPML export commands arrive in later milestones (see `CODEX_HANDOFF.md`).

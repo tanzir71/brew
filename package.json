@@ -9,9 +9,9 @@
   "scripts": {
     "dev": "concurrently -k -n server,web \"tsx watch targets/node/src/index.ts\" \"vite --config packages/web/vite.config.ts\"",
     "start": "node dist/targets/node/src/index.js",
-    "build": "npm run tokens:check && npm run icons:check && vite build --config packages/web/vite.config.ts && tsc -p tsconfig.server.json && node scripts/copy-build-assets.mjs && node scripts/verify-node-build.mjs",
+    "build": "npm run typography:check && npm run tokens:check && npm run icons:check && vite build --config packages/web/vite.config.ts && tsc -p tsconfig.server.json && node scripts/copy-build-assets.mjs && node scripts/verify-node-build.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",
-    "lint": "npm run tokens:check && npm run icons:check && eslint .",
+    "lint": "npm run typography:check && npm run tokens:check && npm run icons:check && eslint .",
     "tokens:generate": "node scripts/generate-tokens.mjs",
     "icons:generate": "node scripts/generate-icons.mjs",
     "icons:check": "node scripts/generate-icons.mjs --check",
@@ -23,7 +23,8 @@
     "backup": "tsx server/scripts/backup.ts",
     "seed:big": "tsx server/scripts/seed-big.ts",
     "website:verify": "node scripts/verify-site.mjs",
-    "website:browser": "node scripts/verify-website-browser.mjs"
+    "website:browser": "node scripts/verify-website-browser.mjs",
+    "typography:check": "node scripts/verify-no-italics.mjs"
   },
   "dependencies": {
     "@brew/core": "0.1.0",
@@ -46,6 +47,7 @@
     "eslint-plugin-react-hooks": "latest",
     "eslint-plugin-react-refresh": "latest",
     "globals": "latest",
+    "postcss": "8.5.16",
     "prettier": "latest",
     "tailwindcss": "latest",
     "tsx": "latest",
