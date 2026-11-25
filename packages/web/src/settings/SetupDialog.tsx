@@ -124,6 +124,7 @@ export function SetupDialog({
           Export OPML
         </a>
       )}
+      {topic === 'newsletters' && <a className="runs-button" href="/letters">Open Newsletters</a>}
       <p className="runs-guide-note">
         <Badge tone="neutral">Setup guide</Badge>Available connections appear in “What works here”.
       </p>

@@ -211,8 +211,8 @@ feed-sourced Brew sections can consume its letters. Letters without a public arc
 use a local `/a/:id` link that opens the existing Reader panel. Newsletter feeds are excluded
 from RSS polling. Node supports a dedicated IMAP mailbox and authenticated Postmark/
 Mailgun inbound webhooks. Follow the [mail setup guide](docs/inbound-mail.md) and
-[environment example](.env.example). The Newsletters screen follows in M10; the default
-install reports `inboundMail: null` until a connection is configured. Migration 0009
+[environment example](.env.example). Open **Newsletters** in the sidebar or `/letters`;
+the default install reports `inboundMail: null` until a connection is configured. Migration 0009
 stores active receiving addresses and replay receipts, never provider credentials.
 
 Cleaning removes pixels, known click redirects, tracking query parameters, small
@@ -224,8 +224,10 @@ sender selectors provide overrides. Attachments and inline CID images are omitte
 
 Migration 0008 stores decoded original HTML separately in `articles.raw_html`, with
 cleaning counts in `cleaning_json`. Reader/search/Brew consume cleaned HTML. Original
-HTML is untrusted and is not included in the existing article REST response. A later
-Show original view must render it inert. Text-only messages retain escaped text.
+HTML is untrusted and is not included in article or newsletter JSON responses.
+**Show original** displays the original text in a sandbox with images, links and active
+content disabled. **Open original** opens a public archive when the sender supplied one;
+otherwise it opens the same inert original in a new tab. Text-only messages retain escaped text.
 Sender retention defaults to the existing 90 days; expired originals are cleared
 even when starred/tagged cleaned stories are kept, at ingestion and during Node's
 minute maintenance cycle (also on startup). RSS retention keeps its existing policy.
@@ -237,6 +239,26 @@ in the future use receipt time. Raw messages are limited to 10 MiB, decoded HTML
 to 2 MiB each, headers to 256 KiB, MIME parts to 200 and nesting to 30. Sender addresses
 are normalized for grouping, not authenticated by the MIME parser; ingress adapters
 must authenticate the mailbox/webhook before calling the pipeline.
+
+The Newsletters screen has Inbox, Favorites, Skipped and Blocked views, sender sorting,
+50-letter pages and shareable `/letters/:id` URLs with sender/view/page filters. Selecting
+a letter marks it read; the initial Inbox preview keeps its unread state. Use the metadata
+button or **M** while the reading pane is focused to toggle read state. Read and Starred
+state are shared with Reader and Brew; saved issues keep their frozen content.
+
+**Favorite** applies to a sender; **Save to Starred** and **Tag** apply to one letter.
+**Skip sender** removes its letters from Inbox while retaining them in Skipped.
+**Block** also rejects future deliveries; unblock from the Blocked view. Sender settings
+choose a Brew, retention and selectors for cleaning future letters. Assigning a Brew adds
+the sender to a managed Grid section without changing saved issues or custom sources.
+**Only in Brew** requires an assignment and omits that sender from Reader’s general
+lists and bulk-read actions. Newsletters, search, direct sender access and Starred remain
+available. Deleting the assigned Brew clears that restriction.
+
+The address card reflects the configured mail capability and copies the receiving address.
+**Forward from Gmail** explains address verification and a narrow forwarding filter for
+new mail; it does not use OAuth or connect your Google account. Unconfigured instances
+keep setup visible. Browser and static email-to-feed ingestion remain for M15/M16.
 
 ## Data ownership
 

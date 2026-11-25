@@ -13,3 +13,5 @@ export * from './newsletter-mime.js';
 export * from './newsletter-pipeline.js';
 export * from './types/newsletters.js';
 export * from './inbound-email.js';
+export * from './newsletter-settings.js';
+export * from './newsletter-original.js';

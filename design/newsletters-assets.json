@@ -1,0 +1,14 @@
+{
+  "fileKey": "NcqNdBhgeg6om2CCZwrYV8",
+  "frame": "12:1252",
+  "purpose": "Unchanged source illustration supplied as newsletter body imagery in the browser fixture; production imagery remains letter data.",
+  "assets": [
+    {
+      "file": "packages/web/public/figma/newsletters/letter.png",
+      "node": "12:1579",
+      "width": 446,
+      "height": 200,
+      "sha256": "ffd4efd9bf0ef28dd2aab65da397fa6f554b7945620bc308807191b5f15c05b5"
+    }
+  ]
+}

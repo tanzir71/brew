@@ -1,5 +1,6 @@
 import type { ArticlePage, ArticleSummary, ReaderFeed, ReaderFolder, ReaderNavigation } from '@brew/core/types/api.js';
 import type { BrewDatabase } from '../db/database.js';
+import { readerNewsletterVisibility } from '../ports/newsletter-visibility.js';
 
 interface CountRow { count: number }
 interface FeedRow { id: number; folderId: number | null; title: string; muted: number; unreadCount: number }
@@ -14,16 +15,17 @@ export class ReaderService {
 
   navigation(): ReaderNavigation {
     const todaySince = this.now().getTime() - 86_400_000;
-    const count = (where: string, value?: number) => (this.database.sqlite.prepare(`SELECT count(*) AS count FROM articles a JOIN feeds f ON f.id = a.feed_id WHERE a.hidden = 0 AND f.muted = 0 AND ${where}`).get(...(value === undefined ? [] : [value])) as CountRow).count;
-    const feedRows = this.database.sqlite.prepare(`SELECT f.id, f.folder_id AS folderId, f.title, f.muted, count(a.id) AS unreadCount FROM feeds f LEFT JOIN articles a ON a.feed_id = f.id AND a.read_at IS NULL AND a.hidden = 0 WHERE f.muted = 0 GROUP BY f.id ORDER BY f.title COLLATE NOCASE`).all() as FeedRow[];
+    const count = (where: string, value?: number, saved = false) => (this.database.sqlite.prepare(`SELECT count(*) AS count FROM articles a JOIN feeds f ON f.id = a.feed_id WHERE a.hidden = 0 AND f.muted = 0 AND ${saved ? '1=1' : readerNewsletterVisibility} AND ${where}`).get(...(value === undefined ? [] : [value])) as CountRow).count;
+    const feedRows = this.database.sqlite.prepare(`SELECT f.id, f.folder_id AS folderId, f.title, f.muted, count(a.id) AS unreadCount FROM feeds f LEFT JOIN articles a ON a.feed_id = f.id AND a.read_at IS NULL AND a.hidden = 0 WHERE f.muted = 0 AND ${readerNewsletterVisibility} GROUP BY f.id ORDER BY f.title COLLATE NOCASE`).all() as FeedRow[];
     const folderRows = this.database.sqlite.prepare('SELECT id, title, position FROM folders ORDER BY position, title COLLATE NOCASE').all() as FolderRow[];
     const mapFeed = (feed: FeedRow): ReaderFeed => ({ id: feed.id, folderId: feed.folderId, title: feed.title, unreadCount: feed.unreadCount, muted: Boolean(feed.muted) });
     const folders: ReaderFolder[] = folderRows.map((folder) => { const childFeeds = feedRows.filter((feed) => feed.folderId === folder.id).map(mapFeed); return { id: folder.id, title: folder.title, unreadCount: childFeeds.reduce((sum, feed) => sum + feed.unreadCount, 0), feeds: childFeeds }; });
-    return { counts: { all: count('a.read_at IS NULL'), today: count('a.read_at IS NULL AND a.published_at >= ?', todaySince), starred: count('a.starred_at IS NOT NULL') }, folders, unfiled: feedRows.filter((feed) => feed.folderId === null).map(mapFeed) };
+    return { counts: { all: count('a.read_at IS NULL'), today: count('a.read_at IS NULL AND a.published_at >= ?', todaySince), starred: count('a.starred_at IS NOT NULL', undefined, true) }, folders, unfiled: feedRows.filter((feed) => feed.folderId === null).map(mapFeed) };
   }
 
   articles(query: ArticleQuery): ArticlePage {
     const clauses = ['a.hidden = 0', 'f.muted = 0'];
+    if (query.view !== 'starred' && query.feedId === undefined) clauses.push(readerNewsletterVisibility);
     const parameters: number[] = [];
     if (query.view === 'today') { clauses.push('a.published_at >= ?'); parameters.push(this.now().getTime() - 86_400_000); }
     if (query.view === 'starred') clauses.push('a.starred_at IS NOT NULL');

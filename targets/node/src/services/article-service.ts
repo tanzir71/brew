@@ -6,6 +6,7 @@ import type { ArticleDetail } from '@brew/core/types/api.js';
 import type { BrewDatabase } from '../db/database.js';
 import { articleTags, articles, tags } from '../db/schema.js';
 import { sanitizeArticleHtml } from './html-sanitizer.js';
+import { readerNewsletterVisibility } from '../ports/newsletter-visibility.js';
 
 type Fetch = typeof globalThis.fetch;
 interface UndoEntry { articleIds: number[]; expiresAt: number }
@@ -58,8 +59,8 @@ export class ArticleService {
   updateState(id: number, values: { read?: boolean; starred?: boolean }): ArticleDetail | null {
     if (!this.database.db.select({ id: articles.id }).from(articles).where(eq(articles.id, id)).get()) return null;
     const changes: { readAt?: Date | null; starredAt?: Date | null } = {};
-    if (values.read !== undefined) changes.readAt = values.read ? new Date() : null;
-    if (values.starred !== undefined) changes.starredAt = values.starred ? new Date() : null;
+    if (values.read !== undefined) changes.readAt = values.read ? this.now() : null;
+    if (values.starred !== undefined) changes.starredAt = values.starred ? this.now() : null;
     if (Object.keys(changes).length) this.database.db.update(articles).set(changes).where(eq(articles.id, id)).run();
     return this.get(id);
   }
@@ -87,6 +88,7 @@ export class ArticleService {
 
   markAllRead(scope: MarkAllScope): { updated: number; undoToken: string; expiresAt: string } {
     const clauses = ['a.hidden = 0', 'a.read_at IS NULL', 'f.muted = 0'];
+    if (scope.view !== 'starred' && scope.feedId === undefined) clauses.push(readerNewsletterVisibility);
     const parameters: number[] = [];
     if (scope.view === 'today') { clauses.push('a.published_at >= ?'); parameters.push(this.now().getTime() - 86_400_000); }
     if (scope.view === 'starred') clauses.push('a.starred_at IS NOT NULL');

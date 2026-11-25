@@ -30,6 +30,8 @@ try {
   assert.equal(route.body, page.body);
   assert.equal((await app.inject('/settings/runs')).body, page.body);
   assert.equal((await app.inject('/b/1/compose')).body, page.body);
+  assert.equal((await app.inject('/letters')).body, page.body);
+  assert.equal((await app.inject('/letters/1')).body, page.body);
   const fonts = ['instrument-sans', 'newsreader', 'geist-mono'].flatMap((name) =>
     ['latin', 'latin-ext'].map((subset) => `/fonts/${name}-${subset}.woff2`),
   );
@@ -44,6 +46,7 @@ try {
     '/figma/compose/lead.svg',
     '/figma/compose/variables.svg',
     '/figma/compose/lines.png',
+    '/figma/newsletters/letter.png',
   ]) {
     const response = await app.inject(asset);
     assert.equal(response.statusCode, 200);
@@ -144,6 +147,25 @@ try {
   assert.equal(article.contentHtml, '<p>A compiled story.</p>');
   assert.equal(article.url, `/a/${letter.articleId}`);
   assert.equal(article.rawHtml, undefined);
+  const letterDetail = (await app.inject(`/api/newsletters/letters/${letter.articleId}`)).json();
+  assert.equal(letterDetail.originalAvailable, true);
+  assert.equal(letterDetail.cleaning.trackers, 1);
+  assert.equal(letterDetail.rawHtml, undefined);
+  assert.equal((await app.inject('/api/newsletters/overview')).json().unreadCount, 1);
+  const senderSettings = await app.inject({
+    method: 'PATCH',
+    url: `/api/newsletters/senders/${letter.feedId}`,
+    payload: { favorite: true, retentionDays: 60 },
+  });
+  assert.equal(senderSettings.statusCode, 200);
+  assert.equal(senderSettings.json().settings.favorite, true);
+  assert.equal((await app.inject('/api/newsletters/letters?view=favorites')).json().total, 1);
+  const original = await app.inject(`/api/newsletters/letters/${letter.articleId}/original`);
+  assert.equal(original.statusCode, 200);
+  assert.equal(original.headers['cache-control'], 'no-store');
+  assert.match(original.headers['content-security-policy'], /^sandbox; default-src 'none'/);
+  assert.match(original.body, /A compiled story/);
+  assert.doesNotMatch(original.body, /<script|<img|metrics\.test/);
   assert.equal(
     database.sqlite
       .prepare('SELECT raw_html FROM articles WHERE id=?')

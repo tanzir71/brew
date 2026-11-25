@@ -36,7 +36,10 @@ export async function createApp(
 ): Promise<FastifyInstance> {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
   app.addHook('onSend', async (_request, reply, payload) => {
-    for (const [name, value] of Object.entries(securityHeaders)) reply.header(name, value);
+    for (const [name, value] of Object.entries(securityHeaders)) {
+      if (name === 'Content-Security-Policy' && reply.hasHeader(name)) continue;
+      reply.header(name, value);
+    }
     return payload;
   });
   app.addContentTypeParser(

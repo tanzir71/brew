@@ -13,6 +13,7 @@ import { registerOpmlRoutes } from './routes/opml.js';
 import { registerPollerRoutes } from './routes/poller.js';
 import { registerMediaRoutes } from './routes/media.js';
 import { registerInboundRoutes } from './inbound.js';
+import { registerNewsletterRoutes } from './newsletters.js';
 
 export const securityHeaders = {
   'Content-Security-Policy':
@@ -28,7 +29,10 @@ export function createApi(
   const app = new Hono();
   app.use('*', async (c, next) => {
     await next();
-    for (const [name, value] of Object.entries(securityHeaders)) c.header(name, value);
+    for (const [name, value] of Object.entries(securityHeaders)) {
+      if (name === 'Content-Security-Policy' && c.res.headers.has(name)) continue;
+      c.header(name, value);
+    }
   });
   app.onError((error, c) =>
     json(c, { statusCode: 500, error: 'Internal Server Error', message: error.message }, 500),
@@ -45,6 +49,7 @@ export function createApi(
   registerPollerRoutes(app, services);
   registerMediaRoutes(app, services);
   registerInboundRoutes(app, services);
+  registerNewsletterRoutes(app, services);
   app.get('/api/capabilities', async (c) => {
     c.header('Cache-Control', 'no-store');
     return json(c, await services.capabilities());

@@ -85,7 +85,11 @@ export class NodeBrewStorage implements BrewStoragePort {
     );
   }
   delete(id: number): boolean {
-    return this.database.db.delete(brewConfigs).where(eq(brewConfigs.id, id)).run().changes > 0;
+    return this.database.sqlite.transaction(() => {
+      const deleted = this.database.db.delete(brewConfigs).where(eq(brewConfigs.id, id)).run().changes > 0;
+      if (deleted) this.database.sqlite.prepare("UPDATE feeds SET settings_json=json_set(json_remove(settings_json,'$.brewId'),'$.onlyInBrew',json('false')) WHERE kind='newsletter' AND json_extract(settings_json,'$.brewId')=?").run(id);
+      return deleted;
+    })();
   }
   items(query: BrewItemQuery): BrewItemRow[] {
     const clauses = ['a.hidden = 0', 'a.excluded_from_brew = 0'];

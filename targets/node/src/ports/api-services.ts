@@ -3,6 +3,7 @@ import type { ClockPort } from '../../../../packages/core/src/ports.js';
 import type { InboundEmailPort } from '../../../../packages/api/src/inbound.js';
 import type { Capabilities } from '../../../../packages/core/src/types/capabilities.js';
 import { SourceService } from '../services/source-service.js';
+import { NewsletterLibrary } from '../services/newsletter-library.js';
 import type { ApiServices } from '../../../../packages/api/src/ports.js';
 import type { BrewDatabase } from '../db/database.js';
 import { ArticleService } from '../services/article-service.js';
@@ -29,7 +30,10 @@ export function nodeApiServices(
     inboundMail?: Capabilities['inboundMail'];
   } = {},
 ): ApiServices {
+  const clock = options.clock;
+  const now = clock ? () => clock.now() : undefined;
   return {
+    newsletters: new NewsletterLibrary(database, options.clock),
     capabilities: () => ({
       ...nodeCapabilities(),
       emailDelivery: options.outboundMail?.kind ?? null,
@@ -39,8 +43,8 @@ export function nodeApiServices(
     inboundEmail: options.inboundEmail,
     sources: new SourceService(database, fetcher),
     feeds: new FeedService(database, fetcher),
-    articles: new ArticleService(database, fetcher),
-    reader: new ReaderService(database),
+    articles: new ArticleService(database, fetcher, now),
+    reader: new ReaderService(database, now),
     brews: new BrewService(database, options.clock),
     rules: new RulesService(database, fetcher, (article) =>
       broker.publish('notification', article),

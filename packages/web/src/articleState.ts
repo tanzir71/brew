@@ -1,6 +1,7 @@
 import type { InfiniteData, QueryClient } from '@tanstack/react-query';
 import type { ArticleDetail, ArticleSummary } from '@brew/core/types/api';
 import type { BrewReadState } from '@brew/core/types/brew';
+import type { NewsletterLetterPage } from '@brew/core/types/newsletters';
 
 type ArticleState = Pick<ArticleDetail, 'readAt' | 'starredAt'>;
 type Pages = InfiniteData<{ items: ArticleSummary[] }>;
@@ -20,6 +21,19 @@ export function patchArticleStates(
   const selected = new Set(ids);
   client.setQueriesData<ArticleDetail>({ queryKey: ['article'] }, (current) =>
     current && selected.has(current.id) ? { ...current, ...values } : current,
+  );
+  client.setQueriesData<ArticleDetail>({ queryKey: ['newsletter-letter'] }, (current) =>
+    current && selected.has(current.id) ? { ...current, ...values } : current,
+  );
+  client.setQueriesData<NewsletterLetterPage>({ queryKey: ['newsletter-letters'] }, (current) =>
+    current
+      ? {
+          ...current,
+          items: current.items.map((item) =>
+            selected.has(item.id) ? { ...item, ...values } : item,
+          ),
+        }
+      : current,
   );
   for (const key of ['articles', 'search'])
     client.setQueriesData<Pages>({ queryKey: [key] }, (current) =>
@@ -49,7 +63,16 @@ export function patchArticleStates(
 
 export function refreshArticleStates(client: QueryClient) {
   if (writes.get(client)?.pending) return;
-  for (const key of ['article', 'articles', 'search', 'brew-state', 'reader-navigation'])
+  for (const key of [
+    'article',
+    'articles',
+    'search',
+    'brew-state',
+    'reader-navigation',
+    'newsletter-overview',
+    'newsletter-letters',
+    'newsletter-letter',
+  ])
     void client.invalidateQueries({ queryKey: [key] });
   window.dispatchEvent(new Event('brew:navigation-refresh'));
 }
@@ -57,6 +80,14 @@ export function refreshArticleStates(client: QueryClient) {
 export function cachedArticleState(client: QueryClient, id: number): ArticleState {
   const detail = client.getQueryData<ArticleDetail>(['article', id]);
   if (detail) return { readAt: detail.readAt, starredAt: detail.starredAt };
+  const letter = client.getQueryData<ArticleDetail>(['newsletter-letter', id]);
+  if (letter) return { readAt: letter.readAt, starredAt: letter.starredAt };
+  for (const [, page] of client.getQueriesData<NewsletterLetterPage>({
+    queryKey: ['newsletter-letters'],
+  })) {
+    const item = page?.items.find((item) => item.id === id);
+    if (item) return { readAt: item.readAt, starredAt: item.starredAt };
+  }
   for (const [, state] of client.getQueriesData<BrewReadState>({ queryKey: ['brew-state'] })) {
     const item = state?.articles.find((item) => item.id === id);
     if (item) return { readAt: item.readAt, starredAt: item.starredAt };
@@ -84,7 +115,10 @@ export async function updateArticleState(
   // every queued write has settled, so an older GET cannot rewind another edit.
   await Promise.allSettled([
     client.cancelQueries({ queryKey: ['article', id] }),
-    ...['articles', 'search', 'brew-state'].map((key) => client.cancelQueries({ queryKey: [key] })),
+    client.cancelQueries({ queryKey: ['newsletter-letter', id] }),
+    ...['articles', 'search', 'brew-state', 'newsletter-letters'].map((key) =>
+      client.cancelQueries({ queryKey: [key] }),
+    ),
   ]);
   let entry = batch.entries.get(id);
   if (!entry) {

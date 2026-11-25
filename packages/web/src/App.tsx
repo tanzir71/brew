@@ -6,6 +6,7 @@ import { BrewPage } from './BrewPage';
 import { runAssets } from './components/figmaAssets';
 import { articleRouteId } from './articleRoute';
 const WhereBrewRuns = lazy(() => import('./settings/WhereBrewRuns').then((module) => ({ default: module.WhereBrewRuns })));
+const NewslettersPage = lazy(() => import('./NewslettersPage').then((module) => ({ default: module.NewslettersPage })));
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -34,6 +35,7 @@ function AppContent() {
   const [searchDraft, setSearchDraft] = useState(() => new URLSearchParams(location.search).get('q') ?? '');
   const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(location.search).get('q')?.trim() ?? '');
   const isRuns = location.pathname === '/settings/runs';
+  const isLetters = /^\/letters(?:\/[1-9]\d*)?\/?$/.test(location.pathname);
   const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => {
     const saved = localStorage.getItem('brew:theme');
     return saved === 'light' || saved === 'dark' ? saved : 'system';
@@ -50,7 +52,8 @@ function AppContent() {
     media.addEventListener('change', apply);
     return () => media.removeEventListener('change', apply);
   }, [theme]);
-  useEffect(() => { document.title = `${isRuns ? 'Where Brew runs' : mode === 'brew' ? 'The Brew' : mode === 'reader' ? 'Reader' : mode === 'rules' ? 'Rules' : 'Feeds'} · Brew`; }, [mode, isRuns]);
+  useEffect(() => { document.title = `${isLetters ? 'Newsletters' : isRuns ? 'Where Brew runs' : mode === 'brew' ? 'The Brew' : mode === 'reader' ? 'Reader' : mode === 'rules' ? 'Rules' : 'Feeds'} · Brew`; }, [mode, isRuns, isLetters]);
+  if (isLetters) return <Suspense fallback={<main role="status" className="p-8">Loading newsletters…</main>}><NewslettersPage /></Suspense>;
   if (isRuns) return <Suspense fallback={<main role="status" className="p-8">Loading settings…</main>}><WhereBrewRuns /></Suspense>;
   if (mode === 'brew') return <BrewPage preferences={<>
     <label>Theme<select aria-label="Theme" value={theme} onChange={(event)=>{const value=event.target.value as 'system'|'light'|'dark';setTheme(value);localStorage.setItem('brew:theme',value)}}><option value="system">System theme</option><option value="light">Light theme</option><option value="dark">Dark theme</option></select></label>

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { BrewConfig } from '@brew/core/types/legacy-brew';
 import type { ReaderNavigation } from '@brew/core/types/api';
+import type { NewsletterOverview } from '@brew/core/types/newsletters';
 import { useCapabilities } from '../hooks/useCapabilities';
 import { ModeChip } from './ModeChip';
 import { Kbd, NavItem, Wordmark } from './controls';
@@ -50,6 +51,10 @@ export function AppSidebar({
   const navigation = useQuery({
     queryKey: ['reader-navigation'],
     queryFn: ({ signal }) => getJson<ReaderNavigation>('/api/reader/navigation', signal),
+  });
+  const newsletters = useQuery({
+    queryKey: ['newsletter-overview'],
+    queryFn: ({ signal }) => getJson<NewsletterOverview>('/api/newsletters/overview', signal),
   });
   const [saved] = useState<Array<{ id: string; name: string; query: string }>>(() => {
     try {
@@ -103,11 +108,18 @@ export function AppSidebar({
           )}
         </div>
         <div className="runs-nav-group">
-          {capabilities.data?.inboundMail ? (
-            <a href="/letters">
-              <img src={runAssets.inbox} alt="" />
+          {capabilities.data?.inboundMail ||
+          activeHref.startsWith('/letters') ||
+          newsletters.data?.senders.length ? (
+            <NavItem
+              href="/letters"
+              active={activeHref.startsWith('/letters')}
+              icon={<img src={runAssets.inbox} alt="" />}
+              calm={calm}
+              count={newsletters.data?.unreadCount}
+            >
               Newsletters
-            </a>
+            </NavItem>
           ) : (
             <div className="runs-newsletter-locked">
               <button disabled>

@@ -10,6 +10,7 @@ test.afterEach(async () => {
 });
 async function setup(page: Page) {
   const clock = { now: () => new Date('2026-11-25T01:00:00Z') };
+  await page.clock.setFixedTime(clock.now());
   const fixture = await composeFixture(page, 'light', undefined, { clock });
   const service = new BrewService(fixture.database, clock);
   await service.generateComposition(fixture.config.id);

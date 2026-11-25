@@ -40,6 +40,64 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it('shares Newsletter list/detail read state without changing sender settings or cleaning metadata', async () => {
+  const sender = { settings: { onlyInBrew: true } };
+  const cleaning = { trackers: 3, sponsorBlocks: 1, footerTrimmed: true };
+  client.setQueryData(['newsletter-letter', 1], {
+    ...initial,
+    sender,
+    cleaning,
+    originalAvailable: true,
+  });
+  client.setQueryData(['newsletter-letters', 'inbox'], {
+    items: [initial, { ...initial, id: 2 }],
+    total: 2,
+    page: 1,
+    pageSize: 50,
+  });
+  client.setQueryData(['newsletter-overview'], { unreadCount: 2 });
+  const originalPage = client.getQueryData(['newsletter-letters', 'inbox']);
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => json({ ...initial, readAt })),
+  );
+  await updateArticleState(client, 1, { read: true });
+  expect(client.getQueryData(['newsletter-letter', 1])).toEqual({
+    ...initial,
+    readAt,
+    sender,
+    cleaning,
+    originalAvailable: true,
+  });
+  expect(
+    client
+      .getQueryData<{ items: (typeof initial)[] }>(['newsletter-letters', 'inbox'])!
+      .items.map((item) => item.readAt),
+  ).toEqual([readAt, null]);
+  expect(originalPage).toEqual({
+    items: [initial, { ...initial, id: 2 }],
+    total: 2,
+    page: 1,
+    pageSize: 50,
+  });
+  expect(client.getQueryState(['newsletter-overview'])?.isInvalidated).toBe(true);
+});
+
+it('uses Newsletter-only cached confirmation when an explicit unread write fails', async () => {
+  client.removeQueries({ queryKey: ['article'] });
+  client.setQueryData(['newsletter-letter', 1], { ...initial, readAt, cleaning: { trackers: 1 } });
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => json(initial, 503)),
+  );
+  await expect(updateArticleState(client, 1, { read: false })).rejects.toThrow('Could not update');
+  expect(client.getQueryData(['newsletter-letter', 1])).toEqual({
+    ...initial,
+    readAt,
+    cleaning: { trackers: 1 },
+  });
+});
+
 it('updates every live cache without changing issue content or unrelated articles', async () => {
   const history = JSON.stringify(client.getQueryData(['brew-history', 1]));
   const response = deferred();
