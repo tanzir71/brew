@@ -1,8 +1,10 @@
-import { Component, type FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react';
+import { Component, type FormEvent, type ReactNode, lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import type { FeedCandidate, FeedSummary, FolderSummary } from '@brew/core/types/api';
 import { Reader } from './Reader';
 import { RulesPage } from './RulesPage';
 import { BrewPage } from './BrewPage';
+import { runAssets } from './components/figmaAssets';
+const WhereBrewRuns = lazy(() => import('./settings/WhereBrewRuns').then((module) => ({ default: module.WhereBrewRuns })));
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -22,9 +24,13 @@ export function App() {
   return <ErrorBoundary><AppContent /></ErrorBoundary>;
 }
 function AppContent() {
-  const [mode, setMode] = useState<'brew' | 'reader' | 'feeds' | 'rules'>(()=>localStorage.getItem('brew:landing')==='reader'?'reader':'brew');
-  const [searchDraft, setSearchDraft] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [mode, setMode] = useState<'brew' | 'reader' | 'feeds' | 'rules'>(()=>{
+    const view = new URLSearchParams(location.search).get('view');
+    return view === 'brew' || view === 'reader' || view === 'feeds' || view === 'rules' ? view : localStorage.getItem('brew:landing')==='reader'?'reader':'brew';
+  });
+  const [searchDraft, setSearchDraft] = useState(() => new URLSearchParams(location.search).get('q') ?? '');
+  const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(location.search).get('q')?.trim() ?? '');
+  const isRuns = location.pathname === '/settings/runs';
   const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => {
     const saved = localStorage.getItem('brew:theme');
     return saved === 'light' || saved === 'dark' ? saved : 'system';
@@ -41,13 +47,14 @@ function AppContent() {
     media.addEventListener('change', apply);
     return () => media.removeEventListener('change', apply);
   }, [theme]);
-  useEffect(() => { document.title = `${mode === 'brew' ? 'The Brew' : mode === 'reader' ? 'Reader' : mode === 'rules' ? 'Rules' : 'Feeds'} · Brew`; }, [mode]);
+  useEffect(() => { document.title = `${isRuns ? 'Where Brew runs' : mode === 'brew' ? 'The Brew' : mode === 'reader' ? 'Reader' : mode === 'rules' ? 'Rules' : 'Feeds'} · Brew`; }, [mode, isRuns]);
+  if (isRuns) return <Suspense fallback={<main role="status" className="p-8">Loading settings…</main>}><WhereBrewRuns /></Suspense>;
   return (
     <main className="min-h-screen bg-stone-50 text-stone-900">
       <header className="flex h-16 items-center justify-between border-b border-stone-200 px-8">
-        <button onClick={() => setMode('brew')} className="font-semibold tracking-tight">
+        <div className="flex items-center gap-3"><button onClick={() => setMode('brew')} className="font-semibold tracking-tight">
           Brew
-        </button>
+        </button><a href="/settings/runs" className="legacy-settings-link" aria-label="Settings · Where Brew runs"><img src={runAssets.settings} alt="" /></a></div>
         <div className="flex items-center gap-3">
           <label className="sr-only" htmlFor="global-search">
             Search

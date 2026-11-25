@@ -43,6 +43,11 @@ Web components read it through `useCapabilities()`. Features remain unavailable
 until their implementations are wired in; malformed responses and failed refreshes
 do not expose capability data to feature controls.
 
+Open `/settings/runs` (or the Reader's Mode chip) for the current instance,
+capability table, and setup guides. Unavailable connections stay visible. Complete
+`.brew` transfer is disabled until the cross-target archive support arrives;
+the data guide offers the existing OPML export and Node backup command.
+
 ## Getting started (from zero)
 
 ### Prerequisites

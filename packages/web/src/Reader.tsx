@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ModeChip } from './components/ModeChip';
 import type {
   ArticleDetail,
   ArticlePage,
@@ -48,7 +49,15 @@ export function Reader({
 }) {
   const queryClient = useQueryClient();
   const [navigation, setNavigation] = useState(emptyNavigation);
-  const [selection, setSelection] = useState<Selection>({ kind: 'brew', title: 'The Brew' });
+  const [selection, setSelection] = useState<Selection>(() => {
+    const params = new URLSearchParams(location.search);
+    for (const kind of ['feed', 'folder'] as const) {
+      const id = Number(params.get(kind));
+      if (Number.isInteger(id) && id > 0) return { kind, id, title: params.get('name') || (kind === 'feed' ? 'Feed' : 'Folder') };
+    }
+    const scope = params.get('scope');
+    return scope === 'all' || scope === 'today' || scope === 'starred' ? { kind: scope, title: { all: 'All articles', today: 'Today', starred: 'Starred' }[scope] } : { kind: 'brew', title: 'The Brew' };
+  });
   const [error, setError] = useState('');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const pendingGo = useRef(false);
@@ -152,7 +161,7 @@ export function Reader({
       <div className="grid min-h-[calc(100vh-4rem)] grid-cols-[15.5rem_minmax(0,1fr)]">
         <aside
           aria-label="Reader navigation"
-          className="border-r border-stone-200 bg-stone-50 px-4 py-6"
+          className="flex flex-col border-r border-stone-200 bg-stone-50 px-4 py-6"
         >
           <nav className="space-y-1">
             <button
@@ -227,6 +236,7 @@ export function Reader({
               </section>
             )}
           </div>
+          <div className="reader-mode-footer"><ModeChip /></div>
         </aside>
         <section className="min-w-0 bg-white">
           {searchQuery ? (

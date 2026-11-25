@@ -125,16 +125,16 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 
 ## v2
 
-### Current milestone: M7
+### Current milestone: M8
 
 ### Checklist state
 
 
-### M7 — Core extraction, capabilities, mode chip
+### M7 — Core extraction, capabilities, mode chip — DONE
 - [x] Workspaces created; domain logic moved to `packages/core` with ports. All v1 unit and e2e tests pass unchanged.
 - [x] Hono API replaces the Fastify routes in the Node target, with identical REST contracts (contract tests against v1 responses).
 - [x] `/api/capabilities` implemented for the Node target. A `useCapabilities()` hook exists in the web app.
-- [ ] Sidebar Mode chip and Settings → Where Brew runs (`15:2010`) render from capabilities.
+- [x] Sidebar Mode chip and Settings → Where Brew runs (`15:2010`) render from capabilities.
 
 ### M8 — Design system v2
 - [ ] `tokens.css` generated from §4.2 (light and dark); Tailwind theme reads the CSS variables; stone/amber utilities removed.
@@ -216,6 +216,9 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - 2026-11-25: Capture 96 golden REST responses from commit `8165e73` before replacing routes — compare real v1 bodies, statuses, media bytes and product headers, normalizing only validated timestamps, random undo tokens and timings.
 - 2026-11-25: Capabilities describe currently wired target features; Node initially reports mail, Reader API, MCP, WebMCP, AI and publishing unavailable until their milestones add working adapters. The target supplies the declaration to Hono; URL parameters cannot override it. `backgroundFetch.everyMinutes: 1` describes the due-feed scheduler tick, preserving adaptive per-feed intervals.
 - 2026-11-25: Validate the shared capabilities contract at the HTTP boundary and withhold cached capability data after failed refreshes — feature controls must not enable actions from malformed or stale error-state data. TanStack Query shares one request among consumers and permits retry without a page reload.
+- 2026-11-25: Implement Figma `15:2010` with a scoped v2 palette and self-hosted fonts before M8 — keep v1 screens stable while matching the new settings frame. Use actual host, read-state and fetch-limit data instead of the design’s sample database size, plan, feed totals or export date.
+- 2026-11-25: Capability rows branch only on feature fields; mode names are presentation metadata. Locked and setup states stay visible with working URL-addressable guides. `.brew` transfer controls remain disabled until M15; the data guide offers existing OPML export and the Node backup command. General/Reading links reach current controls, while new connection settings open guides until their feature milestones wire the configuration flows.
+- 2026-11-25: Strengthen small caption ink in the new screen to meet 4.5:1 against its canvas — axe found 4.4:1 with inherited v1 muted ink. The Figma layout, font metrics and SVG exports retain their intended geometry.
 
 ### Discoveries / gotchas
 
@@ -252,3 +255,13 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - Verified: `npm run typecheck`; `npm run lint` (no warnings); `npm test` (181 passed); `npm run test:e2e` (26 passed, including three capability flows plus unchanged v1 visual, accessibility and performance checks); `npm run build` (compiled capabilities endpoint, SPA and migrations verified outside repository cwd).
 - Dependency justifications: no new packages.
 - Next unchecked criterion: Sidebar Mode chip and Settings → Where Brew runs from capabilities, matching Figma `15:2010`. M7 remains in progress; M8–M20 are pending.
+
+### Iteration M7.4 — DONE (2026-11-25)
+
+- Completed: capability-driven Mode chip in the Reader sidebar; Settings shortcut; `/settings/runs` matching Figma `15:2010` in light/dark; instance card, seven capability rows, visible disabled actions, setup guides with keyboard/focus behavior, and working library links. Settings load as a separate JS chunk.
+- Files changed: web App/Reader/Brew URL entry points; reusable Sidebar/ModeChip/Badge and Figma asset map; settings presenter, page and setup dialog; scoped styles, self-hosted OFL fonts and unchanged local SVG exports with provenance; settings unit/e2e tests and new light/dark snapshots; two Brew snapshots (27 changed pixels for the Settings shortcut); production settings/asset smoke check; README and this checklist.
+- Verified: `npm run typecheck`; `npm run lint`; `npm test` (184 passed); `npm run test:e2e` (30 passed, including settings/light/dark assets, zero third-party requests, zero serious/critical axe findings, keyboard setup guides, failure recovery and v1 performance budgets); `npm run build` (settings deep link, local fonts/SVGs, capabilities and SPA pass outside repository cwd).
+- Dependency justifications: no new packages. Three OFL fonts are self-hosted early for this screen; the global type/token/component migration remains M8 work.
+- M7 exit review passed 2026-11-25: a separate `git clone --no-hardlinks` of the completed source installed with `npm install --no-audit --no-fund` without lockfile changes. With CI reuse disabled, Playwright started `npm run dev` and passed the default Brew landing and real Node Mode-chip/settings/keyboard-guide flows (2 tests).
+- Cleanup discovery: automatic approval review rejected deletion of the temporary clone as “blocked by policy”. The verified copy remains in Git-ignored `data/m7-exit-review`; ESLint excludes runtime data so this copy does not affect future checks.
+- Next milestone: M8 — generate the full light/dark token system and replace stone/amber utilities; then finish the shared type, component and icon system. M8–M20 remain pending.

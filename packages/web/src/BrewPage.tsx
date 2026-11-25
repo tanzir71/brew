@@ -8,7 +8,7 @@ const blank=():BrewConfigDraft=>({name:'Morning',scheduleCron:'0 7 * * *',enable
 const imageSource=(value:string)=>localStorage.getItem('brew:direct-images')==='true'&&value.startsWith('/api/img?src=')?decodeURIComponent(value.slice(13)):localStorage.getItem('brew:direct-images')==='true'?value:value.startsWith('/api/img?')?value:`/api/img?src=${encodeURIComponent(value)}`;
 
 export function BrewPage(){
-  const [configs,setConfigs]=useState<BrewConfig[]>([]); const [selected,setSelected]=useState<number|null>(null); const [draft,setDraft]=useState<BrewConfigDraft>(blank);
+  const [configs,setConfigs]=useState<BrewConfig[]>([]); const [selected,setSelected]=useState<number|null>(()=>{const id=Number(new URLSearchParams(location.search).get('brew'));return Number.isInteger(id)&&id>0?id:null}); const [draft,setDraft]=useState<BrewConfigDraft>(blank);
   const [history,setHistory]=useState<BrewSnapshot[]>([]); const [snapshot,setSnapshot]=useState<BrewSnapshot|null>(null); const [editing,setEditing]=useState(false); const [message,setMessage]=useState('');
   const [navigation,setNavigation]=useState<ReaderNavigation|null>(null); const [tags,setTags]=useState<TagSummary[]>([]); const dragged=useRef<number|null>(null);
   const [loading,setLoading]=useState(true);
