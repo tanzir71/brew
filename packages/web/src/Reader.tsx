@@ -1132,7 +1132,7 @@ function ArticleRow({
   );
 }
 
-function ArticleReader({
+export function ArticleReader({
   id,
   mode,
   onClose,

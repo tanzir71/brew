@@ -131,6 +131,16 @@ semantic emphasis tags in articles and feed summaries upright. Tailwind scans
 only the web source and browser fixtures so adversarial test strings do not
 generate italic utilities in shipped CSS.
 
+Read an edition at `/b/<brew id>/<issue id>`, or use the date controls to move
+through its archive. The Read view has lead, magazine, grid and headlines
+layouts, selectable article actions, scoped mark-read with confirmation and
+Undo, a contents rail and reading progress. Issue content stays frozen;
+`/api/brews/:id/state` supplies current library read/star states and applied rules.
+Legacy `hero` and `list` layout names remain readable during the v2 migration.
+Compose opens the existing section editor. More actions contains generation,
+edition selection and display preferences. Output controls remain visible and
+disabled until the output renderers are implemented.
+
 ## Data ownership
 
 Your entire state is `data/brew.db`. To back up manually, **stop Brew first** so the SQLite database and WAL stay consistent, then copy the file. Automated backup and OPML export commands arrive in later milestones (see `CODEX_HANDOFF.md`).

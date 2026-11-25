@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { BrewConfig } from '@brew/core/types/brew';
 import type { ReaderNavigation } from '@brew/core/types/api';
 import { useCapabilities } from '../hooks/useCapabilities';
@@ -20,6 +20,25 @@ export function AppSidebar({
 }: {
   activeHref?: string;
 }) {
+  const search = useRef<HTMLInputElement>(null);
+  useLayoutEffect(() => {
+    const focusSearch = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        event.key !== '/' ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        target?.isContentEditable ||
+        target?.closest('input, textarea, select')
+      )
+        return;
+      event.preventDefault();
+      search.current?.focus();
+    };
+    window.addEventListener('keydown', focusSearch);
+    return () => window.removeEventListener('keydown', focusSearch);
+  }, []);
   const capabilities = useCapabilities();
   const newsletterState = capabilityRows(capabilities.data, capabilities.isError).find(
     (row) => row.id === 'newsletters',
@@ -60,7 +79,7 @@ export function AppSidebar({
       <form className="runs-search" action="/" role="search">
         <img src={runAssets.search} alt="" />
         <input type="hidden" name="view" value="reader" />
-        <input aria-label="Search library" name="q" placeholder="Search" />
+        <input ref={search} aria-label="Search library" name="q" placeholder="Search" />
         <Kbd>/</Kbd>
       </form>
       <nav aria-label="Library" className="runs-library-nav">
@@ -95,7 +114,14 @@ export function AppSidebar({
                 <img src={runAssets.inbox} alt="" />
                 Newsletters<Badge tone={newsletterState.tone}>{newsletterState.label}</Badge>
               </button>
-              <a href="#setup-newsletters" aria-label="Set up Newsletters">
+              <a
+                href={
+                  location.pathname === '/settings/runs'
+                    ? '#setup-newsletters'
+                    : '/settings/runs#setup-newsletters'
+                }
+                aria-label="Set up Newsletters"
+              >
                 Set up
               </a>
             </div>

@@ -5,17 +5,18 @@ test('switches system, light, and dark themes instantly and persists the choice'
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'system');
   await expect(page.locator('html')).toHaveAttribute('data-resolved-theme', 'dark');
-  const darkCanvas = await page.locator('main').evaluate((element) => getComputedStyle(element).backgroundColor);
+  const darkCanvas = await page.locator('.brew-read-app').evaluate((element) => getComputedStyle(element).backgroundColor);
 
+  await page.getByRole('button', { name: 'More actions' }).click();
   await page.getByLabel('Theme').selectOption('light');
   await expect(page.locator('html')).toHaveAttribute('data-resolved-theme', 'light');
-  const lightCanvas = await page.locator('main').evaluate((element) => getComputedStyle(element).backgroundColor);
+  const lightCanvas = await page.locator('.brew-read-app').evaluate((element) => getComputedStyle(element).backgroundColor);
   expect(lightCanvas).not.toBe(darkCanvas);
   expect(await page.evaluate(() => localStorage.getItem('brew:theme'))).toBe('light');
 
   await page.getByLabel('Theme').selectOption('dark');
   await expect(page.locator('html')).toHaveAttribute('data-resolved-theme', 'dark');
-  expect(await page.locator('main').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(darkCanvas);
+  expect(await page.locator('.brew-read-app').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(darkCanvas);
 
   await page.getByLabel('Theme').selectOption('system');
   await page.emulateMedia({ colorScheme: 'light' });

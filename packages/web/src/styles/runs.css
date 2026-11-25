@@ -496,7 +496,7 @@
 }
 :root[data-resolved-theme='dark']
   .runs-app
-  img:not([src$='fb52b.svg']):not([src$='b8262.svg']):not([src$='27100.svg']) {
+  img[src^='/figma/runs/']:not([src$='fb52b.svg']):not([src$='b8262.svg']):not([src$='27100.svg']) {
   filter: invert(0.8);
 }
 @media (max-width: 1100px) {

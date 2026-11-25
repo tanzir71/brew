@@ -73,6 +73,7 @@ export interface BrewStoragePort {
   prune(configId: number, keep: number): void;
   historyIds(configId: number): number[];
   snapshot(id: number): BrewSnapshot | null;
+  articleStates(ids: number[]): import('./types/brew.js').BrewArticleState[];
   setting(key: string): string | undefined;
   setSetting(key: string, value: string): void;
 }

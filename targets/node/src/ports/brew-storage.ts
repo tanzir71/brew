@@ -3,6 +3,7 @@ import type {
   BrewConfig,
   BrewConfigDraft,
   BrewSnapshot,
+  BrewArticleState,
 } from '../../../../packages/core/src/types/brew.js';
 import type {
   BrewStoragePort,
@@ -134,6 +135,44 @@ export class NodeBrewStorage implements BrewStoragePort {
       this.database.sqlite.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
         { value: string } | undefined
     )?.value;
+  }
+  articleStates(ids: number[]): BrewArticleState[] {
+    if (!ids.length) return [];
+    const placeholders = ids.map(() => '?').join(',');
+    const rows = this.database.sqlite
+      .prepare(
+        `SELECT id, feed_id AS feedId, read_at AS readAt, starred_at AS starredAt, highlight_color AS highlightColor FROM articles WHERE id IN (${placeholders})`,
+      )
+      .all(...ids) as Array<{
+      id: number;
+      feedId: number;
+      readAt: number | null;
+      starredAt: number | null;
+      highlightColor: string | null;
+    }>;
+    const logs = this.database.sqlite
+      .prepare(
+        `SELECT l.article_id AS articleId, r.id, r.name, l.actions_taken_json AS actions FROM rule_logs l JOIN rules r ON r.id = l.rule_id WHERE l.article_id IN (${placeholders}) ORDER BY l.executed_at DESC, l.id DESC`,
+      )
+      .all(...ids) as Array<{ articleId: number; id: number; name: string; actions: string }>;
+    return ids.map((id) => {
+      const row = rows.find((item) => item.id === id);
+      const applied = new Map<number, { id: number; name: string }>();
+      for (const log of logs.filter((entry) => entry.articleId === id)) {
+        const actions = JSON.parse(log.actions) as Array<{ ok: boolean }>;
+        if (actions.some((action) => action.ok))
+          applied.set(log.id, { id: log.id, name: log.name });
+      }
+      return {
+        id,
+        feedId: row?.feedId ?? null,
+        available: !!row,
+        readAt: row?.readAt == null ? null : new Date(row.readAt).toISOString(),
+        starredAt: row?.starredAt == null ? null : new Date(row.starredAt).toISOString(),
+        highlightColor: row?.highlightColor ?? null,
+        rules: [...applied.values()],
+      };
+    });
   }
   setSetting(key: string, value: string): void {
     this.database.sqlite

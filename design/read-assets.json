@@ -1,0 +1,82 @@
+{
+  "fileKey": "NcqNdBhgeg6om2CCZwrYV8",
+  "frames": {
+    "light": "8:2",
+    "dark": "9:270"
+  },
+  "purpose": "Illustrations supplied as feed imagery in the Read browser fixture; product images remain feed data. Source exports are unchanged.",
+  "assets": [
+    {
+      "file": "packages/web/public/figma/read/lead-dark.svg",
+      "theme": "dark",
+      "slot": "lead",
+      "width": 680,
+      "height": 340,
+      "sha256": "b7cf8484fe0433877155323ca2e9f0fe66a530590198f98c2566c8370ea1acd2",
+      "node": "9:316"
+    },
+    {
+      "file": "packages/web/public/figma/read/lead-light.svg",
+      "theme": "light",
+      "slot": "lead",
+      "width": 680,
+      "height": 340,
+      "sha256": "6b5214b0675e2fee261decd39924b118f5db100f15f4859a3568954f61eecc7a",
+      "node": "8:258"
+    },
+    {
+      "file": "packages/web/public/figma/read/lines-dark.png",
+      "theme": "dark",
+      "slot": "lines",
+      "width": 120,
+      "height": 84,
+      "sha256": "43f1865650c653c781a2de4f8e17649a26bb919e2098859757f7fec7988f8a9a",
+      "node": "9:335"
+    },
+    {
+      "file": "packages/web/public/figma/read/lines-light.png",
+      "theme": "light",
+      "slot": "lines",
+      "width": 120,
+      "height": 84,
+      "sha256": "d4273c2c21409c326b45d9a945dc072d8ba3c841634da76dfbece535c4a833e9",
+      "node": "8:279"
+    },
+    {
+      "file": "packages/web/public/figma/read/notifications-dark.svg",
+      "theme": "dark",
+      "slot": "notifications",
+      "width": 120,
+      "height": 84,
+      "sha256": "2a9bfddf0e54800b99c023858fd67fba02e35b4e3a14a712bb41ef49949b6465",
+      "node": "9:374"
+    },
+    {
+      "file": "packages/web/public/figma/read/notifications-light.svg",
+      "theme": "light",
+      "slot": "notifications",
+      "width": 120,
+      "height": 84,
+      "sha256": "6b93fdc00bd35edc73412d51f1738382e5774300014575efef7ff80517771235",
+      "node": "8:340"
+    },
+    {
+      "file": "packages/web/public/figma/read/variables-dark.svg",
+      "theme": "dark",
+      "slot": "variables",
+      "width": 120,
+      "height": 84,
+      "sha256": "0cd79e521e338e780ffd34f4949604b73acef61a76d80945140e7a7e2072b8ed",
+      "node": "9:352"
+    },
+    {
+      "file": "packages/web/public/figma/read/variables-light.svg",
+      "theme": "light",
+      "slot": "variables",
+      "width": 120,
+      "height": 84,
+      "sha256": "d9719798694303e5052ffac4e5c0b5d6d487f62df3b0d4b86dbf840b047bf4fa",
+      "node": "8:297"
+    }
+  ]
+}

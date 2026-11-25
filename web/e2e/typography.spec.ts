@@ -164,8 +164,8 @@ test('Brew, Reader, Rules and settings keep fonts local and preserve reading pre
     'font-family',
     'Newsreader, Georgia, serif',
   );
-  await page.getByRole('button', { name: 'Reader', exact: true }).click();
-  await page.getByRole('button', { name: /^All/ }).click();
+  await page.getByRole('link', { name: /^All articles/ }).click();
+  await page.getByRole('complementary', { name: 'Reader navigation' }).getByRole('button', { name: /^All/ }).click();
   await page
     .getByRole('button')
     .filter({ has: page.getByRole('heading', { name: article.title }) })

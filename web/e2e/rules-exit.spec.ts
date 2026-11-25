@@ -8,7 +8,7 @@ test('creates five realistic rules in the UI and applies exact article states',a
   await page.route('**/api/rules/duplicate-filter',async route=>{if(route.request().method()==='PUT')duplicateFilter=Boolean((route.request().postDataJSON() as {enabled:boolean}).enabled);return route.fulfill({json:{enabled:duplicateFilter}})});
   await page.route('**/api/rules/preview',route=>route.fulfill({json:{items:[]}}));
   await page.route('**/api/rules',async route=>{if(route.request().method()==='GET')return route.fulfill({json:service.list()});return route.fulfill({status:201,json:service.create(route.request().postDataJSON())})});
-  await page.goto('/');await page.getByRole('button',{name:'Rules'}).click();
+  await page.goto('/');await page.getByRole('link', { name: 'Rules', exact: true }).click();
   const save=async()=>{await page.getByRole('button',{name:'Save rule'}).click();await expect(page.getByRole('status')).toContainText('Rule saved.')};
   await page.getByRole('button',{name:'Mute keyword'}).click();await page.getByLabel('Condition 1 value').fill('spam');await save();
   await page.getByRole('button',{name:'New'}).click();await page.getByRole('button',{name:'Highlight author'}).click();await page.getByLabel('Condition 1 value').fill('Ada');await save();

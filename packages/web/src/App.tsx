@@ -1,6 +1,6 @@
 import { Component, type FormEvent, type ReactNode, lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import type { FeedCandidate, FeedSummary, FolderSummary } from '@brew/core/types/api';
-import { Reader } from './Reader';
+const Reader = lazy(() => import('./Reader').then((module) => ({ default: module.Reader })));
 import { RulesPage } from './RulesPage';
 import { BrewPage } from './BrewPage';
 import { runAssets } from './components/figmaAssets';
@@ -25,6 +25,7 @@ export function App() {
 }
 function AppContent() {
   const [mode, setMode] = useState<'brew' | 'reader' | 'feeds' | 'rules'>(()=>{
+    if (location.pathname.startsWith('/b/')) return 'brew';
     const view = new URLSearchParams(location.search).get('view');
     return view === 'brew' || view === 'reader' || view === 'feeds' || view === 'rules' ? view : localStorage.getItem('brew:landing')==='reader'?'reader':'brew';
   });
@@ -49,6 +50,11 @@ function AppContent() {
   }, [theme]);
   useEffect(() => { document.title = `${isRuns ? 'Where Brew runs' : mode === 'brew' ? 'The Brew' : mode === 'reader' ? 'Reader' : mode === 'rules' ? 'Rules' : 'Feeds'} · Brew`; }, [mode, isRuns]);
   if (isRuns) return <Suspense fallback={<main role="status" className="p-8">Loading settings…</main>}><WhereBrewRuns /></Suspense>;
+  if (mode === 'brew') return <BrewPage preferences={<>
+    <label>Theme<select aria-label="Theme" value={theme} onChange={(event)=>{const value=event.target.value as 'system'|'light'|'dark';setTheme(value);localStorage.setItem('brew:theme',value)}}><option value="system">System theme</option><option value="light">Light theme</option><option value="dark">Dark theme</option></select></label>
+    <label>Image privacy<select value={directImages?'direct':'proxy'} onChange={(event)=>{const value=event.target.value==='direct';setDirectImages(value);localStorage.setItem('brew:direct-images',String(value))}}><option value="proxy">Private images</option><option value="direct">Load images directly</option></select></label>
+    <label>Default landing page<select value={localStorage.getItem('brew:landing')??'brew'} onChange={(event)=>{localStorage.setItem('brew:landing',event.target.value);if(event.target.value==='reader')setMode('reader')}}><option value="brew">Start at Brew</option><option value="reader">Start at Reader</option></select></label>
+  </>} />;
   return (
     <main className="min-h-screen bg-canvas text-ink">
       <header className="flex h-16 items-center justify-between border-b border-line px-8">
@@ -133,17 +139,15 @@ function AppContent() {
         <FeedManager />
       ) : mode === 'rules' ? (
         <RulesPage />
-      ) : mode === 'brew' ? (
-        <BrewPage />
       ) : (
-        <Reader
+        <Suspense fallback={<div role="status" className="p-8">Loading library…</div>}><Reader
           searchQuery={searchQuery}
           onSearch={(query)=>{setSearchDraft(query);setSearchQuery(query)}}
           onClearSearch={() => {
             setSearchDraft('');
             setSearchQuery('');
           }}
-        />
+        /></Suspense>
       )}
     </main>
   );

@@ -35,6 +35,11 @@ export function registerBrewRoutes(app: Hono, { brews: service }: ApiServices): 
     const snapshot = await service.snapshot(Number(c.req.param('id')));
     return snapshot ? json(c, snapshot) : json(c, { error: 'Snapshot not found' }, 404);
   });
+  app.get('/api/brews/:id/state', async (c) => {
+    const state = await service.readState(Number(c.req.param('id')));
+    c.header('Cache-Control', 'no-store');
+    return state ? json(c, state) : json(c, { error: 'Snapshot not found' }, 404);
+  });
   app.put('/api/brews/:id/scroll', async (c) => {
     const input = await body<{ position: number }>(c);
     await service.saveScroll(Number(c.req.param('id')), input.position);

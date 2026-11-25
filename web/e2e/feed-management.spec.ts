@@ -17,7 +17,8 @@ test('discovers and adds a feed into a folder', async ({ page }) => {
     await route.fulfill({ json: { imported: 1, skipped: 0, foldersCreated: 0 } });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Manage feeds' }).click();
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('link', { name: 'Manage feeds' }).click();
   await page.getByLabel('New folder name').fill('Design');
   await page.getByRole('button', { name: 'Create folder' }).click();
   await expect(page.getByText('Design', { exact: true })).toBeVisible();

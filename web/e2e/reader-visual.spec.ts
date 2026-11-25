@@ -3,14 +3,16 @@ import { expect, test, type Page } from '@playwright/test';
 for (const theme of ['light', 'dark'] as const) {
   for (const density of ['title', 'magazine', 'cards'] as const) {
     test(`Reader ${density} density in ${theme} theme`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
       await mockReader(page);
       await page.setViewportSize({ width: 1280, height: 800 });
       await page.goto('/');
-      await page.getByRole('button', { name: 'Reader', exact: true }).click();
+      await page.getByRole('link', { name: /^All articles/ }).click();
       await page.getByLabel('Theme').selectOption(theme);
-      await page.getByRole('button', { name: /All/ }).click();
+      await page.getByRole('complementary', { name: 'Reader navigation' }).getByRole('button', { name: /^All/ }).click();
       await page.getByRole('button', { name: `${density} view` }).click();
       await expect(page.getByText('Designing a calmer feed')).toBeVisible();
+      await page.evaluate(async () => { await document.fonts.ready; for (const animation of document.getAnimations()) if (animation.effect?.getTiming().iterations !== Infinity) animation.finish(); });
       await expect(page).toHaveScreenshot(`reader-${density}-${theme}.png`, { animations: 'disabled', caret: 'hide', maxDiffPixelRatio: 0.01 });
     });
   }
@@ -19,7 +21,9 @@ for (const theme of ['light', 'dark'] as const) {
 test('Reader view navigation paints within 100ms', async ({ page }) => {
   await mockReader(page);
   await page.goto('/');
-  await page.getByRole('button', { name: 'Reader', exact: true }).click();
+  await page.getByRole('link', { name: /^All articles/ }).click();
+  await page.getByRole('complementary', { name: 'Reader navigation' }).getByRole('button', { name: /^Today/ }).click();
+  await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible();
   const duration = await page.evaluate(async () => {
     const button = [...document.querySelectorAll('button')].find((element) => element.textContent?.includes('All'));
     if (!(button instanceof HTMLButtonElement)) throw new Error('All button not found');

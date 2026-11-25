@@ -16,8 +16,8 @@ test('supports the complete Reader keyboard map and cheat sheet', async ({ page 
   await page.route('https://example.test/**', (route) => route.fulfill({ body: '<title>Original</title>' }));
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Reader', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'The Brew' })).toBeVisible();
+  await page.getByRole('link', { name: /^All articles/ }).click();
+  await expect(page.getByRole('heading', { name: 'All articles' })).toBeVisible();
   await page.keyboard.press('g'); await page.keyboard.press('a');
   await expect(page.getByRole('heading', { name: 'All articles' })).toBeVisible();
   await expect(page.getByText('First keyboard story')).toBeVisible();

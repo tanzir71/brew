@@ -69,7 +69,12 @@ export function TopBar({
         {onMarkAllRead && (
           <>
             <span className="brew-topbar-divider" />
-            <button type="button" className="brew-topbar-mark" onClick={onMarkAllRead}>
+            <button
+              type="button"
+              className="brew-topbar-mark"
+              data-brew-action="mark-all-read"
+              onClick={onMarkAllRead}
+            >
               <Icon name="check" size={14} />
               Mark all read
             </button>

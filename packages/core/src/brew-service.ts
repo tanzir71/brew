@@ -86,6 +86,36 @@ export class BrewService {
   snapshot(id: number): BrewSnapshot | null {
     return this.storage.snapshot(id);
   }
+  readState(id: number) {
+    const issue = this.snapshot(id);
+    if (!issue) return null;
+    const config = this.listConfigs().find((item) => item.id === issue.brewConfigId);
+    const [minute, hour] = (config?.scheduleCron ?? '').split(/\s+/).map(Number);
+    const next = new Date(this.clock.now());
+    let nextAt: string | null = null;
+    if (
+      config?.enabled &&
+      Number.isInteger(minute) &&
+      Number.isInteger(hour) &&
+      minute! >= 0 &&
+      minute! < 60 &&
+      hour! >= 0 &&
+      hour! < 24
+    ) {
+      const now = next.getTime();
+      next.setHours(hour!, minute!, 0, 0);
+      if (next.getTime() <= now) next.setDate(next.getDate() + 1);
+      nextAt = next.toISOString();
+    }
+    return {
+      articles: this.storage.articleStates([
+        ...new Set(issue.sections.flatMap((section) => section.items.map((item) => item.id))),
+      ]),
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      nextAt,
+      scheduleLabel: config?.enabled ? 'Daily' : 'Schedule paused',
+    };
+  }
   saveScroll(id: number, position: number): void {
     this.storage.setSetting(`brew_scroll_${id}`, String(Math.max(0, position)));
   }

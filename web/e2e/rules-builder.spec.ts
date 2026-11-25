@@ -10,7 +10,7 @@ test('builds a sentence rule with live dry-run preview', async ({ page }) => {
   await page.route('**/api/rules/preview', async (route) => { const body = route.request().postDataJSON() as { conditions: Array<{ value: string }> }; const match = body.conditions.some((condition) => condition.value.toLowerCase().includes('figma')); return route.fulfill({ json: { items: match ? [{ id: 7, title: 'Figma releases variables', feedTitle: 'Design Notes', publishedAt: '2026-07-10T03:00:00.000Z' }] : [] } }); });
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Rules' }).click();
+  await page.getByRole('link', { name: 'Rules', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Rules' })).toBeVisible();
   await page.getByRole('button',{name:'Mute keyword'}).click();
   await expect(page.getByLabel('Rule name')).toHaveValue('Mute a keyword');
