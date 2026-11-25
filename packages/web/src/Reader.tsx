@@ -14,7 +14,7 @@ import type {
   ReaderNavigation,
   SearchPage,
   TagSummary,
-} from '../../shared/api';
+} from '@brew/core/types/api';
 
 type Selection = {
   kind: 'brew' | 'all' | 'today' | 'starred' | 'feed' | 'folder';

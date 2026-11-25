@@ -7,34 +7,24 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "concurrently -k -n server,web \"tsx watch server/index.ts\" \"vite --config web/vite.config.ts\"",
-    "start": "node dist/server/index.js",
-    "build": "vite build --config web/vite.config.ts && tsc -p tsconfig.server.json",
+    "dev": "concurrently -k -n server,web \"tsx watch targets/node/src/index.ts\" \"vite --config packages/web/vite.config.ts\"",
+    "start": "node dist/targets/node/src/index.js",
+    "build": "vite build --config packages/web/vite.config.ts && tsc -p tsconfig.server.json && node scripts/copy-build-assets.mjs && node scripts/verify-node-build.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "review:m1": "tsx server/scripts/m1-exit-review.ts"
-    ,"backup": "tsx server/scripts/backup.ts"
-    ,"seed:big": "tsx server/scripts/seed-big.ts"
-    ,"website:verify": "node scripts/verify-site.mjs"
-    ,"website:browser": "node scripts/verify-website-browser.mjs"
+    "review:m1": "tsx server/scripts/m1-exit-review.ts",
+    "backup": "tsx server/scripts/backup.ts",
+    "seed:big": "tsx server/scripts/seed-big.ts",
+    "website:verify": "node scripts/verify-site.mjs",
+    "website:browser": "node scripts/verify-website-browser.mjs"
   },
   "dependencies": {
-    "@fastify/static": "latest",
-    "@mozilla/readability": "latest",
-    "@tanstack/react-query": "latest",
-    "@tanstack/react-virtual": "latest",
-    "better-sqlite3": "latest",
-    "dompurify": "latest",
-    "drizzle-orm": "latest",
-    "fastify": "latest",
-    "linkedom": "latest",
-    "node-cron": "latest",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "rss-parser": "latest"
+    "@brew/core": "0.1.0",
+    "@brew/db": "0.1.0",
+    "@brew/node": "0.1.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
@@ -59,5 +49,9 @@
     "typescript-eslint": "latest",
     "vite": "latest",
     "vitest": "latest"
-  }
+  },
+  "workspaces": [
+    "packages/*",
+    "targets/*"
+  ]
 }

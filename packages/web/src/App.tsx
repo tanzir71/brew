@@ -1,5 +1,5 @@
 import { Component, type FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react';
-import type { FeedCandidate, FeedSummary, FolderSummary } from '../../shared/api';
+import type { FeedCandidate, FeedSummary, FolderSummary } from '@brew/core/types/api';
 import { Reader } from './Reader';
 import { RulesPage } from './RulesPage';
 import { BrewPage } from './BrewPage';

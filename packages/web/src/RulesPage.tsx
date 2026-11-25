@@ -1,5 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import type { ReaderNavigation } from '../../shared/api';
+import type { ReaderNavigation } from '@brew/core/types/api';
 import type {
   RuleAction,
   RuleCondition,
@@ -9,7 +9,7 @@ import type {
   RuleOperator,
   RulePreviewItem,
   RuleRecord,
-} from '../../shared/rules';
+} from '@brew/core/types/rules';
 
 const fields: RuleField[] = ['title', 'content', 'author', 'url', 'feed', 'folder'];
 const operators: RuleOperator[] = [

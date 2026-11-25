@@ -14,28 +14,28 @@ Brew fetches your RSS/Atom feeds, stores everything locally, lets you build rule
                        your machine
 ┌──────────────────────────────────────────────────────────┐
 │                                                            │
-│   web/ — React SPA                                         │
+│   packages/web/ — React SPA                                │
 │   reading UI · feed management · rules · Brew snapshots    │
 │        │                                                   │
 │        │  HTTP (dev: Vite :4401 proxies → API :4400;       │
 │        │        prod: one Fastify process serves both)     │
 │        ▼                                                   │
-│   server/ — Fastify API                                    │
-│   feed fetching/refresh · article storage · rules engine   │
-│   daily snapshot builder · Drizzle ORM migrations          │
+│   targets/node/ — Fastify API and platform adapters        │
+│   packages/core/ — rules, ingest, search, Brew composition │
+│   packages/db/ — shared Drizzle schema and SQL migrations  │
 │        │                                                   │
 │        ▼                                                   │
 │   data/brew.db — SQLite (auto-created & migrated on boot)  │
 │   feeds · articles · rules · snapshots                     │
 │                                                            │
-│   shared/ — TypeScript types used by both sides            │
+│   packages/core/src/types/ — shared TypeScript contracts   │
 └──────────────────────────────────────────────────────────┘
               │ outbound only
               ▼
       the feeds you subscribe to
 ```
 
-Why it's shaped this way: one process in production (Fastify serves the compiled SPA and the API), one file of state (SQLite + WAL), types shared end-to-end from database to UI. The only network traffic is Brew fetching your feeds.
+Why it's shaped this way: npm workspaces keep one domain core usable in Node, Workers, the browser and CI. The core uses storage, search, fetch, clock, hash and regex ports; the Node target supplies SQLite and platform operations. Production still runs one process (Fastify serves the compiled SPA and the API) with one file of state (SQLite + WAL). The only network traffic is Brew fetching your feeds.
 
 ## Getting started (from zero)
 
@@ -78,12 +78,21 @@ Environment knobs: `BREW_DB_PATH` points at a different SQLite file; set `NODE_E
 ## Project structure
 
 ```
-server/   Fastify API, SQLite/Drizzle schema, migrations
-web/      React SPA + Playwright tests
-shared/   types shared by server and browser
-data/     local runtime data (git-ignored)
-PROGRESS.md   milestone checklist and decisions
+packages/core/   portable domain services, ports and shared types
+packages/db/     canonical Drizzle SQLite schema and SQL migrations
+packages/web/    React SPA and Vite configuration
+targets/node/   Fastify API, SQLite, feed fetching and platform adapters
+server/         unchanged v1 unit tests, fixtures and compatibility exports
+web/e2e/        unchanged Playwright tests and visual baselines
+shared/         compatibility exports for v1 type imports
+data/           local runtime data (git-ignored)
+PROGRESS.md     milestone checklist and decisions
 ```
+
+Run the quality gates from the repository root. The root scripts orchestrate the
+workspaces; `npm run dev --workspace @brew/web` also starts the SPA independently.
+The production build copies the SPA and migrations into `dist/`, so runtime
+asset paths resolve relative to the built target rather than the working directory.
 
 ## Data ownership
 

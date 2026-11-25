@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ReaderNavigation, TagSummary } from '../../shared/api';
-import type { BrewConfig, BrewConfigDraft, BrewSection, BrewSnapshot } from '../../shared/brew';
+import type { ReaderNavigation, TagSummary } from '@brew/core/types/api';
+import type { BrewConfig, BrewConfigDraft, BrewSection, BrewSnapshot } from '@brew/core/types/brew';
 
 async function request<T>(url:string,init?:RequestInit):Promise<T>{const response=await fetch(url,{...init,headers:{'Content-Type':'application/json',...init?.headers}});if(!response.ok)throw new Error('Could not load the Brew');return response.status===204?undefined as T:response.json() as Promise<T>}
 const newSection=():BrewSection=>({id:crypto.randomUUID(),title:'Today’s picks',source:'today',maxItems:5,layout:'magazine',sort:'newest',onlyUnread:true});

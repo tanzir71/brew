@@ -1,0 +1,21 @@
+{
+  "name": "@brew/node",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@brew/core": "0.1.0",
+    "@brew/db": "0.1.0",
+    "drizzle-orm": "latest",
+    "linkedom": "latest",
+    "@fastify/static": "latest",
+    "@mozilla/readability": "latest",
+    "better-sqlite3": "latest",
+    "fastify": "latest",
+    "node-cron": "latest",
+    "rss-parser": "latest"
+  }
+}

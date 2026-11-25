@@ -1,9 +1,24 @@
 {
   "compilerOptions": {
-    "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext", "strict": true,
-    "esModuleInterop": true, "skipLibCheck": true, "noUncheckedIndexedAccess": true,
-    "rootDir": ".", "outDir": "dist", "sourceMap": true
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "rootDir": ".",
+    "outDir": "dist",
+    "sourceMap": true
   },
-  "include": ["server/**/*.ts", "shared/**/*.ts"],
-  "exclude": ["**/*.test.ts"]
+  "include": [
+    "server/**/*.ts",
+    "shared/**/*.ts",
+    "targets/node/src/**/*.ts",
+    "packages/core/src/**/*.ts",
+    "packages/db/src/**/*.ts"
+  ],
+  "exclude": [
+    "**/*.test.ts"
+  ]
 }

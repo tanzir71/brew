@@ -1,0 +1,17 @@
+{
+  "name": "@brew/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*.js": "./src/*.ts",
+    "./*": "./src/*.ts",
+    "./types/*.js": "./src/types/*.ts",
+    "./types/*": "./src/types/*.ts"
+  },
+  "dependencies": {
+    "dompurify": "latest",
+    "linkedom": "latest"
+  }
+}
