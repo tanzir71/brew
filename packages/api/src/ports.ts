@@ -11,6 +11,7 @@ import type {
 import type { BrewService } from '../../core/src/brew-service.js';
 import type { RulesService } from '../../core/src/rules-service.js';
 import type { SearchService } from '../../core/src/search-service.js';
+import type { Capabilities } from '../../core/src/types/capabilities.js';
 
 type MaybePromise<T> = T | Promise<T>;
 type ServicePort<T> = {
@@ -74,6 +75,7 @@ export interface EventsPort {
   subscribe(listener: (event: string, data: unknown) => void, onClose: () => void): () => void;
 }
 export interface ApiServices {
+  capabilities(): MaybePromise<Capabilities>;
   feeds: FeedApiPort;
   articles: ArticleApiPort;
   reader: {
@@ -90,9 +92,7 @@ export interface ApiServices {
     export(): MaybePromise<string>;
   };
   poller: {
-    pollFeedById(
-      id: number,
-    ): Promise<{
+    pollFeedById(id: number): Promise<{
       feedId: number;
       status: number;
       newItems: number;

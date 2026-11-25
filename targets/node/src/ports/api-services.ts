@@ -10,6 +10,7 @@ import { SearchService } from '../services/search-service.js';
 import type { PollerService } from '../services/poller-service.js';
 import type { SseBroker } from '../services/sse-broker.js';
 import { NodeApiData } from './api-data.js';
+import { nodeCapabilities } from '../capabilities.js';
 
 export function nodeApiServices(
   database: BrewDatabase,
@@ -18,6 +19,7 @@ export function nodeApiServices(
   fetcher: typeof fetch = globalThis.fetch,
 ): ApiServices {
   return {
+    capabilities: nodeCapabilities,
     feeds: new FeedService(database, fetcher),
     articles: new ArticleService(database, fetcher),
     reader: new ReaderService(database),

@@ -13,6 +13,10 @@ try {
   app = await createApp({ database: openDatabase(':memory:'), serveWeb: true });
   const health = await app.inject('/api/health');
   assert.deepEqual(health.json(), { ok: true });
+  const capabilities = await app.inject('/api/capabilities');
+  assert.equal(capabilities.statusCode, 200);
+  assert.equal(capabilities.json().mode, 'node');
+  assert.equal(capabilities.headers['cache-control'], 'no-store');
   const page = await app.inject('/');
   assert.equal(page.statusCode, 200);
   assert.match(page.headers['content-type'], /text\/html/);

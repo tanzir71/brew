@@ -41,6 +41,10 @@ export function createApi(
   registerOpmlRoutes(app, services);
   registerPollerRoutes(app, services);
   registerMediaRoutes(app, services);
+  app.get('/api/capabilities', async (c) => {
+    c.header('Cache-Control', 'no-store');
+    return json(c, await services.capabilities());
+  });
   app.get('/api/health', (c) => json(c, { ok: true }));
   app.get('/api/events', (c) => eventStream(c, services.events));
   return app;

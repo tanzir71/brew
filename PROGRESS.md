@@ -133,7 +133,7 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 ### M7 — Core extraction, capabilities, mode chip
 - [x] Workspaces created; domain logic moved to `packages/core` with ports. All v1 unit and e2e tests pass unchanged.
 - [x] Hono API replaces the Fastify routes in the Node target, with identical REST contracts (contract tests against v1 responses).
-- [ ] `/api/capabilities` implemented for the Node target. A `useCapabilities()` hook exists in the web app.
+- [x] `/api/capabilities` implemented for the Node target. A `useCapabilities()` hook exists in the web app.
 - [ ] Sidebar Mode chip and Settings → Where Brew runs (`15:2010`) render from capabilities.
 
 ### M8 — Design system v2
@@ -214,6 +214,8 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - 2026-11-25: Copy migrations and SPA assets into the build and resolve them from module URLs — production startup works outside the repository working directory.
 - 2026-11-25: Hono owns every REST/media/event route in `packages/api`; keep Fastify as the Node socket, content parser and SPA host allowed by §5.1 — preserve v1 injection, parser limits, errors and production serving while the API stays portable. Service interfaces accept synchronous or asynchronous implementations for future targets.
 - 2026-11-25: Capture 96 golden REST responses from commit `8165e73` before replacing routes — compare real v1 bodies, statuses, media bytes and product headers, normalizing only validated timestamps, random undo tokens and timings.
+- 2026-11-25: Capabilities describe currently wired target features; Node initially reports mail, Reader API, MCP, WebMCP, AI and publishing unavailable until their milestones add working adapters. The target supplies the declaration to Hono; URL parameters cannot override it. `backgroundFetch.everyMinutes: 1` describes the due-feed scheduler tick, preserving adaptive per-feed intervals.
+- 2026-11-25: Validate the shared capabilities contract at the HTTP boundary and withhold cached capability data after failed refreshes — feature controls must not enable actions from malformed or stale error-state data. TanStack Query shares one request among consumers and permits retry without a page reload.
 
 ### Discoveries / gotchas
 
@@ -242,3 +244,11 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - Verified: `npm run typecheck`; `npm run lint`; `npm test` (171 passed, including 96 captured v1 contracts, five body-adaptation cases, API browser portability and three stream lifecycle cases); `npm run test:e2e` (23 passed, unchanged light/dark visual baselines, accessibility and performance); `npm run build` (compiled Hono API, migrations, SPA and assets verified outside repository cwd).
 - Discoveries: parsed JSON strings must be re-encoded when forwarded to Web Request; OPML accepts both XML text and a JSON string under the v1 contract. SSE cancellation must release subscriptions and heartbeat timers, and Node shutdown must close streams before waiting for sockets to drain. These cases are covered by regression tests.
 - Next unchecked criterion: Node `/api/capabilities` and the web `useCapabilities()` hook. M7 remains in progress; M8–M20 are pending.
+
+### Iteration M7.3 — DONE (2026-11-25)
+
+- Completed: shared `Capabilities` contract and validator, target-owned Node declaration, no-store Hono `/api/capabilities`, and the web `useCapabilities()` hook with cancellation, shared caching, error recovery and fail-closed refresh behavior.
+- Files changed: `packages/core/src/types/capabilities.ts` and `shared/capabilities.ts`; API ports/router; Node declaration/service wiring and integration test; web hook and development-only browser fixture; capabilities unit/e2e tests; TypeScript fixture coverage, compiled-build smoke check, README and this checklist.
+- Verified: `npm run typecheck`; `npm run lint` (no warnings); `npm test` (181 passed); `npm run test:e2e` (26 passed, including three capability flows plus unchanged v1 visual, accessibility and performance checks); `npm run build` (compiled capabilities endpoint, SPA and migrations verified outside repository cwd).
+- Dependency justifications: no new packages.
+- Next unchecked criterion: Sidebar Mode chip and Settings → Where Brew runs from capabilities, matching Figma `15:2010`. M7 remains in progress; M8–M20 are pending.

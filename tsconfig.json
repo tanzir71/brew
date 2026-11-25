@@ -23,6 +23,7 @@
   },
   "include": [
     "packages/web/src",
+    "packages/web/test",
     "packages/core/src",
     "shared",
     "packages/web/vite.config.ts",

@@ -38,6 +38,11 @@ Brew fetches your RSS/Atom feeds, stores everything locally, lets you build rule
 
 Why it's shaped this way: npm workspaces keep one domain core usable in Node, Workers, the browser and CI. The core uses storage, search, fetch, clock, hash and regex ports; the Node target supplies SQLite and platform operations. Hono owns REST routing through injected service interfaces. Production still runs one process (Fastify hosts Hono and the compiled SPA) with one file of state (SQLite + WAL). The only network traffic is Brew fetching your feeds.
 
+`GET /api/capabilities` describes the active target and its supported features.
+Web components read it through `useCapabilities()`. Features remain unavailable
+until their implementations are wired in; malformed responses and failed refreshes
+do not expose capability data to feature controls.
+
 ## Getting started (from zero)
 
 ### Prerequisites
