@@ -171,6 +171,27 @@ articles. Previewing does not save a config or issue, consume an issue number,
 send mail, run a webhook or prune the archive. Stored issue content stays frozen
 when library articles or Compose settings change.
 
+Core issue renderers in `packages/core/src/brew-outputs.ts` produce responsive web
+HTML, 600px table-based email with inline styles and a plain-text alternative,
+Markdown, content-only JSON, Atom and JSON Feed 1.1. Compose uses these same
+renderers. Email deliberately stacks every layout in a single column for client
+compatibility; the web output preserves all four layouts. Both HTML documents
+use Brew's light/dark palette and normal typography.
+
+Renderers consume frozen v2 snapshots, preserve section order/depth/image choices,
+re-sanitize bodies and never query the library or change reading state. JSON
+omits mutable state, source/filter configuration and delivery details. Feed
+renderers accept the issue archive (newest first, one entry per whole issue),
+with stable issue IDs and deterministic empty-feed metadata. Their formats follow
+[Atom RFC 4287](https://www.rfc-editor.org/rfc/rfc4287) and
+[JSON Feed 1.1](https://www.jsonfeed.org/version/1.1/).
+
+Pass the instance origin as `baseUrl` when rendering externally consumed output.
+Email previews retain local links and proxy images before an origin is supplied;
+feeds omit unresolved local URLs. These are private owner outputs: this renderer
+layer does not publish files. HTTP twins, enabled feed routes and transport
+adapters are the remaining M11 work.
+
 Add source discovers feeds from websites and native YouTube, Mastodon, Bluesky,
 subreddit and podcast URLs. It validates feed responses before offering them,
 with multi-select, library filters and capability-gated newsletter address copy.

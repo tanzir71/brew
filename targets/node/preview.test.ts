@@ -1,3 +1,4 @@
+import { parseHTML } from 'linkedom';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from './src/app.js';
 import { openDatabase } from './src/db/database.js';
@@ -147,7 +148,10 @@ describe('arbitrary-time Brew dry runs', () => {
       expect(titles('all')).toEqual(all);
       expect(result.snapshot.sections.some((section) => section.id === 'friday')).toBe(friday);
       expect(result.outputs.feed).toContain(result.snapshot.generatedAt);
-      if (friday) expect(result.outputs.email).toContain('<strong>Friday</strong>');
+      if (friday)
+        expect(parseHTML(result.outputs.email).document.querySelector('strong')?.textContent).toBe(
+          'Friday',
+        );
       expect(fixture.changes()).toEqual(before);
       expect(fixture.service.history(fixture.config.id)).toEqual([]);
       expect(fixture.service.composition(fixture.config.id)).toEqual(fixture.config);

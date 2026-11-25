@@ -1,3 +1,4 @@
+import { parseHTML } from 'linkedom';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from './src/app.js';
 import { openDatabase } from './src/db/database.js';
@@ -142,7 +143,7 @@ describe('Schedule API and transport-backed test email', () => {
     });
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({ to: 'reader@example.test', subject: 'Test · Unsaved name' });
-    expect(sent[0]!.html).toContain('<strong>real</strong>');
+    expect(parseHTML(sent[0]!.html).document.querySelector('strong')?.textContent).toBe('real');
     expect(database.sqlite.prepare('SELECT total_changes() AS count').get()).toEqual(before);
     expect(new NodeBrewStorage(database).nextIssueNumber(config.id)).toBe(1);
     expect(new BrewService(database).composition(config.id)!.name).toBe('Morning');

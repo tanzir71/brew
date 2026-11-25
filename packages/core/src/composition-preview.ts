@@ -1,6 +1,8 @@
 import { marked } from 'marked';
 import { Temporal } from '@js-temporal/polyfill';
-import { outputColors } from './output-colors.generated.js';
+import { renderBrewOutputs as previewOutputs } from './brew-outputs.js';
+import { escapeOutputHtml as escapeHtml } from './brew-output-content.js';
+export { previewOutputs, escapeHtml };
 import { sanitizeArticleHtml } from './html-sanitizer.js';
 import { validateComposition } from './composition-model.js';
 import { nextBrewAt, weekdayAt } from './brew-schedule.js';
@@ -13,25 +15,6 @@ import type {
   BrewSnapshotSection,
 } from './types/brew.js';
 
-export const escapeHtml = (value: string) =>
-  value.replace(
-    /[&<>"']/g,
-    (character) =>
-      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!,
-  );
-const safeLink = (value: string) => {
-  try {
-    return ['http:', 'https:'].includes(new URL(value, 'https://brew.invalid').protocol)
-      ? escapeHtml(value)
-      : '#';
-  } catch {
-    return '#';
-  }
-};
-const imageUrl = (value: string) =>
-  value.startsWith('/api/img?') || value.startsWith('/figma/')
-    ? value
-    : `/api/img?src=${encodeURIComponent(value)}`;
 const text = (html: string) =>
   html
     .replace(/<[^>]*>/g, ' ')
@@ -53,38 +36,6 @@ export function parsePreviewTime(at: unknown): Date {
   }
 }
 
-export function previewOutputs(snapshot: BrewSnapshot): BrewPreview['outputs'] {
-  const date = new Intl.DateTimeFormat('en-GB', {
-    dateStyle: 'full',
-    timeZone: snapshot.timezone,
-  }).format(new Date(snapshot.generatedAt));
-  const sectionHtml = (section: BrewSnapshotSection, email: boolean): string => {
-    const title = `<h2>${escapeHtml(section.title)}</h2>`;
-    if (section.kind === 'divider') return `<hr>${title}`;
-    if (section.kind === 'note') return `<section>${title}${section.noteHtml ?? ''}</section>`;
-    const brief =
-      section.depth === 'brief'
-        ? '<p>Brief needs a configured AI provider. Source articles:</p>'
-        : '';
-    const stories = section.items
-      .map((item, index) => {
-        const picture =
-          section.images && item.imageUrl
-            ? `<img alt="" src="${safeLink(imageUrl(item.imageUrl))}" ${email ? 'width="528" style="max-width:100%;height:auto;display:block;border-radius:8px"' : 'loading="lazy"'}>`
-            : '';
-        return `<article data-layout="${section.layout}"${index === 0 ? ' data-first="true"' : ''}>${picture}<p class="source">${escapeHtml(item.feedTitle)} · ${item.readTimeMinutes} min</p><h3><a href="${safeLink(item.url)}">${escapeHtml(item.title)}</a></h3>${section.depth === 'title' || section.depth === 'brief' ? '' : section.depth === 'full' ? (item.contentHtml ?? item.summaryHtml ?? '') : (item.summaryHtml ?? '')}</article>`;
-      })
-      .join('');
-    return `<section>${title}${brief}<div class="layout-${section.layout}">${stories || '<p>No matching stories for this issue.</p>'}</div></section>`;
-  };
-  const content = `<p class="date">${escapeHtml(date)} · No. ${snapshot.issueNumber}</p><h1>${escapeHtml(snapshot.configName)}</h1>${snapshot.sections.map((section) => sectionHtml(section, false)).join('')}`;
-  const { light, dark } = outputColors;
-  const base = `*{font-style:normal!important}body{margin:0;color:${light['text/primary']};background:${light['bg/surface']};font:15px/1.5 Arial,sans-serif}h1,h2,h3{font-family:Georgia,serif}a{color:inherit}img{max-width:100%;height:auto}article{padding:16px 0;border-bottom:1px solid ${light['border/default']}}h2{margin-top:28px}.source,.date{font-size:12px;color:${light['text/soft']}}`;
-  const web = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escapeHtml(snapshot.configName)}</title><style>${base}main{max-width:680px;margin:auto;padding:36px}.layout-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.layout-grid article{border:1px solid ${light['border/default']};border-radius:12px;padding:18px}.layout-headlines article>p,.layout-headlines img{display:none}.layout-lead article[data-first] h3{font-size:30px}</style></head><body><main>${content}</main></body></html>`;
-  const email = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escapeHtml(snapshot.configName)}</title><style>${base}@media(prefers-color-scheme:dark){body,td{background:${dark['bg/surface']}!important;color:${dark['text/primary']}!important}a{color:${dark['text/primary']}!important}}</style></head><body><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table role="presentation" width="600" style="max-width:100%;background:${light['bg/surface']}" cellpadding="0" cellspacing="0"><tr><td style="padding:36px;font:15px/1.5 Arial,sans-serif;color:${light['text/primary']}"><p style="font-size:12px">${escapeHtml(date)} · No. ${snapshot.issueNumber}</p><h1 style="font:30px/36px Georgia,serif">${escapeHtml(snapshot.configName)}</h1>${snapshot.sections.map((section) => sectionHtml(section, true)).join('')}</td></tr></table></td></tr></table></body></html>`;
-  const feed = `<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><id>urn:brew:${snapshot.brewConfigId}</id><title>${escapeHtml(snapshot.configName)}</title><updated>${snapshot.generatedAt}</updated><entry><id>urn:brew:${snapshot.brewConfigId}:${snapshot.issueNumber}</id><title>${escapeHtml(snapshot.configName)} · ${snapshot.issueNumber}</title><updated>${snapshot.generatedAt}</updated><content type="html">${escapeHtml(content)}</content></entry></feed>`;
-  return { web, email, feed };
-}
 export class CompositionPreview {
   constructor(
     private storage: BrewPreviewStoragePort,

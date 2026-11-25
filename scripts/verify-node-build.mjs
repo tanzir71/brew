@@ -78,6 +78,14 @@ try {
   assert.equal(preview.statusCode, 200);
   assert.equal(preview.json().snapshot.version, 2);
   assert.match(preview.json().outputs.feed, /<feed xmlns=/);
+  assert.equal(JSON.parse(preview.json().outputs.json).version, 2);
+  assert.match(preview.json().outputs.markdown, /^# Build check/m);
+  assert.equal(
+    JSON.parse(preview.json().outputs.jsonFeed).version,
+    'https://jsonfeed.org/version/1.1',
+  );
+  assert.match(preview.json().outputs.email, /width="600"/);
+  assert.match(preview.json().outputs.text, /No\. 1/);
   const savedPreview = await app.inject({
     method: 'POST',
     url: `/api/brew-configs/${composed.json().id}/preview`,

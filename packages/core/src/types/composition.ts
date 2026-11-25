@@ -1,4 +1,5 @@
 import type { RuleCondition } from './rules.js';
+import type { BrewOutputs } from './outputs.js';
 export type { BrewItem, BrewArticleState, BrewReadState } from './legacy-brew.js';
 import type { BrewItem } from './legacy-brew.js';
 import type { NewsletterCleaning } from './newsletters.js';
@@ -87,6 +88,6 @@ export interface BrewSnapshot {
 export type BrewIssue = BrewSnapshot | import('./legacy-brew.js').BrewSnapshot;
 export interface BrewPreview {
   snapshot: BrewSnapshot;
-  outputs: { web: string; email: string; feed: string };
+  outputs: BrewOutputs;
   warnings: string[];
 }
