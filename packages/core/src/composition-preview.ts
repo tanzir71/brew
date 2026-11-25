@@ -37,6 +37,10 @@ const text = (html: string) =>
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+const newsletterSummary = (content: string): string => {
+  const excerpt = content.replace(/\s+/g, ' ').trim();
+  return `<p>${escapeHtml(excerpt.length > 180 ? `${excerpt.slice(0, 177).trimEnd()}…` : excerpt)}</p>`;
+};
 
 export function parsePreviewTime(at: unknown): Date {
   try {
@@ -162,13 +166,16 @@ export class CompositionPreview {
         items: matching.slice(0, section.maxItems).map((row) => ({
           id: row.id,
           feedId: row.feedId,
+          ...(row.newsletter ? { newsletter: structuredClone(row.newsletter) } : {}),
           title: row.title,
           url: row.url,
           author: row.author || null,
           summaryHtml:
             section.depth === 'title'
               ? null
-              : sanitizeArticleHtml(row.summaryHtml, { images: section.images }),
+              : row.newsletter
+                ? newsletterSummary(row.content)
+                : sanitizeArticleHtml(row.summaryHtml, { images: section.images }),
           imageUrl: section.images ? row.imageUrl : null,
           publishedAt: new Date(row.publishedAt).toISOString(),
           readAt: row.readAt === null ? null : new Date(row.readAt).toISOString(),

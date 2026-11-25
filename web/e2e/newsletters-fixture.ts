@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import type { Page } from '@playwright/test';
+import type { ClockPort } from '../../packages/core/src/ports';
 import { openDatabase } from '../../targets/node/src/db/database';
 import { createApp } from '../../targets/node/src/app';
 import { NewsletterService } from '../../targets/node/src/services/newsletter-service';
@@ -13,10 +14,17 @@ export const newsletterNow = new Date('2026-11-25T08:00:00Z');
 export const newsletterTitle = 'Forms should declare their tools';
 export async function newslettersFixture(
   page: Page,
-  options: { theme?: 'light' | 'dark'; configured?: boolean; empty?: boolean; calm?: boolean } = {},
+  options: {
+    theme?: 'light' | 'dark';
+    configured?: boolean;
+    empty?: boolean;
+    calm?: boolean;
+    clock?: ClockPort;
+    fetcher?: typeof fetch;
+  } = {},
 ) {
   process.env.NODE_ENV = 'test';
-  const clock = { now: () => new Date(newsletterNow), monotonic: () => 0 };
+  const clock = options.clock ?? { now: () => new Date(newsletterNow), monotonic: () => 0 };
   const database = openDatabase(':memory:');
   const bytes = fs.readFileSync(
     new URL('../../packages/web/public/figma/newsletters/letter.png', import.meta.url),
@@ -33,10 +41,12 @@ export async function newslettersFixture(
             username: 'test',
             password: 'test-only-password-32',
           },
-    fetcher: async (url) =>
-      String(url) === 'https://letters.fixture.test/letter.png'
-        ? new Response(new Uint8Array(bytes), { headers: { 'content-type': 'image/png' } })
-        : new Response('', { status: 404 }),
+    fetcher:
+      options.fetcher ??
+      (async (url) =>
+        String(url) === 'https://letters.fixture.test/letter.png'
+          ? new Response(new Uint8Array(bytes), { headers: { 'content-type': 'image/png' } })
+          : new Response('', { status: 404 })),
   });
   const brews = new BrewService(database, clock);
   const morning = brews.createComposition({
@@ -168,7 +178,7 @@ export async function newslettersFixture(
     },
     { theme: options.theme ?? 'light', calm: options.calm ?? false },
   );
-  await page.clock.setFixedTime(newsletterNow);
+  await page.clock.setFixedTime(clock.now());
   const failures = new Map<string, number>();
   await page.context().route('**/api/**', async (route) => {
     const request = route.request();

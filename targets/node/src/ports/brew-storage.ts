@@ -341,10 +341,26 @@ export class NodeBrewStorage implements BrewStoragePort {
     }
     const rows = this.database.sqlite
       .prepare(
-        `SELECT a.id,a.title,a.url,coalesce(a.author,'') AS author,a.feed_id AS feedId,f.title AS feed,f.folder_id AS folderId,coalesce(fo.title,'') AS folder,a.summary_html AS summaryHtml,a.image_url AS imageUrl,a.published_at AS publishedAt,a.read_at AS readAt,coalesce(a.full_text_html,a.content_html,a.summary_html,'') AS body FROM articles a JOIN feeds f ON f.id=a.feed_id LEFT JOIN folders fo ON fo.id=f.folder_id WHERE ${clauses.join(' AND ')}`,
+        `SELECT f.kind AS feedKind,a.cleaning_json AS cleaningJson,a.id,a.title,a.url,coalesce(a.author,'') AS author,a.feed_id AS feedId,f.title AS feed,f.folder_id AS folderId,coalesce(fo.title,'') AS folder,a.summary_html AS summaryHtml,a.image_url AS imageUrl,a.published_at AS publishedAt,a.read_at AS readAt,coalesce(a.full_text_html,a.content_html,a.summary_html,'') AS body FROM articles a JOIN feeds f ON f.id=a.feed_id LEFT JOIN folders fo ON fo.id=f.folder_id WHERE ${clauses.join(' AND ')}`,
       )
-      .all(...params) as Array<Omit<BrewCandidate, 'content'>>;
-    return rows.map((row) => ({ ...row, content: articleText(row.body) }));
+      .all(...params) as Array<
+      Omit<BrewCandidate, 'content'> & { feedKind: string; cleaningJson: string | null }
+    >;
+    return rows.map(({ feedKind, cleaningJson, ...row }) => ({
+      ...row,
+      content: articleText(row.body),
+      ...(feedKind === 'newsletter'
+        ? {
+            newsletter: {
+              cleaning: cleaningJson
+                ? (JSON.parse(
+                    cleaningJson,
+                  ) as import('../../../../packages/core/src/types/newsletters.js').NewsletterCleaning)
+                : null,
+            },
+          }
+        : {}),
+    }));
   }
   setting(key: string): string | undefined {
     return (

@@ -8,6 +8,19 @@ import {
 import { newsletterCorpus } from '../test/newsletter-corpus.js';
 
 describe('newsletter cleaner', () => {
+  it('cleans a complete doctype document without traversing fragment document nodes or retaining mail chrome', () => {
+    const mail =
+      '<!doctype html><html><head><style>body{background:url(https://metrics.test/bg)}</style></head><body><table><tr><td><p>Keep this story.</p><div class="sponsor">Buy a secretadtoken</div><img width="1" src="https://metrics.test/open"><footer><a href="https://journal.test/unsubscribe">Unsubscribe</a></footer></td></tr></table><script>evil()</script></body></html>';
+    const result = cleanNewsletterHtml(mail);
+    expect(result.html).toContain('Keep this story.');
+    expect(result.html).not.toMatch(
+      /secretadtoken|Unsubscribe|metrics\.test|<script|<style|doctype/,
+    );
+    expect(result.cleaning).toEqual({ trackers: 1, sponsorBlocks: 1, footerTrimmed: true });
+    expect(cleanNewsletterHtml('<!doctype html><p>Fragment story.</p>').html).toBe(
+      '<p>Fragment story.</p>',
+    );
+  });
   it.each(newsletterCorpus)('cleans $name while preserving editorial text', (fixture) => {
     const result = cleanNewsletterHtml(fixture.html, fixture.selectors);
     const root = parseHTML(`<div>${result.html}</div>`).document;

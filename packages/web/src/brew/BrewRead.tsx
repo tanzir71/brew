@@ -2,11 +2,13 @@ import { useEffect, useRef, useState, lazy, Suspense, type CSSProperties } from 
 import { useQueryClient } from '@tanstack/react-query';
 import { useBrewReadState } from './useBrewReadState';
 import type { BrewArticleState, BrewConfig, BrewItem } from '@brew/core/types/legacy-brew';
-import type { BrewIssue } from '@brew/core/types/brew';
+import type { BrewSnapshotItem, BrewIssue } from '@brew/core/types/brew';
 import { updateArticleState } from '../articleState';
 import { Avatar, Button, Chip } from '../components/controls';
 import { Icon } from '../components/Icon';
 import { Badge } from '../components/Badge';
+import { letterDate, senderInitial } from '../newsletters/dates';
+import { newsletterCleaningLabel } from '../newsletters/cleaning';
 import { ModalSheet } from '../components/Sheet';
 const ArticleReader = lazy(() =>
   import('../Reader').then((module) => ({ default: module.ArticleReader })),
@@ -91,12 +93,17 @@ export function BrewRead({
   const opener = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (!snapshot) return;
+    const visibleSections = new Set<Element>();
     const observer = new IntersectionObserver(
       (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (visible) setActiveSection((visible.target as HTMLElement).dataset.sectionId!);
+        for (const entry of entries) {
+          if (entry.isIntersecting) visibleSections.add(entry.target);
+          else visibleSections.delete(entry.target);
+        }
+        const visible = [...visibleSections].sort(
+          (a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top,
+        )[0];
+        if (visible) setActiveSection((visible as HTMLElement).dataset.sectionId!);
       },
       { rootMargin: '-80px 0px -60% 0px' },
     );
@@ -269,6 +276,14 @@ export function BrewRead({
                   )}
                 </section>
               );
+            const newsletterSection =
+              'sources' in section &&
+              ((section.sources.length > 0 &&
+                section.sources.every((source) => source.kind === 'newsletters')) ||
+                (section.items.length > 0 && section.items.every((item) => !!item.newsletter)));
+            const senderCount = new Set(
+              section.items.map((item) => ('feedId' in item ? item.feedId : item.feedTitle)),
+            ).size;
             const layout =
               section.layout === 'hero'
                 ? 'lead'
@@ -291,29 +306,46 @@ export function BrewRead({
                   </h2>
                   <span className="brew-spacer" />
                   <span className="brew-section-total">
-                    {section.items.length} {section.items.length === 1 ? 'story' : 'stories'} ·{' '}
-                    {section.items.reduce((sum, item) => sum + item.readTimeMinutes, 0)} min
+                    {newsletterSection ? (
+                      `${section.items.length} ${section.items.length === 1 ? 'letter' : 'letters'} · ${senderCount} ${senderCount === 1 ? 'sender' : 'senders'}`
+                    ) : (
+                      <>
+                        {section.items.length} {section.items.length === 1 ? 'story' : 'stories'} ·{' '}
+                        {section.items.reduce((sum, item) => sum + item.readTimeMinutes, 0)} min
+                      </>
+                    )}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon={<Icon name="check" size={14} />}
-                    disabled={
-                      busy ||
-                      !state.data ||
-                      !section.items.some(
-                        (item) => current(item).available && !current(item).readAt,
-                      )
-                    }
-                    onClick={() =>
-                      setConfirm({
-                        title: section.title,
-                        ids: section.items.map((item) => item.id),
-                      })
-                    }
-                  >
-                    Mark section read
-                  </Button>
+                  {newsletterSection ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<Icon name="inbox" size={14} />}
+                      onClick={() => window.location.assign('/letters')}
+                    >
+                      Open inbox
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<Icon name="check" size={14} />}
+                      disabled={
+                        busy ||
+                        !state.data ||
+                        !section.items.some(
+                          (item) => current(item).available && !current(item).readAt,
+                        )
+                      }
+                      onClick={() =>
+                        setConfirm({
+                          title: section.title,
+                          ids: section.items.map((item) => item.id),
+                        })
+                      }
+                    >
+                      Mark section read
+                    </Button>
+                  )}
                 </header>
                 {'divider' in section && section.divider && (
                   <p className="brew-section-lede type-reading-lede">{section.divider}</p>
@@ -332,6 +364,7 @@ export function BrewRead({
                       <ReadItem
                         key={item.id}
                         item={item}
+                        issue={{ at: snapshot.generatedAt, timeZone: issueTimeZone }}
                         depth={
                           'depth' in section
                             ? section.depth
@@ -527,6 +560,7 @@ export function BrewRead({
 
 function ReadItem({
   item,
+  issue,
   state,
   layout,
   depth,
@@ -537,7 +571,8 @@ function ReadItem({
   onStar,
   onRead,
 }: {
-  item: BrewItem & { contentHtml?: string | null };
+  item: BrewSnapshotItem;
+  issue: { at: string; timeZone: string };
   state: BrewArticleState;
   layout: string;
   depth: string;
@@ -549,9 +584,10 @@ function ReadItem({
   onRead: () => void;
 }) {
   const highlighted = !!state.highlightColor;
+  const newsletter = layout === 'grid' ? item.newsletter : undefined;
   return (
     <article
-      className={`brew-read-item brew-read-item--${layout}`}
+      className={`brew-read-item brew-read-item--${layout}${newsletter ? ' brew-letter-card' : ''}`}
       aria-label={item.title}
       data-brew-id={item.id}
       data-brew-kind="article"
@@ -573,19 +609,30 @@ function ReadItem({
       )}
       <div className="brew-read-item-body">
         <div className="brew-read-item-copy">
-          <div className="brew-read-source">
-            <Avatar id={state.feedId ?? item.feedTitle} initial={item.feedTitle.slice(0, 1)} />
-            <span>{item.feedTitle}</span>
-            <span>
-              · {item.readTimeMinutes} min{layout === 'lead' ? ' read' : ''}
-            </span>
-            {state.readAt && (
+          {newsletter ? (
+            <div className="brew-letter-sender">
+              <Avatar
+                id={item.feedId ?? state.feedId ?? item.feedTitle}
+                initial={senderInitial(item.feedTitle)}
+              />
+              <strong>{item.feedTitle}</strong>
+              <time dateTime={item.publishedAt}>{letterDate(item.publishedAt, false, issue)}</time>
+            </div>
+          ) : (
+            <div className="brew-read-source">
+              <Avatar id={state.feedId ?? item.feedTitle} initial={item.feedTitle.slice(0, 1)} />
+              <span>{item.feedTitle}</span>
               <span>
-                <Icon name="check" size={12} />
-                Read
+                · {item.readTimeMinutes} min{layout === 'lead' ? ' read' : ''}
               </span>
-            )}
-          </div>
+              {state.readAt && (
+                <span>
+                  <Icon name="check" size={12} />
+                  Read
+                </span>
+              )}
+            </div>
+          )}
           <h3
             className={
               layout === 'lead'
@@ -627,6 +674,20 @@ function ReadItem({
           </>
         )}
       </div>
+      {newsletter && (
+        <div className="brew-letter-footer">
+          <Icon name="shield" size={13} />
+          <span>{newsletterCleaningLabel(newsletter.cleaning)}</span>
+          <button
+            type="button"
+            data-brew-action="open"
+            disabled={!state.available || busy}
+            onClick={onOpen}
+          >
+            Read letter
+          </button>
+        </div>
+      )}
       <div className="brew-read-actions">
         <Button
           variant="secondary"

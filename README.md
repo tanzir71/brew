@@ -268,6 +268,12 @@ Composition JSON stores one newsletter source per section, for example
 nonempty list of up to 500 unique positive IDs; missing/deleted IDs match nothing and
 remain visible for removal in the picker. No database migration is needed.
 
+Generated issues freeze a letter’s cleaning note and a plain-text excerpt for the
+newsletter Grid cards. Their timestamps use the archived issue’s date and time zone.
+Read letter opens the existing reader; Open inbox returns to Newsletters. See the
+[M10 corpus and visual review](docs/newsletter-exit-review.md) for the 20-template
+browser checks and Figma comparison. Opt-in Brief generation follows in M17.
+
 The address card reflects the configured mail capability and copies the receiving address.
 **Forward from Gmail** explains address verification and a narrow forwarding filter for
 new mail; it does not use OAuth or connect your Google account. Unconfigured instances

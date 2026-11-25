@@ -113,6 +113,7 @@ export interface BrewItemQuery {
   limit?: number;
 }
 export interface BrewCandidate extends ArticleContext {
+  newsletter?: { cleaning: import('./types/newsletters.js').NewsletterCleaning | null };
   summaryHtml: string | null;
   imageUrl: string | null;
   body: string | null;

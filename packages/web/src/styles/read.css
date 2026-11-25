@@ -81,6 +81,73 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
+.brew-letter-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.brew-read-item.brew-letter-card,
+.brew-read-item.brew-letter-card[data-selected='true'] {
+  border: 1px solid var(--brew-border-default);
+  border-radius: 12px;
+  padding: 18px;
+}
+.brew-letter-card .brew-read-item-body {
+  width: 100%;
+}
+.brew-letter-sender {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  font: 500 12px/16px var(--brew-font-ui);
+  color: var(--brew-text-soft);
+}
+.brew-letter-sender strong {
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.brew-letter-sender time {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--brew-text-caption);
+  font-weight: 400;
+}
+.brew-letter-card .brew-read-excerpt {
+  display: block;
+}
+.brew-letter-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding-top: 4px;
+  margin-top: auto;
+  color: var(--brew-text-caption);
+  font: 400 12px/16px var(--brew-font-ui);
+}
+.brew-letter-footer > .brew-icon {
+  flex-shrink: 0;
+}
+.brew-letter-footer > span {
+  flex: 1;
+}
+.brew-letter-footer > button {
+  color: var(--brew-accent-default);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.brew-letter-footer > button:focus-visible {
+  outline: 2px solid var(--brew-text-primary);
+  outline-offset: 3px;
+}
+.brew-letter-footer > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
 .brew-read-item {
   min-width: 0;
   border-left: 0;

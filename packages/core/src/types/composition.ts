@@ -1,6 +1,7 @@
 import type { RuleCondition } from './rules.js';
 export type { BrewItem, BrewArticleState, BrewReadState } from './legacy-brew.js';
 import type { BrewItem } from './legacy-brew.js';
+import type { NewsletterCleaning } from './newsletters.js';
 
 export type BrewLayout = 'lead' | 'magazine' | 'grid' | 'headlines';
 export type BrewDepth = 'title' | 'excerpt' | 'full' | 'brief';
@@ -61,8 +62,13 @@ export interface BrewConfig {
   sections: BrewSection[];
 }
 export type BrewConfigDraft = Omit<BrewConfig, 'id' | 'createdAt' | 'scheduleCron'>;
+export type BrewSnapshotItem = BrewItem & {
+  feedId?: number;
+  contentHtml?: string | null;
+  newsletter?: { cleaning: NewsletterCleaning | null };
+};
 export interface BrewSnapshotSection extends BrewSection {
-  items: Array<BrewItem & { feedId?: number; contentHtml?: string | null }>;
+  items: BrewSnapshotItem[];
   matchingItems: number;
   eligibleItems: number;
   noteHtml?: string;

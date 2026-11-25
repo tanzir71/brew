@@ -183,6 +183,14 @@ try {
     payload: { at: new Date().toISOString() },
   });
   assert.equal(newsletterPreview.statusCode, 200);
+  assert.equal(
+    newsletterPreview.json().snapshot.sections[0].items[0].newsletter.cleaning.trackers,
+    1,
+  );
+  assert.match(
+    newsletterPreview.json().snapshot.sections[0].items[0].summaryHtml,
+    /A compiled story/,
+  );
   assert.deepEqual(
     newsletterPreview.json().snapshot.sections[0].items.map((item) => item.id),
     [letter.articleId],

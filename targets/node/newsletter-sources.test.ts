@@ -132,6 +132,12 @@ describe('Newsletter Brew sources', () => {
     const preview = await service.previewComposition(value, 0, at.toISOString());
     expect(preview.snapshot.sections[0]!.items[0]?.id).toBe(two.articleId);
     expect(preview.warnings).toEqual([]);
+    expect(preview.snapshot.sections[0]!.items[0]?.newsletter?.cleaning).toEqual({
+      trackers: 0,
+      sponsorBlocks: 0,
+      footerTrimmed: false,
+    });
+    expect(preview.snapshot.sections[0]!.items[0]?.summaryHtml).toContain('second story');
     state.updateState(two.articleId!, { read: true });
     value.sections[0]!.onlyUnread = true;
     const cleaned = await service.previewComposition(value, 0, at.toISOString());

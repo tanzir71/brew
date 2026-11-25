@@ -113,9 +113,14 @@ export function cleanNewsletterHtml(
   input: string,
   options: NewsletterSelectors & { archiveUrl?: string } = {},
 ): CleanedNewsletter {
-  const document = parseHTML('<!doctype html><html><body></body></html>').document;
+  // Parse full messages as documents. A doctype inserted through body.innerHTML
+  // leaves a DocumentType node in linkedom's fragment traversal.
+  const document = parseHTML(
+    /<html(?:\s|>)/i.test(input)
+      ? input
+      : `<!doctype html><html><body>${input.replace(/<!doctype[^>]*>/gi, '')}</body></html>`,
+  ).document;
   const root = document.body;
-  root.innerHTML = input;
   const cleaning: NewsletterCleaning = { trackers: 0, sponsorBlocks: 0, footerTrimmed: false };
   const explicitArchive = options.archiveUrl ? cleanNewsletterUrl(options.archiveUrl).url : null;
   const base = explicitArchive ?? undefined;
