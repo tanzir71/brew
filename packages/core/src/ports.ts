@@ -88,6 +88,7 @@ export interface BrewStoragePort {
   updateComposition(id: number, draft: import('./types/brew.js').BrewConfigDraft): boolean;
   usesComposition(id: number): boolean;
   nextIssueNumber(id: number): number;
+  savedSourceSearch(id: number): { query: string } | undefined;
   compositionItems(query: BrewItemQuery): BrewCandidate[];
   articleStates(ids: number[]): import('./types/legacy-brew.js').BrewArticleState[];
   setting(key: string): string | undefined;
@@ -95,6 +96,7 @@ export interface BrewStoragePort {
 }
 export interface BrewItemQuery {
   onlyUnread: boolean;
+  searchQuery?: string;
   folderId?: number;
   feedId?: number;
   tagId?: number;

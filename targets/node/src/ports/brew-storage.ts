@@ -1,3 +1,4 @@
+import { compileFtsQuery } from '../../../../packages/core/src/search-service.js';
 import { articleText } from './article-text.js';
 import { desc, eq } from 'drizzle-orm';
 import type {
@@ -258,8 +259,14 @@ export class NodeBrewStorage implements BrewStoragePort {
       ).next,
     );
   }
+  savedSourceSearch(id: number): { query: string } | undefined {
+    return this.database.sqlite
+      .prepare('SELECT query FROM saved_source_searches WHERE id=?')
+      .get(id) as { query: string } | undefined;
+  }
   compositionItems(query: BrewItemQuery): BrewCandidate[] {
     const clauses = ['a.hidden=0', 'a.excluded_from_brew=0'];
+    if (query.searchQuery !== undefined && !compileFtsQuery(query.searchQuery)) return [];
     const params: Array<number | string> = [];
     if (query.onlyUnread) clauses.push('a.read_at IS NULL');
     if (query.folderId !== undefined) {
@@ -281,6 +288,13 @@ export class NodeBrewStorage implements BrewStoragePort {
     if (query.publishedSince !== undefined) {
       clauses.push('a.published_at>=?');
       params.push(query.publishedSince);
+    }
+    if (query.searchQuery !== undefined) {
+      clauses.push(
+        'f.muted=0',
+        'a.id IN (SELECT rowid FROM articles_fts WHERE articles_fts MATCH ?)',
+      );
+      params.push(compileFtsQuery(query.searchQuery)!);
     }
     const rows = this.database.sqlite
       .prepare(

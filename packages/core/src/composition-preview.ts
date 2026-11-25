@@ -100,13 +100,18 @@ export class CompositionPreview {
       }
       const unique = new Map<number, BrewCandidate>();
       for (const source of section.sources) {
-        if (source.kind === 'newsletters' || source.kind === 'saved_search') {
-          warnings.push(
-            `${section.title}: ${source.kind === 'newsletters' ? 'Newsletters' : 'Saved searches'} needs setup.`,
-          );
+        if (source.kind === 'newsletters') {
+          warnings.push(`${section.title}: Newsletters needs setup.`);
+          continue;
+        }
+        const search =
+          source.kind === 'saved_search' ? this.storage.savedSourceSearch(source.id!) : undefined;
+        if (source.kind === 'saved_search' && !search) {
+          warnings.push(`${section.title}: Saved search is no longer available.`);
           continue;
         }
         const rows = this.storage.compositionItems({
+          searchQuery: search?.query,
           onlyUnread: section.onlyUnread,
           folderId: source.kind === 'folder' ? source.id : undefined,
           feedId: source.kind === 'feed' ? source.id : undefined,

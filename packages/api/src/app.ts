@@ -2,6 +2,7 @@ import { Hono, type NotFoundHandler } from 'hono';
 import type { ApiServices } from './ports.js';
 import { eventStream } from './events.js';
 import { json } from './http.js';
+import { registerSourceRoutes } from './routes/sources.js';
 import { registerFeedRoutes } from './routes/feeds.js';
 import { registerArticleRoutes } from './routes/articles.js';
 import { registerReaderRoutes } from './routes/reader.js';
@@ -33,6 +34,7 @@ export function createApi(
   );
   app.notFound(options.notFound ?? ((c) => json(c, { error: 'Not found' }, 404)));
   registerFeedRoutes(app, services);
+  registerSourceRoutes(app, services);
   registerArticleRoutes(app, services);
   registerReaderRoutes(app, services);
   registerRulesRoutes(app, services);

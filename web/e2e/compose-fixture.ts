@@ -6,10 +6,10 @@ import { BrewService } from '../../targets/node/src/services/brew-service';
 import { newBrewSection, defaultDelivery } from '../../packages/core/src/composition-model';
 import type { BrewConfigDraft } from '../../packages/core/src/types/brew';
 
-export async function composeFixture(page: Page, theme = 'light') {
+export async function composeFixture(page: Page, theme = 'light', fetcher?: typeof fetch) {
   process.env.NODE_ENV = 'test';
   const database = openDatabase(':memory:');
-  const app = await createApp({ database });
+  const app = await createApp({ database, fetcher });
   const design = database.db.insert(folders).values({ title: 'Design' }).returning().get();
   const independent = database.db
     .insert(folders)

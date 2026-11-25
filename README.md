@@ -150,7 +150,20 @@ while adding the canonical Compose model. Node applies its portable data step
 (`packages/db/src/composition-migration.ts`) in the same transaction as the SQL;
 future targets must do the same. Old REST config routes retain their v1 shape;
 Compose uses `/api/brew-configs/:id/composition` and `POST .../:id/preview`.
-The complete Figma Add source and Schedule sheets follow in the next iterations.
+Add source discovers feeds from websites and native YouTube, Mastodon, Bluesky,
+subreddit and podcast URLs. It validates feed responses before offering them,
+with multi-select, library filters and capability-gated newsletter address copy.
+Apple Podcasts links resolve through the public lookup API. Provider failures
+remain visible; Brew does not create a replacement feed when a native endpoint
+is unavailable. OPML import adds subscriptions to the library; choose which ones
+to include in the section. Saved browser searches selected here are persisted
+by migration 0007 and use the same FTS compiler as Reader search.
+
+The source API lives at `/api/sources/discover`, `/api/sources/searches` and
+`/api/sources/mailbox`. Discovery does not write to the database. Adding selected
+feeds updates the library. The section changes only after all selected sources
+resolve. Partial failures retain completed subscriptions for retry.
+The full Schedule & delivery sheet follows in the next iteration.
 
 More actions contains generation,
 edition selection and display preferences. Output controls remain visible and

@@ -219,11 +219,12 @@ test('source changes persist and Make one now flushes unsaved sections into a fr
 }) => {
   const fixture = await setup(page);
   await page.getByRole('button', { name: '+ Source', exact: true }).click();
-  const sheet = page.getByRole('dialog', { name: 'Sources · Design & craft' });
-  await sheet.getByRole('checkbox', { name: 'Folder · Design', exact: true }).uncheck();
-  await sheet.getByRole('checkbox', { name: 'Folder · Independent', exact: true }).uncheck();
-  await sheet.getByRole('checkbox', { name: 'Folder · Engineering', exact: true }).check();
-  await sheet.getByRole('button', { name: 'Use 1 source', exact: true }).click();
+  const sheet = page.getByRole('dialog', { name: 'Add a source to “Design & craft”' });
+  await sheet.getByRole('radio', { name: 'Folders', exact: true }).click();
+  await sheet.getByRole('checkbox', { name: 'Design', exact: true }).uncheck();
+  await sheet.getByRole('checkbox', { name: 'Independent', exact: true }).uncheck();
+  await sheet.getByRole('checkbox', { name: 'Engineering', exact: true }).check();
+  await sheet.getByRole('button', { name: 'Add 1 source', exact: true }).click();
   await expect(
     page.locator('[data-brew-id=design]').getByText('Matches 1 of 1 unread now'),
   ).toBeVisible();

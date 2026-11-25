@@ -1,3 +1,4 @@
+import { SourceService } from '../services/source-service.js';
 import type { ApiServices } from '../../../../packages/api/src/ports.js';
 import type { BrewDatabase } from '../db/database.js';
 import { ArticleService } from '../services/article-service.js';
@@ -20,6 +21,7 @@ export function nodeApiServices(
 ): ApiServices {
   return {
     capabilities: nodeCapabilities,
+    sources: new SourceService(database, fetcher),
     feeds: new FeedService(database, fetcher),
     articles: new ArticleService(database, fetcher),
     reader: new ReaderService(database),

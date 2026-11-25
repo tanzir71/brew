@@ -3,6 +3,7 @@ import { IconButton } from './controls';
 
 type SheetProps = {
   open: boolean;
+  className?: string;
   onClose: () => void;
   title: string;
   description?: string;
@@ -12,6 +13,7 @@ type SheetProps = {
 };
 function SheetBody({
   side,
+  className = '',
   onClose,
   title,
   description,
@@ -37,7 +39,7 @@ function SheetBody({
   return (
     <dialog
       ref={ref}
-      className={`brew-sheet ${side ? 'brew-sheet--side' : 'brew-sheet--modal'}`}
+      className={`brew-sheet ${side ? 'brew-sheet--side' : 'brew-sheet--modal'} ${className}`}
       aria-labelledby={id}
       aria-describedby={description ? `${id}-description` : undefined}
       onCancel={(event) => {

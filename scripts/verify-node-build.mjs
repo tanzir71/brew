@@ -70,6 +70,24 @@ try {
   assert.equal(preview.statusCode, 200);
   assert.equal(preview.json().snapshot.version, 2);
   assert.match(preview.json().outputs.feed, /<feed xmlns=/);
+  assert.deepEqual((await app.inject('/api/sources/mailbox')).json(), { address: null });
+  const sourceSearch = await app.inject({
+    method: 'POST',
+    url: '/api/sources/searches',
+    payload: { clientId: 'build-search', name: 'Build search', query: 'figma' },
+  });
+  assert.equal(sourceSearch.statusCode, 200);
+  assert.deepEqual((await app.inject('/api/sources/searches')).json(), [sourceSearch.json()]);
+  assert.equal(
+    (
+      await app.inject({
+        method: 'POST',
+        url: '/api/sources/discover',
+        payload: { url: 'javascript:alert(1)' },
+      })
+    ).statusCode,
+    400,
+  );
   assert.equal((await app.inject('/api/missing')).statusCode, 404);
   log(
     'Built Node target: migrations, health, SPA, assets and fallback passed outside the repository cwd.',

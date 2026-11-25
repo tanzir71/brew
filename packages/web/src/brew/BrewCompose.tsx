@@ -81,6 +81,11 @@ function ComposeEditor({ initial, ...props }: Props & { initial: BrewConfig }) {
     queryFn: () => composeJson<TagSummary[]>('/api/tags'),
   });
   const capabilities = useCapabilities();
+  const searches = useQuery({
+    queryKey: ['source-searches'],
+    queryFn: () =>
+      composeJson<import('@brew/core/types/sources').SavedSourceSearch[]>('/api/sources/searches'),
+  });
   const active = draft.sections.find((section) => section.id === expanded);
   const url = (section: string | null, nextSheet: string | null) => {
     const value = new URL(location.href);
@@ -123,7 +128,8 @@ function ComposeEditor({ initial, ...props }: Props & { initial: BrewConfig }) {
               featured: 'Featured by rules',
               weekly_review: 'Weekly review',
               newsletters: 'All senders',
-              saved_search: 'Saved search',
+              saved_search:
+                searches.data?.find((search) => search.id === source.id)?.name ?? 'Saved search',
             }[source.kind];
   const move = (id: string, direction: number) => {
     const focused = document.activeElement as HTMLElement | null;

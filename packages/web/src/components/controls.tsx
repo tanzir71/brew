@@ -1,4 +1,10 @@
-import { useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
+import {
+  useId,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import { Icon, type IconName } from './Icon';
 import { ExportedIcon } from './ExportedIcon';
 import { avatarTone } from './avatarTone';
@@ -185,7 +191,10 @@ export function Checkbox({
   hideLabel = false,
   className = '',
   ...props
-}: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & { label: string; hideLabel?: boolean }) {
+}: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {
+  label: ReactNode;
+  hideLabel?: boolean;
+}) {
   return (
     <label className={`brew-checkbox-label ${className}`}>
       <span className="brew-checkbox-box">
@@ -223,6 +232,7 @@ export function Kbd({ children }: { children: ReactNode }) {
 export function Input({
   label,
   hideLabel = false,
+  inputRef,
   icon,
   endAdornment,
   className = '',
@@ -231,6 +241,7 @@ export function Input({
 }: Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> & {
   label: string;
   hideLabel?: boolean;
+  inputRef?: Ref<HTMLInputElement>;
   icon?: ReactNode;
   endAdornment?: ReactNode;
 }) {
@@ -241,7 +252,7 @@ export function Input({
       <span className={hideLabel ? 'sr-only' : ''}>{label}</span>
       <span className="brew-input-shell">
         {icon}
-        <input id={controlId} {...props} />
+        <input id={controlId} ref={inputRef} aria-label={label} {...props} />
         {endAdornment}
       </span>
     </label>

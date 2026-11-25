@@ -180,7 +180,15 @@ export const settings = sqliteTable('settings', {
   value: text('value').notNull(),
 });
 
+export const savedSourceSearches = sqliteTable('saved_source_searches', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  clientId: text('client_id').notNull().unique(),
+  name: text('name').notNull(),
+  query: text('query').notNull(),
+});
+
 export const schema = {
+  savedSourceSearches,
   folders,
   feeds,
   articles,

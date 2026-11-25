@@ -1,0 +1,6 @@
+CREATE TABLE saved_source_searches (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  client_id TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  query TEXT NOT NULL
+);

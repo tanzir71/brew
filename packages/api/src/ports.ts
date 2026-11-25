@@ -1,4 +1,9 @@
 import type {
+  SourceDiscovery,
+  SavedSourceSearch,
+  SourceMailbox,
+} from '../../core/src/types/sources.js';
+import type {
   ArticleDetail,
   ArticlePage,
   FeedCandidate,
@@ -75,6 +80,16 @@ export interface EventsPort {
   subscribe(listener: (event: string, data: unknown) => void, onClose: () => void): () => void;
 }
 export interface ApiServices {
+  sources: {
+    discover(url: string): Promise<SourceDiscovery>;
+    searches(): MaybePromise<SavedSourceSearch[]>;
+    saveSearch(value: {
+      clientId: string;
+      name: string;
+      query: string;
+    }): MaybePromise<SavedSourceSearch>;
+    mailbox(): MaybePromise<SourceMailbox>;
+  };
   capabilities(): MaybePromise<Capabilities>;
   feeds: FeedApiPort;
   articles: ArticleApiPort;

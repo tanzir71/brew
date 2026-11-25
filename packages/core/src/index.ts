@@ -7,3 +7,4 @@ export * from './ports.js';
 export * from './rules-service.js';
 export * from './safe-regex.js';
 export * from './search-service.js';
+export * from './source-discovery.js';
