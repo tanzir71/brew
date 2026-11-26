@@ -63,7 +63,7 @@ export function LetterPane({
     staleTime: 0,
     gcTime: 0,
   });
-  useArticleAlternates(letter.id);
+  useArticleAlternates(explicitOpen ? letter.id : null);
   const sender = letter.sender;
   const originalHref = /^https?:\/\//i.test(letter.url)
     ? letter.url

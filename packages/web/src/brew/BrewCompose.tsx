@@ -15,6 +15,7 @@ import { ModalSheet } from '../components/Sheet';
 import { Icon } from '../components/Icon';
 import { Badge } from '../components/Badge';
 import { useCapabilities } from '../hooks/useCapabilities';
+import { usePageAlternates } from '../hooks/usePageAlternates';
 import { ComposePreview } from './ComposePreview';
 import { composeJson, useComposeDraft } from './useComposeDraft';
 import { SourcePicker, ScheduleEditor } from './CompositionSheets';
@@ -99,6 +100,10 @@ function ComposeEditor({ initial, ...props }: Props & { initial: BrewConfig }) {
       composeJson<import('@brew/core/types/sources').SavedSourceSearch[]>('/api/sources/searches'),
   });
   const active = draft.sections.find((section) => section.id === expanded);
+  const alternateParams = new URLSearchParams();
+  if (expanded && initial.sections.some((section) => section.id === expanded)) alternateParams.set('section', expanded);
+  if (sheet) alternateParams.set('sheet', sheet);
+  usePageAlternates(`/b/${props.id}/compose${alternateParams.size ? `?${alternateParams}` : ''}`, 'Saved Compose configuration');
   const url = (section: string | null, nextSheet: string | null) => {
     const value = new URL(location.href);
     if (section) value.searchParams.set('section', section);
@@ -214,7 +219,7 @@ function ComposeEditor({ initial, ...props }: Props & { initial: BrewConfig }) {
           ? 'Monthly'
           : 'Daily';
   return (
-    <div className="compose-workspace">
+    <main className="compose-workspace" aria-label="Compose">
       <TopBar
         brews={props.brews}
         brewId={String(props.id)}
@@ -682,7 +687,7 @@ function ComposeEditor({ initial, ...props }: Props & { initial: BrewConfig }) {
           )}
         </div>
       </ModalSheet>
-    </div>
+    </main>
   );
 }
 

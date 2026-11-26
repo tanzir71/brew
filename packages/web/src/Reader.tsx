@@ -9,6 +9,8 @@ import { readerPageHref, readerPageSize, type ReaderPageState } from '@brew/core
 import { navigateReader, readerState } from './readerLocation';
 import { ReaderPageFooter } from './components/ReaderPageFooter';
 import { useTextAlternates } from './hooks/useTextAlternates';
+import { usePageAlternates } from './hooks/usePageAlternates';
+import { readerWelcomeCopy } from '@brew/core/app-pages';
 import { ModeChip } from './components/ModeChip';
 import { articleRouteId } from './articleRoute';
 import { articleDom } from './articleDom';
@@ -55,6 +57,7 @@ function selectionHref(value: Selection): string {
 }
 function selectionFromUrl(): Selection {
     if (articleRouteId(location.pathname) !== null) return { kind: 'all', title: 'All articles' };
+    if (location.pathname === '/reader') return { kind: 'brew', title: 'The Brew' };
     const params = new URLSearchParams(location.search);
     if (location.pathname === '/' && (!params.get('scope') || params.get('scope') === 'brew') && !params.has('feed') && !params.has('folder') && !params.get('q')?.trim()) return { kind: 'brew', title: 'The Brew' };
     const state = readerState();
@@ -319,14 +322,15 @@ function Count({ value }: { value: number }) {
 }
 function FeedIcon({id,title}:{id:number;title:string}){const [failed,setFailed]=useState(false);return <span aria-hidden className="grid h-5 w-5 shrink-0 place-items-center overflow-hidden rounded-md bg-art-1 text-[10px] font-bold text-ink">{failed?title.trim().charAt(0).toUpperCase():<img src={`/api/feeds/${id}/icon`} alt="" className="h-full w-full object-cover" onError={()=>setFailed(true)}/>}</span>}
 function BrewWelcome() {
+  usePageAlternates('/reader', 'Reader welcome');
   return (
     <div className="mx-auto max-w-2xl px-10 py-20 text-center">
       <p className="text-xs font-semibold uppercase tracking-[.24em] text-soft">
         Your morning paper
       </p>
-      <h2 className="mt-3 text-4xl font-semibold tracking-tight">A calmer way to catch up.</h2>
+      <h2 className="mt-3 text-4xl font-semibold tracking-tight">{readerWelcomeCopy.heading}</h2>
       <p className="mx-auto mt-4 max-w-md text-soft">
-        Your frozen daily Brew will appear here. Until then, Today gathers the last 24 hours.
+        {readerWelcomeCopy.description}
       </p>
     </div>
   );

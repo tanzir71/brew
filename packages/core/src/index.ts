@@ -26,3 +26,5 @@ export * from './article-outputs.js';
 export * from './actions.js';
 export * from './reader-pages.js';
 export * from './reader-page-outputs.js';
+export * from './app-pages.js';
+export * from './page-document.js';

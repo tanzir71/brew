@@ -9,6 +9,7 @@ import { registerActionRoutes } from './routes/actions.js';
 import { registerArticleOutputRoutes } from './routes/article-outputs.js';
 import { registerReaderRoutes } from './routes/reader.js';
 import { registerReaderOutputRoutes } from './routes/reader-outputs.js';
+import { registerPageOutputRoutes } from './routes/page-outputs.js';
 import { registerRulesRoutes } from './routes/rules.js';
 import { registerBrewOutputRoutes } from './routes/brew-outputs.js';
 import { registerBrewRoutes } from './routes/brews.js';
@@ -49,6 +50,7 @@ export function createApi(
   registerArticleOutputRoutes(app, services);
   registerReaderRoutes(app, services);
   registerReaderOutputRoutes(app, services);
+  registerPageOutputRoutes(app, services);
   registerRulesRoutes(app, services);
   registerBrewRoutes(app, services);
   registerBrewOutputRoutes(app, services);

@@ -32,7 +32,7 @@ test('discovers and adds a feed into a folder', async ({ page }) => {
   await expect(page.getByText('Imported 1 feeds.')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Imported Journal' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Export OPML' })).toHaveAttribute('href', '/api/opml/export');
-  await page.getByRole('button', { name: 'Feed health' }).click();
+  await page.getByRole('link', { name: 'Feed health' }).click();
   await expect(page.getByRole('heading', { name: 'Feed health' })).toBeVisible();
   await expect(page.getByText('Failing over 7 days')).toBeVisible();
   await expect(page.locator('article').filter({ hasText: 'Imported Journal' }).getByRole('button', { name: 'Fetch now' })).toBeVisible();

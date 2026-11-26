@@ -3,7 +3,7 @@ import { textTwinHref } from '@brew/core/reader-pages';
 
 // A reading pane takes precedence over its underlying page. Removing it restores
 // the currently mounted page, including changes received while the pane was open.
-const entries = new Map<symbol, { path: string; priority: number }>();
+const entries = new Map<symbol, { path: string; priority: number; title?: string }>();
 let owned: HTMLLinkElement[] = [];
 function refresh() {
   owned.forEach((link) => link.remove());
@@ -17,20 +17,21 @@ function refresh() {
         link.rel = 'alternate';
         link.type = type!;
         link.href = textTwinHref(current.path, format as 'md' | 'json');
+        if (current.title) link.title = current.title;
         document.head.append(link);
         return link;
       })
     : [];
 }
-export function useTextAlternates(path: string | null, priority = 10) {
+export function useTextAlternates(path: string | null, priority = 10, title?: string) {
   useEffect(() => {
     if (!path) return;
     const key = Symbol();
-    entries.set(key, { path, priority });
+    entries.set(key, { path, priority, title });
     refresh();
     return () => {
       entries.delete(key);
       refresh();
     };
-  }, [path, priority]);
+  }, [path, priority, title]);
 }

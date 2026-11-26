@@ -17,6 +17,7 @@ import { Button } from './components/controls';
 import { ModalSheet } from './components/Sheet';
 import { BrewRead } from './brew/BrewRead';
 import { useBrewReadState } from './brew/useBrewReadState';
+import { usePageAlternates } from './hooks/usePageAlternates';
 import { composeJson } from './brew/useComposeDraft';
 const BrewCompose = lazy(() =>
   import('./brew/BrewCompose').then((module) => ({ default: module.BrewCompose })),
@@ -65,6 +66,8 @@ export function BrewPage({ preferences }: { preferences: ReactNode }) {
   const issue = history.data?.find((value) => value.id === issueId) ?? history.data?.[0] ?? null;
   const state = useBrewReadState(!editing ? issue?.id : undefined);
   const config = configs.data?.find((value) => value.id === selected);
+  usePageAlternates(!editing && !issue && !configs.isPending && !history.isFetching && !configs.isError && !history.isError
+    ? config ? `/b/${config.id}/read` : '/index' : null, 'Saved Brew configuration');
   useEffect(() => {
     if (!issue || editing) return;
     const frame = requestAnimationFrame(() => window.scrollTo(0, issue.scrollPosition));

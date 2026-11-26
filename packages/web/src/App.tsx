@@ -8,6 +8,8 @@ import { BrewPage } from './BrewPage';
 import { runAssets } from './components/figmaAssets';
 import { articleRouteId } from './articleRoute';
 import { closeSearchHref, isReaderLocation, navigateReader, searchHref } from './readerLocation';
+import { pageChoice } from '@brew/core/app-pages';
+import { usePageAlternates } from './hooks/usePageAlternates';
 const WhereBrewRuns = lazy(() => import('./settings/WhereBrewRuns').then((module) => ({ default: module.WhereBrewRuns })));
 const NewslettersPage = lazy(() => import('./NewslettersPage').then((module) => ({ default: module.NewslettersPage })));
 
@@ -30,6 +32,9 @@ export function App() {
 }
 function AppContent() {
   const [mode, setMode] = useState<'brew' | 'reader' | 'feeds' | 'rules'>(()=>{
+    if (/^\/rules(?:\/[1-9]\d*)?$/.test(location.pathname)) return 'rules';
+    if (location.pathname === '/feeds') return 'feeds';
+    if (location.pathname === '/reader') return 'reader';
     if (articleRouteId(location.pathname) !== null || isReaderLocation()) return 'reader';
     if (location.pathname.startsWith('/b/')) return 'brew';
     const view = new URLSearchParams(location.search).get('view');
@@ -41,6 +46,9 @@ function AppContent() {
     const restore = () => {
       const view = new URLSearchParams(location.search).get('view');
       if (isReaderLocation() || view === 'reader') setMode('reader');
+      else if (/^\/rules(?:\/[1-9]\d*)?$/.test(location.pathname)) setMode('rules');
+      else if (location.pathname === '/feeds') setMode('feeds');
+      else if (location.pathname === '/reader') setMode('reader');
       else if (view === 'rules' || view === 'feeds' || view === 'brew') setMode(view);
       else if (location.pathname.startsWith('/b/')) setMode('brew');
       const q = new URLSearchParams(location.search).get('q') ?? '';
@@ -182,8 +190,20 @@ function FeedManager() {
   const [folderTitle, setFolderTitle] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
-  const [section, setSection] = useState<'feeds' | 'health' | 'hidden'>('feeds');
+  const [section, setSection] = useState(() => pageChoice(new URLSearchParams(location.search).get('section'), ['feeds', 'health', 'hidden'], 'feeds'));
+  usePageAlternates(`/feeds${section === 'feeds' ? '' : `?section=${section}`}`, 'Saved feed library');
   const [hiddenArticles,setHiddenArticles]=useState<Array<{id:number;title:string;feedTitle:string;publishedAt:number}>>([]);
+  useEffect(() => {
+    const restore = () => setSection(pageChoice(new URLSearchParams(location.search).get('section'), ['feeds', 'health', 'hidden'], 'feeds'));
+    window.addEventListener('popstate', restore);
+    return () => window.removeEventListener('popstate', restore);
+  }, []);
+  useEffect(() => {
+    if (section !== 'hidden') return;
+    const controller = new AbortController();
+    void api<typeof hiddenArticles>('/api/articles-hidden', { signal: controller.signal }).then(setHiddenArticles).catch((error: Error) => { if (!controller.signal.aborted) setMessage(error.message); });
+    return () => controller.abort();
+  }, [section]);
   const refresh = useCallback(async () => {
     const [nextFeeds, nextFolders] = await Promise.all([
       api<FeedSummary[]>('/api/feeds'),
@@ -306,7 +326,7 @@ function FeedManager() {
     }
   }
 
-  if(section==='hidden')return <section className="mx-auto max-w-4xl px-8 py-12"><div className="flex items-end justify-between"><div><p className="text-xs font-semibold uppercase tracking-wider text-soft">Audit</p><h1 className="mt-2 text-3xl font-semibold">Hidden articles</h1></div><button onClick={()=>setSection('feeds')} className="rounded-lg border px-4 py-2 text-sm">Manage feeds</button></div><div className="mt-8 divide-y rounded-2xl border bg-surface">{hiddenArticles.length?hiddenArticles.map((article)=><article key={article.id} className="flex items-center justify-between p-4"><div><h2 className="font-medium">{article.title}</h2><p className="text-xs text-soft">{article.feedTitle}</p></div><button onClick={()=>void api(`/api/articles/${article.id}/unhide`,{method:'POST'}).then(()=>setHiddenArticles((current)=>current.filter((item)=>item.id!==article.id)))} className="rounded-lg border px-3 py-2 text-xs">Unhide</button></article>):<p className="p-10 text-center text-sm text-soft">No hidden articles.</p>}</div></section>;
+  if(section==='hidden')return <section className="mx-auto max-w-4xl px-8 py-12"><div className="flex items-end justify-between"><div><p className="text-xs font-semibold uppercase tracking-wider text-soft">Audit</p><h1 className="mt-2 text-3xl font-semibold">Hidden articles</h1></div><a href="/feeds" className="rounded-lg border px-4 py-2 text-sm">Manage feeds</a></div><div className="mt-8 divide-y rounded-2xl border bg-surface">{hiddenArticles.length?hiddenArticles.map((article)=><article key={article.id} className="flex items-center justify-between p-4"><div><h2 className="font-medium">{article.title}</h2><p className="text-xs text-soft">{article.feedTitle}</p></div><button onClick={()=>void api(`/api/articles/${article.id}/unhide`,{method:'POST'}).then(()=>setHiddenArticles((current)=>current.filter((item)=>item.id!==article.id)))} className="rounded-lg border px-3 py-2 text-xs">Unhide</button></article>):<p className="p-10 text-center text-sm text-soft">No hidden articles.</p>}</div></section>;
   if (section === 'health')
     return (
       <section className="mx-auto max-w-5xl px-8 py-12">
@@ -320,12 +340,12 @@ function FeedManager() {
               Fetch status and failure history stay on this machine.
             </p>
           </div>
-          <button
-            onClick={() => setSection('feeds')}
+          <a
+            href="/feeds"
             className="rounded-lg border border-line-strong bg-surface px-4 py-2 text-sm"
           >
             Manage feeds
-          </button>
+          </a>
         </div>
         {message && (
           <p role="status" className="mt-5 rounded-xl bg-subtle px-4 py-3 text-sm">
@@ -394,13 +414,13 @@ function FeedManager() {
         <div className="mt-2 flex items-center justify-between gap-4">
           <h1 className="text-3xl font-semibold tracking-tight">Feeds</h1>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSection('health')}
+            <a
+              href="/feeds?section=health"
               className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs font-medium hover:bg-canvas"
             >
               Feed health
-            </button>
-            <button onClick={()=>void api<Array<{id:number;title:string;feedTitle:string;publishedAt:number}>>('/api/articles-hidden').then((items)=>{setHiddenArticles(items);setSection('hidden')})} className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs font-medium">Hidden articles</button>
+            </a>
+            <a href="/feeds?section=hidden" className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs font-medium">Hidden articles</a>
             <label className="cursor-pointer rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs font-medium hover:bg-canvas">
               Import OPML
               <input

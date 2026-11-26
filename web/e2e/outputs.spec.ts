@@ -114,7 +114,10 @@ test('keyboard format links and discovery identify the selected frozen issue, an
   );
   await page.getByRole('radio', { name: 'Compose', exact: true }).click();
   await expect(page.getByRole('article', { name: 'Web preview', exact: true })).toBeVisible();
-  await expect(page.locator('head link[rel="alternate"]')).toHaveCount(0);
+  await expect(page.locator('head link[rel="alternate"]')).toHaveCount(2);
+  await expect(page.locator('head link[type="application/json"]')).toHaveAttribute('href', new RegExp(`^/b/${f.first.id}/compose\\.json(?:\\?|$)`));
+  await expect(page.locator('head link[type="application/json"]')).toHaveAttribute('title', 'Saved Compose configuration');
+  await expect(page.locator('head link[type="application/atom+xml"]')).toHaveCount(0);
   expect(f.database.sqlite.prepare('SELECT id,payload_json FROM brews ORDER BY id').all()).toEqual(
     frozen,
   );
@@ -147,10 +150,11 @@ test('availability errors remain visible, retry recovers, and unsupported target
   page,
 }) => {
   const f = await setup(page);
-  f.failNext('GET', `/api/brew-configs/${f.first.id}/composition`, 2);
+  f.failNext('GET', `/api/brew-configs/${f.first.id}/composition`, 100);
   await page.goto(`/b/${f.first.id}/${f.latest.id}`);
   const formats = page.locator('.brew-format-links');
   await expect(formats.getByText('Feed unavailable', { exact: true })).toBeVisible();
+  f.failNext('GET', `/api/brew-configs/${f.first.id}/composition`, 0);
   await formats.getByRole('button', { name: 'Retry feed availability', exact: true }).click();
   await expect(formats.getByRole('link', { name: 'Atom feed', exact: true })).toBeVisible();
   await page.route('**/api/capabilities', (route) =>

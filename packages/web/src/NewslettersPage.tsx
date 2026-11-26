@@ -19,6 +19,8 @@ import { GmailForwardingDialog, SenderSettingsDialog } from './newsletters/Dialo
 import { LetterPane } from './newsletters/LetterPane';
 import { letterDate, senderInitial } from './newsletters/dates';
 import { senderInNewsletterView } from '@brew/core/types/newsletters';
+import { newsletterListHref } from '@brew/core/app-pages';
+import { usePageAlternates } from './hooks/usePageAlternates';
 import { newsletterJson, newsletterRefreshKeys } from './newsletters/api';
 
 type Location = {
@@ -56,6 +58,7 @@ export function NewslettersPage() {
   const client = useQueryClient();
   const [route, setRoute] = useState(currentLocation);
   const routeRef = useRef(route);
+  usePageAlternates(newsletterListHref(route), 'Newsletters list');
   const [mobilePane, setMobilePane] = useState<'senders' | 'letters' | 'letter'>(() =>
     route.letterId ? 'letter' : 'letters',
   );

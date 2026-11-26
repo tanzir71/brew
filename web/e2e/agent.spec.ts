@@ -6,6 +6,60 @@ import { RulesService } from '../../targets/node/src/services/rules-service';
 import { isReaderPageOutputPath } from '../../packages/core/src/reader-pages';
 import { articles } from '../../targets/node/src/db/schema';
 
+test('an agent reloads saved rule selection and log state and navigates feed audit views with native links', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page);
+  try {
+    const service = new RulesService(f.database);
+    const rule = service.create({
+      name: 'Saved rule view',
+      enabled: true,
+      matchType: 'all',
+      scope: {},
+      conditions: [{ field: 'title', operator: 'contains', value: 'Forms' }],
+      actions: [{ type: 'star' }],
+      stopProcessing: false,
+    });
+    f.database.sqlite.prepare('UPDATE articles SET hidden=1 WHERE id=1').run();
+    await page.goto('/rules');
+    await page.getByRole('link', { name: rule.name, exact: true }).click();
+    await expect(page).toHaveURL(`/rules/${rule.id}`);
+    await page.reload();
+    await expect(page.getByLabel('Rule name', { exact: true })).toHaveValue(rule.name);
+    await page
+      .getByRole('article', { name: rule.name, exact: true })
+      .getByRole('link', { name: 'Logs', exact: true })
+      .click();
+    await expect(page).toHaveURL(`/rules/${rule.id}?tab=log`);
+    await page.reload();
+    await expect(
+      page.getByRole('region', { name: 'Rule execution log', exact: true }),
+    ).toContainText('No executions yet.');
+    await page.goBack();
+    await expect(page).toHaveURL(`/rules/${rule.id}`);
+    await page.getByRole('button', { name: 'New', exact: true }).click();
+    await expect(page).toHaveURL('/rules');
+    await expect(page.getByLabel('Rule name', { exact: true })).toHaveValue('New rule');
+    await page.getByRole('link', { name: 'Manage feeds', exact: true }).click();
+    await page.getByRole('link', { name: 'Feed health', exact: true }).click();
+    await expect(page).toHaveURL('/feeds?section=health');
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Feed health', exact: true })).toBeVisible();
+    await page.goBack();
+    await page.getByRole('link', { name: 'Hidden articles', exact: true }).click();
+    await expect(page).toHaveURL('/feeds?section=hidden');
+    await page.reload();
+    await expect(
+      page.getByRole('heading', { name: 'Forms should declare their tools', exact: true }),
+    ).toBeVisible();
+    await page.getByRole('link', { name: 'Manage feeds', exact: true }).click();
+    await expect(page).toHaveURL('/feeds');
+  } finally {
+    await f.close();
+  }
+});
+
 test('an agent reloads and navigates paged Reader and search filters and opens matching text twins', async ({
   page,
 }) => {

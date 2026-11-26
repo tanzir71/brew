@@ -1,6 +1,8 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useOwnerActions } from './hooks/useOwnerActions';
 import { OwnerActionUi } from './components/OwnerActionUi';
+import { rulePageHref, rulePageLocation } from '@brew/core/app-pages';
+import { usePageAlternates } from './hooks/usePageAlternates';
 import type { ReaderNavigation } from '@brew/core/types/api';
 import type {
   RuleAction,
@@ -57,6 +59,15 @@ const blankDraft = (): RuleDraft => ({
 });
 const inputClass =
   'rounded-lg border border-line-strong bg-surface px-2.5 py-2 text-sm outline-none focus:border-ink';
+const savedDraft = (rule: RuleRecord): RuleDraft => ({
+  name: rule.name, enabled: rule.enabled, matchType: rule.matchType,
+  scope: structuredClone(rule.scope), conditions: structuredClone(rule.conditions),
+  actions: structuredClone(rule.actions), stopProcessing: rule.stopProcessing, position: rule.position,
+});
+function writeRuleLocation(id: number | null, tab: 'preview' | 'log') {
+  const href = rulePageHref(id, tab);
+  if (location.pathname + location.search !== href) history.pushState(null, '', href);
+}
 
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -79,7 +90,9 @@ export function RulesPage() {
     folders: [],
     unfiled: [],
   });
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(() => rulePageLocation(new URL(location.href)).id);
+  const [tab, setTab] = useState(() => rulePageLocation(new URL(location.href)).tab);
+  usePageAlternates(rulePageHref(selectedId, selectedId === null ? 'preview' : tab), 'Saved rules');
   const [draft, setDraft] = useState<RuleDraft>(blankDraft);
   const [preview, setPreview] = useState<RulePreviewItem[]>([]);
   const [previewError, setPreviewError] = useState('');
@@ -101,19 +114,42 @@ export function RulesPage() {
     setDuplicateFilter(filter.enabled);
   }, []);
   useEffect(() => {
+    const controller = new AbortController();
     void Promise.all([
-      json<RuleRecord[]>('/api/rules'),
-      json<ReaderNavigation>('/api/reader/navigation'),
-      json<{ enabled: boolean }>('/api/rules/duplicate-filter'),
+      json<RuleRecord[]>('/api/rules', { signal: controller.signal }),
+      json<ReaderNavigation>('/api/reader/navigation', { signal: controller.signal }),
+      json<{ enabled: boolean }>('/api/rules/duplicate-filter', { signal: controller.signal }),
     ])
       .then(([nextRules, nextNavigation, filter]) => {
+        if (controller.signal.aborted) return;
         setRules(nextRules);
         setNavigation(nextNavigation);
         setDuplicateFilter(filter.enabled);
+        const route = rulePageLocation(new URL(location.href));
+        if (route.id !== null) {
+          const selected = nextRules.find((rule) => rule.id === route.id);
+          if (selected) setDraft(savedDraft(selected));
+          else setMessage('Rule not found.');
+          if (selected && route.tab === 'log') void json<RuleLogRecord[]>(`/api/rules/${selected.id}/logs`).then((items) => { const current = rulePageLocation(new URL(location.href)); if (current.id === selected.id && current.tab === 'log') setLogs(items); }).catch((error: Error) => { if (rulePageLocation(new URL(location.href)).id === selected.id) setMessage(error.message); });
+        }
       })
-      .catch((error: Error) => setMessage(error.message))
-      .finally(() => setLoading(false));
+      .catch((error: Error) => { if (!controller.signal.aborted) setMessage(error.message); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
   }, []);
+  useEffect(() => {
+    const restore = () => {
+      const route = rulePageLocation(new URL(location.href));
+      setSelectedId(route.id); setTab(route.tab);
+      const selected = rules.find((rule) => rule.id === route.id);
+      setDraft(selected ? savedDraft(selected) : blankDraft());
+      setMessage(route.id !== null && !selected ? 'Rule not found.' : '');
+      setLogs([]);
+      if (selected && route.tab === 'log') void json<RuleLogRecord[]>(`/api/rules/${selected.id}/logs`).then((items) => { const current = rulePageLocation(new URL(location.href)); if (current.id === selected.id && current.tab === 'log') setLogs(items); }).catch((error: Error) => { if (rulePageLocation(new URL(location.href)).id === selected.id) setMessage(error.message); });
+    };
+    window.addEventListener('popstate', restore);
+    return () => window.removeEventListener('popstate', restore);
+  }, [rules]);
   useEffect(() => {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => {
@@ -144,9 +180,9 @@ export function RulesPage() {
   const owner = useOwnerActions(async (receipt) => {
     await refresh();
     if (receipt.kind === 'delete_rule' && !receipt.undoneAt && selectedId === receipt.targetId) {
-      setSelectedId(null); setDraft(blankDraft());
+      setSelectedId(null); setDraft(blankDraft()); setTab('preview'); writeRuleLocation(null, 'preview');
     }
-    if (receipt.kind === 'apply_rule') setLogs(await json<RuleLogRecord[]>(`/api/rules/${receipt.targetId}/logs`));
+    if (receipt.kind === 'apply_rule' && rulePageLocation(new URL(location.href)).id === receipt.targetId) { const items = await json<RuleLogRecord[]>(`/api/rules/${receipt.targetId}/logs`); if (rulePageLocation(new URL(location.href)).id === receipt.targetId) setLogs(items); }
   });
   const scopeMode = draft.scope.feedIds?.length
     ? 'feed'
@@ -157,19 +193,15 @@ export function RulesPage() {
     () => [...navigation.folders.flatMap((folder) => folder.feeds), ...navigation.unfiled],
     [navigation],
   );
-  const selectRule = (rule: RuleRecord) => {
+  const selectRule = (rule: RuleRecord, nextTab: 'preview' | 'log' = 'preview') => {
     setSelectedId(rule.id);
-    setDraft({
-      name: rule.name,
-      enabled: rule.enabled,
-      matchType: rule.matchType,
-      scope: structuredClone(rule.scope),
-      conditions: structuredClone(rule.conditions),
-      actions: structuredClone(rule.actions),
-      stopProcessing: rule.stopProcessing,
-      position: rule.position,
-    });
+    setDraft(savedDraft(rule)); setTab(nextTab); setLogs([]);
+    writeRuleLocation(rule.id, nextTab);
     setMessage('');
+  };
+  const newRule = (next = blankDraft()) => {
+    setSelectedId(null); setDraft(next); setTab('preview'); setLogs([]);
+    writeRuleLocation(null, 'preview');
   };
   const save = async (event: FormEvent) => {
     event.preventDefault();
@@ -178,7 +210,7 @@ export function RulesPage() {
         selectedId === null ? '/api/rules' : `/api/rules/${selectedId}`,
         { method: selectedId === null ? 'POST' : 'PUT', body: JSON.stringify(draft) },
       );
-      setSelectedId(saved.id);
+      selectRule(saved);
       setMessage('Rule saved.');
       await refresh();
     } catch (error) {
@@ -206,8 +238,10 @@ export function RulesPage() {
     await refresh();
     selectRule(created);
   };
-  const showLogs = async (id: number) => {
-    setLogs(await json<RuleLogRecord[]>(`/api/rules/${id}/logs`));
+  const showLogs = async (rule: RuleRecord) => {
+    selectRule(rule, 'log');
+    try { const items = await json<RuleLogRecord[]>(`/api/rules/${rule.id}/logs`); const current = rulePageLocation(new URL(location.href)); if (current.id === rule.id && current.tab === 'log') setLogs(items); }
+    catch (error) { setMessage((error as Error).message); }
   };
   const applyExisting = (rule: RuleRecord) => {
     setMessage('');
@@ -239,8 +273,7 @@ export function RulesPage() {
           </div>
           <button
             onClick={() => {
-              setSelectedId(null);
-              setDraft(blankDraft());
+              newRule();
             }}
             className="rounded-full bg-inverse px-3 py-2 text-xs font-semibold text-on-inverse"
           >
@@ -275,9 +308,9 @@ export function RulesPage() {
         <div className="mt-5 rounded-xl bg-subtle p-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-soft">Templates</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <button type="button" onClick={()=>{setSelectedId(null);setDraft({...blankDraft(),name:'Mute a keyword',conditions:[{field:'title',operator:'contains',value:'keyword'}],actions:[{type:'hide'}]})}} className="text-xs text-soft">Mute keyword</button>
-            <button type="button" onClick={()=>{setSelectedId(null);setDraft({...blankDraft(),name:'Highlight an author',conditions:[{field:'author',operator:'equals',value:'Author name'}],actions:[{type:'highlight',color:'#f59e0b'}]})}} className="text-xs text-soft">Highlight author</button>
-            <button type="button" onClick={()=>{setSelectedId(null);setDraft({...blankDraft(),name:'Feature a folder',scope:{folderIds:navigation.folders[0]?[navigation.folders[0].id]:[]},conditions:[],actions:[{type:'feature_in_brew'}]})}} className="text-xs text-soft">Feature folder</button>
+            <button type="button" onClick={()=>{newRule({...blankDraft(),name:'Mute a keyword',conditions:[{field:'title',operator:'contains',value:'keyword'}],actions:[{type:'hide'}]})}} className="text-xs text-soft">Mute keyword</button>
+            <button type="button" onClick={()=>{newRule({...blankDraft(),name:'Highlight an author',conditions:[{field:'author',operator:'equals',value:'Author name'}],actions:[{type:'highlight',color:'#f59e0b'}]})}} className="text-xs text-soft">Highlight author</button>
+            <button type="button" onClick={()=>{newRule({...blankDraft(),name:'Feature a folder',scope:{folderIds:navigation.folders[0]?[navigation.folders[0].id]:[]},conditions:[],actions:[{type:'feature_in_brew'}]})}} className="text-xs text-soft">Feature folder</button>
           </div>
         </div>
         <div className="mt-5 space-y-2">
@@ -295,7 +328,7 @@ export function RulesPage() {
               data-brew-state={rule.enabled ? 'enabled' : 'disabled'}
               className={`rounded-xl border p-3 ${selectedId === rule.id ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}`}
             >
-              <button data-brew-action="edit-rule" onClick={() => selectRule(rule)} className="w-full text-left">
+              <a data-brew-action="edit-rule" aria-label={rule.name} href={rulePageHref(rule.id)} onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); selectRule(rule); }} className="block w-full text-left">
                 <span className="flex items-center justify-between gap-2">
                   <strong className="truncate text-sm">{rule.name}</strong>
                   <span
@@ -309,7 +342,7 @@ export function RulesPage() {
                 <span className="mt-1 block text-[11px] text-muted">
                   {rule.hits24h ?? 0} hits / 24 h · {rule.hits30d ?? 0} / 30 d
                 </span>
-              </button>
+              </a>
               <div className="mt-2 flex gap-2">
                 <button data-brew-action="copy-rule" onClick={() => duplicate(rule)} className="text-xs text-soft">
                   Copy
@@ -317,9 +350,9 @@ export function RulesPage() {
                 <button data-brew-action="delete-rule" disabled={!owner.capable || owner.busy} onClick={() => remove(rule)} className="text-xs text-danger">
                   Delete
                 </button>
-                <button data-brew-action="rule-log" onClick={() => void showLogs(rule.id)} className="text-xs text-soft">
+                <a data-brew-action="rule-log" href={rulePageHref(rule.id, 'log')} onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); void showLogs(rule); }} className="text-xs text-soft">
                   Logs
-                </button>
+                </a>
                 <button data-brew-action="apply-rule" disabled={!owner.capable || owner.busy} onClick={() => applyExisting(rule)} className="text-xs text-accent">
                   Apply 30d
                 </button>
@@ -588,9 +621,10 @@ export function RulesPage() {
             <p className="py-8 text-center text-sm text-muted">No matches yet.</p>
           )}
         </div>
-        {logs.length > 0 && (
+        {(logs.length > 0 || tab === 'log') && (
           <section className="mt-7 border-t border-line pt-5" aria-label="Rule execution log">
             <h2 className="text-sm font-semibold">Recent executions</h2>
+            {logs.length === 0 && <p className="mt-3 text-xs text-soft">No executions yet.</p>}
             <div className="mt-3 max-h-72 space-y-3 overflow-auto">
               {logs.map((log) => (
                 <article key={log.id} className="text-xs">

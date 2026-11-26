@@ -26,6 +26,12 @@ real list/search JSON twins and verifies that their filters and totals match the
 current view. Reader list metadata takes precedence only until an article opens;
 the article's existing higher-priority twins remain authoritative while open.
 
+A fifth journey selects saved rules and execution logs through native links,
+reloads those URLs, returns through browser history, and opens reloadable feed
+health/hidden-article views. Separate discovery tests follow actual saved Compose,
+rule and settings JSON links, verify that GET does not save a dirty rule form,
+and check newsletter list/article precedence and unsupported formats.
+
 ESLint restricts that file's UI selectors to `getByRole` and `getByLabel`, rejecting
 CSS/test-ID/text/placeholder/title selectors and injected DOM evaluation. Browser
 setup, navigation, response inspection and SQL assertions remain available to
@@ -36,14 +42,14 @@ metadata and geometry directly; they do not substitute for this agent journey.
 
 | Requirement | Implemented evidence | Remaining work before the criterion is complete |
 | --- | --- | --- |
-| Landmarks | Existing Brew Library/main/In this Brew; named Reader Library navigation; real article landmarks inside Reader dialogs and newsletter panes. | Audit every other implemented view and dialog, including settings and older shell variants. |
-| Native controls | Reader scope/folder/feed and legacy shell toolbar navigation use real hrefs. Rows offer real Open buttons; pointer convenience preserves normal card clicks. Article actions and bulk confirmation use real controls. | Audit all remaining navigation, icon-only labels and toggles. |
+| Landmarks | Existing Brew Library/main/In this Brew; named Reader Library navigation; real article landmarks inside Reader dialogs and newsletter panes; Compose now has a named main landmark. | Finish the view/dialog audit, including settings and older shell variants. |
+| Native controls | Reader scope/folder/feed, saved-rule selection/logs, feed audit views and legacy shell toolbar navigation use real hrefs. Rows offer real Open buttons; pointer convenience preserves normal card clicks. Article actions and bulk confirmation use real controls. | Audit all remaining navigation, icon-only labels and toggles. |
 | Stable hooks | Article rows/panes share `data-brew-id`, kind and read/unread/starred/highlighted state. Reader/search rows also declare their actual density. Newsletter rows/panes and frozen Brew letters identify as letters; rules expose identity/enablement/actions; Compose already identifies sections. | Audit the rest of each screen's actions, settings and result rows. |
 | Accessible alternatives | Article actions are available directly and in a native More sheet. Existing Compose drag controls retain button/keyboard alternatives. | Add/audit More equivalents and focus/selection behavior on remaining rows and screens. |
 | Polite results | Existing Compose/Brew status plus explicit Reader bulk result and owner-action result live regions with real Undo. Rule partial failures, mutation errors, refresh failures and action-history recovery failures have visible feedback. | Audit success/error announcements for remaining mutations and error/retry paths. |
 | Totals and pagination | Newsletter, Reader and search announce exact showing ranges/totals. Reader/search offer native Previous/Next links with URL page state while retaining normal virtual/infinite lists. | Remaining list announcements and agent-mode pagination without virtualization/motion/scroll marking. |
 | Confirmation and undo | Reader bulk click/Shift+A, rule apply/delete and feed/folder deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs and folder assignments. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
-| Text twins | Frozen Brew twins/feeds plus private article, Reader list and search twins. Current list filters/page/density are retained in alternate links and exported documents. Selected article discovery overrides the underlying page twins and restores them on close; subscription links remain separate. | Compose/rules/settings/newsletter lists and other page twins and alternate links, matching current URL state. |
+| Text twins | All currently implemented data views have private twins: frozen Brews/articles; Reader/search; saved Compose/rules/logs; feed library/health/hidden articles; Newsletters lists; instance settings; Reader welcome and empty Brew/library states. Selection/filter parameters survive in alternate links. Explicitly opened content overrides its underlying page; subscription links remain separate. | Continue coverage when later milestones add views. Draft forms export explicitly labelled saved state; unsaved previews stay separate. The full DOM checkbox remains open for the other rows. |
 | Visible state and targets | Read/star/tag changes update real controls and stable state; new article Open target is at least 24px; More/confirmation reuse existing controls. | Full target-size/focus/overlay and post-action visibility audit across every implemented screen. |
 
 ## Article twins
@@ -103,8 +109,50 @@ the first page, cursors, source visibility, invalid inputs, content links,
 private fields, HEAD/read-only behavior and legacy response keys. The compiled
 Node smoke also exercises list/search twins and the independent HTML SPA routes.
 
-Compose, Rules, settings and newsletter list twins and the full URL/control
-audit remain open; this does not complete M12 or enable agent-mode behavior.
+Saved-page twins are described below. The full URL/control audit remains open;
+this does not complete M12 or enable agent-mode behavior.
+
+## Saved-page twins
+
+| Page | Text path before `.md`/`.json` | State |
+| --- | --- | --- |
+| Empty library | `/index` | Saved Brew names/identities, without generating an issue. |
+| Reader welcome | `/reader` | Welcome content and Reader navigation. |
+| Brew without an edition | `/b/:id/read` | Saved configuration; frozen editions keep their existing immutable twins. |
+| Compose | `/b/:id/compose` | `section` and `sheet`; saved schedule, delivery enablement and section definitions. |
+| Rules | `/rules`, `/rules/:id` | Selected saved definition; `tab=preview|log`. Preview evaluates matches without running actions. |
+| Feed library/audit | `/feeds` | `section=feeds|health|hidden`. |
+| Newsletters list | `/letters` | `view`, `sender`, `page`, sender `sort`; exact filtered ranges and view unread count. |
+| Instance settings | `/settings/runs` | Current capabilities; `setup=...` mirrors the setup hash dialog. |
+
+These formats deliberately read persisted server state. They never save an
+unsaved form, generate an issue, execute a rule, mark a letter read or fetch a
+publisher. Head links label saved configuration/rules explicitly; documents also
+state their representation. Compose previews and dirty rule previews keep their
+existing behavior. An unsaved section is not advertised as a stored identity.
+
+The projections allowlist nested fields. Feed URLs, sender/inbound addresses,
+delivery recipients, webhook URLs, provider configuration and raw log errors are
+omitted; enablement/configured flags remain. Raw originals, cleaning metadata and
+article HTML stay out of these page documents. Authored notes/conditions remain
+content. Markdown escapes headings and renders structured properties as fenced
+JSON so note markup cannot become executable HTML. All formats are private,
+no-store and no-index, with matching media/alternate headers and HEAD support.
+
+Saved rule selection/log state and feed subviews reload from canonical URLs.
+New/default rule drafts use `/rules` and retain their unsaved state only in the
+editor. A missing saved rule has an explicit visible error, and an empty log has
+an explicit message. Late log responses cannot replace another rule's view.
+The newsletter landing/list URL advertises the list even while its first letter
+is implicitly previewed; explicitly opening a letter selects its content twins.
+
+Backend checks cover every path in both formats/HEAD, zero SQLite writes/network
+effects, safe rendering, nested-field/credential redaction, precise selection,
+filter counts and invalid/unsupported/error responses. Browser checks use the
+actual Node fixture, inspect metadata, follow JSON outputs, retain dirty-form
+boundaries and reload/history state. Compiled Node smoke covers these formats
+and independent HTML routes outside the repository working directory. No static
+publication is enabled, and no new dependency is required.
 
 ## Confirmed owner actions and Undo
 

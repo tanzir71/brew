@@ -5,6 +5,7 @@ import { CapabilityRow } from '../components/patterns';
 import { runAssets } from '../components/figmaAssets';
 import { runtimeNames } from '../components/runtimeNames';
 import { useCapabilities } from '../hooks/useCapabilities';
+import { usePageAlternates } from '../hooks/usePageAlternates';
 import {
   capabilityRows,
   fetchingDescription,
@@ -36,6 +37,7 @@ export function WhereBrewRuns() {
     ? topics.find((item) => item === hash.slice(7))
     : undefined;
   const name = capabilities ? runtimeNames[capabilities.mode] : undefined;
+  usePageAlternates(`/settings/runs${topic ? `?setup=${topic}` : ''}`, 'Current instance capabilities');
   const rows = capabilityRows(capabilities, query.isError);
   const [now, setNow] = useState(Date.now);
   useEffect(() => {

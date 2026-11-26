@@ -173,6 +173,17 @@ try {
   assert.match((await app.inject('/search.md?q=Compiled')).body, /Compiled letter/);
   assert.match((await app.inject('/all')).body, /id="root"/);
   assert.equal((await app.inject({ method: 'HEAD', url: '/all.md' })).body, '');
+  const savedCompose = await app.inject(`/b/${composed.json().id}/compose.json`);
+  assert.equal(savedCompose.statusCode, 200);
+  assert.equal(savedCompose.json().kind, 'compose');
+  assert.equal(savedCompose.json().state.brewId, composed.json().id);
+  assert.equal((await app.inject('/settings/runs.json?setup=agents')).json().kind, 'settings');
+  assert.equal((await app.inject('/letters.json')).json().kind, 'newsletters');
+  assert.equal((await app.inject('/rules.json')).json().kind, 'rules');
+  assert.equal((await app.inject('/feeds.json?section=hidden')).json().kind, 'hidden-articles');
+  assert.match((await app.inject('/reader.md')).body, /A calmer way/);
+  for (const path of ['/rules', '/rules/1', '/feeds?section=health', '/reader', '/settings/runs'])
+    assert.match((await app.inject(path)).body, /id="root"/);
   const letterDetail = (await app.inject(`/api/newsletters/letters/${letter.articleId}`)).json();
   assert.equal(letterDetail.originalAvailable, true);
   assert.equal(letterDetail.cleaning.trackers, 1);

@@ -155,6 +155,11 @@ offer private Markdown/JSON twins, for example `/all.md?unread=true&page=2`.
 Opening an article selects its content twins; closing restores the list's links.
 See [Reader pages](docs/agent-dom.md#reader-and-search-pages) for query and output
 behavior. Normal lists keep their virtual scrolling; agent mode is still pending.
+Other implemented views expose private [saved-page twins](docs/agent-dom.md#saved-page-twins),
+including Compose, Rules/logs, feed health/hidden articles, Newsletters lists,
+instance capabilities and empty states. Alternate links retain selection/filter
+state. These reads export saved state, omit credentials and never commit a draft
+or execute its actions. Saved rule and feed audit URLs also survive reload.
 Legacy `hero` and `list` layout names remain readable during the v2 migration.
 Compose at `/b/<brew id>/compose` edits v2 sections with serial autosave,
 multiple library sources, layouts, depth, image/unread options, Rules-grade
