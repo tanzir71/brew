@@ -28,6 +28,12 @@ export function LetterPane({
   saveSender: (patch: NewsletterSettingsPatch) => Promise<void>;
   settings: () => void;
 }) {
+  const pane = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!explicitOpen) return;
+    const frame = requestAnimationFrame(() => pane.current?.focus({ preventScroll: true }));
+    return () => cancelAnimationFrame(frame);
+  }, [explicitOpen, letter.id]);
   const client = useQueryClient();
   const opened = useRef(false);
   const [tagsOpen, setTagsOpen] = useState(false);
@@ -90,6 +96,7 @@ export function LetterPane({
   };
   return (
     <article
+      ref={pane}
       className="letters-letter"
       {...articleDom(letter, 'letter')}
       aria-label={`Letter from ${sender.title}`}

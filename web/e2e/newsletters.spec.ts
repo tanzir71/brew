@@ -61,7 +61,7 @@ test('sender actions, Starred, tags, routing, retention and Only in Brew persist
     'true',
   );
   await page.getByRole('radio', { name: 'Favorites', exact: true }).click();
-  await expect(page.getByRole('button', { name: /^Read / })).toHaveCount(2);
+  await expect(page.getByRole('link', { name: /^Read / })).toHaveCount(2);
   await page.getByRole('button', { name: 'Tag', exact: true }).click();
   const tags = page.getByRole('dialog', { name: 'Tag this letter' });
   await tags.getByLabel('New tag', { exact: true }).fill('Design notes');
@@ -97,11 +97,11 @@ test('sender actions, Starred, tags, routing, retention and Only in Brew persist
   });
   await page.getByRole('button', { name: 'Skip sender', exact: true }).click();
   await page.getByRole('radio', { name: 'Skipped', exact: true }).click();
-  await page.getByRole('button', { name: `Read ${newsletterTitle}`, exact: true }).click();
+  await page.getByRole('link', { name: `Read ${newsletterTitle}`, exact: true }).click();
   await expect(page.getByRole('button', { name: 'Unskip sender', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Block', exact: true }).click();
   await page.getByRole('radio', { name: 'Blocked', exact: true }).click();
-  await page.getByRole('button', { name: `Read ${newsletterTitle}`, exact: true }).click();
+  await page.getByRole('link', { name: `Read ${newsletterTitle}`, exact: true }).click();
   await expect(page.getByRole('button', { name: 'Unblock', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Unblock', exact: true }).click();
   await page.reload();
@@ -151,7 +151,7 @@ test('sender and letter failures retry without false success; originals have a r
     'true',
   );
   fixture.failNext('PATCH', '/api/articles/1');
-  await page.getByRole('button', { name: `Read ${newsletterTitle}`, exact: true }).click();
+  await page.getByRole('link', { name: `Read ${newsletterTitle}`, exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Retry letter update', exact: true }),
   ).toBeVisible();
@@ -229,11 +229,11 @@ test('mobile keyboard navigation keeps local URL state and shares read state wit
   const frozen = JSON.stringify(fixture.brews.snapshot(issue.id));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/letters');
-  const row = page.getByRole('button', { name: `Read ${newsletterTitle}`, exact: true });
+  const row = page.getByRole('link', { name: `Read ${newsletterTitle}`, exact: true });
   await expect(row).toBeVisible();
   await row.focus();
   await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/\/letters\/1$/);
+  await expect(page).toHaveURL('/letters/1/1?scope=all');
   const pane = page.getByRole('article', { name: 'Letter from Interface Letters', exact: true });
   await expect(pane.getByRole('heading', { name: newsletterTitle, exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mark letter unread', exact: true })).toBeEnabled();
@@ -247,14 +247,14 @@ test('mobile keyboard navigation keeps local URL state and shares read state wit
     'true',
   );
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  await page.getByRole('button', { name: 'Back to letters', exact: true }).click();
+  await page.getByRole('link', { name: 'Back to letters', exact: true }).click();
   await expect(row).toBeVisible();
   await page.getByRole('button', { name: 'Senders', exact: true }).click();
-  await page.getByRole('button', { name: /^Low Tide/ }).focus();
+  await page.getByRole('link', { name: /^Low Tide/ }).focus();
   await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/sender=7/);
+  await expect(page).toHaveURL('/letters/7');
   await expect(
-    page.getByRole('button', { name: 'Read The consent prompt is the product', exact: true }),
+    page.getByRole('link', { name: 'Read The consent prompt is the product', exact: true }),
   ).toBeVisible();
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto('/a/1');

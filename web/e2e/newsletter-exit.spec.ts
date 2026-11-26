@@ -146,7 +146,7 @@ for (const theme of ['light', 'dark'] as const)
     await context.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => route.abort());
     const captures: Array<{ name: string; image: string }> = [];
     for (const item of fixture.mail) {
-      await page.goto(`/letters/${item.id}`);
+      await page.goto(`/letters/${item.feedId}/${item.id}`);
       const body = page.locator('.letters-html');
       await expect(body).toContainText('Keep this story.');
       await expect(body).not.toContainText(

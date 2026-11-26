@@ -91,15 +91,15 @@ test('newsletter list discovery survives an implicitly previewed letter and swit
         .getByRole('article', { name: 'Letter from Interface Letters', exact: true })
         .getByRole('heading', { name: 'Forms should declare their tools', exact: true }),
     ).toBeVisible();
-    await expect(json).toHaveAttribute('href', '/letters.json?view=favorites&sender=1&sort=name');
+    await expect(json).toHaveAttribute('href', '/letters/1.json?view=favorites&sort=name');
     await page
-      .getByRole('button', { name: 'Read Forms should declare their tools', exact: true })
+      .getByRole('link', { name: 'Read Forms should declare their tools', exact: true })
       .click();
     await expect(json).toHaveAttribute('href', '/a/1.json');
     await page.goBack();
-    await expect(json).toHaveAttribute('href', '/letters.json?view=favorites&sender=1&sort=name');
+    await expect(json).toHaveAttribute('href', '/letters/1.json?view=favorites&sort=name');
     await page.reload();
-    await expect(json).toHaveAttribute('href', '/letters.json?view=favorites&sender=1&sort=name');
+    await expect(json).toHaveAttribute('href', '/letters/1.json?view=favorites&sort=name');
     await page.goto(`/b/${f.morning.id}`);
     await expect(json).toHaveAttribute('href', `/b/${f.morning.id}/read.json`);
     await page.goto('/?view=reader&scope=brew');

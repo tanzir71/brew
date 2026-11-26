@@ -310,8 +310,15 @@ are normalized for grouping, not authenticated by the MIME parser; ingress adapt
 must authenticate the mailbox/webhook before calling the pipeline.
 
 The Newsletters screen has Inbox, Favorites, Skipped and Blocked views, sender sorting,
-50-letter pages and shareable `/letters/:id` URLs with sender/view/page filters. Selecting
-a letter marks it read; the initial Inbox preview keeps its unread state. Use the metadata
+50-letter pages and shareable `/letters/:senderId` and `/letters/:senderId/:articleId`
+URLs. Native sender, letter and page links preserve view/page/sort filters; `scope=all`
+keeps the All senders list behind an explicitly opened letter. The earlier `?sender=`
+list filter remains readable. The former single-ID letter shorthand now denotes a
+sender; use both IDs for a letter. A mismatched sender/letter pair shows an error and
+never opens or marks the unrelated letter read, including when it is already cached.
+Sender lists and sender-bound letters also accept `.md` and `.json` with private,
+read-only responses. Selecting a letter marks it read and focuses its reading pane;
+the initial Inbox preview keeps its unread state. Use the metadata
 button or **M** while the reading pane is focused to toggle read state. Read and Starred
 state are shared with Reader and Brew; saved issues keep their frozen content.
 

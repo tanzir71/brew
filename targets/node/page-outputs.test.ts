@@ -9,6 +9,12 @@ import { defaultDelivery, newBrewSection } from '../../packages/core/src/composi
 import { createApi } from '../../packages/api/src/app.js';
 import type { ApiServices } from '../../packages/api/src/ports.js';
 import { nodeCapabilities } from './src/capabilities.js';
+import {
+  newsletterHref,
+  newsletterListHref,
+  newsletterLocation,
+  rulePageLocation,
+} from '../../packages/core/src/app-pages.js';
 
 const closes: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -169,6 +175,97 @@ async function setup() {
   return { database, app, feed, sender, rule, config, get, requests: () => requests };
 }
 describe('saved-page Markdown/JSON twins', () => {
+  it('round-trips canonical newsletter identities and all-senders context while retaining query and rule aliases', () => {
+    const base = 'https://pages.example.test';
+    const route = newsletterLocation(
+      new URL('/letters/7/42?view=favorites&scope=all&page=2&sort=name', base),
+    );
+    expect(route).toEqual({
+      view: 'favorites',
+      senderId: null,
+      letterId: 42,
+      letterSenderId: 7,
+      page: 2,
+      sort: 'name',
+    });
+    expect(newsletterHref(route)).toBe('/letters/7/42?view=favorites&scope=all&page=2&sort=name');
+    expect(newsletterListHref(route)).toBe('/letters?view=favorites&page=2&sort=name');
+    expect(
+      newsletterHref(newsletterLocation(new URL('/letters/7/42?scope=all&agent=1', base))),
+    ).toBe('/letters/7/42?scope=all&agent=1');
+    const selected = newsletterLocation(new URL('/letters?sender=7&sort=unread', base));
+    expect(newsletterHref(selected)).toBe('/letters/7?sort=unread');
+    expect(newsletterLocation(new URL('/letters/7', base))).toMatchObject({
+      senderId: 7,
+      letterId: null,
+    });
+    expect(rulePageLocation(new URL('/?view=rules&rule=9&tab=log', base))).toEqual({
+      id: 9,
+      tab: 'log',
+    });
+    for (const path of [
+      '/letters/0',
+      '/letters/7/0',
+      '/letters/7?scope=all',
+      '/letters/7?sender=8',
+      '/letters/7/42?scope=nope',
+      '/letters?page=0',
+    ])
+      expect(() => newsletterLocation(new URL(path, base))).toThrow();
+    expect(() => rulePageLocation(new URL('/rules?tab=log', base))).toThrow();
+  });
+  it('exports canonical sender lists with matching filters and canonical letter links', async () => {
+    const f = await setup();
+    const response = await f.get(`/letters/${f.sender.id}.json?view=favorites&sort=name`);
+    expect(response.statusCode, response.body).toBe(200);
+    const value = response.json();
+    expect(value.state).toEqual({
+      view: 'favorites',
+      senderId: f.sender.id,
+      page: 1,
+      sort: 'name',
+    });
+    expect(value.url).toBe(
+      `https://pages.example.test/letters/${f.sender.id}?view=favorites&sort=name`,
+    );
+    expect(value.sections[1].items[0].url).toBe(
+      `https://pages.example.test/letters/${f.sender.id}/2?view=favorites&sort=name`,
+    );
+    expect(
+      (await f.get(`/letters.json?sender=${f.sender.id}&view=favorites&sort=name`)).json(),
+    ).toEqual(value);
+    expect((await f.get(`/letters/${f.sender.id}.md?view=favorites`)).body).toContain(
+      'A private letter',
+    );
+  });
+  it('binds deep letter twins to their actual sender without reads, actions or fallback content', async () => {
+    const f = await setup();
+    const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    const path = `/letters/${f.sender.id}/2.json?scope=all`;
+    const response = await f.get(path);
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json()).toMatchObject({
+      id: 2,
+      title: 'A private letter',
+      contentHtml: '<p>Clean letter.</p>',
+    });
+    expect(response.headers['content-type']).toContain('application/json');
+    expect(response.headers['cache-control']).toBe('private, no-store');
+    expect(response.headers.link).toContain('/a/2.md');
+    expect(response.body).not.toMatch(/rawHtml|cleaning|private-original|readAt|starredAt/);
+    expect((await f.get(path, 'HEAD')).body).toBe('');
+    expect((await f.get(path.replace('.json', '.md'))).body).toContain('Clean letter.');
+    for (const path of [
+      `/letters/${f.sender.id}/3.json`,
+      '/letters/999/2.md',
+      `/letters/${f.sender.id}/999.json`,
+      `/letters/${f.sender.id}/0.json`,
+      `/letters/${f.sender.id}/1.json`,
+    ])
+      expect((await f.get(path)).statusCode, path).toBe(404);
+    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+    expect(f.requests()).toBe(0);
+  });
   it('exports every remaining page as private, discoverable, read-only content without executing rules or leaking credentials', async () => {
     const f = await setup();
     const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();

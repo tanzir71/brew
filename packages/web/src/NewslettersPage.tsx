@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   NewsletterLetter,
@@ -10,7 +10,7 @@ import type {
 } from '@brew/core/types/newsletters';
 import type { Capabilities } from '@brew/core/types/capabilities';
 import { AppSidebar } from './components/AppSidebar';
-import { Avatar, Button, IconButton, SegmentedControl } from './components/controls';
+import { Avatar, Button, SegmentedControl } from './components/controls';
 import { Badge } from './components/Badge';
 import { Icon } from './components/Icon';
 import { useCapabilities } from './hooks/useCapabilities';
@@ -19,33 +19,18 @@ import { GmailForwardingDialog, SenderSettingsDialog } from './newsletters/Dialo
 import { LetterPane } from './newsletters/LetterPane';
 import { letterDate, senderInitial } from './newsletters/dates';
 import { senderInNewsletterView } from '@brew/core/types/newsletters';
-import { newsletterListHref } from '@brew/core/app-pages';
+import {
+  newsletterHref,
+  newsletterListHref,
+  newsletterLocation,
+  newsletterSenderRoute,
+  type NewsletterLocation,
+} from '@brew/core/app-pages';
 import { usePageAlternates } from './hooks/usePageAlternates';
 import { newsletterJson, newsletterRefreshKeys } from './newsletters/api';
 
-type Location = {
-  view: NewsletterView;
-  senderId: number | null;
-  letterId: number | null;
-  page: number;
-  sort: 'recent' | 'name' | 'unread';
-};
-function currentLocation(): Location {
-  const params = new URLSearchParams(location.search);
-  const positive = (value: string | null | undefined) =>
-    value && /^[1-9]\d*$/.test(value) && Number.isSafeInteger(Number(value)) ? Number(value) : null;
-  const view = params.get('view');
-  const sort = params.get('sort');
-  return {
-    view: ['favorites', 'skipped', 'blocked'].includes(view ?? '')
-      ? (view as NewsletterView)
-      : 'inbox',
-    senderId: positive(params.get('sender')),
-    letterId: positive(location.pathname.match(/^\/letters\/([1-9]\d*)\/?$/)?.[1]),
-    page: positive(params.get('page')) ?? 1,
-    sort: sort === 'name' || sort === 'unread' ? sort : 'recent',
-  };
-}
+type Location = NewsletterLocation;
+const currentLocation = () => newsletterLocation(new URL(location.href));
 const mailDescriptions: Record<NonNullable<Capabilities['inboundMail']>, string> = {
   'cloudflare-email':
     'Subscribe to newsletters with this address. Mail arrives through Cloudflare Email Routing.',
@@ -58,7 +43,6 @@ export function NewslettersPage() {
   const client = useQueryClient();
   const [route, setRoute] = useState(currentLocation);
   const routeRef = useRef(route);
-  usePageAlternates(newsletterListHref(route), 'Newsletters list');
   const [mobilePane, setMobilePane] = useState<'senders' | 'letters' | 'letter'>(() =>
     route.letterId ? 'letter' : 'letters',
   );
@@ -85,16 +69,8 @@ export function NewslettersPage() {
   const navigate = useCallback((patch: Partial<Location>) => {
     const next = { ...routeRef.current, ...patch };
     routeRef.current = next;
-    const params = new URLSearchParams();
-    if (next.view !== 'inbox') params.set('view', next.view);
-    if (next.senderId) params.set('sender', String(next.senderId));
-    if (next.page > 1) params.set('page', String(next.page));
-    if (next.sort !== 'recent') params.set('sort', next.sort);
-    history.pushState(
-      null,
-      '',
-      `/letters${next.letterId ? `/${next.letterId}` : ''}${params.size ? `?${params}` : ''}`,
-    );
+    if (patch.letterId === null) next.letterSenderId = null;
+    history.pushState(null, '', newsletterHref(next));
     setRoute(next);
   }, []);
   useEffect(() => {
@@ -131,6 +107,17 @@ export function NewslettersPage() {
     queryFn: ({ signal }) =>
       newsletterJson<NewsletterLetter>(`/api/newsletters/letters/${selectedId}`, signal),
   });
+  const identitySender = route.letterSenderId ?? route.senderId;
+  const senderMissing =
+    overview.isSuccess &&
+    identitySender !== null &&
+    !overview.data.senders.some((sender) => sender.id === identitySender);
+  const identityError = senderMissing
+    ? 'Sender not found.'
+    : route.letterId !== null && letter.data && letter.data.feedId !== route.letterSenderId
+      ? 'This letter does not belong to the requested sender.'
+      : '';
+  usePageAlternates(identityError ? null : newsletterListHref(route), 'Newsletters list');
   const mutation = useMutation({
     mutationFn: ({ id, patch }: { id: number; patch: NewsletterSettingsPatch }) =>
       newsletterJson<NewsletterSender>(`/api/newsletters/senders/${id}`, undefined, {
@@ -187,19 +174,43 @@ export function NewslettersPage() {
       setCopied('Could not copy. Select the address below and copy it.');
     }
   };
-  const selectSender = (sender: NewsletterSender | null) => {
-    const view = !sender
-      ? route.view
-      : sender.settings.blocked
-        ? 'blocked'
-        : sender.settings.skipInbox
-          ? 'skipped'
-          : route.view === 'favorites' && sender.settings.favorite
-            ? 'favorites'
-            : 'inbox';
-    navigate({ senderId: sender?.id ?? null, view, page: 1, letterId: null });
-    setMobilePane('letters');
+  const destination = (patch: Partial<Location>) =>
+    newsletterHref({
+      ...route,
+      ...patch,
+      ...(patch.letterId === null ? { letterSenderId: null } : {}),
+    });
+  const follow = (
+    event: MouseEvent<HTMLAnchorElement>,
+    patch: Partial<Location>,
+    pane?: 'senders' | 'letters' | 'letter',
+  ) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+      return;
+    event.preventDefault();
+    navigate(patch);
+    if (pane) setMobilePane(pane);
   };
+  const pageLink = (
+    page: number,
+    label: string,
+    icon: 'chevron-left' | 'chevron-right',
+    enabled: boolean,
+  ) =>
+    enabled ? (
+      <a
+        className="brew-icon-button"
+        aria-label={label}
+        href={destination({ page, letterId: null })}
+        onClick={(event) => follow(event, { page, letterId: null }, 'letters')}
+      >
+        <Icon name={icon} size={16} />
+      </a>
+    ) : (
+      <button type="button" className="brew-icon-button" aria-label={label} disabled>
+        <Icon name={icon} size={16} />
+      </button>
+    );
   const viewUnread = senders
     .filter((sender) => senderInNewsletterView(sender.settings, route.view))
     .reduce((sum, sender) => sum + sender.unreadCount, 0);
@@ -253,16 +264,13 @@ export function NewslettersPage() {
               {mobilePane === 'senders' ? 'Back to letters' : 'Senders'}
             </Button>
             {mobilePane === 'letter' && (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  navigate({ letterId: null });
-                  setMobilePane('letters');
-                }}
+              <a
+                className="brew-button brew-button--secondary brew-button--sm"
+                href={destination({ letterId: null })}
+                onClick={(event) => follow(event, { letterId: null }, 'letters')}
               >
                 Back to letters
-              </Button>
+              </a>
             )}
           </div>
         </header>
@@ -307,23 +315,27 @@ export function NewslettersPage() {
             ) : overview.isPending ? (
               <p role="status">Loading senders…</p>
             ) : (
-              <div className="letters-senders-list">
-                <button
+              <nav className="letters-senders-list" aria-label="Newsletter senders">
+                <a
                   className="letters-sender"
-                  aria-pressed={!route.senderId}
-                  onClick={() => selectSender(null)}
+                  aria-current={route.senderId === null ? 'page' : undefined}
+                  href={newsletterHref(newsletterSenderRoute(route, null))}
+                  onClick={(event) => follow(event, newsletterSenderRoute(route, null), 'letters')}
                 >
                   <Icon name="inbox" size={16} />
                   <span>All senders</span>
                   {!calm && <small>{viewUnread}</small>}
-                </button>
+                </a>
                 {senders.map((sender) => (
-                  <button
+                  <a
                     key={sender.id}
                     className="letters-sender"
                     data-skipped={sender.settings.skipInbox || sender.settings.blocked}
-                    aria-pressed={route.senderId === sender.id}
-                    onClick={() => selectSender(sender)}
+                    aria-current={route.senderId === sender.id ? 'page' : undefined}
+                    href={newsletterHref(newsletterSenderRoute(route, sender))}
+                    onClick={(event) =>
+                      follow(event, newsletterSenderRoute(route, sender), 'letters')
+                    }
                   >
                     <Avatar id={sender.id} initial={senderInitial(sender.title)} />
                     <span>{sender.title}</span>
@@ -337,9 +349,9 @@ export function NewslettersPage() {
                             ? sender.unreadCount
                             : ''}
                     </small>
-                  </button>
+                  </a>
                 ))}
-              </div>
+              </nav>
             )}
             <section className="letters-address-card" aria-label="Your Brew address">
               <h2>Your Brew address</h2>
@@ -391,12 +403,16 @@ export function NewslettersPage() {
                   ? 'Today'
                   : 'Letters'}
               </span>
-              {!calm && (
-                <span>{query.data ? `Showing ${range} of ${query.data.total}` : 'Loading…'}</span>
-              )}
+              <span aria-live="polite" aria-atomic="true" className={calm ? 'sr-only' : undefined}>
+                {query.data ? `Showing ${range} of ${query.data.total}` : 'Loading…'}
+              </span>
             </header>
             <div className="letters-list-scroll">
-              {query.isPending ? (
+              {senderMissing ? (
+                <p className="letters-empty" role="alert">
+                  Sender not found. <a href="/letters">All senders</a>
+                </p>
+              ) : query.isPending ? (
                 <p className="letters-empty" role="status">
                   Loading letters…
                 </p>
@@ -407,18 +423,24 @@ export function NewslettersPage() {
                 </p>
               ) : query.data.items.length ? (
                 query.data.items.map((item) => (
-                  <button
+                  <a
                     className="letters-row"
                     {...articleDom(item, 'letter')}
                     data-brew-action="open"
                     data-unread={!item.readAt}
                     key={item.id}
-                    aria-pressed={selectedId === item.id}
+                    aria-current={
+                      selectedId === item.id
+                        ? route.letterId === null
+                          ? 'true'
+                          : 'page'
+                        : undefined
+                    }
                     aria-label={`Read ${item.title}`}
-                    onClick={() => {
-                      navigate({ letterId: item.id });
-                      setMobilePane('letter');
-                    }}
+                    href={destination({ letterId: item.id, letterSenderId: item.feedId })}
+                    onClick={(event) =>
+                      follow(event, { letterId: item.id, letterSenderId: item.feedId }, 'letter')
+                    }
                   >
                     <span className="letters-row-meta">
                       {!item.readAt && <span className="letters-unread" aria-label="Unread" />}
@@ -428,7 +450,7 @@ export function NewslettersPage() {
                     </span>
                     <strong className="letters-row-title">{item.title}</strong>
                     <span className="letters-row-excerpt">{item.excerpt}</span>
-                  </button>
+                  </a>
                 ))
               ) : (
                 <div className="letters-empty">
@@ -454,25 +476,39 @@ export function NewslettersPage() {
             </div>
             {query.data && query.data.total > query.data.pageSize && (
               <nav className="letters-pagination" aria-label="Letter pages">
-                <IconButton
-                  label="Previous letters"
-                  icon="chevron-left"
-                  disabled={route.page === 1}
-                  onClick={() => navigate({ page: route.page - 1, letterId: null })}
-                />
+                {pageLink(route.page - 1, 'Previous letters', 'chevron-left', route.page > 1)}
                 <span>
                   Page {route.page} of {Math.ceil(query.data.total / query.data.pageSize)}
                 </span>
-                <IconButton
-                  label="Next letters"
-                  icon="chevron-right"
-                  disabled={route.page * query.data.pageSize >= query.data.total}
-                  onClick={() => navigate({ page: route.page + 1, letterId: null })}
-                />
+                {pageLink(
+                  route.page + 1,
+                  'Next letters',
+                  'chevron-right',
+                  route.page * query.data.pageSize < query.data.total,
+                )}
               </nav>
             )}
           </section>
-          {!selectedId ? (
+          {identityError ? (
+            <section className="letters-letter letters-empty" role="alert">
+              <p>{identityError}</p>
+              <a
+                href={newsletterListHref({
+                  ...route,
+                  senderId: senderMissing ? null : route.senderId,
+                })}
+                onClick={(event) =>
+                  follow(
+                    event,
+                    { senderId: senderMissing ? null : route.senderId, letterId: null },
+                    'letters',
+                  )
+                }
+              >
+                Back to letters
+              </a>
+            </section>
+          ) : !selectedId ? (
             <section className="letters-letter letters-empty" aria-label="Letter reading pane">
               <Icon name="mail" size={24} />
               <h2>Your letters, cleaned up</h2>
@@ -494,7 +530,12 @@ export function NewslettersPage() {
               <Button variant="secondary" onClick={() => void letter.refetch()}>
                 Retry letter
               </Button>
-              <button onClick={() => navigate({ letterId: null })}>Back to letters</button>
+              <a
+                href={destination({ letterId: null })}
+                onClick={(event) => follow(event, { letterId: null }, 'letters')}
+              >
+                Back to letters
+              </a>
             </section>
           ) : (
             <LetterPane

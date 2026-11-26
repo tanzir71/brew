@@ -32,6 +32,11 @@ health/hidden-article views. Separate discovery tests follow actual saved Compos
 rule and settings JSON links, verify that GET does not save a dirty rule form,
 and check newsletter list/article precedence and unsupported formats.
 
+Two more role/label-only journeys follow actual Brew rule attribution links and
+legacy rule-query bookmarks, then use native sender/letter links, keyboard opening,
+reload and history. The latter verifies that a mismatched sender/letter URL never
+opens or marks the unrelated letter read, including after that letter is cached.
+
 ESLint restricts that file's UI selectors to `getByRole` and `getByLabel`, rejecting
 CSS/test-ID/text/placeholder/title selectors and injected DOM evaluation. Browser
 setup, navigation, response inspection and SQL assertions remain available to
@@ -43,14 +48,14 @@ metadata and geometry directly; they do not substitute for this agent journey.
 | Requirement | Implemented evidence | Remaining work before the criterion is complete |
 | --- | --- | --- |
 | Landmarks | Existing Brew Library/main/In this Brew; named Reader Library navigation; real article landmarks inside Reader dialogs and newsletter panes; Compose now has a named main landmark. | Finish the view/dialog audit, including settings and older shell variants. |
-| Native controls | Reader scope/folder/feed, saved-rule selection/logs, feed audit views and legacy shell toolbar navigation use real hrefs. Rows offer real Open buttons; pointer convenience preserves normal card clicks. Article actions and bulk confirmation use real controls. | Audit all remaining navigation, icon-only labels and toggles. |
+| Native controls | Reader scope/folder/feed, saved-rule selection/logs and attribution, feed audit views, newsletter sender/letter/page navigation and legacy shell toolbar navigation use real hrefs. Rows offer real Open buttons; pointer convenience preserves normal card clicks. Article actions and bulk confirmation use real controls. | Audit all remaining navigation, icon-only labels and toggles. |
 | Stable hooks | Article rows/panes share `data-brew-id`, kind and read/unread/starred/highlighted state. Reader/search rows also declare their actual density. Newsletter rows/panes and frozen Brew letters identify as letters; rules expose identity/enablement/actions; Compose already identifies sections. | Audit the rest of each screen's actions, settings and result rows. |
 | Accessible alternatives | Article actions are available directly and in a native More sheet. Existing Compose drag controls retain button/keyboard alternatives. | Add/audit More equivalents and focus/selection behavior on remaining rows and screens. |
 | Polite results | Existing Compose/Brew status plus explicit Reader bulk result and owner-action result live regions with real Undo. Rule partial failures, mutation errors, refresh failures and action-history recovery failures have visible feedback. | Audit success/error announcements for remaining mutations and error/retry paths. |
-| Totals and pagination | Newsletter, Reader and search announce exact showing ranges/totals. Reader/search offer native Previous/Next links with URL page state while retaining normal virtual/infinite lists. | Remaining list announcements and agent-mode pagination without virtualization/motion/scroll marking. |
+| Totals and pagination | Newsletter, Reader and search announce exact showing ranges/totals. Newsletter announcements stay available to assistive technology in Calm mode. Newsletter/Reader/search offer native Previous/Next links with URL page state; normal Reader/search retain virtual/infinite lists. | Remaining list announcements and agent-mode pagination without virtualization/motion/scroll marking. |
 | Confirmation and undo | Reader bulk click/Shift+A, rule apply/delete and feed/folder deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs and folder assignments. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
 | Text twins | All currently implemented data views have private twins: frozen Brews/articles; Reader/search; saved Compose/rules/logs; feed library/health/hidden articles; Newsletters lists; instance settings; Reader welcome and empty Brew/library states. Selection/filter parameters survive in alternate links. Explicitly opened content overrides its underlying page; subscription links remain separate. | Continue coverage when later milestones add views. Draft forms export explicitly labelled saved state; unsaved previews stay separate. The full DOM checkbox remains open for the other rows. |
-| Visible state and targets | Read/star/tag changes update real controls and stable state; new article Open target is at least 24px; More/confirmation reuse existing controls. | Full target-size/focus/overlay and post-action visibility audit across every implemented screen. |
+| Visible state and targets | Read/star/tag changes update real controls and stable state; new article Open target is at least 24px; More/confirmation reuse existing controls. Newsletter navigation declares current selection, has visible keyboard focus and focuses an explicitly opened reading pane. | Full target-size/focus/overlay and post-action visibility audit across every implemented screen. |
 
 ## Article twins
 
@@ -122,7 +127,7 @@ this does not complete M12 or enable agent-mode behavior.
 | Compose | `/b/:id/compose` | `section` and `sheet`; saved schedule, delivery enablement and section definitions. |
 | Rules | `/rules`, `/rules/:id` | Selected saved definition; `tab=preview|log`. Preview evaluates matches without running actions. |
 | Feed library/audit | `/feeds` | `section=feeds|health|hidden`. |
-| Newsletters list | `/letters` | `view`, `sender`, `page`, sender `sort`; exact filtered ranges and view unread count. |
+| Newsletters list | `/letters`, `/letters/:senderId` | `view`, `page`, sender `sort`; exact filtered ranges and view unread count. Legacy `?sender=` filters remain readable. |
 | Instance settings | `/settings/runs` | Current capabilities; `setup=...` mirrors the setup hash dialog. |
 
 These formats deliberately read persisted server state. They never save an
@@ -145,6 +150,21 @@ editor. A missing saved rule has an explicit visible error, and an empty log has
 an explicit message. Late log responses cannot replace another rule's view.
 The newsletter landing/list URL advertises the list even while its first letter
 is implicitly previewed; explicitly opening a letter selects its content twins.
+
+Newsletter HTML URLs use `/letters/:senderId/:articleId` for explicit content.
+`scope=all` retains the All senders list; without it, the list belongs to the named
+sender. View, page and sort survive navigation, reload and history. Native links
+support normal modified clicks. The former one-ID letter shorthand is replaced
+by the specified sender path; `/a/:id` article URLs are unchanged. Rule attribution
+now links to `/rules/:id`; `/?view=rules&rule=:id&tab=log` still selects that rule.
+
+Appending `.md` or `.json` to an explicit newsletter path returns its cleaned
+content only after validating the sender/letter pair. Those formats share the
+article renderer, private headers and no-write guarantees. Their HTML alternate
+retains the bound newsletter URL; `/a/:id.md` and `.json` remain the canonical
+content twins. Invalid or cross-sender identities return 404. The UI checks the
+same identity before mounting the reading pane, including cached responses, so
+an unrelated letter cannot be displayed or marked read by a mismatched URL.
 
 Backend checks cover every path in both formats/HEAD, zero SQLite writes/network
 effects, safe rendering, nested-field/credential redaction, precise selection,

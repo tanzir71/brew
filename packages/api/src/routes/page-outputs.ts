@@ -3,12 +3,16 @@ import type { ApiServices } from '../ports.js';
 import type { RuleCondition, RuleRecord } from '../../../core/src/types/rules.js';
 import type { Capabilities } from '../../../core/src/types/capabilities.js';
 import { senderInNewsletterView } from '../../../core/src/types/newsletters.js';
+import { renderArticleJson, renderArticleMarkdown } from '../../../core/src/article-outputs.js';
 import {
   PageInputError,
   pageChoice,
   pageId,
-  pageNumber,
   readerWelcomeCopy,
+  newsletterHref,
+  newsletterListHref,
+  newsletterLocation,
+  newsletterSenderRoute,
 } from '../../../core/src/app-pages.js';
 import {
   pageDocument,
@@ -324,17 +328,12 @@ async function document(services: ApiServices, url: URL, caps: Capabilities) {
       'current instance state',
     );
   }
-  if (path === '/letters') {
+  if (path === '/letters' || /^\/letters\/[^/]+$/.test(path)) {
     if (!services.newsletters)
       throw new PageInputError('Newsletters need setup on this instance.', 501);
-    const view = pageChoice(
-      params.get('view'),
-      ['inbox', 'favorites', 'skipped', 'blocked'],
-      'inbox',
-    );
-    const sort = pageChoice(params.get('sort'), ['recent', 'name', 'unread'], 'recent');
-    const senderId = params.has('sender') ? pageId(params.get('sender')!) : undefined;
-    const page = pageNumber(params.get('page'));
+    const route = newsletterLocation(url);
+    const { view, sort, page } = route;
+    const senderId = route.senderId ?? undefined;
     const overview = await services.newsletters.overview();
     if (senderId !== undefined && !overview.senders.some((sender) => sender.id === senderId))
       missing('Sender not found.');
@@ -355,7 +354,7 @@ async function document(services: ApiServices, url: URL, caps: Capabilities) {
     return make(
       'newsletters',
       'Newsletters',
-      `/letters${url.search}`,
+      newsletterListHref(route),
       { view, senderId: senderId ?? null, page, sort },
       [
         {
@@ -369,7 +368,7 @@ async function document(services: ApiServices, url: URL, caps: Capabilities) {
           items: senders.map((sender) => ({
             id: sender.id,
             title: sender.title,
-            url: `/letters?sender=${sender.id}`,
+            url: newsletterHref(newsletterSenderRoute(route, sender)),
             details: {
               favorite: sender.settings.favorite,
               skipped: sender.settings.skipInbox,
@@ -395,7 +394,7 @@ async function document(services: ApiServices, url: URL, caps: Capabilities) {
           items: letters.items.map((letter) => ({
             id: letter.id,
             title: letter.title,
-            url: `/a/${letter.id}`,
+            url: newsletterHref({ ...route, letterId: letter.id, letterSenderId: letter.feedId }),
             details: {
               feedId: letter.feedId,
               feedTitle: letter.feedTitle,
@@ -423,7 +422,7 @@ export function registerPageOutputRoutes(app: Hono, services: ApiServices) {
   ];
   const paths = roots
     .flatMap((root) => ['md', 'json'].map((format) => `${root}.${format}`))
-    .concat(['/rules/:output']);
+    .concat(['/rules/:output', '/letters/:output', '/letters/:sender/:output']);
   for (const path of paths)
     app.get(path, async (c) => {
       const format = /\.(md|json)$/.exec(new URL(c.req.url).pathname)?.[1];
@@ -435,6 +434,29 @@ export function registerPageOutputRoutes(app: Hono, services: ApiServices) {
         if (!caps.outputs?.twins)
           return json(c, { error: 'Text formats need setup on this instance.' }, 501);
         const url = new URL(c.req.url);
+        if (/^\/letters\/[^/]+\/[^/]+\.(md|json)$/.test(url.pathname)) {
+          if (!services.newsletters)
+            throw new PageInputError('Newsletters need setup on this instance.', 501);
+          const route = newsletterLocation(url);
+          const letter =
+            (await services.newsletters.letter(route.letterId!)) ??
+            missing('Letter not found for this sender.');
+          if (letter.feedId !== route.letterSenderId)
+            throw new PageInputError('Letter not found for this sender.', 404);
+          c.header(
+            'Link',
+            `<${new URL(newsletterHref(route), services.outputBaseUrl ?? url.origin).href}>; rel="alternate"; type="text/html", </a/${letter.id}.md>; rel="alternate"; type="text/markdown", </a/${letter.id}.json>; rel="alternate"; type="application/json"`,
+          );
+          c.header(
+            'Content-Type',
+            format === 'md' ? 'text/markdown; charset=utf-8' : 'application/json; charset=utf-8',
+          );
+          return c.body(
+            format === 'md'
+              ? renderArticleMarkdown(letter, services.outputBaseUrl ?? url.origin)
+              : renderArticleJson(letter, services.outputBaseUrl ?? url.origin),
+          );
+        }
         const value = await document(services, url, caps);
         const path = url.pathname.replace(/\.(md|json)$/, '') + url.search;
         c.header(

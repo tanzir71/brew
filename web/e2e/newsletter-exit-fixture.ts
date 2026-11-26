@@ -33,6 +33,7 @@ export async function newsletterExitFixture(
   });
   const mail: Array<{
     id: number;
+    feedId: number;
     name: string;
     expected: (typeof newsletterCorpus)[number] | null;
   }> = [];
@@ -50,7 +51,12 @@ export async function newsletterExitFixture(
       const result = await fixture.pipeline.ingest(
         mime(address, sample.name, sample.name, exitNow.toISOString(), html),
       );
-      mail.push({ id: result.articleId!, name: sample.name, expected: sample });
+      mail.push({
+        id: result.articleId!,
+        feedId: result.feedId,
+        name: sample.name,
+        expected: sample,
+      });
     }
   } else {
     const publishers = [
@@ -111,7 +117,12 @@ export async function newsletterExitFixture(
           `<p>${publisher.text}</p>${publisher.extra}`,
         ),
       );
-      mail.push({ id: result.articleId!, name: publisher.title, expected: null });
+      mail.push({
+        id: result.articleId!,
+        feedId: result.feedId,
+        name: publisher.title,
+        expected: null,
+      });
     }
     const sample = readFixture(theme);
     for (const [index, item] of [...sample.items.slice(0, 4), ...sample.items.slice(8)].entries()) {

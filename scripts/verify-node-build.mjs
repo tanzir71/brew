@@ -179,6 +179,10 @@ try {
   assert.equal(savedCompose.json().state.brewId, composed.json().id);
   assert.equal((await app.inject('/settings/runs.json?setup=agents')).json().kind, 'settings');
   assert.equal((await app.inject('/letters.json')).json().kind, 'newsletters');
+  assert.equal((await app.inject(`/letters/${letter.feedId}.json`)).json().state.senderId, letter.feedId);
+  assert.equal((await app.inject(`/letters/${letter.feedId}/${letter.articleId}.json`)).json().id, letter.articleId);
+  assert.equal((await app.inject(`/letters/999999/${letter.articleId}.json`)).statusCode, 404);
+  assert.match((await app.inject(`/letters/${letter.feedId}/${letter.articleId}`)).body, /id="root"/);
   assert.equal((await app.inject('/rules.json')).json().kind, 'rules');
   assert.equal((await app.inject('/feeds.json?section=hidden')).json().kind, 'hidden-articles');
   assert.match((await app.inject('/reader.md')).body, /A calmer way/);

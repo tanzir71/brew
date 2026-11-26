@@ -17,7 +17,7 @@ export function mountApi(server: FastifyInstance, api: ReturnType<typeof createA
     if (path.startsWith('/b/') && !isBrewOutputPath(path)) return reply.callNotFound();
     if (path.startsWith('/a/') && !isArticleOutputPath(path)) return reply.callNotFound();
     if ((path.startsWith('/f/') || path.startsWith('/feed/')) && !isReaderPageOutputPath(path)) return reply.callNotFound();
-    if ((path.startsWith('/rules/') || path.startsWith('/settings/')) && !isAppPageOutputPath(path)) return reply.callNotFound();
+    if ((path.startsWith('/rules/') || path.startsWith('/settings/') || path.startsWith('/letters/')) && !isAppPageOutputPath(path)) return reply.callNotFound();
     const controller = new AbortController();
     const abort = () => controller.abort();
     reply.raw.once('close', abort);
@@ -73,4 +73,5 @@ export function mountApi(server: FastifyInstance, api: ReturnType<typeof createA
     for (const format of ['md', 'json']) server.all(`${path}.${format}`, handler);
   server.all('/rules/*', handler);
   server.all('/settings/*', handler);
+  server.all('/letters/*', handler);
 }

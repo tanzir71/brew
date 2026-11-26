@@ -129,7 +129,8 @@
   font: 400 12px/16px var(--brew-font-ui);
   white-space: nowrap;
 }
-.letters-sender[aria-pressed='true'] {
+.letters-sender[aria-pressed='true'],
+.letters-sender[aria-current='page'] {
   background: var(--brew-bg-subtle);
   color: var(--brew-text-primary);
   font-weight: 500;
@@ -228,11 +229,21 @@
   border-bottom: 1px solid var(--brew-border-default);
   text-align: left;
 }
-.letters-row[aria-pressed='true'] {
+.letters-row[aria-pressed='true'],
+.letters-row[aria-current] {
   background: var(--brew-bg-subtle);
 }
 .letters-row:hover {
   background: var(--brew-bg-canvas);
+}
+.letters-row,
+.letters-sender {
+  text-decoration: none;
+}
+.letters-row:focus-visible,
+.letters-sender:focus-visible {
+  outline: 2px solid var(--brew-text-primary);
+  outline-offset: -2px;
 }
 .letters-row-meta {
   display: flex;

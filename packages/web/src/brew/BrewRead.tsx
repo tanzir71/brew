@@ -707,7 +707,7 @@ function ReadItem({
         <span className="brew-spacer" />
         {highlighted &&
           state.rules.map((rule) => (
-            <a key={rule.id} href={`/?view=rules&rule=${rule.id}`}>
+            <a key={rule.id} href={`/rules/${rule.id}`}>
               <Chip icon={<Icon name="rules" size={14} />}>Rule · {rule.name}</Chip>
             </a>
           ))}

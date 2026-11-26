@@ -6,6 +6,110 @@ import { RulesService } from '../../targets/node/src/services/rules-service';
 import { isReaderPageOutputPath } from '../../packages/core/src/reader-pages';
 import { articles } from '../../targets/node/src/db/schema';
 
+test('an agent follows Brew rule attribution and retained rule query bookmarks to the saved definition', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page);
+  try {
+    const story = f.database.sqlite
+      .prepare(
+        "SELECT a.id,a.feed_id AS feedId,a.title FROM articles a JOIN feeds f ON f.id=a.feed_id WHERE f.kind='rss' ORDER BY a.id LIMIT 1",
+      )
+      .get() as { id: number; feedId: number; title: string };
+    const rules = new RulesService(f.database);
+    const rule = rules.create({
+      name: 'Attribution rule',
+      enabled: true,
+      scope: { feedIds: [story.feedId] },
+      matchType: 'all',
+      conditions: [{ field: 'title', operator: 'contains', value: story.title }],
+      actions: [{ type: 'highlight', color: '#a0471d' }, { type: 'feature_in_brew' }],
+      stopProcessing: false,
+    });
+    await rules.evaluateArticle(story.id);
+    f.brews.updateComposition(f.morning.id, {
+      ...f.morning,
+      sections: [
+        {
+          ...newBrewSection('stories'),
+          title: 'Stories',
+          sources: [{ kind: 'feed', id: story.feedId }],
+        },
+      ],
+    });
+    const issue = await f.brews.generateComposition(f.morning.id);
+    await page.goto(`/b/${f.morning.id}/${issue.id}`);
+    await page
+      .getByRole('article', { name: story.title, exact: true })
+      .getByRole('button', { name: story.title, exact: true })
+      .focus();
+    const attribution = page.getByRole('link', { name: `Rule · ${rule.name}`, exact: true });
+    await expect(attribution).toHaveAttribute('href', `/rules/${rule.id}`);
+    await attribution.click();
+    await expect(page.getByLabel('Rule name', { exact: true })).toHaveValue(rule.name);
+    await page.reload();
+    await expect(page.getByLabel('Rule name', { exact: true })).toHaveValue(rule.name);
+    await page.goto(`/?view=rules&rule=${rule.id}&tab=log`);
+    await expect(page.getByLabel('Rule name', { exact: true })).toHaveValue(rule.name);
+    await expect(
+      page.getByRole('region', { name: 'Rule execution log', exact: true }),
+    ).toContainText(story.title);
+  } finally {
+    await f.close();
+  }
+});
+
+test('an agent navigates canonical sender and letter identities by native links and rejects a mismatched cached letter', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page);
+  try {
+    const title = 'Forms should declare their tools';
+    await page.goto('/letters/2/1');
+    await expect(page.getByRole('alert')).toContainText('does not belong to the requested sender');
+    expect(f.library.letter(1)?.readAt).toBeNull();
+    await page.getByRole('link', { name: 'Back to letters', exact: true }).click();
+    await expect(page).toHaveURL('/letters/2');
+    await page
+      .getByRole('navigation', { name: 'Newsletter senders', exact: true })
+      .getByRole('link', { name: /^All senders/ })
+      .click();
+    await expect(page).toHaveURL('/letters');
+    const row = page.getByRole('link', { name: `Read ${title}`, exact: true });
+    await expect(row).toHaveAttribute('href', '/letters/1/1?scope=all');
+    await row.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL('/letters/1/1?scope=all');
+    await expect(
+      page.getByRole('article', { name: 'Letter from Interface Letters', exact: true }),
+    ).toBeFocused();
+    await expect.poll(() => f.library.letter(1)?.readAt).not.toBeNull();
+    await page.goBack();
+    await expect(page).toHaveURL('/letters');
+    await page.goBack();
+    await expect(page).toHaveURL('/letters/2');
+    await page.goBack();
+    await expect(page).toHaveURL('/letters/2/1');
+    await expect(page.getByRole('alert')).toContainText('does not belong to the requested sender');
+    await page.getByRole('link', { name: 'Back to letters', exact: true }).click();
+    await page
+      .getByRole('navigation', { name: 'Newsletter senders', exact: true })
+      .getByRole('link', { name: /^Interface Letters/ })
+      .click();
+    await expect(page).toHaveURL('/letters/1');
+    await page.reload();
+    await expect(page.getByRole('link', { name: `Read ${title}`, exact: true })).toBeVisible();
+    await page.getByRole('link', { name: `Read ${title}`, exact: true }).click();
+    await expect(page).toHaveURL('/letters/1/1');
+    await page.reload();
+    await expect(
+      page.getByRole('article', { name: 'Letter from Interface Letters', exact: true }),
+    ).toBeVisible();
+  } finally {
+    await f.close();
+  }
+});
+
 test('an agent reloads saved rule selection and log state and navigates feed audit views with native links', async ({
   page,
 }) => {

@@ -58,7 +58,7 @@ function AppContent() {
     return () => window.removeEventListener('popstate', restore);
   }, []);
   const isRuns = location.pathname === '/settings/runs';
-  const isLetters = /^\/letters(?:\/[1-9]\d*)?\/?$/.test(location.pathname);
+  const isLetters = /^\/letters(?:\/|$)/.test(location.pathname);
   const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => {
     const saved = localStorage.getItem('brew:theme');
     return saved === 'light' || saved === 'dark' ? saved : 'system';

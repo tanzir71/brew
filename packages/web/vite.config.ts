@@ -15,7 +15,7 @@ export default defineConfig({
     proxy: {
       '/api': { target: 'http://127.0.0.1:4400' },
       '^/(index|reader|feeds|letters|rules)\\.(md|json)(\\?|$)': { target: 'http://127.0.0.1:4400' },
-      '^/(settings|rules)/': {
+      '^/(settings|rules|letters)/': {
         target: 'http://127.0.0.1:4400',
         bypass(req) { if (!isAppPageOutputPath(req.url?.split('?')[0] ?? '')) return req.url; },
       },
