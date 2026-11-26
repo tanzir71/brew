@@ -97,6 +97,15 @@ export interface NewsletterLetterQuery {
 export type NewsletterSettingsPatch = Partial<Omit<NewsletterSettings, 'brewId'>> & {
   brewId?: number | null;
 };
+export interface SenderSettingsPreview {
+  senderTitle: string;
+  revision: string;
+  changes: Array<{ label: string; before: string; after: string }>;
+  lettersRemoved: number;
+  originalsRemoved: number;
+  requiresConfirmation: boolean;
+  blocksMail: boolean;
+}
 
 export const senderInNewsletterView = (
   settings: NewsletterSettings,

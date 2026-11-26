@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type {
   ActionReceipt,
@@ -38,6 +38,15 @@ export function useOwnerActions(
   const [error, setError] = useState('');
   const [historyError, setHistoryError] = useState('');
   const [historyVersion, setHistoryVersion] = useState(0);
+  const waiting = useRef<((value: ActionReceipt | null) => void) | null>(null);
+  const executing = useRef(false);
+  useEffect(
+    () => () => {
+      waiting.current?.(null);
+      waiting.current = null;
+    },
+    [],
+  );
   useEffect(() => {
     if (!capable) return;
     const controller = new AbortController();
@@ -66,13 +75,25 @@ export function useOwnerActions(
     );
     return () => window.clearTimeout(timer);
   }, [receipt]);
-  const ask = (value: ActionInput, label: string, externalEffects = false) => {
-    if (!capable || busy) return;
+  const stage = (
+    value: ActionInput,
+    label: string,
+    externalEffects: boolean,
+    immediate: boolean,
+  ): Promise<ActionReceipt | null> => {
+    if (!capable || busy || executing.current || intent || waiting.current)
+      return Promise.resolve(null);
     setError('');
     const requestId = [...crypto.getRandomValues(new Uint8Array(16))]
       .map((value) => value.toString(16).padStart(2, '0'))
       .join('');
-    setIntent({ request: { ...value, requestId }, label, externalEffects, submitted: false });
+    const next = { request: { ...value, requestId }, label, externalEffects, submitted: false };
+    const result = new Promise<ActionReceipt | null>((resolve) => {
+      waiting.current = resolve;
+    });
+    if (immediate) void execute(next, false);
+    else setIntent(next);
+    return result;
   };
   const sync = async (value: ActionReceipt) => {
     setReceipt(value);
@@ -83,26 +104,32 @@ export function useOwnerActions(
       setError('The action finished, but the view could not refresh. Reload to see it.');
     }
   };
-  const confirm = async () => {
-    if (!intent || busy) return;
+  const execute = async (active: ActionIntent, show: boolean) => {
+    if (executing.current) return;
+    executing.current = true;
     setBusy(true);
     setError('');
-    setIntent({ ...intent, submitted: true });
+    if (show) setIntent({ ...active, submitted: true });
     try {
       const next = await request<ActionReceipt>('/api/actions', {
         method: 'POST',
-        body: JSON.stringify({ ...intent.request, confirm: true }),
+        body: JSON.stringify({ ...active.request, confirm: true }),
       });
       setIntent(null);
       await sync(next);
+      waiting.current?.(next);
+      waiting.current = null;
     } catch (failure) {
+      setIntent({ ...active, submitted: true });
       setError((failure as Error).message);
     } finally {
+      executing.current = false;
       setBusy(false);
     }
   };
   const undo = async () => {
-    if (!receipt?.canUndo || busy) return;
+    if (!receipt?.canUndo || busy || executing.current || !capable) return;
+    executing.current = true;
     setBusy(true);
     setError('');
     try {
@@ -115,6 +142,7 @@ export function useOwnerActions(
     } catch (failure) {
       setError((failure as Error).message);
     } finally {
+      executing.current = false;
       setBusy(false);
     }
   };
@@ -126,11 +154,17 @@ export function useOwnerActions(
     error,
     historyError,
     recover: () => setHistoryVersion((version) => version + 1),
-    ask,
-    confirm,
+    ask: (value: ActionInput, label: string, externalEffects = false) =>
+      stage(value, label, externalEffects, false),
+    perform: (value: ActionInput, label: string) => stage(value, label, false, true),
+    confirm: () => {
+      if (intent && !busy && capable) return execute(intent, true);
+    },
     undo,
     close: () => {
-      if (!busy) {
+      if (!busy && !executing.current) {
+        waiting.current?.(null);
+        waiting.current = null;
         setIntent(null);
         setError('');
       }

@@ -52,6 +52,14 @@ empty last page after Unhide without losing other items. Separate browser cases
 verify read/create/update/unhide failures and actual retries, draft preservation,
 responsive native dialogs and light/dark axe checks.
 
+Two further journeys manage health/hidden row More controls, fetch and Unhide
+retries, confirmed feed deletion and restored focus. Two sender journeys bring the
+role/label-only total to sixteen: they cancel and confirm blocking, recover a lost
+acknowledgement and reload Undo, submit a native settings form, preserve a cancelled
+draft and an unrelated later preference, and restore actual pruned originals and
+Brew routing. Separate sender checks cover stale reviews, capability gating,
+cancelled/obsolete previews, missing Brews, light/dark axe and phone layouts.
+
 ESLint restricts that file's UI selectors to `getByRole` and `getByLabel`, rejecting
 CSS/test-ID/text/placeholder/title selectors and injected DOM evaluation. Browser
 setup, navigation, response inspection and SQL assertions remain available to
@@ -65,10 +73,10 @@ metadata and geometry directly; they do not substitute for this agent journey.
 | Landmarks | Existing Brew Library/main/In this Brew; named Reader Library navigation; real article landmarks inside Reader dialogs and newsletter panes; Compose now has a named main landmark. | Finish the view/dialog audit, including settings and older shell variants. |
 | Native controls | Reader scope/folder/feed and saved-search bookmarks, saved-rule selection/logs and attribution, feed audit views, newsletter sender/letter/page navigation and legacy shell toolbar navigation use real hrefs. Feed-library names and hidden-page navigation also use native links. Feed/folder renames and retention now use native labelled dialogs. Article actions and bulk confirmation use real controls. | Audit all remaining navigation, icon-only labels and toggles. |
 | Stable hooks | Article rows/panes share `data-brew-id`, kind and read/unread/starred/highlighted state. Reader/search rows also declare their actual density. Newsletter rows/panes and frozen Brew letters identify as letters; rules expose identity/enablement/actions; Compose already identifies sections. | Audit the rest of each screen's actions, settings and result rows. |
-| Accessible alternatives | Article actions are available directly and in a native More sheet. Saved-search deletion, feed-library/folder, feed health and hidden rows have visible, labelled More controls and native sheets. Existing Compose drag controls retain button/keyboard alternatives. | Add/audit More equivalents and focus/selection behavior on remaining sender/settings rows and screens. |
+| Accessible alternatives | Article and letter actions are available directly and in native More sheets. Saved-search deletion, feed-library/folder, feed health, hidden and sender rows have labelled More controls and native sheets. Sender-row More appears on hover, keyboard focus or selection. Existing Compose drag controls retain button/keyboard alternatives. | Audit remaining settings/data controls and focus/selection behavior. |
 | Polite results | Existing Compose/Brew status plus explicit Reader bulk, saved-search and owner-action result live regions with real Undo. Rule partial failures, mutation errors, browser storage failures, refresh failures and action-history recovery failures have visible feedback. | Audit success/error announcements for remaining mutations and error/retry paths. |
 | Totals and pagination | Newsletter, Reader, search and feed-library/audit views announce showing ranges/totals. Counts remain available to assistive technology in Calm mode. Newsletter/Reader/search/hidden articles offer native Previous/Next links with URL page state; hidden counts exceed the legacy 500-item cap. Normal Reader/search retain virtual/infinite lists. | Remaining list announcements and agent-mode pagination without virtualization/motion/scroll marking. |
-| Confirmation and undo | Reader bulk click/Shift+A, rule apply/delete, feed/folder deletion, library/Compose OPML import and browser saved-search deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs and folder assignments. OPML Undo protects later uses of imported records. Browser bookmarks have separate local Undo with reload recovery. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
+| Confirmation and undo | Reader bulk click/Shift+A, rule apply/delete, feed/folder deletion, library/Compose OPML import, risky sender settings and browser saved-search deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs, folder assignments, sender retention and Brew routing. OPML Undo protects later uses of imported records. Browser bookmarks have separate local Undo with reload recovery. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
 | Text twins | All currently implemented data views have private twins: frozen Brews/articles; Reader/search; saved Compose/rules/logs; feed library/health/hidden articles; Newsletters lists; instance settings; Reader welcome and empty Brew/library states. Selection/filter parameters survive in alternate links. Explicitly opened content overrides its underlying page; subscription links remain separate. | Continue coverage when later milestones add views. Draft forms export explicitly labelled saved state; unsaved previews stay separate. The full DOM checkbox remains open for the other rows. |
 | Visible state and targets | Read/star/tag changes update real controls and stable state; new article Open target is at least 24px; More/confirmation reuse existing controls. Newsletter navigation declares current selection, has visible keyboard focus and focuses an explicitly opened reading pane. | Full target-size/focus/overlay and post-action visibility audit across every implemented screen. |
 
@@ -159,8 +167,38 @@ skipped; a failed refresh states that Unhide finished and offers read retry.
 Reads never unhide, extract, execute rules or write to the database. Exports omit
 article bodies, originals and source addresses/configuration.
 
-The remaining sender/settings/data/bulk/control/focus audit is still pending. These changes do not
+The remaining settings/data/bulk/control/focus audit is still pending. These changes do not
 complete the global DOM criterion or enable agent mode.
+
+## Sender and letter actions
+
+Sender-row More and the reading pane's sender-name button open native action
+sheets. Letter read/star/tag, original, private Markdown/JSON and sender controls
+remain available by keyboard. Read/star writes announce their actual outcome;
+automatic read starts after mount subscriptions settle. More and read-state targets
+are at least 24px. Cancel restores the opener, or the visible heading if resizing
+hid it. Unsupported writes/formats show disabled controls with setup links inside
+the active sheet.
+
+The labelled sender form submits with Enter and sends only edited fields. Invalid
+retention disables Save; invalid selectors retain the draft and show the server's
+validation error. Only in Brew requires a real assigned Brew; a missing assignment
+can still be disabled. Changing Inbox, blocking, routing or retention first calls
+private `POST /api/newsletters/senders/:id/preview`. It reports readable changes and
+exact prune counts without writes. Cancelling or navigating away aborts that read
+and prevents a late preview from saving. The form stays intact underneath review.
+
+Confirmed `update_sender` actions bind a canonical patch to the reviewed sender,
+affected retention rows and relevant Brew state. Changed data rejects the review
+before writing. Favorite and cleaning-only edits use the same action path directly.
+Node journals actual settings, Brew configuration, original clearing and article
+deletions in one transaction. The receipt provides 30-second local Undo and request
+replay; lost acknowledgements use Check result and reload recovers recent Undo.
+Undo restores actual rows after reopening SQLite, preserves unrelated later Brew
+names and refuses overlapping changes atomically. No-op edits have no Undo.
+Audit arguments retain patch hashes rather than selectors or message contents.
+Undo cannot recover deliveries rejected while blocked. Legacy sender PATCH remains
+compatible; no new database migration or dependency is needed.
 
 ## Article twins
 

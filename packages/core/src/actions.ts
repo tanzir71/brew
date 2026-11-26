@@ -1,8 +1,12 @@
 import { opmlDocument, type OpmlImportResult } from './opml.js';
+import { newsletterSettingsPatch } from './newsletter-settings.js';
+import type { NewsletterSettingsPatch } from './types/newsletters.js';
 export type ItemActionKind = 'delete_feed' | 'delete_folder' | 'delete_rule' | 'apply_rule';
-export type ActionKind = ItemActionKind | 'import_opml';
+export type ActionKind = ItemActionKind | 'import_opml' | 'update_sender';
 export type ActionInput =
-  { kind: ItemActionKind; id: number; days?: number } | { kind: 'import_opml'; opml: string };
+  | { kind: ItemActionKind; id: number; days?: number }
+  | { kind: 'import_opml'; opml: string }
+  | { kind: 'update_sender'; id: number; patch: NewsletterSettingsPatch; revision: string };
 export type ActionIntentRequest = ActionInput & { requestId?: string };
 export type ActionRequest = ActionIntentRequest & { confirm: true };
 export interface ActionReceipt {
@@ -16,6 +20,8 @@ export interface ActionReceipt {
   imported?: OpmlImportResult['imported'];
   skipped?: OpmlImportResult['skipped'];
   foldersCreated?: OpmlImportResult['foldersCreated'];
+  lettersRemoved?: number;
+  originalsRemoved?: number;
   externalEffects: boolean;
   expiresAt: string | null;
   undoneAt: string | null;
@@ -52,14 +58,38 @@ export class ActionsService {
       throw new ActionError(400, 'Choose a valid request identity.');
     if (
       typeof input.kind !== 'string' ||
-      !['delete_feed', 'delete_folder', 'delete_rule', 'apply_rule', 'import_opml'].includes(
-        String(input.kind),
-      ) ||
+      ![
+        'delete_feed',
+        'delete_folder',
+        'delete_rule',
+        'apply_rule',
+        'import_opml',
+        'update_sender',
+      ].includes(String(input.kind)) ||
       (input.kind !== 'import_opml' && !validId(input.id))
     )
       throw new ActionError(400, 'Choose a valid action and item.');
     if (input.confirm !== true) throw new ActionError(428, 'Confirm this action first.');
     const identity = input.requestId === undefined ? {} : { requestId: input.requestId as string };
+    if (input.kind === 'update_sender') {
+      if (typeof input.revision !== 'string' || !/^[a-f\d]{64}$/.test(input.revision))
+        throw new ActionError(400, 'Review current sender settings first.');
+      try {
+        const patch = newsletterSettingsPatch(input.patch);
+        if (!Object.keys(patch).length) throw new Error('Choose at least one sender setting.');
+        return this.storage.run({
+          ...identity,
+          kind: 'update_sender',
+          id: input.id as number,
+          patch,
+          revision: input.revision,
+          confirm: true,
+        });
+      } catch (error) {
+        if (error instanceof ActionError) throw error;
+        throw new ActionError(400, (error as Error).message);
+      }
+    }
     if (input.kind === 'import_opml') {
       try {
         return this.storage.run({

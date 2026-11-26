@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   NewsletterLetter,
   NewsletterLetterPage,
@@ -10,7 +10,9 @@ import type {
 } from '@brew/core/types/newsletters';
 import type { Capabilities } from '@brew/core/types/capabilities';
 import { AppSidebar } from './components/AppSidebar';
-import { Avatar, Button, SegmentedControl } from './components/controls';
+import { Avatar, Button, IconButton, SegmentedControl } from './components/controls';
+import { ModalSheet } from './components/Sheet';
+import { OwnerActionConfirmation, OwnerActionResult } from './components/OwnerActionUi';
 import { Badge } from './components/Badge';
 import { Icon } from './components/Icon';
 import { useCapabilities } from './hooks/useCapabilities';
@@ -27,7 +29,9 @@ import {
   type NewsletterLocation,
 } from '@brew/core/app-pages';
 import { usePageAlternates } from './hooks/usePageAlternates';
-import { newsletterJson, newsletterRefreshKeys } from './newsletters/api';
+import { newsletterJson } from './newsletters/api';
+import { useSenderActions } from './newsletters/useSenderActions';
+import { SenderActions, SenderChangeReview } from './newsletters/SenderActions';
 
 type Location = NewsletterLocation;
 const currentLocation = () => newsletterLocation(new URL(location.href));
@@ -49,11 +53,9 @@ export function NewslettersPage() {
   const [gmail, setGmail] = useState(false);
   const [settingsId, setSettingsId] = useState<number | null>(null);
   const [copied, setCopied] = useState('');
-  const [senderError, setSenderError] = useState<{
-    id: number;
-    patch: NewsletterSettingsPatch;
-    message: string;
-  } | null>(null);
+  const [senderMenuId, setSenderMenuId] = useState<number | null>(null);
+  const senderMenuReturn = useRef<HTMLElement | null>(null);
+  const settingsReturn = useRef<HTMLElement | null>(null);
   const calm = localStorage.getItem('brew:calm') === 'true';
   const caps = useCapabilities();
   const overview = useQuery({
@@ -79,6 +81,8 @@ export function NewslettersPage() {
       routeRef.current = next;
       setRoute(next);
       setMobilePane(next.letterId ? 'letter' : 'letters');
+      setSenderMenuId(null);
+      setSettingsId(null);
     };
     window.addEventListener('popstate', pop);
     return () => window.removeEventListener('popstate', pop);
@@ -118,25 +122,19 @@ export function NewslettersPage() {
       ? 'This letter does not belong to the requested sender.'
       : '';
   usePageAlternates(identityError ? null : newsletterListHref(route), 'Newsletters list');
-  const mutation = useMutation({
-    mutationFn: ({ id, patch }: { id: number; patch: NewsletterSettingsPatch }) =>
-      newsletterJson<NewsletterSender>(`/api/newsletters/senders/${id}`, undefined, {
-        method: 'PATCH',
-        body: JSON.stringify(patch),
-      }),
-    onMutate: () => setSenderError(null),
-    onError: (error, value) => setSenderError({ ...value, message: error.message }),
-    onSuccess: async (sender) => {
-      client.setQueriesData<NewsletterLetter>({ queryKey: ['newsletter-letter'] }, (current) =>
-        current?.feedId === sender.id ? { ...current, sender } : current,
-      );
-      await Promise.all(
-        newsletterRefreshKeys.map((key) => client.invalidateQueries({ queryKey: [key] })),
-      );
-    },
-  });
-  const updateSender = async (id: number, patch: NewsletterSettingsPatch) => {
-    await mutation.mutateAsync({ id, patch });
+  const flow = useSenderActions(newsletterHref(route));
+  const senderError = flow.error;
+  const updateSender = (id: number, patch: NewsletterSettingsPatch, opener?: HTMLElement | null) =>
+    flow.save(
+      id,
+      patch,
+      overview.data?.senders.find((sender) => sender.id === id)?.title ?? 'sender',
+      opener,
+    );
+  const openSettings = (id: number, opener?: HTMLElement | null) => {
+    settingsReturn.current = opener ?? (document.activeElement as HTMLElement);
+    setSenderMenuId(null);
+    setSettingsId(id);
   };
   const senders = useMemo(
     () =>
@@ -159,6 +157,7 @@ export function NewslettersPage() {
   const settingSender =
     overview.data?.senders.find((sender) => sender.id === settingsId) ??
     (letter.data?.sender.id === settingsId ? letter.data.sender : undefined);
+  const menuSender = overview.data?.senders.find((sender) => sender.id === senderMenuId);
   const emptySender = overview.data?.senders.find((sender) => sender.id === route.senderId);
   const mechanism = caps.data?.inboundMail;
   const address =
@@ -224,7 +223,7 @@ export function NewslettersPage() {
         <header className="letters-topbar">
           <div className="letters-topbar-title">
             <Icon name="inbox" size={18} />
-            <h1>Newsletters</h1>
+            <h1 tabIndex={-1}>Newsletters</h1>
             {!calm && <span>{viewUnread} unread</span>}
           </div>
           <span className="letters-spacer" />
@@ -281,13 +280,27 @@ export function NewslettersPage() {
               'sender'}
             : {senderError.message}{' '}
             <button
-              disabled={mutation.isPending}
+              disabled={flow.busy}
               onClick={() =>
                 void updateSender(senderError.id, senderError.patch).catch(() => undefined)
               }
             >
               Retry sender settings
             </button>
+          </p>
+        )}
+        {flow.preparing && (
+          <p role="status" className="letters-action-error">
+            Reviewing sender settings…{' '}
+            <Button size="sm" variant="secondary" onClick={flow.cancelPreview}>
+              Cancel review
+            </Button>
+          </p>
+        )}
+        <OwnerActionResult action={flow.owner} showSetup={false} />
+        {flow.owner.error && !flow.owner.intent && (
+          <p className="letters-action-error">
+            <a href={newsletterHref(route)}>Reload Newsletters</a>
           </p>
         )}
         <div className="letters-panes">
@@ -327,29 +340,51 @@ export function NewslettersPage() {
                   {!calm && <small>{viewUnread}</small>}
                 </a>
                 {senders.map((sender) => (
-                  <a
+                  <div
                     key={sender.id}
-                    className="letters-sender"
-                    data-skipped={sender.settings.skipInbox || sender.settings.blocked}
-                    aria-current={route.senderId === sender.id ? 'page' : undefined}
-                    href={newsletterHref(newsletterSenderRoute(route, sender))}
-                    onClick={(event) =>
-                      follow(event, newsletterSenderRoute(route, sender), 'letters')
-                    }
+                    className="letters-sender-row"
+                    data-active={route.senderId === sender.id}
+                    data-brew-kind="sender"
+                    data-brew-id={sender.id}
+                    data-brew-blocked={sender.settings.blocked}
+                    data-brew-skipped={sender.settings.skipInbox}
                   >
-                    <Avatar id={sender.id} initial={senderInitial(sender.title)} />
-                    <span>{sender.title}</span>
-                    {sender.settings.favorite && <Icon name="star" size={12} />}
-                    <small>
-                      {sender.settings.blocked
-                        ? 'Blocked'
-                        : sender.settings.skipInbox
-                          ? 'Skipped'
-                          : !calm && sender.unreadCount > 0
-                            ? sender.unreadCount
-                            : ''}
-                    </small>
-                  </a>
+                    <a
+                      className="letters-sender"
+                      data-skipped={sender.settings.skipInbox || sender.settings.blocked}
+                      aria-current={route.senderId === sender.id ? 'page' : undefined}
+                      href={newsletterHref(newsletterSenderRoute(route, sender))}
+                      onClick={(event) =>
+                        follow(event, newsletterSenderRoute(route, sender), 'letters')
+                      }
+                    >
+                      <Avatar id={sender.id} initial={senderInitial(sender.title)} />
+                      <span>{sender.title}</span>
+                      {sender.settings.favorite && <Icon name="star" size={12} />}
+                      <small>
+                        {sender.settings.blocked
+                          ? 'Blocked'
+                          : sender.settings.skipInbox
+                            ? 'Skipped'
+                            : !calm && sender.unreadCount > 0
+                              ? sender.unreadCount
+                              : ''}
+                      </small>
+                    </a>
+                    <IconButton
+                      icon="more"
+                      label={`More actions for sender ${sender.title}`}
+                      className="letters-sender-more"
+                      data-brew-action="more"
+                      data-brew-sender={sender.id}
+                      aria-haspopup="dialog"
+                      disabled={flow.busy}
+                      onClick={(event) => {
+                        senderMenuReturn.current = event.currentTarget;
+                        setSenderMenuId(sender.id);
+                      }}
+                    />
+                  </div>
                 ))}
               </nav>
             )}
@@ -392,7 +427,11 @@ export function NewslettersPage() {
                   Retry connection
                 </button>
               )}
-              {copied && <p role="status">{copied}</p>}
+              {copied && (
+                <p role="status" aria-label="Address result">
+                  {copied}
+                </p>
+              )}
             </section>
           </aside>
           <section className="letters-list" aria-label="Letters">
@@ -466,7 +505,7 @@ export function NewslettersPage() {
                     <Button
                       size="sm"
                       variant="secondary"
-                      onClick={() => setSettingsId(emptySender.id)}
+                      onClick={(event) => openSettings(emptySender.id, event.currentTarget)}
                     >
                       Sender settings
                     </Button>
@@ -543,23 +582,63 @@ export function NewslettersPage() {
               letter={letter.data}
               overview={overview.data}
               explicitOpen={route.letterId === letter.data.id}
-              pending={mutation.isPending}
-              saveSender={(patch) => updateSender(letter.data.sender.id, patch)}
-              settings={() => setSettingsId(letter.data.sender.id)}
+              pending={flow.busy}
+              capable={flow.capable}
+              senderHref={newsletterHref(newsletterSenderRoute(route, letter.data.sender))}
+              saveSender={(patch, opener) => updateSender(letter.data.sender.id, patch, opener)}
+              settings={(opener) => openSettings(letter.data.sender.id, opener)}
             />
           )}
         </div>
       </main>
       {gmail && <GmailForwardingDialog address={address} close={() => setGmail(false)} />}
+      <ModalSheet
+        open={Boolean(menuSender)}
+        title="Sender actions"
+        onClose={() => setSenderMenuId(null)}
+        returnFocusRef={senderMenuReturn}
+      >
+        {menuSender && (
+          <>
+            <p className="mb-4">{menuSender.title}</p>
+            <SenderActions
+              sender={menuSender}
+              brewAvailable={Boolean(
+                overview.data?.brews.some((brew) => brew.id === menuSender.settings.brewId),
+              )}
+              capable={flow.capable}
+              pending={flow.busy}
+              href={newsletterHref(newsletterSenderRoute(route, menuSender))}
+              settings={() => openSettings(menuSender.id, senderMenuReturn.current)}
+              save={(patch) => {
+                setSenderMenuId(null);
+                void updateSender(menuSender.id, patch, senderMenuReturn.current).catch(
+                  () => undefined,
+                );
+              }}
+            />
+          </>
+        )}
+      </ModalSheet>
       {settingSender && (
         <SenderSettingsDialog
           key={settingSender.id}
           sender={settingSender}
           brews={overview.data?.brews ?? []}
           save={(patch) => updateSender(settingSender.id, patch)}
-          close={() => setSettingsId(null)}
+          close={() => {
+            flow.clearError();
+            setSettingsId(null);
+          }}
+          returnFocusRef={settingsReturn}
+          capable={flow.capable}
+          reviewing={flow.preparing}
+          cancelReview={flow.cancelPreview}
         />
       )}
+      <OwnerActionConfirmation action={flow.owner} returnFocusRef={flow.returnFocus}>
+        {flow.preview && <SenderChangeReview preview={flow.preview} />}
+      </OwnerActionConfirmation>
     </div>
   );
 }

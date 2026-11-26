@@ -101,6 +101,7 @@ export interface ApiServices {
     letter(id: number): MaybePromise<NewsletterLetter | null>;
     original(id: number): MaybePromise<string | null>;
     updateSender(id: number, patch: unknown): MaybePromise<NewsletterSender | null>;
+    previewSenderSettings(id: number, patch: unknown): MaybePromise<import('../../core/src/types/newsletters.js').SenderSettingsPreview | null>;
   };
   inboundEmail?: InboundEmailPort;
   outboundMail?: OutboundMailPort;

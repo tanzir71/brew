@@ -356,6 +356,17 @@ the sender to a managed Grid section without changing saved issues or custom sou
 lists and bulk-read actions. Newsletters, search, direct sender access and Starred remain
 available. Deleting the assigned Brew clears that restriction.
 
+Sender rows expose **More actions** on hover or keyboard focus; the sender name in
+the reading pane opens the same actions plus letter read/star/tag and format links.
+Settings use a labelled form and save only edited preferences. Changes to Inbox,
+blocking, Brew routing or retention show a read-only review before saving, including
+the exact letters and saved originals that retention will remove. Cancel keeps the
+draft. Favorite and cleaning-only edits save directly. Both paths provide actual
+local **Undo** for 30 seconds, including pruned records and routing, while the affected
+data remains unchanged. A lost response offers **Check result** without repeating
+the action; recent Undo is recovered after reload. Undo cannot recover mail rejected
+while a sender was blocked. Unsupported writes remain visible with setup links.
+
 In Compose, open **+ Source → Newsletters** to follow all senders (including future
 senders), or choose individual senders and tags. A filtered newsletter source includes
 letters from any chosen sender **or** carrying any chosen tag; an RSS story with the

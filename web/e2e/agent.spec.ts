@@ -6,6 +6,188 @@ import { RulesService } from '../../targets/node/src/services/rules-service';
 import { isReaderPageOutputPath } from '../../packages/core/src/reader-pages';
 import { articles } from '../../targets/node/src/db/schema';
 
+test('an agent reviews sender blocking, recovers a lost acknowledgement and undoes the actual setting after reload', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page);
+  try {
+    const before = f.database.sqlite.prepare('SELECT * FROM feeds WHERE id=1').get();
+    await page.goto('/letters?sort=name');
+    const nav = page.getByRole('navigation', { name: 'Newsletter senders', exact: true });
+    await nav.getByRole('link', { name: /Interface Letters/ }).focus();
+    await page.keyboard.press('Tab');
+    const more = nav.getByRole('button', {
+      name: 'More actions for sender Interface Letters',
+      exact: true,
+    });
+    await expect(more).toBeFocused();
+    await expect(more).toHaveCSS('opacity', '1');
+    await page.keyboard.press('Enter');
+    const actions = page.getByRole('dialog', { name: 'Sender actions', exact: true });
+    await actions.getByRole('button', { name: 'Block', exact: true }).click();
+    const review = page.getByRole('dialog', { name: 'Update Interface Letters?', exact: true });
+    await expect(review).toContainText('Block new mail: Off → On');
+    await expect(review).toContainText('Undo cannot recover mail rejected during that time.');
+    await expect(review.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(more).toBeFocused();
+    expect(f.database.sqlite.prepare('SELECT * FROM feeds WHERE id=1').get()).toEqual(before);
+    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({
+      n: 0,
+    });
+    await page.keyboard.press('Enter');
+    await actions.getByRole('button', { name: 'Block', exact: true }).click();
+    let drop = true;
+    await page.context().route('**/api/actions', async (route) => {
+      if (drop && route.request().method() === 'POST') {
+        drop = false;
+        const response = await f.app.inject({
+          method: 'POST',
+          url: '/api/actions',
+          payload: route.request().postDataJSON(),
+        });
+        expect(response.statusCode).toBe(200);
+        return route.abort('failed');
+      }
+      return route.fallback();
+    });
+    await review.getByRole('button', { name: 'Save sender', exact: true }).click();
+    await expect(review.getByRole('alert')).toContainText('may have finished');
+    expect(f.library.letter(1)!.sender.settings.blocked).toBe(true);
+    expect(
+      (
+        await f.pipeline.ingestMessage({
+          from: { address: 'hello@interfaceletters.co' },
+          messageId: 'while-blocked',
+          subject: 'Rejected mail',
+          html: '<p>Rejected mail.</p>',
+        })
+      ).outcome,
+    ).toBe('blocked');
+    await review.getByRole('button', { name: 'Check result', exact: true }).click();
+    await expect(review).not.toBeVisible();
+    await expect(more).toBeFocused();
+    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({
+      n: 1,
+    });
+    await expect(page).toHaveURL('/letters?sort=name');
+    await page.reload();
+    const result = page.getByRole('region', { name: 'Action result', exact: true });
+    await expect(result).toContainText('Saved settings for “Interface Letters”.');
+    await result.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(result).toContainText('Undid local changes.');
+    await expect(more).toBeFocused();
+    expect(f.database.sqlite.prepare('SELECT * FROM feeds WHERE id=1').get()).toEqual(before);
+    await expect(page).toHaveURL('/letters?sort=name');
+  } finally {
+    await f.close();
+  }
+});
+
+test('an agent submits native sender settings, keeps a cancelled draft and restores pruned originals and Brew routing', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page);
+  try {
+    const ids: number[] = [];
+    for (const title of ['Old unprotected', 'Old starred', 'Old tagged'])
+      ids.push(
+        (
+          await f.pipeline.ingestMessage({
+            from: { address: 'hello@interfaceletters.co' },
+            messageId: title,
+            subject: title,
+            date: '2026-09-20T12:00:00Z',
+            html: `<p>${title} original.</p>`,
+          })
+        ).articleId!,
+      );
+    f.database.sqlite
+      .prepare('UPDATE articles SET starred_at=? WHERE id=?')
+      .run(Date.parse('2026-11-25T08:00:00Z'), ids[1]);
+    const tag = Number(
+      f.database.sqlite.prepare("INSERT INTO tags(name,color) VALUES('Keep old','#a0471d')").run()
+        .lastInsertRowid,
+    );
+    f.database.sqlite
+      .prepare('INSERT INTO article_tags(article_id,tag_id) VALUES(?,?)')
+      .run(ids[2], tag);
+    await page.goto(`/letters/1/${ids[1]}?scope=all&sort=unread`);
+    await expect(
+      page.getByRole('button', { name: 'Mark letter unread', exact: true }),
+    ).toBeEnabled();
+    await page.getByRole('button', { name: 'Show original', exact: true }).click();
+    const pane = page.getByRole('article', { name: 'Letter from Interface Letters', exact: true });
+    await pane
+      .getByRole('button', { name: 'More actions for Interface Letters', exact: true })
+      .click();
+    await page
+      .getByRole('dialog', { name: 'Letter actions', exact: true })
+      .getByRole('button', { name: 'Sender settings', exact: true })
+      .click();
+    const editor = page.getByRole('dialog', {
+      name: 'Settings for Interface Letters',
+      exact: true,
+    });
+    const retention = editor.getByLabel('Retention in days', { exact: true });
+    await retention.fill('0');
+    await expect(editor.getByRole('button', { name: 'Save sender', exact: true })).toBeDisabled();
+    await retention.fill('1');
+    await editor
+      .getByRole('combobox', { name: 'Goes to Brew', exact: true })
+      .selectOption(String(f.weekend.id));
+    await editor.getByLabel('Only in Brew', { exact: true }).check();
+    f.library.updateSender(1, { favorite: true });
+    const snapshot = () =>
+      Object.fromEntries(
+        ['feeds', 'articles', 'article_tags', 'tags', 'brew_configs'].map((table) => [
+          table,
+          f.database.sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all(),
+        ]),
+      );
+    const before = snapshot();
+    await retention.focus();
+    await page.keyboard.press('Enter');
+    const review = page.getByRole('dialog', { name: 'Update Interface Letters?', exact: true });
+    await expect(review).toContainText(
+      '2 unstarred and untagged letters will be removed. 4 saved originals will be cleared',
+    );
+    await expect(
+      review.getByRole('list', { name: 'Sender setting changes', exact: true }),
+    ).not.toContainText('Favorite sender');
+    await page.keyboard.press('Enter');
+    await expect(retention).toHaveValue('1');
+    await expect(retention).toBeFocused();
+    expect(snapshot()).toEqual(before);
+    await page.keyboard.press('Enter');
+    await review.getByRole('button', { name: 'Save sender', exact: true }).click();
+    await expect(editor).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Show original', exact: true })).toBeDisabled();
+    await expect(page.getByRole('heading', { name: 'Old starred', exact: true })).toBeVisible();
+    expect(f.library.letter(ids[1]!)!.sender.settings).toMatchObject({
+      favorite: true,
+      retentionDays: 1,
+      brewId: f.weekend.id,
+      onlyInBrew: true,
+    });
+    expect(
+      f.database.sqlite.prepare('SELECT id FROM articles WHERE id=?').get(ids[0]),
+    ).toBeUndefined();
+    expect(
+      f.database.sqlite.prepare('SELECT raw_html AS raw FROM articles WHERE id=?').get(ids[1]),
+    ).toEqual({ raw: null });
+    await page
+      .getByRole('region', { name: 'Action result', exact: true })
+      .getByRole('button', { name: 'Undo', exact: true })
+      .click();
+    await expect(page.getByRole('button', { name: 'Show cleaned', exact: true })).toBeEnabled();
+    expect(snapshot()).toEqual(before);
+    await expect(page).toHaveURL(`/letters/1/${ids[1]}?scope=all&sort=unread`);
+  } finally {
+    await f.close();
+  }
+});
+
 test('an agent manages feed health through native More controls, retries fetches and restores a confirmed deletion with focus', async ({
   page,
 }) => {
@@ -151,11 +333,9 @@ test('an agent opens hidden content twins, distinguishes letters and unhides a n
     );
     const [popup, response] = await Promise.all([
       page.waitForEvent('popup'),
-      page
-        .context()
-        .waitForEvent('response', {
-          predicate: (response) => new URL(response.url()).pathname === `/a/${letter.id}.json`,
-        }),
+      page.context().waitForEvent('response', {
+        predicate: (response) => new URL(response.url()).pathname === `/a/${letter.id}.json`,
+      }),
       menu.getByRole('link', { name: 'JSON', exact: true }).click(),
     ]);
     expect((await response.json()).title).toBe(letter.title);

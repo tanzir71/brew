@@ -67,4 +67,23 @@ export function registerNewsletterRoutes(app: Hono, services: ApiServices) {
       );
     }
   });
+  app.post('/api/newsletters/senders/:id/preview', async (c) => {
+    c.header('Cache-Control', 'private, no-store');
+    c.header('X-Robots-Tag', 'noindex, nofollow');
+    if (!services.newsletters)
+      return json(c, { error: 'Newsletter library is unavailable here.' }, 501);
+    const id = Number(c.req.param('id'));
+    if (!Number.isSafeInteger(id) || id < 1)
+      return json(c, { error: 'Choose a valid sender.' }, 400);
+    try {
+      const preview = await services.newsletters.previewSenderSettings(id, await body(c));
+      return preview ? json(c, preview) : json(c, { error: 'Sender not found.' }, 404);
+    } catch (error) {
+      return json(
+        c,
+        { error: error instanceof Error ? error.message : 'Could not review sender settings.' },
+        400,
+      );
+    }
+  });
 }

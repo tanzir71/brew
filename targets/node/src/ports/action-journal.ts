@@ -3,7 +3,15 @@ import { ActionError } from '../../../../packages/core/src/actions.js';
 
 type Row = Record<string, string | number | null>;
 type Column = { name: string; pk: number };
-const tables = ['folders', 'feeds', 'articles', 'article_tags', 'rules', 'rule_logs'] as const;
+const tables = [
+  'folders',
+  'feeds',
+  'articles',
+  'article_tags',
+  'rules',
+  'rule_logs',
+  'brew_configs',
+] as const;
 const quote = (name: string) => `"${name.replace(/"/g, '""')}"`;
 
 /** SQLite records each synchronous write and its cascades atomically with the action.
@@ -25,6 +33,7 @@ export class ActionJournal {
       const changes = (prefix: string) =>
         `(SELECT json_group_object(name,value) FROM (${columns.map((column) => `SELECT '${column.name}' AS name, ${prefix}.${quote(column.name)} AS value WHERE OLD.${quote(column.name)} IS NOT NEW.${quote(column.name)}`).join(' UNION ALL ')}))`;
       for (const event of ['INSERT', 'UPDATE', 'DELETE'] as const) {
+        if (table === 'brew_configs' && event !== 'UPDATE') continue;
         const before =
           event === 'INSERT' ? 'NULL' : event === 'UPDATE' ? changes('OLD') : object('OLD');
         const after =

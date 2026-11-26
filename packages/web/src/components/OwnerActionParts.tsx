@@ -17,13 +17,16 @@ export function OwnerActionConfirmation({
   const intent = action.intent;
   const applying = intent?.request.kind === 'apply_rule';
   const importing = intent?.request.kind === 'import_opml';
+  const sender = intent?.request.kind === 'update_sender';
   const days = intent?.request.kind === 'apply_rule' ? (intent.request.days ?? 30) : 30;
   const cancel = useRef<HTMLButtonElement>(null);
   const title = importing
     ? 'Import OPML?'
-    : intent
-      ? `${applying ? 'Apply' : 'Delete'} ${intent.label}?`
-      : 'Confirm action';
+    : sender
+      ? `Update ${intent.label}?`
+      : intent
+        ? `${applying ? 'Apply' : 'Delete'} ${intent.label}?`
+        : 'Confirm action';
   return (
     <ModalSheet
       open={Boolean(intent)}
@@ -35,16 +38,18 @@ export function OwnerActionConfirmation({
       <p>
         {importing
           ? 'Existing subscriptions are kept. New feeds and folders can be undone for 30 seconds if they remain unused and unchanged.'
-          : applying
-            ? `Apply this saved rule to articles from the last ${days} days?`
-            : intent?.request.kind === 'delete_feed'
-              ? 'This removes the feed and its articles.'
-              : intent?.request.kind === 'delete_folder'
-                ? 'Feeds in this folder will become unfiled.'
-                : 'This removes the rule and its execution history.'}
-        {!importing && ' Undo is available for 30 seconds.'}
+          : sender
+            ? 'Review these sender changes. Undo can restore their local changes for 30 seconds while the affected data remains unchanged.'
+            : applying
+              ? `Apply this saved rule to articles from the last ${days} days?`
+              : intent?.request.kind === 'delete_feed'
+                ? 'This removes the feed and its articles.'
+                : intent?.request.kind === 'delete_folder'
+                  ? 'Feeds in this folder will become unfiled.'
+                  : 'This removes the rule and its execution history.'}
+        {!importing && !sender && ' Undo is available for 30 seconds.'}
       </p>
-      {importing && children}
+      {(importing || sender) && children}
       {intent?.externalEffects && (
         <p className="mt-3 text-sm text-soft">
           Undo restores local changes. Notifications and webhooks cannot be recalled.
@@ -54,6 +59,12 @@ export function OwnerActionConfirmation({
         <p role="alert" className="mt-3 text-sm text-danger">
           {action.error}
           {intent?.submitted && ' The action may have finished. Check result to recover it.'}
+        </p>
+      )}
+      {!action.capable && (
+        <p className="mt-3 text-sm">
+          <Badge tone="warning">Undo needs setup</Badge>{' '}
+          <a href="/settings/runs#setup-agents">Set up actions</a>
         </p>
       )}
       <div className="mt-5 flex gap-3">
@@ -67,7 +78,7 @@ export function OwnerActionConfirmation({
           {intent?.submitted ? 'Close' : 'Cancel'}
         </button>
         <Button
-          disabled={action.busy}
+          disabled={action.busy || !action.capable}
           data-brew-action="confirm-action"
           onClick={() => void action.confirm()}
         >
@@ -77,9 +88,11 @@ export function OwnerActionConfirmation({
               ? 'Check result'
               : importing
                 ? 'Import'
-                : applying
-                  ? 'Apply rule'
-                  : 'Delete'}
+                : sender
+                  ? 'Save sender'
+                  : applying
+                    ? 'Apply rule'
+                    : 'Delete'}
         </Button>
       </div>
     </ModalSheet>
@@ -122,7 +135,7 @@ export function OwnerActionResult({
               <button
                 type="button"
                 data-brew-action="undo"
-                disabled={action.busy}
+                disabled={action.busy || !action.capable}
                 onClick={() => void action.undo()}
                 className="min-h-6 font-semibold"
               >

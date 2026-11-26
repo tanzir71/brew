@@ -40,11 +40,8 @@ export function newsletterBrewSections(
     });
   return sections;
 }
-/** Merge a partial preference update inside the storage adapter's transaction. */
-export function updateNewsletterSettings(
-  current: NewsletterSettings,
-  input: unknown,
-): NewsletterSettings {
+/** Validate and copy only supported patch fields in a stable order. */
+export function newsletterSettingsPatch(input: unknown): NewsletterSettingsPatch {
   if (!input || typeof input !== 'object' || Array.isArray(input))
     throw new Error('Sender settings must be an object.');
   const patch = input as NewsletterSettingsPatch;
@@ -87,6 +84,28 @@ export function updateNewsletterSettings(
       throw new Error('Invalid cleaning settings.');
     cleanNewsletterHtml('', patch.cleaning);
   }
+  const copy = structuredClone(
+    Object.fromEntries(
+      [...allowed]
+        .filter((key) => key in patch)
+        .map((key) => [key, (patch as Record<string, unknown>)[key]]),
+    ),
+  ) as NewsletterSettingsPatch;
+  if (copy.cleaning)
+    copy.cleaning = Object.fromEntries(
+      ['sponsorSelectors', 'footerSelectors']
+        .filter((key) => Object.hasOwn(copy.cleaning!, key))
+        .map((key) => [key, copy.cleaning![key as keyof typeof copy.cleaning]]),
+    );
+  return copy;
+}
+
+/** Merge a partial preference update inside the storage adapter's transaction. */
+export function updateNewsletterSettings(
+  current: NewsletterSettings,
+  input: unknown,
+): NewsletterSettings {
+  const patch = newsletterSettingsPatch(input);
   const result = { ...defaultNewsletterSettings(), ...current, ...patch } as NewsletterSettings;
   if (patch.brewId === null) delete result.brewId;
   if (result.onlyInBrew && !result.brewId)

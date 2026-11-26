@@ -81,6 +81,10 @@ test('sender actions, Starred, tags, routing, retention and Only in Brew persist
   await settings.getByLabel('Retention in days', { exact: true }).fill('30');
   await settings.getByLabel('Only in Brew', { exact: true }).check();
   await settings.getByRole('button', { name: 'Save sender', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'Update Interface Letters?', exact: true })
+    .getByRole('button', { name: 'Save sender', exact: true })
+    .click();
   await expect(settings).not.toBeVisible();
   await expect(page.getByRole('button', { name: 'Change sender Brew', exact: true })).toContainText(
     'Weekend',
@@ -96,14 +100,26 @@ test('sender actions, Starred, tags, routing, retention and Only in Brew persist
     onlyInBrew: true,
   });
   await page.getByRole('button', { name: 'Skip sender', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'Update Interface Letters?', exact: true })
+    .getByRole('button', { name: 'Save sender', exact: true })
+    .click();
   await page.getByRole('radio', { name: 'Skipped', exact: true }).click();
   await page.getByRole('link', { name: `Read ${newsletterTitle}`, exact: true }).click();
   await expect(page.getByRole('button', { name: 'Unskip sender', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Block', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'Update Interface Letters?', exact: true })
+    .getByRole('button', { name: 'Save sender', exact: true })
+    .click();
   await page.getByRole('radio', { name: 'Blocked', exact: true }).click();
   await page.getByRole('link', { name: `Read ${newsletterTitle}`, exact: true }).click();
   await expect(page.getByRole('button', { name: 'Unblock', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Unblock', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'Update Interface Letters?', exact: true })
+    .getByRole('button', { name: 'Save sender', exact: true })
+    .click();
   await page.reload();
   expect(fixture.library.letter(1)?.sender.settings.blocked).toBe(false);
 });
@@ -141,11 +157,12 @@ test('sender and letter failures retry without false success; originals have a r
   page,
 }) => {
   const fixture = await setup(page);
-  fixture.failNext('PATCH', '/api/newsletters/senders/1');
+  fixture.failNext('POST', '/api/actions');
   await page.getByRole('button', { name: 'Favorite', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('Could not save Interface Letters');
+  const recovery = page.getByRole('dialog', { name: 'Update Interface Letters?', exact: true });
+  await expect(recovery.getByRole('alert')).toContainText('Temporary fixture failure');
   expect(fixture.library.letter(1)?.sender.settings.favorite).toBe(false);
-  await page.getByRole('button', { name: 'Retry sender settings', exact: true }).click();
+  await recovery.getByRole('button', { name: 'Check result', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Favorite', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -175,7 +192,9 @@ test('address copying and Gmail instructions use the configured receiving addres
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await setup(page);
   await page.getByRole('button', { name: 'Copy receiving address', exact: true }).click();
-  await expect(page.getByRole('status')).toHaveText('Address copied');
+  await expect(page.getByRole('status', { name: 'Address result', exact: true })).toHaveText(
+    'Address copied',
+  );
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('k7f3@in.example.test');
   await page.getByRole('button', { name: 'Forward from Gmail', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Forward from Gmail', exact: true });

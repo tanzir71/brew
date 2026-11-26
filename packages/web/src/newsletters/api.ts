@@ -22,4 +22,9 @@ export const newsletterRefreshKeys = [
   'brew-configs',
   'brew-composition',
   'brew-preview',
+  'source-feeds',
+  'articles',
+  'search',
+  'hidden-articles',
+  'newsletter-original',
 ];

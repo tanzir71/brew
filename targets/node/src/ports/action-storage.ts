@@ -12,6 +12,7 @@ import { ActionJournal } from './action-journal.js';
 import { nodeClock, nodeRegex } from './runtime.js';
 import { createHash } from 'node:crypto';
 import { OpmlService } from '../services/opml-service.js';
+import { NewsletterLibrary } from '../services/newsletter-library.js';
 
 const undoMs = 30_000;
 interface Stored {
@@ -30,6 +31,12 @@ export class NodeActionStorage implements ActionStoragePort {
     { signature: string; task: Promise<ActionReceipt> }
   >();
   private args(request: ActionRequest) {
+    if (request.kind === 'update_sender')
+      return JSON.stringify({
+        id: request.id,
+        revision: request.revision,
+        sha256: createHash('sha256').update(JSON.stringify(request.patch)).digest('hex'),
+      });
     if (request.kind === 'import_opml')
       return JSON.stringify({ sha256: createHash('sha256').update(request.opml).digest('hex') });
     return JSON.stringify({
@@ -131,6 +138,54 @@ export class NodeActionStorage implements ActionStoragePort {
           throw new ActionError(409, 'This request was already used for another action.');
         return this.metadata(prior.id);
       }
+    }
+    if (request.kind === 'update_sender') {
+      return this.database.sqlite.transaction(() => {
+        const library = new NewsletterLibrary(this.database, {
+          now: () => this.clock.now(),
+          monotonic: nodeClock.monotonic,
+        });
+        let preview;
+        try {
+          preview = library.previewSenderSettings(request.id, request.patch);
+        } catch (error) {
+          throw new ActionError(400, (error as Error).message);
+        }
+        if (!preview) throw new ActionError(404, 'Sender not found.');
+        if (preview.revision !== request.revision)
+          throw new ActionError(
+            409,
+            'The sender or affected content changed. Close this confirmation and review the settings again.',
+          );
+        const id = this.create(request, 'Saving sender settings…', false);
+        this.write(id, () => library.updateSender(request.id, request.patch));
+        const changed =
+          (
+            this.database.sqlite
+              .prepare('SELECT count(*) AS n FROM agent_action_changes WHERE action_id=?')
+              .get(id) as { n: number }
+          ).n > 0;
+        this.database.sqlite
+          .prepare('UPDATE agent_actions SET result_json=?,undo_json=? WHERE id=?')
+          .run(
+            JSON.stringify({
+              kind: request.kind,
+              targetId: request.id,
+              summary: changed
+                ? `Saved settings for “${preview.senderTitle}”.${preview.lettersRemoved || preview.originalsRemoved ? ` Removed ${preview.lettersRemoved} letters; cleared ${preview.originalsRemoved} originals.` : ''}`
+                : 'Sender settings were already current.',
+              status: 'complete',
+              externalEffects: false,
+              lettersRemoved: preview.lettersRemoved,
+              originalsRemoved: preview.originalsRemoved,
+            }),
+            changed
+              ? JSON.stringify({ version: 1, expiresAt: this.clock.now().getTime() + undoMs })
+              : null,
+            id,
+          );
+        return this.metadata(id);
+      })();
     }
     if (request.kind === 'import_opml') {
       const opml = new OpmlService(this.database);

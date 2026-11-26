@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ArticleDetail, TagSummary } from '@brew/core/types/api';
 import type {
@@ -8,6 +8,7 @@ import type {
   NewsletterSettingsPatch,
 } from '@brew/core/types/newsletters';
 import { ModalSheet } from '../components/Sheet';
+import { Badge } from '../components/Badge';
 import { Button, Checkbox, Input } from '../components/controls';
 import { Select } from '../components/patterns';
 import { newsletterJson } from './api';
@@ -17,13 +18,31 @@ export function SenderSettingsDialog({
   brews,
   save,
   close,
+  capable = true,
+  returnFocusRef,
+  reviewing = false,
+  cancelReview,
 }: {
   sender: NewsletterSender;
   brews: NewsletterOverview['brews'];
-  save: (patch: NewsletterSettingsPatch) => Promise<void>;
+  save: (patch: NewsletterSettingsPatch) => Promise<boolean>;
   close: () => void;
+  capable?: boolean;
+  returnFocusRef?: RefObject<HTMLElement>;
+  reviewing?: boolean;
+  cancelReview?: () => void;
 }) {
   const [draft, setDraft] = useState({ ...sender.settings, brewId: sender.settings.brewId ?? 0 });
+  const [initial] = useState(() => structuredClone(sender.settings));
+  const [retention, setRetention] = useState(String(sender.settings.retentionDays));
+  const formId = useId();
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
   const [sponsors, setSponsors] = useState(
     sender.settings.cleaning?.sponsorSelectors?.join('\n') ?? '',
   );
@@ -32,29 +51,52 @@ export function SenderSettingsDialog({
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
+  const cleaning = {
+    sponsorSelectors: sponsors
+      .split('\n')
+      .map((value) => value.trim())
+      .filter(Boolean),
+    footerSelectors: footers
+      .split('\n')
+      .map((value) => value.trim())
+      .filter(Boolean),
+  };
+  const candidate = { ...draft, brewId: draft.brewId || null, retentionDays: Number(retention) };
+  const patch: NewsletterSettingsPatch = {};
+  for (const key of [
+    'favorite',
+    'skipInbox',
+    'blocked',
+    'onlyInBrew',
+    'brewId',
+    'retentionDays',
+  ] as const) {
+    if ((candidate[key] ?? null) !== (initial[key] ?? null))
+      Object.assign(patch, { [key]: candidate[key] });
+  }
+  const initialCleaning = {
+    sponsorSelectors: initial.cleaning?.sponsorSelectors?.map((value) => value.trim()) ?? [],
+    footerSelectors: initial.cleaning?.footerSelectors?.map((value) => value.trim()) ?? [],
+  };
+  if (JSON.stringify(cleaning) !== JSON.stringify(initialCleaning)) patch.cleaning = cleaning;
+  const valid =
+    /^\d+$/.test(retention) &&
+    Number.isSafeInteger(Number(retention)) &&
+    Number(retention) >= 1 &&
+    Number(retention) <= 3650;
+  const disabled = pending || !capable;
   const submit = async () => {
+    if (disabled || !valid || !Object.keys(patch).length) return;
     setPending(true);
     setError('');
     try {
-      await save({
-        ...draft,
-        brewId: draft.brewId || null,
-        cleaning: {
-          sponsorSelectors: sponsors
-            .split('\n')
-            .map((value) => value.trim())
-            .filter(Boolean),
-          footerSelectors: footers
-            .split('\n')
-            .map((value) => value.trim())
-            .filter(Boolean),
-        },
-      });
-      close();
+      const saved = await save(patch);
+      if (saved && alive.current) close();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Could not save sender.');
+      if (alive.current)
+        setError(failure instanceof Error ? failure.message : 'Could not save sender.');
     } finally {
-      setPending(false);
+      if (alive.current) setPending(false);
     }
   };
   return (
@@ -62,26 +104,46 @@ export function SenderSettingsDialog({
       open
       title={`Settings for ${sender.title}`}
       onClose={() => {
-        if (!pending) close();
+        if (reviewing) {
+          cancelReview?.();
+          close();
+        } else if (!pending) close();
       }}
       description={sender.address}
       className="letters-dialog"
+      returnFocusRef={returnFocusRef}
       footer={
         <>
-          <Button variant="secondary" disabled={pending} onClick={close}>
-            Cancel
+          <Button
+            variant="secondary"
+            disabled={pending && !reviewing}
+            onClick={reviewing ? cancelReview : close}
+          >
+            {reviewing ? 'Cancel review' : 'Cancel'}
           </Button>
-          <Button disabled={pending} onClick={() => void submit()}>
+          <Button
+            type="submit"
+            form={formId}
+            disabled={disabled || !valid || !Object.keys(patch).length}
+            data-brew-action="save-sender"
+          >
             {pending ? 'Saving…' : 'Save sender'}
           </Button>
         </>
       }
     >
-      <div className="letters-dialog-fields">
+      <form
+        id={formId}
+        className="letters-dialog-fields"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit();
+        }}
+      >
         <Select
           label="Goes to Brew"
           value={draft.brewId}
-          disabled={pending}
+          disabled={disabled}
           onChange={(event) => {
             const brewId = Number(event.target.value);
             setDraft((current) => ({
@@ -92,6 +154,9 @@ export function SenderSettingsDialog({
           }}
         >
           <option value={0}>No Brew</option>
+          {draft.brewId > 0 && !brews.some((brew) => brew.id === draft.brewId) && (
+            <option value={draft.brewId}>Brew unavailable</option>
+          )}
           {brews.map((brew) => (
             <option key={brew.id} value={brew.id}>
               {brew.name}
@@ -103,33 +168,36 @@ export function SenderSettingsDialog({
           type="number"
           min={1}
           max={3650}
-          value={draft.retentionDays}
-          disabled={pending}
-          onChange={(event) => setDraft({ ...draft, retentionDays: Number(event.target.value) })}
+          value={retention}
+          required
+          disabled={disabled}
+          onChange={(event) => setRetention(event.target.value)}
         />
         <p>Expired originals are removed. Starred and tagged letters keep their cleaned text.</p>
         <Checkbox
           label="Favorite sender"
           checked={draft.favorite}
-          disabled={pending}
+          disabled={disabled}
           onChange={(event) => setDraft({ ...draft, favorite: event.target.checked })}
         />
         <Checkbox
           label="Skip sender in Inbox"
           checked={draft.skipInbox}
-          disabled={pending}
+          disabled={disabled}
           onChange={(event) => setDraft({ ...draft, skipInbox: event.target.checked })}
         />
         <Checkbox
           label="Block new mail from this sender"
           checked={draft.blocked}
-          disabled={pending}
+          disabled={disabled}
           onChange={(event) => setDraft({ ...draft, blocked: event.target.checked })}
         />
         <Checkbox
           label="Only in Brew"
           checked={draft.onlyInBrew}
-          disabled={pending || !draft.brewId}
+          disabled={
+            disabled || (!draft.onlyInBrew && !brews.some((brew) => brew.id === draft.brewId))
+          }
           onChange={(event) => setDraft({ ...draft, onlyInBrew: event.target.checked })}
         />
         <p>
@@ -139,25 +207,29 @@ export function SenderSettingsDialog({
         <details>
           <summary>Cleaning overrides</summary>
           <p>One CSS selector per line. These apply to future letters.</p>
-          <label>
-            Sponsor selectors
-            <textarea
-              value={sponsors}
-              disabled={pending}
-              onChange={(event) => setSponsors(event.target.value)}
-            />
-          </label>
-          <label>
-            Footer selectors
-            <textarea
-              value={footers}
-              disabled={pending}
-              onChange={(event) => setFooters(event.target.value)}
-            />
-          </label>
+          <label htmlFor={`${formId}-sponsors`}>Sponsor selectors</label>
+          <textarea
+            id={`${formId}-sponsors`}
+            value={sponsors}
+            disabled={disabled}
+            onChange={(event) => setSponsors(event.target.value)}
+          />
+          <label htmlFor={`${formId}-footers`}>Footer selectors</label>
+          <textarea
+            id={`${formId}-footers`}
+            value={footers}
+            disabled={disabled}
+            onChange={(event) => setFooters(event.target.value)}
+          />
         </details>
         {error && <p role="alert">{error}</p>}
-      </div>
+        {!capable && (
+          <p>
+            <Badge tone="warning">Undo needs setup</Badge>{' '}
+            <a href="/settings/runs#setup-agents">Set up sender actions</a>
+          </p>
+        )}
+      </form>
     </ModalSheet>
   );
 }
@@ -165,9 +237,11 @@ export function SenderSettingsDialog({
 export function LetterTagsDialog({
   letter,
   close,
+  returnFocusRef,
 }: {
   letter: NewsletterLetter;
   close: () => void;
+  returnFocusRef?: RefObject<HTMLElement>;
 }) {
   const client = useQueryClient();
   const tags = useQuery({
@@ -214,6 +288,7 @@ export function LetterTagsDialog({
     <ModalSheet
       open
       title="Tag this letter"
+      returnFocusRef={returnFocusRef}
       onClose={() => {
         if (!pending) close();
       }}

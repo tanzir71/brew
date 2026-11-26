@@ -1,4 +1,5 @@
 import { senderInNewsletterView } from '../../../../packages/core/src/types/newsletters.js';
+import { createHash } from 'node:crypto';
 import { parseHTML } from 'linkedom';
 import type { BrewDatabase } from '../db/database.js';
 import type { ClockPort } from '../../../../packages/core/src/ports.js';
@@ -11,10 +12,12 @@ import {
   type NewsletterLetterPage,
   type NewsletterLetter,
   type NewsletterCleaning,
+  type SenderSettingsPreview,
 } from '../../../../packages/core/src/types/newsletters.js';
 import {
   updateNewsletterSettings,
   newsletterBrewSections,
+  newsletterSettingsPatch,
 } from '../../../../packages/core/src/newsletter-settings.js';
 import { ArticleService } from './article-service.js';
 import { NodeIngestStorage } from '../ports/ingest-storage.js';
@@ -53,6 +56,103 @@ export class NewsletterLibrary {
     private readonly database: BrewDatabase,
     private readonly clock: ClockPort = nodeClock,
   ) {}
+  previewSenderSettings(id: number, input: unknown): SenderSettingsPreview | null {
+    return this.database.sqlite.transaction(() => {
+      const current = this.senders(id)[0];
+      if (!current) return null;
+      const patch = newsletterSettingsPatch(input);
+      if (!Object.keys(patch).length) throw new Error('Choose at least one sender setting.');
+      const updated = updateNewsletterSettings(current.settings, patch);
+      const configs = this.database.sqlite
+        .prepare('SELECT * FROM brew_configs WHERE id=? OR id=? ORDER BY id')
+        .all(current.settings.brewId ?? 0, updated.brewId ?? 0) as Array<{
+        id: number;
+        name: string;
+      }>;
+      if (
+        (updated.brewId !== current.settings.brewId || patch.onlyInBrew === true) &&
+        updated.brewId &&
+        !configs.some((config) => config.id === updated.brewId)
+      )
+        throw new Error('That Brew no longer exists.');
+      const affected =
+        updated.retentionDays === current.settings.retentionDays
+          ? []
+          : (this.database.sqlite
+              .prepare(
+                'SELECT a.id,a.raw_html IS NOT NULL AS original,a.starred_at IS NULL AND NOT EXISTS(SELECT 1 FROM article_tags t WHERE t.article_id=a.id) AS discard FROM articles a WHERE a.feed_id=? AND a.published_at<? ORDER BY a.id',
+              )
+              .all(id, this.clock.now().getTime() - updated.retentionDays * 86_400_000) as Array<{
+              id: number;
+              original: number;
+              discard: number;
+            }>);
+      const labels: Record<string, string> = {
+        favorite: 'Favorite sender',
+        skipInbox: 'Skip in Inbox',
+        blocked: 'Block new mail',
+        onlyInBrew: 'Only in Brew',
+        retentionDays: 'Retention',
+        brewId: 'Goes to Brew',
+        cleaning: 'Cleaning overrides',
+      };
+      const describe = (key: string, value: unknown): string =>
+        key === 'brewId'
+          ? value
+            ? (configs.find((config) => config.id === value)?.name ?? 'Brew unavailable')
+            : 'No Brew'
+          : key === 'retentionDays'
+            ? `${value} ${value === 1 ? 'day' : 'days'}`
+            : key === 'cleaning'
+              ? 'Configured'
+              : value
+                ? 'On'
+                : 'Off';
+      const changes = Object.keys(patch)
+        .filter(
+          (key) =>
+            JSON.stringify(current.settings[key as keyof NewsletterSettings] ?? null) !==
+            JSON.stringify(updated[key as keyof NewsletterSettings] ?? null),
+        )
+        .map((key) => ({
+          label: labels[key]!,
+          before: describe(key, current.settings[key as keyof NewsletterSettings]),
+          after:
+            key === 'cleaning'
+              ? 'Updated'
+              : describe(key, updated[key as keyof NewsletterSettings]),
+        }));
+      const identity = this.database.sqlite
+        .prepare('SELECT title,url,settings_json,retention_days FROM feeds WHERE id=?')
+        .get(id);
+      const revision = createHash('sha256')
+        .update(
+          JSON.stringify({
+            id,
+            patch,
+            identity,
+            affected,
+            configs: 'brewId' in patch || patch.onlyInBrew === true ? configs : [],
+          }),
+        )
+        .digest('hex');
+      return {
+        senderTitle: current.title,
+        revision,
+        changes,
+        lettersRemoved: affected.reduce((sum, row) => sum + row.discard, 0),
+        originalsRemoved: affected.reduce((sum, row) => sum + row.original, 0),
+        requiresConfirmation: [
+          'skipInbox',
+          'blocked',
+          'onlyInBrew',
+          'retentionDays',
+          'brewId',
+        ].some((key) => key in patch),
+        blocksMail: patch.blocked === true,
+      };
+    })();
+  }
   private senders(id?: number): NewsletterSender[] {
     const rows = this.database.sqlite
       .prepare(

@@ -117,6 +117,26 @@
 .letters-sender + .letters-sender {
   margin-top: 2px;
 }
+.letters-sender-row {
+  position: relative;
+  margin-top: 2px;
+}
+.letters-sender-more {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  min-height: 28px;
+  min-width: 28px;
+  opacity: 0;
+  pointer-events: none;
+}
+.letters-sender-row:is(:hover, :focus-within, [data-active='true']) .letters-sender-more {
+  opacity: 1;
+  pointer-events: auto;
+}
+.letters-sender-row:is(:hover, :focus-within, [data-active='true']) .letters-sender {
+  padding-right: 40px;
+}
 .letters-sender > span:not(.brew-avatar) {
   flex: 1;
   min-width: 0;
@@ -330,6 +350,9 @@
   color: var(--brew-text-caption);
 }
 .letters-sender-title {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   color: var(--brew-text-primary);
   font-weight: 500;
 }
@@ -391,6 +414,11 @@
   font: 500 13px/16px var(--brew-font-ui);
 }
 .letters-read-state {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  margin-block: -4px;
+  padding-block: 4px;
   color: var(--brew-text-caption);
   text-align: left;
   font: 400 12px/16px var(--brew-font-ui);

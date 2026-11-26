@@ -35,7 +35,13 @@ function SheetBody({
     return () => {
       dialog.close();
       document.body.style.overflow = overflow;
-      if (previous?.isConnected) previous.focus();
+      if (
+        previous?.isConnected &&
+        previous.getClientRects().length &&
+        !previous.matches(':disabled')
+      )
+        previous.focus();
+      else document.querySelector<HTMLElement>('main h1[tabindex]')?.focus({ preventScroll: true });
     };
   }, [initialFocusRef, returnFocusRef]);
   return (
@@ -81,7 +87,9 @@ function SheetBody({
       }}
     >
       <header>
-        <h2 id={id}>{title}</h2>
+        <h2 id={id} className="min-w-0 break-words">
+          {title}
+        </h2>
         <IconButton icon="x" label={`Close ${title}`} onClick={onClose} />
       </header>
       {description && (

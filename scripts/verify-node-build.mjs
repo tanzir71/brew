@@ -366,6 +366,59 @@ try {
   } finally {
     await smtpApp.close();
   }
+  const senderBefore = database.sqlite.prepare('SELECT * FROM feeds WHERE id=?').get(letter.feedId);
+  const senderBrewsBefore = database.sqlite.prepare('SELECT * FROM brew_configs ORDER BY id').all();
+  const senderChangesBefore = database.sqlite.prepare('SELECT total_changes() AS n').get();
+  const senderPatch = { blocked: true, skipInbox: true };
+  const senderPreview = await app.inject({
+    method: 'POST',
+    url: `/api/newsletters/senders/${letter.feedId}/preview`,
+    payload: senderPatch,
+  });
+  assert.equal(senderPreview.statusCode, 200);
+  assert.match(senderPreview.headers['cache-control'], /private, no-store/);
+  assert.equal(senderPreview.json().requiresConfirmation, true);
+  assert.deepEqual(
+    database.sqlite.prepare('SELECT total_changes() AS n').get(),
+    senderChangesBefore,
+  );
+  const senderSaved = await app.inject({
+    method: 'POST',
+    url: '/api/actions',
+    payload: {
+      kind: 'update_sender',
+      id: letter.feedId,
+      patch: senderPatch,
+      revision: senderPreview.json().revision,
+      confirm: true,
+      requestId: 'compiled-sender-settings',
+    },
+  });
+  assert.equal(senderSaved.statusCode, 200);
+  assert.equal(senderSaved.json().canUndo, true);
+  assert.equal(
+    (await app.inject(`/api/newsletters/letters/${letter.articleId}`)).json().sender.settings
+      .blocked,
+    true,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: 'POST',
+        url: `/api/actions/${senderSaved.json().id}/undo`,
+        payload: {},
+      })
+    ).statusCode,
+    200,
+  );
+  assert.deepEqual(
+    database.sqlite.prepare('SELECT * FROM feeds WHERE id=?').get(letter.feedId),
+    senderBefore,
+  );
+  assert.deepEqual(
+    database.sqlite.prepare('SELECT * FROM brew_configs ORDER BY id').all(),
+    senderBrewsBefore,
+  );
   const hiddenBefore = database.sqlite
     .prepare('SELECT hidden FROM articles WHERE id=?')
     .get(letter.articleId);
