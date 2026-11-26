@@ -14,6 +14,12 @@ bulk read, undoes the actual scoped server update, saves a rule, changes a Compo
 section and channel preference, and generates an issue. It asserts both visible
 state/hooks and persisted results.
 
+Two additional role/label-only journeys cancel, confirm and undo rule application,
+rule deletion, feed deletion and folder deletion; recover Undo after a page reload;
+and recover a lost deletion acknowledgement without repeating the mutation. A
+failed recent-action read offers an explicit retry. The shell's Reader, Brew,
+Rules and Manage feeds navigation also uses native links with reloadable URLs.
+
 ESLint restricts that file's UI selectors to `getByRole` and `getByLabel`, rejecting
 CSS/test-ID/text/placeholder/title selectors and injected DOM evaluation. Browser
 setup, navigation, response inspection and SQL assertions remain available to
@@ -25,12 +31,12 @@ metadata and geometry directly; they do not substitute for this agent journey.
 | Requirement | Implemented evidence | Remaining work before the criterion is complete |
 | --- | --- | --- |
 | Landmarks | Existing Brew Library/main/In this Brew; named Reader Library navigation; real article landmarks inside Reader dialogs and newsletter panes. | Audit every other implemented view and dialog, including settings and older shell variants. |
-| Native controls | Reader scope/folder/feed navigation uses real hrefs and browser history. Rows offer real Open buttons; pointer convenience preserves normal card clicks. Article actions and bulk confirmation use real controls. | Convert remaining navigation-like toolbar controls and audit all icon-only labels and toggles. |
+| Native controls | Reader scope/folder/feed and legacy shell toolbar navigation use real hrefs. Rows offer real Open buttons; pointer convenience preserves normal card clicks. Article actions and bulk confirmation use real controls. | Audit all remaining navigation, icon-only labels and toggles. |
 | Stable hooks | Article rows/panes share `data-brew-id`, kind and read/unread/starred/highlighted state. Newsletter rows/panes and frozen Brew letters identify as letters; rules expose identity/enablement/actions; Compose already identifies sections. | Audit the rest of each screen's actions, settings and result rows. |
 | Accessible alternatives | Article actions are available directly and in a native More sheet. Existing Compose drag controls retain button/keyboard alternatives. | Add/audit More equivalents and focus/selection behavior on remaining rows and screens. |
-| Polite results | Existing Compose/Brew status plus explicit Reader bulk result live region and real Undo. | Audit success/error announcements for every other mutation and error/retry path. |
+| Polite results | Existing Compose/Brew status plus explicit Reader bulk result and owner-action result live regions with real Undo. Rule partial failures, mutation errors, refresh failures and action-history recovery failures have visible feedback. | Audit success/error announcements for remaining mutations and error/retry paths. |
 | Totals and pagination | Newsletter totals/pages exist; Reader still has the existing normal virtual list. | Accurate list totals, remaining list announcements and agent-mode pagination/no-motion/no-scroll-marking. |
-| Confirmation and undo | Reader bulk click and Shift+A now confirm through the same native sheet, with cancel causing no writes; actual server Undo is retained. Existing Brew/Compose behavior remains tested. | Rule apply/delete and feed/folder destructive undo, plus an audit of all other bulk/destructive paths. |
+| Confirmation and undo | Reader bulk click/Shift+A, rule apply/delete and feed/folder deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs and folder assignments. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
 | Text twins | Frozen Brew twins/feeds plus private article twins, including letters. Selected article discovery overrides the underlying Brew twins and restores them on close; subscription links remain separate. | List/search/Compose/rules/settings and other page twins and alternate links, matching current URL state. |
 | Visible state and targets | Read/star/tag changes update real controls and stable state; new article Open target is at least 24px; More/confirmation reuse existing controls. | Full target-size/focus/overlay and post-action visibility audit across every implemented screen. |
 
@@ -54,3 +60,45 @@ URLs, media types/HEAD and invalid identities. Browser tests verify alternate-li
 precedence/restoration, direct HTML article URLs and unavailable-format discovery.
 Compiled Node smoke verifies article twins and the separate HTML SPA route outside
 the repository working directory. The captured v1 DTOs remain unchanged.
+
+## Confirmed owner actions and Undo
+
+Node advertises `actions.undo`. Other targets keep the destructive controls
+disabled with a setup badge/link until their adapter provides it. This capability
+does not enable agent tokens, MCP or other write access.
+
+`POST /api/actions` accepts a confirmed `delete_feed`, `delete_folder`,
+`delete_rule` or `apply_rule` request. Rule application also accepts 1–3650 days
+(30 by default). Confirmation is mandatory; missing confirmation returns 428.
+The browser creates one request identity for each confirmation sheet and retains
+it across retries. A repeated identity returns the same result; using it for
+different arguments returns 409. A lost acknowledgement offers **Check result**
+and **Close**, since the original mutation may already have completed.
+
+`GET /api/actions` returns the last 20 public receipts, allowing reload recovery.
+`POST /api/actions/:id/undo` restores the actual local changes for 30 seconds
+after completion. These private/no-store endpoints return summaries and Undo
+availability, never stored undo bodies. Legacy REST DTOs/routes stay compatible.
+
+Migration 0010 creates the audit and per-write change journal. SQLite triggers
+record each synchronous write and its foreign-key cascades in the same
+transaction. The active flag is off across asynchronous rule work, so unrelated
+requests do not enter its journal. Updates record only changed columns. Undo
+checks expected values, reverses records in order and runs atomically; later
+conflicting changes or uniqueness constraints cause 409 without partial restore.
+Unrelated later edits are retained. New reusable tag definitions remain, while
+their assignments are undone. Full deleted articles, including private original
+mail, are restored only locally; no content is published.
+
+Undo data survives a new connection or restart. Expired change rows and undo
+metadata are removed on startup, reads and a five-second sweep; audit summaries
+remain. Active rule runs are exempt from pruning, and shutdown drains them before
+closing SQLite. An interrupted rule is reported as interrupted; its local
+changes remain undoable within the window and external requests are not replayed.
+Rule-action failures produce a visible partial-failure summary. Notifications
+and webhooks cannot be recalled, as disclosed before confirming such a rule.
+
+Focused backend coverage includes exact cascaded restoration/FTS, new-connection
+recovery, request identity replay, concurrent async work, expiry, atomic conflict
+rejection, partial failure and private HTTP metadata. Browser coverage verifies
+the actual confirmation, Cancel, retry, reload, visible result and Undo controls.

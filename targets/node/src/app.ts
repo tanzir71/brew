@@ -108,29 +108,29 @@ export async function createApp(
         });
     },
   );
-  const api = createApi(
-    nodeApiServices(database, poller, broker, options.fetcher, {
-      ...options,
-      publicUrl,
-      outboundMail,
-      inboundEmail,
-      inboundMail: inbound ? (inbound.kind === 'imap' ? 'imap' : 'webhook') : null,
-    }),
-    {
-      notFound: options.serveWeb
-        ? undefined
-        : (c) =>
-            json(
-              c,
-              {
-                message: `Route ${c.req.method}:${new URL(c.req.url).pathname}${new URL(c.req.url).search} not found`,
-                error: 'Not Found',
-                statusCode: 404,
-              },
-              404,
-            ),
-    },
-  );
+  const services = nodeApiServices(database, poller, broker, options.fetcher, {
+    ...options,
+    publicUrl,
+    outboundMail,
+    inboundEmail,
+    inboundMail: inbound ? (inbound.kind === 'imap' ? 'imap' : 'webhook') : null,
+  });
+  const actionTimer = setInterval(() => services.actions?.cleanup(), 5_000);
+  actionTimer.unref();
+  const api = createApi(services, {
+    notFound: options.serveWeb
+      ? undefined
+      : (c) =>
+          json(
+            c,
+            {
+              message: `Route ${c.req.method}:${new URL(c.req.url).pathname}${new URL(c.req.url).search} not found`,
+              error: 'Not Found',
+              statusCode: 404,
+            },
+            404,
+          ),
+  });
   mountApi(app, api);
   const brewRuns = new Set<Promise<number>>();
   const brewTimer = options.startPoller
@@ -149,6 +149,7 @@ export async function createApp(
   }
   // Stop live streams before Fastify waits for sockets to drain.
   app.addHook('preClose', async () => {
+    clearInterval(actionTimer);
     if (brewTimer) clearInterval(brewTimer);
     broker.close();
   });
@@ -157,6 +158,8 @@ export async function createApp(
     await imap?.stop();
     if (brewTimer) clearInterval(brewTimer);
     await Promise.allSettled(brewRuns);
+    await services.actions?.drain();
+    services.actions?.cleanup();
     smtp?.close();
     database.close();
   });

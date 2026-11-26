@@ -1,4 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useOwnerActions } from './hooks/useOwnerActions';
+import { OwnerActionUi } from './components/OwnerActionUi';
 import type { ReaderNavigation } from '@brew/core/types/api';
 import type {
   RuleAction,
@@ -139,6 +141,13 @@ export function RulesPage() {
       controller.abort();
     };
   }, [draft.conditions, draft.matchType, draft.scope]);
+  const owner = useOwnerActions(async (receipt) => {
+    await refresh();
+    if (receipt.kind === 'delete_rule' && !receipt.undoneAt && selectedId === receipt.targetId) {
+      setSelectedId(null); setDraft(blankDraft());
+    }
+    if (receipt.kind === 'apply_rule') setLogs(await json<RuleLogRecord[]>(`/api/rules/${receipt.targetId}/logs`));
+  });
   const scopeMode = draft.scope.feedIds?.length
     ? 'feed'
     : draft.scope.folderIds?.length
@@ -176,13 +185,9 @@ export function RulesPage() {
       setMessage(error instanceof Error ? error.message : 'Could not save rule');
     }
   };
-  const remove = async (id: number) => {
-    await json(`/api/rules/${id}`, { method: 'DELETE' });
-    if (selectedId === id) {
-      setSelectedId(null);
-      setDraft(blankDraft());
-    }
-    await refresh();
+  const remove = (rule: RuleRecord) => {
+    setMessage('');
+    owner.ask({ kind: 'delete_rule', id: rule.id }, rule.name);
   };
   const duplicate = async (rule: RuleRecord) => {
     const copy: RuleDraft = {
@@ -204,13 +209,9 @@ export function RulesPage() {
   const showLogs = async (id: number) => {
     setLogs(await json<RuleLogRecord[]>(`/api/rules/${id}/logs`));
   };
-  const applyExisting = async (id: number) => {
-    const result = await json<{ matched: number }>(`/api/rules/${id}/apply`, {
-      method: 'POST', body: JSON.stringify({ days: 30 }),
-    });
-    setMessage(`Applied to ${result.matched} existing article${result.matched === 1 ? '' : 's'}.`);
-    await refresh();
-    await showLogs(id);
+  const applyExisting = (rule: RuleRecord) => {
+    setMessage('');
+    owner.ask({ kind: 'apply_rule', id: rule.id, days: 30 }, rule.name, rule.actions.some((action) => ['webhook', 'notify'].includes(action.type)));
   };
   const setCondition = (index: number, values: Partial<RuleCondition>) =>
     setDraft((current) => ({
@@ -313,13 +314,13 @@ export function RulesPage() {
                 <button data-brew-action="copy-rule" onClick={() => duplicate(rule)} className="text-xs text-soft">
                   Copy
                 </button>
-                <button data-brew-action="delete-rule" onClick={() => remove(rule.id)} className="text-xs text-danger">
+                <button data-brew-action="delete-rule" disabled={!owner.capable || owner.busy} onClick={() => remove(rule)} className="text-xs text-danger">
                   Delete
                 </button>
                 <button data-brew-action="rule-log" onClick={() => void showLogs(rule.id)} className="text-xs text-soft">
                   Logs
                 </button>
-                <button data-brew-action="apply-rule" onClick={() => void applyExisting(rule.id)} className="text-xs text-accent">
+                <button data-brew-action="apply-rule" disabled={!owner.capable || owner.busy} onClick={() => applyExisting(rule)} className="text-xs text-accent">
                   Apply 30d
                 </button>
               </div>
@@ -602,6 +603,7 @@ export function RulesPage() {
           </section>
         )}
       </aside>
+      <OwnerActionUi action={owner} />
     </div>
   );
 }

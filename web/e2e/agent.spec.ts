@@ -2,6 +2,164 @@ import { expect, test } from '@playwright/test';
 import { newslettersFixture } from './newsletters-fixture';
 import { newBrewSection } from '../../packages/core/src/composition-model';
 import { isArticleOutputPath } from '../../packages/core/src/article-outputs';
+import { RulesService } from '../../targets/node/src/services/rules-service';
+
+test('an agent recovers failed history and a lost delete acknowledgement without repeating the action', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page);
+  try {
+    f.failNext('GET', '/api/actions');
+    await page.goto('/?view=feeds');
+    await expect(page.getByRole('alert')).toContainText('Could not recover recent actions.');
+    await page.getByRole('button', { name: 'Retry actions', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Retry actions', exact: true }),
+    ).not.toBeVisible();
+    let lost = false;
+    await page.route('**/api/actions', async (route) => {
+      if (route.request().method() !== 'POST' || lost) return route.fallback();
+      lost = true;
+      const response = await f.app.inject({
+        method: 'POST',
+        url: '/api/actions',
+        payload: route.request().postData()!,
+        headers: { 'content-type': 'application/json' },
+      });
+      expect(response.statusCode).toBe(200);
+      await route.fulfill({
+        status: 503,
+        json: { error: 'The connection closed before the result arrived.' },
+      });
+    });
+    const feed = page.getByRole('article', { name: 'Interface Letters', exact: true });
+    await feed.getByRole('button', { name: 'Delete', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Delete Interface Letters?', exact: true });
+    await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(dialog.getByRole('alert')).toContainText('The action may have finished.');
+    await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Check result', exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    await expect(feed).not.toBeVisible();
+    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({
+      n: 1,
+    });
+    await page
+      .getByRole('region', { name: 'Action result', exact: true })
+      .getByRole('button', { name: 'Undo', exact: true })
+      .click();
+    await expect(feed).toBeVisible();
+  } finally {
+    await f.close();
+  }
+});
+
+test('an agent confirms and undoes rule application, rule deletion, feed deletion and folder deletion', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page);
+  try {
+    const service = new RulesService(f.database);
+    const rule = service.create({
+      name: 'Restore labels',
+      enabled: true,
+      matchType: 'all',
+      scope: {},
+      conditions: [{ field: 'title', operator: 'contains', value: 'Forms' }],
+      actions: [
+        { type: 'mark_read' },
+        { type: 'highlight', color: '#a0471d' },
+        { type: 'add_tag', tag: 'Agent label' },
+      ],
+      stopProcessing: false,
+    });
+    const article = () =>
+      f.database.sqlite
+        .prepare('SELECT id,read_at,highlight_color,raw_html FROM articles WHERE id=1')
+        .get();
+    const original = article();
+    const count = () =>
+      (f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get() as { n: number })
+        .n;
+    await page.goto('/?view=rules');
+    const row = page.getByRole('article', { name: rule.name, exact: true });
+    await row.getByRole('button', { name: 'Apply 30d', exact: true }).click();
+    let dialog = page.getByRole('dialog', { name: `Apply ${rule.name}?`, exact: true });
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    expect(article()).toEqual(original);
+    expect(count()).toBe(0);
+    await row.getByRole('button', { name: 'Apply 30d', exact: true }).click();
+    dialog = page.getByRole('dialog', { name: `Apply ${rule.name}?`, exact: true });
+    await dialog.getByRole('button', { name: 'Apply rule', exact: true }).click();
+    const result = page.getByRole('region', { name: 'Action result', exact: true });
+    await expect(result).toContainText('Applied to 1 existing article.');
+    expect(article()).not.toEqual(original);
+    await result.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(result).toContainText('Undid local changes.');
+    expect(article()).toEqual(original);
+    await row.getByRole('button', { name: 'Delete', exact: true }).click();
+    dialog = page.getByRole('dialog', { name: `Delete ${rule.name}?`, exact: true });
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    expect(service.list().some((value) => value.id === rule.id)).toBe(true);
+    await row.getByRole('button', { name: 'Delete', exact: true }).click();
+    await page
+      .getByRole('dialog', { name: `Delete ${rule.name}?`, exact: true })
+      .getByRole('button', { name: 'Delete', exact: true })
+      .click();
+    await expect(row).not.toBeVisible();
+    await result.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(row).toBeVisible();
+    expect(service.list().some((value) => value.id === rule.id)).toBe(true);
+    await page.getByRole('link', { name: 'Manage feeds', exact: true }).click();
+    const feed = page.getByRole('article', { name: 'Interface Letters', exact: true });
+    await feed.getByRole('button', { name: 'Delete', exact: true }).click();
+    await page
+      .getByRole('dialog', { name: 'Delete Interface Letters?', exact: true })
+      .getByRole('button', { name: 'Cancel', exact: true })
+      .click();
+    expect(article()).toEqual(original);
+    await feed.getByRole('button', { name: 'Delete', exact: true }).click();
+    await page
+      .getByRole('dialog', { name: 'Delete Interface Letters?', exact: true })
+      .getByRole('button', { name: 'Delete', exact: true })
+      .click();
+    await expect(feed).not.toBeVisible();
+    expect(article()).toBeUndefined();
+    await page.reload();
+    await page
+      .getByRole('region', { name: 'Action result', exact: true })
+      .getByRole('button', { name: 'Undo', exact: true })
+      .click();
+    await expect(feed).toBeVisible();
+    expect(article()).toEqual(original);
+    const folder = f.database.sqlite
+      .prepare('SELECT id,title FROM folders ORDER BY id LIMIT 1')
+      .get() as { id: number; title: string };
+    const feedsBefore = f.database.sqlite
+      .prepare('SELECT id,folder_id FROM feeds ORDER BY id')
+      .all();
+    await page.getByRole('button', { name: `Delete ${folder.title}`, exact: true }).click();
+    await page
+      .getByRole('dialog', { name: `Delete ${folder.title}?`, exact: true })
+      .getByRole('button', { name: 'Delete', exact: true })
+      .click();
+    await expect(
+      page.getByRole('button', { name: `Delete ${folder.title}`, exact: true }),
+    ).not.toBeVisible();
+    await page
+      .getByRole('region', { name: 'Action result', exact: true })
+      .getByRole('button', { name: 'Undo', exact: true })
+      .click();
+    await expect(
+      page.getByRole('button', { name: `Delete ${folder.title}`, exact: true }),
+    ).toBeVisible();
+    expect(f.database.sqlite.prepare('SELECT id,folder_id FROM feeds ORDER BY id').all()).toEqual(
+      feedsBefore,
+    );
+  } finally {
+    await f.close();
+  }
+});
 
 test('an agent triages, exports, confirms and undoes bulk read, saves a rule and composes with roles and labels only', async ({
   page,
@@ -79,12 +237,9 @@ test('an agent triages, exports, confirms and undoes bulk read, saves a rule and
     ] as const) {
       const [popup, response] = await Promise.all([
         page.waitForEvent('popup'),
-        page
-          .context()
-          .waitForEvent('response', {
-            predicate: (response) =>
-              new URL(response.url()).pathname === `/a/${story.id}.${format}`,
-          }),
+        page.context().waitForEvent('response', {
+          predicate: (response) => new URL(response.url()).pathname === `/a/${story.id}.${format}`,
+        }),
         actions.getByRole('link', { name, exact: true }).click(),
       ]);
       expect(response.status()).toBe(200);
@@ -106,7 +261,7 @@ test('an agent triages, exports, confirms and undoes bulk read, saves a rule and
     await expect.poll(readCount).toBeGreaterThan(before);
     await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect.poll(readCount).toBe(before);
-    await page.getByRole('button', { name: 'Rules', exact: true }).click();
+    await page.getByRole('link', { name: 'Rules', exact: true }).click();
     await page.getByLabel('Rule name', { exact: true }).fill('Agent picks design');
     await page.getByLabel('Condition 1 value', { exact: true }).fill('Design');
     await page.getByRole('button', { name: 'Save rule', exact: true }).click();

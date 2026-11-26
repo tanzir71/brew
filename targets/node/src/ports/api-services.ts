@@ -17,6 +17,8 @@ import type { PollerService } from '../services/poller-service.js';
 import type { SseBroker } from '../services/sse-broker.js';
 import { NodeApiData } from './api-data.js';
 import { nodeCapabilities } from '../capabilities.js';
+import { ActionsService } from '../../../../packages/core/src/actions.js';
+import { NodeActionStorage } from './action-storage.js';
 
 export function nodeApiServices(
   database: BrewDatabase,
@@ -34,6 +36,11 @@ export function nodeApiServices(
   const clock = options.clock;
   const now = clock ? () => clock.now() : undefined;
   return {
+    actions: new ActionsService(
+      new NodeActionStorage(database, options.clock, fetcher, (article) =>
+        broker.publish('notification', article),
+      ),
+    ),
     outputBaseUrl: options.publicUrl,
     newsletters: new NewsletterLibrary(database, options.clock),
     capabilities: () => ({

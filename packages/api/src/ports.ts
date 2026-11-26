@@ -89,6 +89,7 @@ export interface EventsPort {
   subscribe(listener: (event: string, data: unknown) => void, onClose: () => void): () => void;
 }
 export interface ApiServices {
+  actions?: import('../../core/src/actions.js').ActionsService;
   outputBaseUrl?: string;
   newsletters?: {
     overview(): MaybePromise<NewsletterOverview>;

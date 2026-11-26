@@ -15,5 +15,6 @@ export function nodeCapabilities(): Capabilities {
     readState: 'server',
     publicCopy: false,
     outputs: { twins: true, feed: true, webhook: true },
+    actions: { undo: true },
   };
 }

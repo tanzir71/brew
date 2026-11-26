@@ -143,6 +143,12 @@ content opens before the read write completes. Failed writes restore confirmed
 state and allow retry; queued actions on one article keep their order. Reader's
 optional read-on-scroll has an explicit retry for failed saves, and bulk read/Undo
 refreshes both views. Selecting a Brew card alone does not mark it read.
+Rule application/deletion and feed/folder deletion use confirmation sheets with
+30-second server Undo. Recent Undo survives reload; retries recover the same
+result. Later conflicting edits prevent restoration, and notifications/webhooks
+cannot be recalled. See [owner actions and Undo](docs/agent-dom.md#confirmed-owner-actions-and-undo)
+for retention, API and capability behavior. The full M12 DOM checklist remains
+in progress.
 Legacy `hero` and `list` layout names remain readable during the v2 migration.
 Compose at `/b/<brew id>/compose` edits v2 sections with serial autosave,
 multiple library sources, layouts, depth, image/unread options, Rules-grade

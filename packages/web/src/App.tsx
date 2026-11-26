@@ -1,4 +1,6 @@
 import { Component, type FormEvent, type ReactNode, lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { useOwnerActions } from './hooks/useOwnerActions';
+import { OwnerActionUi } from './components/OwnerActionUi';
 import type { FeedCandidate, FeedSummary, FolderSummary } from '@brew/core/types/api';
 const Reader = lazy(() => import('./Reader').then((module) => ({ default: module.Reader })));
 import { RulesPage } from './RulesPage';
@@ -90,12 +92,12 @@ function AppContent() {
             placeholder="Search  /"
             className="w-36 rounded-full border border-line-strong bg-surface px-4 py-2 text-xs outline-none focus:w-56 focus:border-ink"
           />
-          <button
-            onClick={() => setMode(mode === 'reader' ? 'brew' : 'reader')}
+          <a
+            href={mode === 'reader' ? '/' : '/?view=reader&scope=all'}
             className="rounded-full border border-line-strong px-4 py-2 text-sm font-medium"
           >
             {mode === 'reader' ? 'The Brew' : 'Reader'}
-          </button>
+          </a>
           <button
             aria-label="Keyboard shortcuts"
             title="Keyboard shortcuts (?)"
@@ -126,18 +128,18 @@ function AppContent() {
             <option value="proxy">Private images</option><option value="direct">Load images directly</option>
           </select>
           <label className="sr-only" htmlFor="landing-picker">Default landing page</label><select id="landing-picker" aria-label="Default landing page" value={localStorage.getItem('brew:landing')??'brew'} onChange={(event)=>{localStorage.setItem('brew:landing',event.target.value);setMode(event.target.value as 'brew'|'reader')}} className="rounded-full border border-line-strong bg-surface px-3 py-2 text-xs font-medium"><option value="brew">Start at Brew</option><option value="reader">Start at Reader</option></select>
-          <button
-            onClick={() => setMode(mode === 'rules' ? 'reader' : 'rules')}
+          <a
+            href={mode === 'rules' ? '/' : '/?view=rules'}
             className="rounded-full border border-line-strong px-4 py-2 text-sm font-medium hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
             {mode === 'rules' ? 'Back to Brew' : 'Rules'}
-          </button>
-          <button
-            onClick={() => setMode(mode === 'feeds' ? 'reader' : 'feeds')}
+          </a>
+          <a
+            href={mode === 'feeds' ? '/' : '/?view=feeds'}
             className="rounded-full border border-line-strong px-4 py-2 text-sm font-medium hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
             {mode === 'feeds' ? 'Back to Brew' : 'Manage feeds'}
-          </button>
+          </a>
         </div>
       </header>
       {mode === 'feeds' ? (
@@ -179,6 +181,7 @@ function FeedManager() {
     setFeeds(nextFeeds);
     setFolders(nextFolders);
   }, []);
+  const owner = useOwnerActions(async () => { await refresh(); });
   useEffect(() => {
     void Promise.all([api<FeedSummary[]>('/api/feeds'), api<FolderSummary[]>('/api/folders')])
       .then(([nextFeeds, nextFolders]) => {
@@ -259,10 +262,8 @@ function FeedManager() {
     });
     await refresh();
   }
-  async function removeFeed(feed: FeedSummary) {
-    if (!window.confirm(`Delete “${feed.title}” and its articles?`)) return;
-    await api(`/api/feeds/${feed.id}`, { method: 'DELETE' });
-    await refresh();
+  function removeFeed(feed: FeedSummary) {
+    setMessage(''); owner.ask({ kind: 'delete_feed', id: feed.id }, feed.title);
   }
   async function renameFolder(folder: FolderSummary) {
     const title = window.prompt('Folder name', folder.title)?.trim();
@@ -270,10 +271,8 @@ function FeedManager() {
     await api(`/api/folders/${folder.id}`, { method: 'PATCH', body: JSON.stringify({ title }) });
     await refresh();
   }
-  async function removeFolder(folder: FolderSummary) {
-    if (!window.confirm(`Delete folder “${folder.title}”? Feeds will become unfiled.`)) return;
-    await api(`/api/folders/${folder.id}`, { method: 'DELETE' });
-    await refresh();
+  function removeFolder(folder: FolderSummary) {
+    setMessage(''); owner.ask({ kind: 'delete_folder', id: folder.id }, folder.title);
   }
   async function retryFeed(feed: FeedSummary) {
     setBusy(true);
@@ -336,6 +335,7 @@ function FeedManager() {
             feeds.map((feed) => (
               <article
                 key={feed.id}
+                aria-label={feed.title}
                 className="grid items-center gap-3 border-b border-line px-5 py-4 last:border-0 md:grid-cols-[minmax(0,1fr)_8rem_7rem_7rem_auto]"
               >
                 <div className="min-w-0">
@@ -493,6 +493,7 @@ function FeedManager() {
             feeds.map((feed) => (
               <article
                 key={feed.id}
+                aria-label={feed.title}
                 className="flex items-center justify-between rounded-2xl border border-line bg-surface px-5 py-4"
               >
                 <div className="min-w-0">
@@ -510,6 +511,8 @@ function FeedManager() {
                     Rename
                   </button>
                   <button
+                    data-brew-action="delete-feed"
+                    disabled={!owner.capable || owner.busy}
                     onClick={() => removeFeed(feed)}
                     className="rounded-lg px-3 py-2 text-xs font-medium text-danger hover:bg-danger-soft"
                   >
@@ -552,14 +555,16 @@ function FeedManager() {
                 <button
                   onClick={() => renameFolder(folder)}
                   aria-label={`Rename ${folder.title}`}
-                  className="px-1 text-xs"
+                  className="brew-icon-button"
                 >
                   Edit
                 </button>
                 <button
+                  data-brew-action="delete-folder"
+                  disabled={!owner.capable || owner.busy}
                   onClick={() => removeFolder(folder)}
                   aria-label={`Delete ${folder.title}`}
-                  className="px-1 text-xs text-danger"
+                  className="brew-icon-button text-danger"
                 >
                   ×
                 </button>
@@ -568,6 +573,7 @@ function FeedManager() {
           ))}
         </div>
       </aside>
+      <OwnerActionUi action={owner} />
     </div>
   );
 }

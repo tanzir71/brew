@@ -194,7 +194,7 @@ test('Brew, Reader, Rules and settings keep fonts local and preserve reading pre
     .click();
   await expect(page.getByLabel('Reader font')).toHaveValue('sans');
   await page.getByRole('button', { name: 'Close article' }).click();
-  await page.getByRole('button', { name: 'Rules', exact: true }).click();
+  await page.getByRole('link', { name: 'Rules', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Rules', exact: true })).toBeVisible();
   await page.goto('/settings/runs');
   await expect(page.getByRole('heading', { name: 'Where Brew runs' })).toBeVisible();

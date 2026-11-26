@@ -71,7 +71,7 @@ test('opening in either view and marking unread updates the other view and archi
   await expect(second.getByRole('button', { name: 'Mark unread', exact: true })).toBeVisible();
   await expect.poll(() => fixture.state(2).read_at).not.toBeNull();
   await second.getByRole('button', { name: 'Close article', exact: true }).click();
-  await page.getByRole('button', { name: 'The Brew', exact: true }).click();
+  await page.getByRole('link', { name: 'The Brew', exact: true }).click();
   await expect(page.getByRole('article', { name: title, exact: true })).toHaveAttribute(
     'data-brew-state',
     'unread',
@@ -178,7 +178,7 @@ test('Reader bulk read and Undo recover from failures and keep Brew state and fr
   expect(fixture.readCount()).toBe(5);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect.poll(fixture.readCount).toBe(0);
-  await page.getByRole('button', { name: 'The Brew', exact: true }).click();
+  await page.getByRole('link', { name: 'The Brew', exact: true }).click();
   await expect(page.getByRole('progressbar', { name: 'Brew reading progress' })).toHaveAttribute(
     'value',
     '0',
@@ -212,7 +212,7 @@ test('failed read-on-scroll updates roll back and retry into Brew without markin
   const count = fixture.readCount();
   expect(count).toBeGreaterThan(0);
   expect(count).toBeLessThan(5);
-  await page.getByRole('button', { name: 'The Brew', exact: true }).click();
+  await page.getByRole('link', { name: 'The Brew', exact: true }).click();
   await expect(page.getByRole('progressbar', { name: 'Brew reading progress' })).toHaveAttribute(
     'value',
     String(count),

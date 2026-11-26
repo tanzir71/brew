@@ -31,6 +31,8 @@ describe('database migrations', () => {
         'brew_configs',
         'brews',
         'settings',
+        'agent_actions',
+        'agent_action_changes',
       ]),
     );
     first.close();
@@ -38,7 +40,7 @@ describe('database migrations', () => {
     try {
       expect(
         second.sqlite.prepare('SELECT count(*) AS count FROM __brew_migrations').get(),
-      ).toEqual({ count: 9 });
+      ).toEqual({ count: 10 });
     } finally {
       second.close();
     }

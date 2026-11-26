@@ -215,7 +215,36 @@ export const inboundReceipts = sqliteTable(
   (table) => [index('inbound_receipts_expiry').on(table.expiresAt)],
 );
 
+export const agentActions = sqliteTable('agent_actions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  tokenId: integer('token_id'),
+  requestId: text('request_id').unique(),
+  agent: text('agent').notNull(),
+  tool: text('tool').notNull(),
+  argsJson: text('args_json').notNull(),
+  resultJson: text('result_json').notNull(),
+  undoJson: text('undo_json'),
+  createdAt: timestamp('created_at').notNull(),
+  undoneAt: timestamp('undone_at'),
+});
+export const agentActionChanges = sqliteTable(
+  'agent_action_changes',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    actionId: integer('action_id')
+      .notNull()
+      .references(() => agentActions.id, { onDelete: 'cascade' }),
+    tableName: text('table_name').notNull(),
+    keyJson: text('key_json').notNull(),
+    beforeJson: text('before_json'),
+    afterJson: text('after_json'),
+  },
+  (table) => [index('agent_action_changes_action').on(table.actionId, table.id)],
+);
+
 export const schema = {
+  agentActions,
+  agentActionChanges,
   inboundAddresses,
   inboundReceipts,
   savedSourceSearches,
