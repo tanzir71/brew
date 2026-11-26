@@ -8,6 +8,7 @@ import type { FastifyInstance, RouteHandlerMethod } from 'fastify';
 import { Readable } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import { MAX_INBOUND_REQUEST_BYTES } from './services/inbound-webhook.js';
+import { opmlDocumentLimit } from '../../../packages/core/src/opml.js';
 
 // Fastify owns the socket, request-size/content-type parsing, and static files.
 // The portable Hono app owns all API routing and response contracts.
@@ -62,6 +63,8 @@ export function mountApi(server: FastifyInstance, api: ReturnType<typeof createA
     for (const url of ['/api/inbound/email', '/api/inbound/email/json', '/api/inbound/email/mime'])
       scope.post(url, { bodyLimit: MAX_INBOUND_REQUEST_BYTES }, handler);
   });
+  // A confirmed OPML action carries up to 1 MB of XML in a JSON envelope.
+  server.post('/api/actions', { bodyLimit: opmlDocumentLimit * 2 + 4096 }, handler);
   server.all('/api/*', handler);
   server.all('/b/*', handler);
   server.all('/a/*', handler);

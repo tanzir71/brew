@@ -143,7 +143,7 @@ content opens before the read write completes. Failed writes restore confirmed
 state and allow retry; queued actions on one article keep their order. Reader's
 optional read-on-scroll has an explicit retry for failed saves, and bulk read/Undo
 refreshes both views. Selecting a Brew card alone does not mark it read.
-Rule application/deletion and feed/folder deletion use confirmation sheets with
+OPML import, rule application/deletion and feed/folder deletion use confirmation sheets with
 30-second server Undo. Recent Undo survives reload; retries recover the same
 result. Later conflicting edits prevent restoration, and notifications/webhooks
 cannot be recalled. See [owner actions and Undo](docs/agent-dom.md#confirmed-owner-actions-and-undo)
@@ -263,8 +263,10 @@ subreddit and podcast URLs. It validates feed responses before offering them,
 with multi-select, library filters and capability-gated newsletter address copy.
 Apple Podcasts links resolve through the public lookup API. Provider failures
 remain visible; Brew does not create a replacement feed when a native endpoint
-is unavailable. OPML import adds subscriptions to the library; choose which ones
-to include in the section. Saved browser searches selected here are persisted
+is unavailable. OPML import previews the file and confirms before adding subscriptions
+to the library. Choose which ones to include in the section. Undo remains available
+for 30 seconds while the imported feeds and folders are unchanged and unused;
+existing subscriptions are kept. Saved browser searches selected here are persisted
 by migration 0007 and use the same FTS compiler as Reader search.
 
 The source API lives at `/api/sources/discover`, `/api/sources/searches` and

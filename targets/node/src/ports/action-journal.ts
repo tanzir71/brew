@@ -62,6 +62,55 @@ export class ActionJournal {
       before_json: string | null;
       after_json: string | null;
     }>;
+    const referenced = { feeds: new Set<number>(), folders: new Set<number>() };
+    if (
+      changes.some(
+        (change) => !change.before_json && ['feeds', 'folders'].includes(change.table_name),
+      )
+    ) {
+      const add = (kind: unknown, value: unknown) => {
+        const id = Number(value);
+        if (Number.isSafeInteger(id) && id > 0 && (kind === 'feed' || kind === 'folder'))
+          referenced[kind === 'feed' ? 'feeds' : 'folders'].add(id);
+      };
+      const visit = (value: unknown) => {
+        if (Array.isArray(value)) {
+          value.forEach(visit);
+          return;
+        }
+        if (!value || typeof value !== 'object') return;
+        const row = value as Record<string, unknown>;
+        add(row.kind ?? row.type, row.id);
+        add(row.source, row.sourceId);
+        Object.values(row).forEach(visit);
+      };
+      for (const row of sql
+        .prepare('SELECT sections_json,legacy_sections_json FROM brew_configs')
+        .all() as Array<{ sections_json: string; legacy_sections_json: string | null }>)
+        for (const value of [row.sections_json, row.legacy_sections_json])
+          if (value) {
+            try {
+              visit(JSON.parse(value));
+            } catch {
+              /* Unreadable definitions have no active source references. */
+            }
+          }
+      for (const row of sql.prepare('SELECT scope_json FROM rules').all() as Array<{
+        scope_json: string;
+      }>) {
+        try {
+          const scope = JSON.parse(row.scope_json);
+          for (const value of Array.isArray(scope?.feedIds) ? scope.feedIds : [])
+            add('feed', value);
+          for (const value of Array.isArray(scope?.folderIds) ? scope.folderIds : [])
+            add('folder', value);
+        } catch {
+          /* Invalid rules cannot select these sources. */
+        }
+      }
+    }
+    const articleChild = sql.prepare('SELECT 1 FROM articles WHERE feed_id=? LIMIT 1');
+    const feedChild = sql.prepare('SELECT 1 FROM feeds WHERE folder_id=? LIMIT 1');
     for (const change of changes) {
       if (!tables.includes(change.table_name as (typeof tables)[number]))
         throw new ActionError(409, 'This action cannot be restored.');
@@ -85,8 +134,18 @@ export class ActionJournal {
           'These items changed after the action. Undo could not restore them.',
         );
       if (!before) {
-        // New tag definitions are intentionally retained; only assignments are journalled.
-        // New journalled rows (assignments/logs) have no dependent child records.
+        if (
+          (change.table_name === 'feeds' &&
+            (articleChild.get(key.id) || referenced.feeds.has(Number(key.id)))) ||
+          (change.table_name === 'folders' &&
+            (feedChild.get(key.id) || referenced.folders.has(Number(key.id))))
+        )
+          throw new ActionError(
+            409,
+            'These imported feeds or folders are now in use. Undo could not remove them.',
+          );
+        // Parent rows may acquire children or saved source references after import.
+        // Never cascade away that later work while reversing their insertion.
         sql.prepare(`DELETE FROM ${table} WHERE ${where}`).run(...params);
       } else if (!after) {
         const names = Object.keys(before);

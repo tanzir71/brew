@@ -1,19 +1,21 @@
-export type ActionKind = 'delete_feed' | 'delete_folder' | 'delete_rule' | 'apply_rule';
-export interface ActionRequest {
-  requestId?: string;
-  kind: ActionKind;
-  id: number;
-  days?: number;
-  confirm: true;
-}
+import { opmlDocument, type OpmlImportResult } from './opml.js';
+export type ItemActionKind = 'delete_feed' | 'delete_folder' | 'delete_rule' | 'apply_rule';
+export type ActionKind = ItemActionKind | 'import_opml';
+export type ActionInput =
+  { kind: ItemActionKind; id: number; days?: number } | { kind: 'import_opml'; opml: string };
+export type ActionIntentRequest = ActionInput & { requestId?: string };
+export type ActionRequest = ActionIntentRequest & { confirm: true };
 export interface ActionReceipt {
   id: number;
   kind: ActionKind;
-  targetId: number;
+  targetId: number | null;
   summary: string;
   status: 'pending' | 'complete' | 'failed' | 'undone';
   matched?: number;
   failedActions?: number;
+  imported?: OpmlImportResult['imported'];
+  skipped?: OpmlImportResult['skipped'];
+  foldersCreated?: OpmlImportResult['foldersCreated'];
   externalEffects: boolean;
   expiresAt: string | null;
   undoneAt: string | null;
@@ -50,20 +52,36 @@ export class ActionsService {
       throw new ActionError(400, 'Choose a valid request identity.');
     if (
       typeof input.kind !== 'string' ||
-      !['delete_feed', 'delete_folder', 'delete_rule', 'apply_rule'].includes(String(input.kind)) ||
-      !validId(input.id)
+      !['delete_feed', 'delete_folder', 'delete_rule', 'apply_rule', 'import_opml'].includes(
+        String(input.kind),
+      ) ||
+      (input.kind !== 'import_opml' && !validId(input.id))
     )
       throw new ActionError(400, 'Choose a valid action and item.');
     if (input.confirm !== true) throw new ActionError(428, 'Confirm this action first.');
+    const identity = input.requestId === undefined ? {} : { requestId: input.requestId as string };
+    if (input.kind === 'import_opml') {
+      try {
+        return this.storage.run({
+          ...identity,
+          kind: 'import_opml',
+          opml: opmlDocument(input.opml),
+          confirm: true,
+        });
+      } catch (error) {
+        if (error instanceof ActionError) throw error;
+        throw new ActionError(400, (error as Error).message);
+      }
+    }
     if (
       input.days !== undefined &&
       (!Number.isInteger(input.days) || Number(input.days) < 1 || Number(input.days) > 3650)
     )
       throw new ActionError(400, 'Choose 1–3650 days.');
     return this.storage.run({
-      ...(input.requestId === undefined ? {} : { requestId: input.requestId as string }),
-      kind: input.kind as ActionKind,
-      id: input.id,
+      ...identity,
+      kind: input.kind as ItemActionKind,
+      id: input.id as number,
       confirm: true,
       ...(input.days === undefined ? {} : { days: Number(input.days) }),
     });

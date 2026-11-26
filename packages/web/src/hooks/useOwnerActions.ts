@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { ActionReceipt, ActionRequest } from '@brew/core/actions';
+import type {
+  ActionReceipt,
+  ActionInput,
+  ActionIntentRequest,
+  ActionKind,
+} from '@brew/core/actions';
 import { useCapabilities } from './useCapabilities';
 import { refreshArticleStates } from '../articleState';
 
 export interface ActionIntent {
-  request: Omit<ActionRequest, 'confirm'>;
+  request: ActionIntentRequest;
   label: string;
   externalEffects: boolean;
   submitted: boolean;
@@ -20,7 +25,10 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   if (!response.ok) throw new Error(value.error ?? 'Could not finish this action.');
   return value;
 }
-export function useOwnerActions(refresh: (receipt: ActionReceipt) => Promise<void>) {
+export function useOwnerActions(
+  refresh: (receipt: ActionReceipt) => Promise<void>,
+  kinds?: readonly ActionKind[],
+) {
   const caps = useCapabilities();
   const capable = Boolean(caps.data?.actions?.undo);
   const client = useQueryClient();
@@ -37,7 +45,7 @@ export function useOwnerActions(refresh: (receipt: ActionReceipt) => Promise<voi
       .then((items) => {
         if (controller.signal.aborted) return;
         setHistoryError('');
-        const latest = items.find((item) => item.canUndo);
+        const latest = items.find((item) => item.canUndo && (!kinds || kinds.includes(item.kind)));
         if (latest)
           setReceipt((current) => (!current || current.id < latest.id ? latest : current));
       })
@@ -46,7 +54,7 @@ export function useOwnerActions(refresh: (receipt: ActionReceipt) => Promise<voi
           setHistoryError('Could not recover recent actions. Retry to check for available Undo.');
       });
     return () => controller.abort();
-  }, [capable, historyVersion]);
+  }, [capable, historyVersion, kinds]);
   useEffect(() => {
     if (!receipt?.canUndo || !receipt.expiresAt) return;
     const timer = window.setTimeout(
@@ -58,11 +66,7 @@ export function useOwnerActions(refresh: (receipt: ActionReceipt) => Promise<voi
     );
     return () => window.clearTimeout(timer);
   }, [receipt]);
-  const ask = (
-    value: Omit<ActionRequest, 'confirm' | 'requestId'>,
-    label: string,
-    externalEffects = false,
-  ) => {
+  const ask = (value: ActionInput, label: string, externalEffects = false) => {
     if (!capable || busy) return;
     setError('');
     const requestId = [...crypto.getRandomValues(new Uint8Array(16))]

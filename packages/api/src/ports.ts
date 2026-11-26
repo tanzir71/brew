@@ -125,6 +125,7 @@ export interface ApiServices {
   rules: ServicePort<RulesService>;
   search: ServicePort<SearchService>;
   opml: {
+    preview(xml: string): MaybePromise<import('../../core/src/opml.js').OpmlPreview>;
     import(
       xml: string,
     ): MaybePromise<{ imported: number; skipped: number; foldersCreated: number }>;

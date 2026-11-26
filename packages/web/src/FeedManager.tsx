@@ -13,6 +13,8 @@ import { OwnerActionUi } from './components/OwnerActionUi';
 import { ModalSheet } from './components/Sheet';
 import { Button, IconButton, Input } from './components/controls';
 import { Icon } from './components/Icon';
+import { useOpmlImport } from './hooks/useOpmlImport';
+import { OpmlImportPicker, OpmlImportFeedback, OpmlImportReview } from './components/OpmlImport';
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -144,7 +146,7 @@ export function FeedManager() {
   const [candidates, setCandidates] = useState<FeedCandidate[]>([]);
   const [folderId, setFolderId] = useState<number | null>(null);
   const [folderTitle, setFolderTitle] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [working, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [edit, setEdit] = useState<Edit | null>(null);
@@ -206,6 +208,8 @@ export function FeedManager() {
     changed();
   }, [client, changed]);
   const owner = useOwnerActions(refresh);
+  const opml = useOpmlImport(owner);
+  const busy = working || owner.busy || opml.preparing;
   const run = async (work: () => Promise<string>) => {
     if (busy) return;
     setBusy(true);
@@ -487,6 +491,7 @@ export function FeedManager() {
           </a>
         </div>
         {results}
+        <OpmlImportFeedback flow={opml} />
         {loadFeedback}
         {feedQuery.data && !feedQuery.isError && total(feeds.length, 'feeds')}
         <div className="mt-8 overflow-hidden rounded-2xl border border-line bg-surface">
@@ -559,33 +564,7 @@ export function FeedManager() {
             <a href="/feeds?section=hidden" className="rounded-lg border px-3 py-2 text-xs">
               Hidden articles
             </a>
-            <label className="rounded-lg border px-3 py-2 text-xs focus-within:outline">
-              <span>Import OPML</span>
-              <input
-                aria-label="Import OPML"
-                type="file"
-                accept=".opml,.xml,text/x-opml"
-                disabled={busy}
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  event.target.value = '';
-                  if (file)
-                    void run(async () => {
-                      const result = await api<{ imported: number; skipped: number }>(
-                        '/api/opml/import',
-                        {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'text/x-opml' },
-                          body: await file.text(),
-                        },
-                      );
-                      await refresh();
-                      return `Imported ${result.imported} feeds${result.skipped ? `; skipped ${result.skipped} already subscribed` : ''}.`;
-                    });
-                }}
-                className="sr-only"
-              />
-            </label>
+            <OpmlImportPicker flow={opml} disabled={busy} />
             <a href="/api/opml/export" download className="rounded-lg border px-3 py-2 text-xs">
               Export OPML
             </a>
@@ -628,6 +607,7 @@ export function FeedManager() {
           </Button>
         </form>
         {results}
+        <OpmlImportFeedback flow={opml} />
         {loadFeedback}
         {candidates.length > 0 && (
           <div className="mt-5 rounded-2xl border bg-surface p-3">
@@ -876,7 +856,9 @@ export function FeedManager() {
         )}
       </ModalSheet>
       {edit && <LibraryEditor edit={edit} save={saveEdit} close={() => setEdit(null)} />}
-      <OwnerActionUi action={owner} />
+      <OwnerActionUi action={owner}>
+        {opml.preview && <OpmlImportReview name={opml.preview.name} data={opml.preview.data} />}
+      </OwnerActionUi>
     </div>
   );
 }

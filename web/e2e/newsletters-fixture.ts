@@ -204,7 +204,9 @@ export async function newslettersFixture(
       method: request.method() as 'GET' | 'PATCH' | 'POST' | 'PUT' | 'DELETE',
       url: url.pathname + url.search,
       payload,
-      headers: payload ? { 'content-type': 'application/json' } : {},
+      headers: payload
+        ? { 'content-type': request.headers()['content-type'] ?? 'application/json' }
+        : {},
     });
     await route.fulfill({
       status: response.statusCode,

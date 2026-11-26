@@ -157,7 +157,7 @@ export async function composeFixture(
         return;
       }
     }
-    if (url.pathname.endsWith('/preview')) {
+    if (/^\/api\/brew-configs\/\d+\/preview$/.test(url.pathname)) {
       payload = JSON.stringify({
         ...JSON.parse(payload!),
         at: previewAt?.() ?? '2026-11-25T01:00:00Z',

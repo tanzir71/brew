@@ -68,7 +68,7 @@ metadata and geometry directly; they do not substitute for this agent journey.
 | Accessible alternatives | Article actions are available directly and in a native More sheet. Saved-search deletion and feed-library/folder actions have visible, labelled More controls and native sheets. Existing Compose drag controls retain button/keyboard alternatives. | Add/audit More equivalents and focus/selection behavior on remaining rows and screens, including health/hidden rows. |
 | Polite results | Existing Compose/Brew status plus explicit Reader bulk, saved-search and owner-action result live regions with real Undo. Rule partial failures, mutation errors, browser storage failures, refresh failures and action-history recovery failures have visible feedback. | Audit success/error announcements for remaining mutations and error/retry paths. |
 | Totals and pagination | Newsletter, Reader, search and feed-library/audit views announce showing ranges/totals. Counts remain available to assistive technology in Calm mode. Newsletter/Reader/search/hidden articles offer native Previous/Next links with URL page state; hidden counts exceed the legacy 500-item cap. Normal Reader/search retain virtual/infinite lists. | Remaining list announcements and agent-mode pagination without virtualization/motion/scroll marking. |
-| Confirmation and undo | Reader bulk click/Shift+A, rule apply/delete, feed/folder deletion and browser saved-search deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs and folder assignments. Browser bookmarks have separate local Undo with reload recovery. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
+| Confirmation and undo | Reader bulk click/Shift+A, rule apply/delete, feed/folder deletion, library/Compose OPML import and browser saved-search deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs and folder assignments. OPML Undo protects later uses of imported records. Browser bookmarks have separate local Undo with reload recovery. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
 | Text twins | All currently implemented data views have private twins: frozen Brews/articles; Reader/search; saved Compose/rules/logs; feed library/health/hidden articles; Newsletters lists; instance settings; Reader welcome and empty Brew/library states. Selection/filter parameters survive in alternate links. Explicitly opened content overrides its underlying page; subscription links remain separate. | Continue coverage when later milestones add views. Draft forms export explicitly labelled saved state; unsaved previews stay separate. The full DOM checkbox remains open for the other rows. |
 | Visible state and targets | Read/star/tag changes update real controls and stable state; new article Open target is at least 24px; More/confirmation reuse existing controls. Newsletter navigation declares current selection, has visible keyboard focus and focuses an explicitly opened reading pane. | Full target-size/focus/overlay and post-action visibility audit across every implemented screen. |
 
@@ -132,7 +132,7 @@ skipped; a failed refresh states that Unhide finished and offers read retry.
 Reads never unhide, extract, execute rules or write to the database. Exports omit
 article bodies, originals and source addresses/configuration.
 
-OPML bulk confirmation/Undo, health/hidden row More coverage and the remaining
+Health/hidden row More coverage and the remaining
 sender/settings/control/focus audit are still pending. These changes do not
 complete the global DOM criterion or enable agent mode.
 
@@ -260,7 +260,7 @@ disabled with a setup badge/link until their adapter provides it. This capabilit
 does not enable agent tokens, MCP or other write access.
 
 `POST /api/actions` accepts a confirmed `delete_feed`, `delete_folder`,
-`delete_rule` or `apply_rule` request. Rule application also accepts 1–3650 days
+`delete_rule`, `apply_rule` or `import_opml` request. Rule application also accepts 1–3650 days
 (30 by default). Confirmation is mandatory; missing confirmation returns 428.
 The browser creates one request identity for each confirmation sheet and retains
 it across retries. A repeated identity returns the same result; using it for
@@ -294,3 +294,30 @@ Focused backend coverage includes exact cascaded restoration/FTS, new-connection
 recovery, request identity replay, concurrent async work, expiry, atomic conflict
 rejection, partial failure and private HTTP metadata. Browser coverage verifies
 the actual confirmation, Cancel, retry, reload, visible result and Undo controls.
+
+Both library and Compose OPML entry points first read `POST /api/opml/preview`.
+This private/no-store endpoint accepts raw XML (or a JSON string), validates a
+maximum of 1,000,000 UTF-8 bytes and returns exact new/skipped/folder counts plus
+outline statuses without writing or fetching any feeds. Preview URLs omit
+credentials and queries. Failed reads retain the in-memory file for explicit
+retry. The native confirmation initially focuses Cancel and pages 50 outlines at
+a time. Cancel causes no writes. Unsupported durable Undo keeps Import disabled
+with a setup badge/link.
+
+Confirming sends `{kind:"import_opml",opml,confirm:true,requestId}` through the
+same owner action endpoint. The document is never stored in browser storage or
+the audit arguments; the latter hold only its SHA-256 identity. The actual
+transaction reports imported/skipped/created counts, keeps existing records and
+journals only its writes. Duplicate-only imports have no Undo. The scoped Node
+action body allowance accommodates JSON escaping without raising other limits.
+Legacy `POST /api/opml/import` remains compatible; the owner UI uses confirmed
+actions. Token authorization remains separate, unfinished M12 ingress work.
+
+Undo atomically removes newly imported feeds/folders only while unchanged and
+unused. Later articles, child feeds, saved Brew sources (v1/v2) and rule scopes
+cause 409 with no partial removal. Unrelated later records survive. Reload and
+lost-response retries recover the original receipt without reimporting. Compose
+keeps imported feeds unselected; its accessible inline result stays inside the
+source sheet. Undo prunes removed draft selections, while saved source references
+protect the records. Additional role/label-only journeys verify both flows;
+light/dark browser checks cover preview retry, paging, phone layout and axe.

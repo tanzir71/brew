@@ -179,14 +179,26 @@ try {
   assert.equal(savedCompose.json().state.brewId, composed.json().id);
   assert.equal((await app.inject('/settings/runs.json?setup=agents')).json().kind, 'settings');
   assert.equal((await app.inject('/letters.json')).json().kind, 'newsletters');
-  assert.equal((await app.inject(`/letters/${letter.feedId}.json`)).json().state.senderId, letter.feedId);
-  assert.equal((await app.inject(`/letters/${letter.feedId}/${letter.articleId}.json`)).json().id, letter.articleId);
+  assert.equal(
+    (await app.inject(`/letters/${letter.feedId}.json`)).json().state.senderId,
+    letter.feedId,
+  );
+  assert.equal(
+    (await app.inject(`/letters/${letter.feedId}/${letter.articleId}.json`)).json().id,
+    letter.articleId,
+  );
   assert.equal((await app.inject(`/letters/999999/${letter.articleId}.json`)).statusCode, 404);
-  assert.match((await app.inject(`/letters/${letter.feedId}/${letter.articleId}`)).body, /id="root"/);
+  assert.match(
+    (await app.inject(`/letters/${letter.feedId}/${letter.articleId}`)).body,
+    /id="root"/,
+  );
   assert.equal((await app.inject('/rules.json')).json().kind, 'rules');
   assert.equal((await app.inject('/feeds.json?section=hidden')).json().kind, 'hidden-articles');
   assert.equal((await app.inject('/feeds.json?section=hidden&page=2')).json().state.page, 2);
-  assert.equal((await app.inject('/api/articles-hidden?includeTotal=true&page=2')).json().pageSize, 50);
+  assert.equal(
+    (await app.inject('/api/articles-hidden?includeTotal=true&page=2')).json().pageSize,
+    50,
+  );
   assert.equal((await app.inject('/api/articles-hidden?includeTotal=true&page=0')).statusCode, 400);
   assert.match((await app.inject('/reader.md')).body, /A calmer way/);
   for (const path of ['/rules', '/rules/1', '/feeds?section=health', '/reader', '/settings/runs'])
@@ -353,6 +365,38 @@ try {
   } finally {
     await smtpApp.close();
   }
+  const subscriptions = (await app.inject('/api/feeds')).json();
+  const opml =
+    '<opml><body><outline text="Compiled import" xmlUrl="https://compiled-import.test/rss"/></body></opml>';
+  const opmlPreview = await app.inject({
+    method: 'POST',
+    url: '/api/opml/preview',
+    payload: opml,
+    headers: { 'content-type': 'text/x-opml' },
+  });
+  assert.equal(opmlPreview.statusCode, 200);
+  assert.match(opmlPreview.headers['cache-control'], /private, no-store/);
+  assert.equal(opmlPreview.json().imported, 1);
+  assert.deepEqual((await app.inject('/api/feeds')).json(), subscriptions);
+  const imported = await app.inject({
+    method: 'POST',
+    url: '/api/actions',
+    payload: { kind: 'import_opml', opml, confirm: true, requestId: 'compiled-opml-import' },
+  });
+  assert.equal(imported.statusCode, 200);
+  assert.equal(imported.json().imported, 1);
+  assert.equal(imported.json().canUndo, true);
+  assert.equal(
+    (
+      await app.inject({
+        method: 'POST',
+        url: `/api/actions/${imported.json().id}/undo`,
+        payload: {},
+      })
+    ).statusCode,
+    200,
+  );
+  assert.deepEqual((await app.inject('/api/feeds')).json(), subscriptions);
   const delivered = [];
   const posted = [];
   const deliveryApp = await createApp({

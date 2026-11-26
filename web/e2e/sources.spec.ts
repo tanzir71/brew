@@ -79,25 +79,41 @@ test('multi-select adds real feeds, survives a partial failure, and retains exac
   page,
 }) => {
   const fixture = await setup(page);
+  const uncaught: string[] = [];
+  page.on('pageerror', (error) => uncaught.push(error.message));
   await fixture.sheet.getByLabel('URL or search', { exact: true }).fill('lowtide.news');
   await expect(fixture.sheet.getByText('Found 2 feeds on lowtide.news')).toBeVisible();
   await fixture.sheet.getByRole('checkbox', { name: 'Low Tide · Essays', exact: true }).check();
   await fixture.sheet.getByRole('checkbox', { name: 'Low Tide · Links', exact: true }).check();
   let fail = true;
+  let libraryUnavailable = false;
   await page.route('**/api/feeds', (route) => {
+    if (route.request().method() === 'GET' && libraryUnavailable)
+      return route.fulfill({ status: 503, json: { error: 'Library temporarily unavailable.' } });
     if (
       route.request().method() === 'POST' &&
       route.request().postDataJSON().url.endsWith('/links.xml') &&
       fail
     ) {
       fail = false;
+      libraryUnavailable = true;
       return route.fulfill({ status: 503, json: { error: 'Feed server unavailable.' } });
     }
     return route.fallback();
   });
   await fixture.sheet.getByRole('button', { name: 'Add 4 sources', exact: true }).click();
-  await expect(fixture.sheet.getByRole('alert')).toContainText('retry to finish this section');
+  await expect(
+    fixture.sheet.getByRole('alert').filter({ hasText: 'retry to finish this section' }),
+  ).toBeVisible();
+  await expect(
+    fixture.sheet.getByRole('alert').filter({ hasText: 'Could not load every library source' }),
+  ).toBeVisible();
   expect(new BrewService(fixture.database).composition(1)!.sections[0]!.sources).toHaveLength(2);
+  libraryUnavailable = false;
+  await fixture.sheet.getByRole('button', { name: 'Retry library', exact: true }).click();
+  await expect(
+    fixture.sheet.getByRole('alert').filter({ hasText: 'Could not load every library source' }),
+  ).toHaveCount(0);
   await fixture.sheet.getByRole('button', { name: 'Add 4 sources', exact: true }).click();
   await expect(fixture.sheet).not.toBeVisible();
   await expect(page.getByLabel('Autosave')).toHaveText('All changes saved');
@@ -111,12 +127,16 @@ test('multi-select adds real feeds, survives a partial failure, and retains exac
     { url: 'https://lowtide.news/essays.xml' },
     { url: 'https://lowtide.news/links.xml' },
   ]);
+  expect(uncaught).toEqual([]);
 });
 test('OPML import updates the library, reports invalid files, and imports without assigning feeds implicitly', async ({
   page,
 }) => {
   const fixture = await setup(page);
   const file = fixture.sheet.getByLabel('Import OPML file');
+  await expect(
+    fixture.sheet.getByRole('button', { name: 'Import OPML', exact: true }),
+  ).toBeEnabled();
   await file.setInputFiles({
     name: 'bad.opml',
     mimeType: 'text/xml',
@@ -130,9 +150,13 @@ test('OPML import updates the library, reports invalid files, and imports withou
       '<opml version="2.0"><body><outline text="Imported"><outline text="New Dispatch" type="rss" xmlUrl="https://example.test/dispatch.xml"/></outline></body></opml>',
     ),
   });
+  await page
+    .getByRole('dialog', { name: 'Import OPML?', exact: true })
+    .getByRole('button', { name: 'Import', exact: true })
+    .click();
   await expect(
-    fixture.sheet.getByRole('status').filter({ hasText: 'Imported 1 feed' }),
-  ).toBeVisible();
+    fixture.sheet.getByRole('region', { name: 'Action result', exact: true }),
+  ).toContainText('Imported 1 feed');
   await fixture.sheet.getByLabel('Filter feeds', { exact: true }).fill('New Dispatch');
   await expect(
     fixture.sheet.getByRole('checkbox', { name: 'New Dispatch', exact: true }),

@@ -13,6 +13,7 @@ type ButtonBase = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
   variant?: 'primary' | 'secondary' | 'ghost' | 'accent';
   size?: 'md' | 'sm';
   icon?: ReactNode;
+  buttonRef?: Ref<HTMLButtonElement>;
 };
 type ButtonProps = ButtonBase &
   ({ children: ReactNode } | { children?: never; 'aria-label': string; icon: ReactNode });
@@ -20,6 +21,7 @@ export function Button({
   variant = 'primary',
   size = 'md',
   icon,
+  buttonRef,
   className = '',
   type = 'button',
   children,
@@ -27,6 +29,7 @@ export function Button({
 }: ButtonProps) {
   return (
     <button
+      ref={buttonRef}
       type={type}
       className={`brew-button brew-button--${variant} brew-button--${size} ${className}`}
       {...props}

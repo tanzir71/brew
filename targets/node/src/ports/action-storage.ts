@@ -10,6 +10,8 @@ import { RulesService } from '../../../../packages/core/src/rules-service.js';
 import { NodeRuleStorage } from './rule-storage.js';
 import { ActionJournal } from './action-journal.js';
 import { nodeClock, nodeRegex } from './runtime.js';
+import { createHash } from 'node:crypto';
+import { OpmlService } from '../services/opml-service.js';
 
 const undoMs = 30_000;
 interface Stored {
@@ -28,6 +30,8 @@ export class NodeActionStorage implements ActionStoragePort {
     { signature: string; task: Promise<ActionReceipt> }
   >();
   private args(request: ActionRequest) {
+    if (request.kind === 'import_opml')
+      return JSON.stringify({ sha256: createHash('sha256').update(request.opml).digest('hex') });
     return JSON.stringify({
       id: request.id,
       ...(request.kind === 'apply_rule' ? { days: request.days ?? 30 } : {}),
@@ -70,7 +74,7 @@ export class NodeActionStorage implements ActionStoragePort {
   private create(request: ActionRequest, summary: string, externalEffects: boolean) {
     const result = {
       kind: request.kind,
-      targetId: request.id,
+      targetId: request.kind === 'import_opml' ? null : request.id,
       summary,
       status: 'pending',
       externalEffects,
@@ -127,6 +131,35 @@ export class NodeActionStorage implements ActionStoragePort {
           throw new ActionError(409, 'This request was already used for another action.');
         return this.metadata(prior.id);
       }
+    }
+    if (request.kind === 'import_opml') {
+      const opml = new OpmlService(this.database);
+      try {
+        opml.preview(request.opml);
+      } catch {
+        throw new ActionError(400, 'Invalid OPML document. Check the file and its feed URLs.');
+      }
+      return this.database.sqlite.transaction(() => {
+        const id = this.create(request, 'Importing OPML…', false);
+        const result = this.write(id, () => opml.import(request.opml));
+        this.database.sqlite
+          .prepare('UPDATE agent_actions SET result_json=?,undo_json=? WHERE id=?')
+          .run(
+            JSON.stringify({
+              kind: request.kind,
+              targetId: null,
+              summary: `Imported ${result.imported} ${result.imported === 1 ? 'feed' : 'feeds'}; skipped ${result.skipped} existing or duplicate ${result.skipped === 1 ? 'feed' : 'feeds'}; created ${result.foldersCreated} ${result.foldersCreated === 1 ? 'folder' : 'folders'}.`,
+              status: 'complete',
+              externalEffects: false,
+              ...result,
+            }),
+            result.imported || result.foldersCreated
+              ? JSON.stringify({ version: 1, expiresAt: this.clock.now().getTime() + undoMs })
+              : null,
+            id,
+          );
+        return this.metadata(id);
+      })();
     }
     const table =
       request.kind === 'delete_feed'

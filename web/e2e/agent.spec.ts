@@ -6,6 +6,157 @@ import { RulesService } from '../../targets/node/src/services/rules-service';
 import { isReaderPageOutputPath } from '../../packages/core/src/reader-pages';
 import { articles } from '../../targets/node/src/db/schema';
 
+test('an agent previews and cancels bulk OPML, recovers a lost import acknowledgement and undoes the actual records after reload', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page);
+  try {
+    const snapshot = () => ({
+      feeds: f.database.sqlite.prepare('SELECT * FROM feeds ORDER BY id').all(),
+      folders: f.database.sqlite.prepare('SELECT * FROM folders ORDER BY id').all(),
+    });
+    const original = snapshot();
+    const changes = () =>
+      (f.database.sqlite.prepare('SELECT total_changes() AS n').get() as { n: number }).n;
+    const before = changes();
+    const xml =
+      '<opml><head><title>private-import-note</title></head><body><outline text="Imported folder"><outline text="Imported dispatch" xmlUrl="https://private:secret@import.test/one?token=hidden-key"/><outline text="Duplicate" xmlUrl="https://private:secret@import.test/one?token=hidden-key"/></outline><outline text="Design"><outline text="Existing title is kept" xmlUrl="https://rss.fixture.test/0"/><outline text="Imported second" xmlUrl="https://import.test/two"/></outline></body></opml>';
+    const file = { name: 'subscriptions.opml', mimeType: 'text/x-opml', buffer: Buffer.from(xml) };
+    await page.goto('/feeds');
+    const upload = page.getByRole('button', { name: 'Import OPML', exact: true });
+    await expect(upload).toBeEnabled();
+    await upload.focus();
+    await page.getByLabel('Import OPML', { exact: true }).setInputFiles(file);
+    const confirm = page.getByRole('dialog', { name: 'Import OPML?', exact: true });
+    await expect(confirm).toContainText('2 new feeds · 2 existing or duplicate · 1 new folder');
+    await expect(
+      confirm.getByRole('list', { name: 'OPML subscriptions', exact: true }).getByRole('listitem'),
+    ).toHaveCount(4);
+    await expect(confirm).not.toContainText('hidden-key');
+    await expect(confirm.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
+    expect(changes()).toBe(before);
+    await page.keyboard.press('Enter');
+    await expect(confirm).not.toBeVisible();
+    await expect(upload).toBeFocused();
+    expect(snapshot()).toEqual(original);
+    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({
+      n: 0,
+    });
+    await page.getByLabel('Import OPML', { exact: true }).setInputFiles(file);
+    let drop = true;
+    await page.context().route('**/api/actions', async (route) => {
+      if (drop && route.request().method() === 'POST') {
+        drop = false;
+        const response = await f.app.inject({
+          method: 'POST',
+          url: '/api/actions',
+          payload: route.request().postDataJSON(),
+        });
+        expect(response.statusCode).toBe(200);
+        return route.abort('failed');
+      }
+      return route.fallback();
+    });
+    await confirm.getByRole('button', { name: 'Import', exact: true }).click();
+    await expect(confirm.getByRole('alert')).toContainText('may have finished');
+    await confirm.getByRole('button', { name: 'Check result', exact: true }).click();
+    await expect(confirm).not.toBeVisible();
+    await expect(
+      page.getByRole('article', { name: 'Imported dispatch', exact: true }),
+    ).toBeVisible();
+    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({
+      n: 1,
+    });
+    await page.reload();
+    const result = page.getByRole('region', { name: 'Action result', exact: true });
+    await expect(result).toContainText('Imported 2 feeds');
+    await result.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(result).toContainText('Undid local changes.');
+    expect(snapshot()).toEqual(original);
+    expect(
+      JSON.stringify(
+        f.database.sqlite
+          .prepare('SELECT args_json,result_json,undo_json FROM agent_actions')
+          .all(),
+      ),
+    ).not.toMatch(/private-import-note|hidden-key|secret|<opml/);
+  } finally {
+    await f.close();
+  }
+});
+
+test('an agent keeps Compose OPML unassigned, undoes draft selections and protects saved source references', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page);
+  try {
+    const feed = f.database.sqlite
+      .prepare("SELECT id FROM feeds WHERE title='Design journal'")
+      .get() as { id: number };
+    f.brews.updateComposition(f.morning.id, {
+      ...f.morning,
+      sections: [
+        {
+          ...newBrewSection('imports'),
+          title: 'Imports',
+          sources: [{ kind: 'feed', id: feed.id }],
+        },
+      ],
+    });
+    const file = {
+      name: 'compose.opml',
+      mimeType: 'text/x-opml',
+      buffer: Buffer.from(
+        '<opml><body><outline text="Compose imported" xmlUrl="https://import.test/compose"/></body></opml>',
+      ),
+    };
+    await page.goto(`/b/${f.morning.id}/compose`);
+    await page
+      .getByRole('region', { name: 'Imports', exact: true })
+      .getByRole('button', { name: '+ Source', exact: true })
+      .click();
+    const sheet = page.getByRole('dialog', { name: 'Add a source to “Imports”', exact: true });
+    await expect(sheet.getByRole('button', { name: 'Import OPML', exact: true })).toBeEnabled();
+    await sheet.getByLabel('Import OPML file', { exact: true }).setInputFiles(file);
+    const confirm = page.getByRole('dialog', { name: 'Import OPML?', exact: true });
+    await confirm.getByRole('button', { name: 'Import', exact: true }).click();
+    await expect(confirm).not.toBeVisible();
+    const imported = sheet.getByRole('checkbox', { name: 'Compose imported', exact: true });
+    await expect(imported).not.toBeChecked();
+    await imported.check();
+    await expect(sheet.getByRole('button', { name: 'Add 2 sources', exact: true })).toBeEnabled();
+    await sheet
+      .getByRole('region', { name: 'Action result', exact: true })
+      .getByRole('button', { name: 'Undo', exact: true })
+      .click();
+    await expect(imported).toHaveCount(0);
+    await expect(sheet.getByRole('button', { name: 'Add 1 source', exact: true })).toBeEnabled();
+    expect(f.brews.composition(f.morning.id)!.sections[0]!.sources).toEqual([
+      { kind: 'feed', id: feed.id },
+    ]);
+    await sheet.getByLabel('Import OPML file', { exact: true }).setInputFiles(file);
+    await confirm.getByRole('button', { name: 'Import', exact: true }).click();
+    await expect(confirm).not.toBeVisible();
+    await imported.check();
+    await sheet.getByRole('button', { name: 'Add 2 sources', exact: true }).click();
+    await expect(sheet).not.toBeVisible();
+    await expect(page.getByLabel('Autosave')).toHaveText('All changes saved');
+    expect(f.brews.composition(f.morning.id)!.sections[0]!.sources).toHaveLength(2);
+    await page.goto('/feeds');
+    await page
+      .getByRole('region', { name: 'Action result', exact: true })
+      .getByRole('button', { name: 'Undo', exact: true })
+      .click();
+    await expect(page.getByRole('alert')).toContainText('now in use');
+    await expect(
+      page.getByRole('article', { name: 'Compose imported', exact: true }),
+    ).toBeVisible();
+    expect(f.brews.composition(f.morning.id)!.sections[0]!.sources).toHaveLength(2);
+  } finally {
+    await f.close();
+  }
+});
+
 test('an agent pages hidden articles beyond the old cap and refills the list after unhiding the last page', async ({
   page,
 }) => {

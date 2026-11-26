@@ -25,6 +25,10 @@ import { useCapabilities } from '../hooks/useCapabilities';
 import { composeJson } from './useComposeDraft';
 import { NewsletterSources } from './NewsletterSources';
 import { readSavedSearches } from '../savedSearches';
+import { useOwnerActions } from '../hooks/useOwnerActions';
+import { useOpmlImport } from '../hooks/useOpmlImport';
+import { OwnerActionConfirmation, OwnerActionResult } from '../components/OwnerActionUi';
+import { OpmlImportPicker, OpmlImportFeedback, OpmlImportReview } from '../components/OpmlImport';
 
 const key = (source: BrewSourceRef) => `${source.kind}:${source.id ?? ''}`;
 type LocalSearch = { clientId: string; name: string; query: string };
@@ -40,6 +44,7 @@ function localSearches(): LocalSearch[] {
   }
 }
 const tabs = ['Feeds', 'Folders', 'Tags', 'Newsletters', 'Searches', 'Rules', 'Starred'];
+const importActions = ['import_opml'] as const;
 export function SourcePicker({
   section,
   onApply,
@@ -65,11 +70,11 @@ export function SourcePicker({
   const [discoveryError, setDiscoveryError] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [working, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [browserSearches] = useState(localSearches);
   const urlRef = useRef<HTMLInputElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const initialSourceKeys = useRef(new Set(section.sources.map(key)));
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -167,8 +172,8 @@ export function SourcePicker({
         : current.filter((item) => item.url !== candidate.url),
     );
   };
-  const refresh = () =>
-    Promise.all(
+  const refresh = async () => {
+    await Promise.all(
       [
         'source-feeds',
         'source-folders',
@@ -176,8 +181,45 @@ export function SourcePicker({
         'reader-navigation',
         'feeds',
         'folders',
-      ].map((queryKey) => client.invalidateQueries({ queryKey: [queryKey] })),
+      ].map((queryKey) =>
+        client.invalidateQueries(
+          { queryKey: [queryKey], refetchType: 'all' },
+          { throwOnError: true },
+        ),
+      ),
     );
+    const currentFeeds = new Set(
+      (client.getQueryData<FeedSummary[]>(['source-feeds']) ?? []).map((feed) => feed.id),
+    );
+    const currentFolders = new Set(
+      (client.getQueryData<FolderSummary[]>(['source-folders']) ?? []).map((folder) => folder.id),
+    );
+    setSelected((current) =>
+      current.filter(
+        (source) =>
+          initialSourceKeys.current.has(key(source)) ||
+          (source.kind === 'feed'
+            ? currentFeeds.has(source.id!)
+            : source.kind === 'folder'
+              ? currentFolders.has(source.id!)
+              : true),
+      ),
+    );
+  };
+  const owner = useOwnerActions(async (receipt) => {
+    await refresh();
+    if (!alive.current) return;
+    if (receipt.kind === 'import_opml') {
+      setTab('Feeds');
+      setFilter('');
+      changeInput('');
+      setNotice(
+        receipt.status === 'undone' ? '' : 'Choose the imported feeds to include in this section.',
+      );
+    }
+  }, importActions);
+  const opml = useOpmlImport(owner);
+  const busy = working || owner.busy || opml.preparing;
   const apply = async () => {
     setBusy(true);
     setError('');
@@ -233,33 +275,9 @@ export function SourcePicker({
           `${(failure as Error).message}${completedUrls.size ? ' Added feeds are in your library; retry to finish this section.' : ''}`,
         );
       }
-      await refresh();
-    } finally {
-      if (alive.current) setBusy(false);
-    }
-  };
-  const importOpml = async (file: File) => {
-    setBusy(true);
-    setError('');
-    setNotice('');
-    try {
-      if (file.size > 1_000_000) throw new Error('Choose an OPML file smaller than 1 MB.');
-      const response = await composeJson<{
-        imported: number;
-        skipped: number;
-        foldersCreated: number;
-      }>('/api/opml/import', { method: 'POST', body: JSON.stringify(await file.text()) });
-      await refresh();
-      if (alive.current) {
-        setTab('Feeds');
-        setFilter('');
-        changeInput('');
-        setNotice(
-          `Imported ${response.imported} ${response.imported === 1 ? 'feed' : 'feeds'}; skipped ${response.skipped} existing ${response.skipped === 1 ? 'feed' : 'feeds'}. Choose the ones to include in this section.`,
-        );
-      }
-    } catch (failure) {
-      if (alive.current) setError((failure as Error).message);
+      // The library exposes its own retry. Retain the mutation error and draft
+      // if that follow-up read is also unavailable.
+      await refresh().catch(() => undefined);
     } finally {
       if (alive.current) setBusy(false);
     }
@@ -365,341 +383,327 @@ export function SourcePicker({
     }
   };
   return (
-    <ModalSheet
-      open
-      className="source-sheet"
-      title={`Add a source to “${section.title}”`}
-      initialFocusRef={urlRef}
-      onClose={() => {
-        if (!busy) onClose();
-      }}
-      footer={
-        <>
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<Icon name="download" size={14} />}
-            disabled={busy}
-            onClick={() => fileRef.current?.click()}
-          >
-            Import OPML
-          </Button>
-          <span className="brew-spacer" />
-          <Button variant="secondary" disabled={busy} onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            disabled={busy || !total || queries.some((query) => !query.data)}
-            onClick={() => void apply()}
-          >
-            {busy ? 'Adding sources…' : `Add ${total} ${total === 1 ? 'source' : 'sources'}`}
-          </Button>
-        </>
-      }
-    >
-      <div className="source-sheet-body">
-        <Input
-          label="URL or search"
-          hideLabel
-          className="source-url"
-          disabled={busy}
-          placeholder="Paste a URL or search your library"
-          inputRef={urlRef}
-          value={input}
-          onChange={(event) => changeInput(event.target.value)}
-          icon={<Icon name="link" size={16} />}
-          endAdornment={<span role="status">{discovering ? 'Looking for feeds…' : ''}</span>}
-        />
-        {discoveryError && (
-          <div role="alert" className="source-error">
-            {discoveryError}
-            <Button size="sm" variant="secondary" onClick={retryDiscovery}>
-              Retry discovery
+    <>
+      <ModalSheet
+        open
+        className="source-sheet"
+        title={`Add a source to “${section.title}”`}
+        initialFocusRef={urlRef}
+        onClose={() => {
+          if (!busy) onClose();
+        }}
+        footer={
+          <>
+            <OpmlImportPicker flow={opml} disabled={busy} inputLabel="Import OPML file" ghost />
+            <span className="brew-spacer" />
+            <Button variant="secondary" disabled={busy} onClick={onClose}>
+              Cancel
             </Button>
-          </div>
-        )}
-        {discovery && (
-          <div className="source-discovery">
-            <header>
-              <Icon name="rss" size={14} />
-              <span>
-                Found {discovery.candidates.length}{' '}
-                {discovery.candidates.length === 1 ? 'feed' : 'feeds'} on{' '}
-                {new URL(discovery.inputUrl).hostname}
-              </span>
-            </header>
-            {discovery.kind !== 'web' && (
-              <p className="source-detected">
-                {
-                  (
-                    {
-                      youtube: 'YouTube channel',
-                      subreddit: 'Subreddit',
-                      mastodon: 'Mastodon',
-                      bluesky: 'Bluesky',
-                      podcast: 'Podcast',
-                      web: 'Website',
-                    } as const
-                  )[discovery.kind]
-                }{' '}
-                detected · native feed
-              </p>
-            )}
-            {discovery.candidates.map((candidate) => {
-              const existing = feeds.data?.find((feed) => feed.url === candidate.url);
-              const checked =
-                candidates.some((item) => item.url === candidate.url) ||
-                (!!existing &&
-                  selected.some((source) => source.kind === 'feed' && source.id === existing.id));
-              return (
-                <div className="source-row source-candidate" key={candidate.url}>
-                  <Checkbox
-                    aria-label={candidate.title}
-                    checked={checked}
-                    disabled={busy}
-                    onChange={(event) => chooseCandidate(candidate, event.target.checked)}
-                    label={
-                      <>
-                        <Avatar id={candidate.url} initial={candidate.title[0] ?? 'F'} />
-                        <span className="source-row-title">
-                          <strong>{candidate.title}</strong>
-                          <small>
-                            {candidate.type === 'json'
-                              ? 'JSON Feed'
-                              : candidate.type === 'atom'
-                                ? 'Atom'
-                                : 'RSS'}
-                            {candidate.cadence ? ` · ${candidate.cadence}` : ''}
-                          </small>
-                        </span>
-                        {existing && <Badge tone="neutral">Subscribed</Badge>}
-                      </>
-                    }
-                  />
-                </div>
-              );
-            })}
-            {discovery.notice && (
-              <div className="source-detected">
-                {discovery.notice}
-                <Button variant="ghost" size="sm" onClick={retryDiscovery}>
-                  Retry discovery
-                </Button>
-              </div>
-            )}
-            {discovery.newsletter && (
-              <div className="source-newsletter">
-                <Icon name="mail" size={16} />
-                <div>
-                  <strong>{discovery.newsletter.title} is also a newsletter</strong>
-                  <p>
-                    {address
-                      ? 'Subscribe with your Brew address and it lands in Newsletters.'
-                      : 'Connect mail to receive it at your private Brew address.'}
-                  </p>
-                  {!address && (
-                    <span className="source-mail-gate">
-                      <Badge tone="warning">
-                        {mailbox.isError ? 'Address unavailable' : 'Needs mail add-on'}
-                      </Badge>
-                      <a href="/settings/runs#setup-newsletters">Set up</a>
-                    </span>
-                  )}
-                  {address && error.startsWith('Could not copy') && <code>{address}</code>}
-                </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  icon={<Icon name="copy" size={14} />}
-                  disabled={!address || busy}
-                  onClick={() => void copy()}
-                >
-                  {copied ? 'Copied' : 'Copy address'}
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-        {candidates.some(
-          (candidate) => !discovery?.candidates.some((item) => item.url === candidate.url),
-        ) && (
-          <div className="source-pending" aria-label="Selected feeds">
-            {candidates
-              .filter(
-                (candidate) => !discovery?.candidates.some((item) => item.url === candidate.url),
-              )
-              .map((candidate) => (
-                <span key={candidate.url}>
-                  {candidate.title}
-                  <IconButton
-                    icon="x"
-                    label={`Remove pending ${candidate.title}`}
-                    disabled={busy}
-                    onClick={() => chooseCandidate(candidate, false)}
-                  />
+            <Button
+              disabled={busy || !total || queries.some((query) => !query.data)}
+              onClick={() => void apply()}
+            >
+              {busy ? 'Adding sources…' : `Add ${total} ${total === 1 ? 'source' : 'sources'}`}
+            </Button>
+          </>
+        }
+      >
+        <div className="source-sheet-body">
+          <Input
+            label="URL or search"
+            hideLabel
+            className="source-url"
+            disabled={busy}
+            placeholder="Paste a URL or search your library"
+            inputRef={urlRef}
+            value={input}
+            onChange={(event) => changeInput(event.target.value)}
+            icon={<Icon name="link" size={16} />}
+            endAdornment={<span role="status">{discovering ? 'Looking for feeds…' : ''}</span>}
+          />
+          {discoveryError && (
+            <div role="alert" className="source-error">
+              {discoveryError}
+              <Button size="sm" variant="secondary" onClick={retryDiscovery}>
+                Retry discovery
+              </Button>
+            </div>
+          )}
+          {discovery && (
+            <div className="source-discovery">
+              <header>
+                <Icon name="rss" size={14} />
+                <span>
+                  Found {discovery.candidates.length}{' '}
+                  {discovery.candidates.length === 1 ? 'feed' : 'feeds'} on{' '}
+                  {new URL(discovery.inputUrl).hostname}
                 </span>
+              </header>
+              {discovery.kind !== 'web' && (
+                <p className="source-detected">
+                  {
+                    (
+                      {
+                        youtube: 'YouTube channel',
+                        subreddit: 'Subreddit',
+                        mastodon: 'Mastodon',
+                        bluesky: 'Bluesky',
+                        podcast: 'Podcast',
+                        web: 'Website',
+                      } as const
+                    )[discovery.kind]
+                  }{' '}
+                  detected · native feed
+                </p>
+              )}
+              {discovery.candidates.map((candidate) => {
+                const existing = feeds.data?.find((feed) => feed.url === candidate.url);
+                const checked =
+                  candidates.some((item) => item.url === candidate.url) ||
+                  (!!existing &&
+                    selected.some((source) => source.kind === 'feed' && source.id === existing.id));
+                return (
+                  <div className="source-row source-candidate" key={candidate.url}>
+                    <Checkbox
+                      aria-label={candidate.title}
+                      checked={checked}
+                      disabled={busy}
+                      onChange={(event) => chooseCandidate(candidate, event.target.checked)}
+                      label={
+                        <>
+                          <Avatar id={candidate.url} initial={candidate.title[0] ?? 'F'} />
+                          <span className="source-row-title">
+                            <strong>{candidate.title}</strong>
+                            <small>
+                              {candidate.type === 'json'
+                                ? 'JSON Feed'
+                                : candidate.type === 'atom'
+                                  ? 'Atom'
+                                  : 'RSS'}
+                              {candidate.cadence ? ` · ${candidate.cadence}` : ''}
+                            </small>
+                          </span>
+                          {existing && <Badge tone="neutral">Subscribed</Badge>}
+                        </>
+                      }
+                    />
+                  </div>
+                );
+              })}
+              {discovery.notice && (
+                <div className="source-detected">
+                  {discovery.notice}
+                  <Button variant="ghost" size="sm" onClick={retryDiscovery}>
+                    Retry discovery
+                  </Button>
+                </div>
+              )}
+              {discovery.newsletter && (
+                <div className="source-newsletter">
+                  <Icon name="mail" size={16} />
+                  <div>
+                    <strong>{discovery.newsletter.title} is also a newsletter</strong>
+                    <p>
+                      {address
+                        ? 'Subscribe with your Brew address and it lands in Newsletters.'
+                        : 'Connect mail to receive it at your private Brew address.'}
+                    </p>
+                    {!address && (
+                      <span className="source-mail-gate">
+                        <Badge tone="warning">
+                          {mailbox.isError ? 'Address unavailable' : 'Needs mail add-on'}
+                        </Badge>
+                        <a href="/settings/runs#setup-newsletters">Set up</a>
+                      </span>
+                    )}
+                    {address && error.startsWith('Could not copy') && <code>{address}</code>}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={<Icon name="copy" size={14} />}
+                    disabled={!address || busy}
+                    onClick={() => void copy()}
+                  >
+                    {copied ? 'Copied' : 'Copy address'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+          {candidates.some(
+            (candidate) => !discovery?.candidates.some((item) => item.url === candidate.url),
+          ) && (
+            <div className="source-pending" aria-label="Selected feeds">
+              {candidates
+                .filter(
+                  (candidate) => !discovery?.candidates.some((item) => item.url === candidate.url),
+                )
+                .map((candidate) => (
+                  <span key={candidate.url}>
+                    {candidate.title}
+                    <IconButton
+                      icon="x"
+                      label={`Remove pending ${candidate.title}`}
+                      disabled={busy}
+                      onClick={() => chooseCandidate(candidate, false)}
+                    />
+                  </span>
+                ))}
+            </div>
+          )}
+          <SegmentedControl
+            label="Source library"
+            options={tabs.map((value) => ({ value, label: value }))}
+            value={tab}
+            onValueChange={setTab}
+          />
+          {!!unavailable.length && (
+            <div aria-label="Unavailable section sources">
+              {unavailable.map((source) => (
+                <Checkbox
+                  key={key(source)}
+                  label={`Unavailable ${source.kind} ${source.id ?? ''}`}
+                  checked
+                  disabled={busy}
+                  onChange={() => toggle(source, false)}
+                />
               ))}
-          </div>
-        )}
-        <SegmentedControl
-          label="Source library"
-          options={tabs.map((value) => ({ value, label: value }))}
-          value={tab}
-          onValueChange={setTab}
-        />
-        {!!unavailable.length && (
-          <div aria-label="Unavailable section sources">
-            {unavailable.map((source) => (
-              <Checkbox
-                key={key(source)}
-                label={`Unavailable ${source.kind} ${source.id ?? ''}`}
-                checked
-                disabled={busy}
-                onChange={() => toggle(source, false)}
-              />
+            </div>
+          )}
+          {queries.some((query) => query.isError) ? (
+            <div role="alert" className="source-error">
+              Could not load every library source.
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => queries.forEach((query) => void query.refetch())}
+              >
+                Retry library
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="source-library">
+                <Input
+                  label={`Filter ${tab.toLowerCase()}`}
+                  hideLabel
+                  className="source-filter"
+                  placeholder={
+                    tab === 'Newsletters'
+                      ? 'Filter senders or tags'
+                      : `Filter ${list.length} ${tab.toLowerCase()}`
+                  }
+                  icon={<Icon name="search" size={14} />}
+                  value={filter}
+                  onChange={(event) => setFilter(event.target.value)}
+                />
+                <div className="source-library-list" aria-label={`${tab} in your library`}>
+                  {queries.some((query) => query.isPending) ? (
+                    <p role="status">Loading your library…</p>
+                  ) : (
+                    visible.map((item) => {
+                      const checked = item.source
+                        ? selected.some((source) => key(source) === key(item.source!))
+                        : selectedSearches.some(
+                            (search) => search.clientId === item.search?.clientId,
+                          );
+                      return (
+                        <div className="source-row" key={item.id}>
+                          <Checkbox
+                            checked={checked}
+                            aria-label={item.name}
+                            disabled={busy || item.disabled}
+                            onChange={(event) => {
+                              if (item.source) toggle(item.source, event.target.checked);
+                              else if (item.search)
+                                setSelectedSearches((current) =>
+                                  event.target.checked
+                                    ? [...current, item.search!]
+                                    : current.filter(
+                                        (search) => search.clientId !== item.search!.clientId,
+                                      ),
+                                );
+                            }}
+                            label={
+                              <>
+                                <Avatar
+                                  id={item.source?.id ?? item.id}
+                                  initial={item.name[0] ?? 'F'}
+                                />
+                                <span className="source-row-title">{item.name}</span>
+                                {item.caption && (
+                                  <small className="source-row-caption">{item.caption}</small>
+                                )}
+                                {item.source &&
+                                  section.sources.some(
+                                    (source) => key(source) === key(item.source!),
+                                  ) && <Badge tone="neutral">In this section</Badge>}
+                              </>
+                            }
+                          />
+                        </div>
+                      );
+                    })
+                  )}
+                  {!queries.some((query) => query.isPending) &&
+                    !visible.length &&
+                    tab !== 'Newsletters' && (
+                      <p className="source-empty">
+                        {list.length
+                          ? 'No sources match this filter.'
+                          : `No ${tab.toLowerCase()} in your library yet.`}
+                      </p>
+                    )}
+                  {tab === 'Newsletters' && (
+                    <NewsletterSources
+                      source={selected.find((source) => source.kind === 'newsletters')}
+                      tags={tags.data ?? []}
+                      term={term}
+                      busy={busy}
+                      inboundMail={caps.data?.inboundMail ?? null}
+                      onChange={(source) =>
+                        setSelected((current) => [
+                          ...current.filter((item) => item.kind !== 'newsletters'),
+                          ...(source ? [source] : []),
+                        ])
+                      }
+                    />
+                  )}
+                </div>
+              </div>
+              {tab === 'Rules' && (
+                <a className="source-manage" href="/?view=rules">
+                  Manage rules
+                </a>
+              )}
+            </>
+          )}
+          <div className="source-detection-hint">
+            <span>Paste a link and Brew looks for the feed:</span>
+            {['YouTube channel', 'Subreddit', 'Mastodon', 'Bluesky', 'Podcast'].map((value) => (
+              <Chip key={value} icon={<Icon name="link" size={14} />}>
+                {value}
+              </Chip>
             ))}
           </div>
-        )}
-        {queries.some((query) => query.isError) ? (
-          <div role="alert" className="source-error">
-            Could not load every library source.
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => queries.forEach((query) => void query.refetch())}
-            >
-              Retry library
-            </Button>
-          </div>
-        ) : (
-          <>
-            <div className="source-library">
-              <Input
-                label={`Filter ${tab.toLowerCase()}`}
-                hideLabel
-                className="source-filter"
-                placeholder={
-                  tab === 'Newsletters'
-                    ? 'Filter senders or tags'
-                    : `Filter ${list.length} ${tab.toLowerCase()}`
-                }
-                icon={<Icon name="search" size={14} />}
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
-              />
-              <div className="source-library-list" aria-label={`${tab} in your library`}>
-                {queries.some((query) => query.isPending) ? (
-                  <p role="status">Loading your library…</p>
-                ) : (
-                  visible.map((item) => {
-                    const checked = item.source
-                      ? selected.some((source) => key(source) === key(item.source!))
-                      : selectedSearches.some(
-                          (search) => search.clientId === item.search?.clientId,
-                        );
-                    return (
-                      <div className="source-row" key={item.id}>
-                        <Checkbox
-                          checked={checked}
-                          aria-label={item.name}
-                          disabled={busy || item.disabled}
-                          onChange={(event) => {
-                            if (item.source) toggle(item.source, event.target.checked);
-                            else if (item.search)
-                              setSelectedSearches((current) =>
-                                event.target.checked
-                                  ? [...current, item.search!]
-                                  : current.filter(
-                                      (search) => search.clientId !== item.search!.clientId,
-                                    ),
-                              );
-                          }}
-                          label={
-                            <>
-                              <Avatar
-                                id={item.source?.id ?? item.id}
-                                initial={item.name[0] ?? 'F'}
-                              />
-                              <span className="source-row-title">{item.name}</span>
-                              {item.caption && (
-                                <small className="source-row-caption">{item.caption}</small>
-                              )}
-                              {item.source &&
-                                section.sources.some(
-                                  (source) => key(source) === key(item.source!),
-                                ) && <Badge tone="neutral">In this section</Badge>}
-                            </>
-                          }
-                        />
-                      </div>
-                    );
-                  })
-                )}
-                {!queries.some((query) => query.isPending) &&
-                  !visible.length &&
-                  tab !== 'Newsletters' && (
-                    <p className="source-empty">
-                      {list.length
-                        ? 'No sources match this filter.'
-                        : `No ${tab.toLowerCase()} in your library yet.`}
-                    </p>
-                  )}
-                {tab === 'Newsletters' && (
-                  <NewsletterSources
-                    source={selected.find((source) => source.kind === 'newsletters')}
-                    tags={tags.data ?? []}
-                    term={term}
-                    busy={busy}
-                    inboundMail={caps.data?.inboundMail ?? null}
-                    onChange={(source) =>
-                      setSelected((current) => [
-                        ...current.filter((item) => item.kind !== 'newsletters'),
-                        ...(source ? [source] : []),
-                      ])
-                    }
-                  />
-                )}
-              </div>
-            </div>
-            {tab === 'Rules' && (
-              <a className="source-manage" href="/?view=rules">
-                Manage rules
-              </a>
-            )}
-          </>
-        )}
-        <div className="source-detection-hint">
-          <span>Paste a link and Brew looks for the feed:</span>
-          {['YouTube channel', 'Subreddit', 'Mastodon', 'Bluesky', 'Podcast'].map((value) => (
-            <Chip key={value} icon={<Icon name="link" size={14} />}>
-              {value}
-            </Chip>
-          ))}
+          <OpmlImportFeedback flow={opml} />
+          <OwnerActionResult action={owner} inline showSetup={false} />
+          {notice && (
+            <p className="source-message" role="status">
+              {notice}
+            </p>
+          )}
+          {error && (
+            <p className="source-error" role="alert">
+              {error}
+            </p>
+          )}
         </div>
-        {notice && (
-          <p className="source-message" role="status">
-            {notice}
-          </p>
-        )}
-        {error && (
-          <p className="source-error" role="alert">
-            {error}
-          </p>
-        )}
-        <input
-          hidden
-          type="file"
-          accept=".opml,.xml,text/x-opml,text/xml,application/xml"
-          aria-label="Import OPML file"
-          ref={fileRef}
-          tabIndex={-1}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            event.target.value = '';
-            if (file) void importOpml(file);
-          }}
-        />
-      </div>
-    </ModalSheet>
+      </ModalSheet>
+      <OwnerActionConfirmation action={owner}>
+        {opml.preview && <OpmlImportReview name={opml.preview.name} data={opml.preview.data} />}
+      </OwnerActionConfirmation>
+    </>
   );
 }

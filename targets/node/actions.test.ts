@@ -16,6 +16,8 @@ import {
 import { ActionsService } from '../../packages/core/src/actions.js';
 import { NodeActionStorage } from './src/ports/action-storage.js';
 import { createApp } from './src/app.js';
+import { OpmlService } from './src/services/opml-service.js';
+import { opmlDocumentLimit } from '../../packages/core/src/opml.js';
 
 const closes: Array<() => void | Promise<void>> = [];
 afterEach(async () => {
@@ -95,6 +97,240 @@ function setup() {
   };
 }
 describe('confirmed owner actions and durable undo', () => {
+  const opml =
+    '<opml version="2.0"><body><outline text="New folder"><outline text="First new" xmlUrl="https://private-user:secret@import.test/a?token=private-token"/><outline text="Duplicate" xmlUrl="https://private-user:secret@import.test/a?token=private-token"/></outline><outline text="Design"><outline text="Keep existing" xmlUrl="https://journal.test/feed"/><outline text="Second new" xmlUrl="https://import.test/b"/></outline></body></opml>';
+  it('previews exact import/duplicate/folder counts without writes or fetches and validates confirmed input', async () => {
+    const f = setup();
+    const before = f.snapshot();
+    const changes = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    const preview = new OpmlService(f.database).preview(opml);
+    expect(preview).toMatchObject({ imported: 2, skipped: 2, foldersCreated: 1 });
+    expect(preview.outlines.map((item) => item.status)).toEqual([
+      'add',
+      'duplicate',
+      'subscribed',
+      'add',
+    ]);
+    expect(preview.outlines[0]).toMatchObject({
+      title: 'First new',
+      source: 'https://import.test/a',
+      folder: 'New folder',
+    });
+    expect(JSON.stringify(preview)).not.toMatch(/private-user|secret|private-token/);
+    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(changes);
+    expect(() => f.service.run({ kind: 'import_opml', opml })).toThrow('Confirm');
+    expect(() =>
+      f.service.run({ kind: 'import_opml', opml: 'é'.repeat(opmlDocumentLimit), confirm: true }),
+    ).toThrow('1 MB');
+    await expect(
+      f.service.run({ kind: 'import_opml', opml: '<wrong/>', confirm: true }),
+    ).rejects.toThrow('Invalid OPML');
+    await expect(
+      f.service.run({
+        kind: 'import_opml',
+        opml: '<opml><body><outline xmlUrl="javascript:bad"/></body></opml>',
+        confirm: true,
+      }),
+    ).rejects.toThrow('Invalid OPML');
+    expect(f.snapshot()).toEqual(before);
+    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({
+      n: 0,
+    });
+  });
+  it('journals the actual import, hashes private documents, replays safely and restores from a new connection', async () => {
+    const f = setup();
+    const before = f.snapshot();
+    let fetched = 0;
+    const service = new ActionsService(
+      new NodeActionStorage(f.database, f.clock, async () => {
+        fetched++;
+        throw new Error('No import fetch is allowed.');
+      }),
+    );
+    const request = {
+      kind: 'import_opml',
+      opml,
+      confirm: true,
+      requestId: 'opml-durable-request-001',
+    } as const;
+    const task = service.run(request);
+    expect(service.run(request)).toBe(task);
+    const action = await task;
+    expect(action).toMatchObject({
+      kind: 'import_opml',
+      targetId: null,
+      status: 'complete',
+      imported: 2,
+      skipped: 2,
+      foldersCreated: 1,
+      canUndo: true,
+      externalEffects: false,
+    });
+    expect(fetched).toBe(0);
+    expect(
+      f.database.sqlite
+        .prepare('SELECT title,folder_id AS folderId FROM feeds WHERE id=?')
+        .get(f.feed.id),
+    ).toEqual({ title: 'Notes', folderId: f.folder.id });
+    const stored = f.database.sqlite
+      .prepare('SELECT args_json,result_json,undo_json FROM agent_actions WHERE id=?')
+      .get(action.id) as { args_json: string; result_json: string; undo_json: string };
+    expect(Object.keys(JSON.parse(stored.args_json))).toEqual(['sha256']);
+    expect(JSON.parse(stored.args_json).sha256).toHaveLength(64);
+    expect(JSON.stringify(stored)).not.toMatch(/private-user|secret|private-token|<opml/);
+    expect((await service.run(request)).id).toBe(action.id);
+    await expect(service.run({ ...request, opml: opml + ' ' })).rejects.toThrow('another action');
+    const sqlite = new Database(f.database.sqlite.serialize());
+    sqlite.pragma('foreign_keys=ON');
+    closes.push(() => sqlite.close());
+    const reopened = new ActionsService(
+      new NodeActionStorage(
+        { sqlite, db: drizzle(sqlite, { schema }), close: () => sqlite.close() },
+        f.clock,
+      ),
+    );
+    sqlite.prepare("INSERT INTO folders(title,position) VALUES('Unrelated later folder',99)").run();
+    const later = sqlite
+      .prepare("SELECT * FROM folders WHERE title='Unrelated later folder'")
+      .get();
+    expect(reopened.undo(action.id).status).toBe('undone');
+    for (const [table, rows] of Object.entries(before))
+      expect(
+        sqlite
+          .prepare(
+            `SELECT * FROM ${table} ${table === 'folders' ? "WHERE title!='Unrelated later folder'" : ''} ORDER BY rowid`,
+          )
+          .all(),
+      ).toEqual(rows);
+    expect(
+      sqlite.prepare("SELECT * FROM folders WHERE title='Unrelated later folder'").get(),
+    ).toEqual(later);
+    expect((await reopened.run(request)).status).toBe('undone');
+  });
+  it.each(['article', 'folder child', 'rule', 'composition', 'legacy composition'])(
+    'refuses atomic import Undo when later %s data uses a new resource',
+    async (dependency) => {
+      const f = setup();
+      const action = await f.service.run({ kind: 'import_opml', opml, confirm: true });
+      const added = f.database.sqlite
+        .prepare("SELECT id,folder_id AS folderId FROM feeds WHERE title='First new'")
+        .get() as { id: number; folderId: number };
+      if (dependency === 'article')
+        f.database.db
+          .insert(articles)
+          .values({
+            feedId: added.id,
+            title: 'Later article',
+            guid: 'later',
+            hash: 'later',
+            url: 'https://import.test/later',
+            publishedAt: f.clock.now(),
+          })
+          .run();
+      if (dependency === 'folder child')
+        f.database.db
+          .insert(feeds)
+          .values({
+            title: 'Later subscription',
+            url: 'https://later.test/feed',
+            folderId: added.folderId,
+          })
+          .run();
+      if (dependency === 'rule')
+        f.database.db
+          .update(rules)
+          .set({ scopeJson: JSON.stringify({ feedIds: [added.id] }) })
+          .where(eq(rules.id, f.rule.id))
+          .run();
+      if (dependency === 'composition' || dependency === 'legacy composition')
+        f.database.sqlite
+          .prepare('INSERT INTO brew_configs(name,sections_json) VALUES(?,?)')
+          .run(
+            'Later Brew',
+            JSON.stringify(
+              dependency === 'composition'
+                ? [{ sources: [{ kind: 'folder', id: added.folderId }] }]
+                : [{ source: 'feed', sourceId: added.id }],
+            ),
+          );
+      const before = f.snapshot();
+      const configs = f.database.sqlite.prepare('SELECT * FROM brew_configs').all();
+      expect(() => f.service.undo(action.id)).toThrow('now in use');
+      expect(f.snapshot()).toEqual(before);
+      expect(f.database.sqlite.prepare('SELECT * FROM brew_configs').all()).toEqual(configs);
+      expect(f.service.recent()[0]).toMatchObject({ status: 'complete', canUndo: true });
+    },
+  );
+  it('gives no-op imports truthful receipts and prunes expired private import recovery', async () => {
+    const f = setup();
+    const first = await f.service.run({ kind: 'import_opml', opml, confirm: true });
+    const duplicate = await f.service.run({ kind: 'import_opml', opml, confirm: true });
+    expect(duplicate).toMatchObject({
+      imported: 0,
+      skipped: 4,
+      foldersCreated: 0,
+      canUndo: false,
+      expiresAt: null,
+    });
+    f.advance(30_001);
+    f.service.cleanup();
+    expect(
+      f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_action_changes').get(),
+    ).toEqual({ n: 0 });
+    expect(() => f.service.undo(first.id)).toThrow('expired');
+  });
+  it('accepts bounded JSON import envelopes, keeps preview private/read-only and preserves legacy import', async () => {
+    const f = setup();
+    closes.pop();
+    const app = await createApp({ database: f.database, clock: f.clock });
+    closes.push(() => app.close());
+    const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    const preview = await app.inject({
+      method: 'POST',
+      url: '/api/opml/preview',
+      headers: { 'content-type': 'text/x-opml' },
+      payload: opml,
+    });
+    expect(preview.statusCode, preview.body).toBe(200);
+    expect(preview.headers['cache-control']).toBe('private, no-store');
+    expect(preview.headers['x-robots-tag']).toBe('noindex, nofollow');
+    expect(preview.body).not.toMatch(/private-user|secret|private-token/);
+    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/actions',
+          payload: { kind: 'import_opml', opml },
+        })
+      ).statusCode,
+    ).toBe(428);
+    const large =
+      '<opml><body><!--' + String.fromCharCode(34).repeat(800_000) + '--></body></opml>';
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/actions',
+      payload: {
+        kind: 'import_opml',
+        opml: large,
+        confirm: true,
+        requestId: 'large-opml-envelope-001',
+      },
+    });
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json()).toMatchObject({ imported: 0, canUndo: false });
+    const legacy = await app.inject({
+      method: 'POST',
+      url: '/api/opml/import',
+      headers: { 'content-type': 'text/x-opml' },
+      payload: opml,
+    });
+    expect(legacy.statusCode).toBe(200);
+    expect(legacy.json()).toEqual({ imported: 2, skipped: 2, foldersCreated: 1 });
+    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({
+      n: 1,
+    });
+  });
   it('rejects missing confirmation and invalid inputs without writes', async () => {
     const f = setup();
     const before = f.snapshot();
