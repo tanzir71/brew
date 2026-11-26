@@ -9,24 +9,31 @@ export function OwnerActionConfirmation({
   action,
   children,
   returnFocusRef,
+  confirmLabel,
+  confirmDisabled = false,
 }: {
   action: OwnerAction;
   children?: ReactNode;
   returnFocusRef?: RefObject<HTMLElement>;
+  confirmLabel?: string;
+  confirmDisabled?: boolean;
 }) {
   const intent = action.intent;
   const applying = intent?.request.kind === 'apply_rule';
   const importing = intent?.request.kind === 'import_opml';
   const sender = intent?.request.kind === 'update_sender';
+  const reading = intent?.request.kind === 'mark_read';
   const days = intent?.request.kind === 'apply_rule' ? (intent.request.days ?? 30) : 30;
   const cancel = useRef<HTMLButtonElement>(null);
-  const title = importing
-    ? 'Import OPML?'
-    : sender
-      ? `Update ${intent.label}?`
-      : intent
-        ? `${applying ? 'Apply' : 'Delete'} ${intent.label}?`
-        : 'Confirm action';
+  const title = reading
+    ? intent.label
+    : importing
+      ? 'Import OPML?'
+      : sender
+        ? `Update ${intent.label}?`
+        : intent
+          ? `${applying ? 'Apply' : 'Delete'} ${intent.label}?`
+          : 'Confirm action';
   return (
     <ModalSheet
       open={Boolean(intent)}
@@ -36,20 +43,22 @@ export function OwnerActionConfirmation({
       returnFocusRef={returnFocusRef}
     >
       <p>
-        {importing
-          ? 'Existing subscriptions are kept. New feeds and folders can be undone for 30 seconds if they remain unused and unchanged.'
-          : sender
-            ? 'Review these sender changes. Undo can restore their local changes for 30 seconds while the affected data remains unchanged.'
-            : applying
-              ? `Apply this saved rule to articles from the last ${days} days?`
-              : intent?.request.kind === 'delete_feed'
-                ? 'This removes the feed and its articles.'
-                : intent?.request.kind === 'delete_folder'
-                  ? 'Feeds in this folder will become unfiled.'
-                  : 'This removes the rule and its execution history.'}
-        {!importing && !sender && ' Undo is available for 30 seconds.'}
+        {reading
+          ? 'Only the reviewed unread stories will be marked read. Undo can restore their read states for 30 seconds while they remain unchanged.'
+          : importing
+            ? 'Existing subscriptions are kept. New feeds and folders can be undone for 30 seconds if they remain unused and unchanged.'
+            : sender
+              ? 'Review these sender changes. Undo can restore their local changes for 30 seconds while the affected data remains unchanged.'
+              : applying
+                ? `Apply this saved rule to articles from the last ${days} days?`
+                : intent?.request.kind === 'delete_feed'
+                  ? 'This removes the feed and its articles.'
+                  : intent?.request.kind === 'delete_folder'
+                    ? 'Feeds in this folder will become unfiled.'
+                    : 'This removes the rule and its execution history.'}
+        {!importing && !sender && !reading && ' Undo is available for 30 seconds.'}
       </p>
-      {(importing || sender) && children}
+      {(importing || sender || reading) && children}
       {intent?.externalEffects && (
         <p className="mt-3 text-sm text-soft">
           Undo restores local changes. Notifications and webhooks cannot be recalled.
@@ -78,7 +87,7 @@ export function OwnerActionConfirmation({
           {intent?.submitted ? 'Close' : 'Cancel'}
         </button>
         <Button
-          disabled={action.busy || !action.capable}
+          disabled={action.busy || !action.capable || confirmDisabled}
           data-brew-action="confirm-action"
           onClick={() => void action.confirm()}
         >
@@ -86,13 +95,15 @@ export function OwnerActionConfirmation({
             ? 'Working…'
             : intent?.submitted
               ? 'Check result'
-              : importing
-                ? 'Import'
-                : sender
-                  ? 'Save sender'
-                  : applying
-                    ? 'Apply rule'
-                    : 'Delete'}
+              : confirmLabel
+                ? confirmLabel
+                : importing
+                  ? 'Import'
+                  : sender
+                    ? 'Save sender'
+                    : applying
+                      ? 'Apply rule'
+                      : 'Delete'}
         </Button>
       </div>
     </ModalSheet>
@@ -102,10 +113,14 @@ export function OwnerActionResult({
   action,
   inline = false,
   showSetup = true,
+  status = false,
+  resultName = 'Action result',
 }: {
   action: OwnerAction;
   inline?: boolean;
   showSetup?: boolean;
+  status?: boolean;
+  resultName?: string;
 }) {
   return (
     <>
@@ -115,7 +130,8 @@ export function OwnerActionResult({
         </p>
       )}
       <section
-        aria-label="Action result"
+        aria-label={resultName}
+        role={status && action.receipt ? 'status' : undefined}
         aria-live="polite"
         aria-atomic="true"
         className={

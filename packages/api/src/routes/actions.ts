@@ -13,6 +13,17 @@ export function registerActionRoutes(app: Hono, services: ApiServices) {
       ? json(c, await services.actions.recent())
       : json(c, { error: 'Undo needs setup on this instance.' }, 501),
   );
+  app.post('/api/actions/mark-read/preview', async (c) => {
+    c.header('X-Robots-Tag', 'noindex, nofollow');
+    if (!services.actions) return json(c, { error: 'Undo needs setup on this instance.' }, 501);
+    try {
+      return json(c, await services.actions.previewRead(await body(c)));
+    } catch (error) {
+      return error instanceof ActionError
+        ? json(c, { error: error.message }, error.status)
+        : json(c, { error: 'Could not review unread articles.' }, 500);
+    }
+  });
   app.post('/api/actions', async (c) => {
     if (!services.actions) return json(c, { error: 'Undo needs setup on this instance.' }, 501);
     try {

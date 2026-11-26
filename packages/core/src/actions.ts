@@ -1,12 +1,14 @@
 import { opmlDocument, type OpmlImportResult } from './opml.js';
 import { newsletterSettingsPatch } from './newsletter-settings.js';
 import type { NewsletterSettingsPatch } from './types/newsletters.js';
+import { readActionTarget, type ReadActionTarget, type ReadActionPreview } from './read-actions.js';
 export type ItemActionKind = 'delete_feed' | 'delete_folder' | 'delete_rule' | 'apply_rule';
-export type ActionKind = ItemActionKind | 'import_opml' | 'update_sender';
+export type ActionKind = ItemActionKind | 'import_opml' | 'update_sender' | 'mark_read';
 export type ActionInput =
   | { kind: ItemActionKind; id: number; days?: number }
   | { kind: 'import_opml'; opml: string }
-  | { kind: 'update_sender'; id: number; patch: NewsletterSettingsPatch; revision: string };
+  | { kind: 'update_sender'; id: number; patch: NewsletterSettingsPatch; revision: string }
+  | { kind: 'mark_read'; target: ReadActionTarget; revision: string };
 export type ActionIntentRequest = ActionInput & { requestId?: string };
 export type ActionRequest = ActionIntentRequest & { confirm: true };
 export interface ActionReceipt {
@@ -22,6 +24,7 @@ export interface ActionReceipt {
   foldersCreated?: OpmlImportResult['foldersCreated'];
   lettersRemoved?: number;
   originalsRemoved?: number;
+  updated?: number;
   externalEffects: boolean;
   expiresAt: string | null;
   undoneAt: string | null;
@@ -36,6 +39,7 @@ export class ActionError extends Error {
   }
 }
 export interface ActionStoragePort {
+  previewRead(target: ReadActionTarget): ReadActionPreview;
   run(request: ActionRequest): Promise<ActionReceipt>;
   undo(id: number): ActionReceipt;
   recent(): ActionReceipt[];
@@ -47,6 +51,14 @@ const validId = (value: unknown): value is number =>
 /** Confirmed owner actions. Token authorization is handled separately by target ingress. */
 export class ActionsService {
   constructor(private readonly storage: ActionStoragePort) {}
+  previewRead(value: unknown): ReadActionPreview {
+    try {
+      return this.storage.previewRead(readActionTarget(value));
+    } catch (error) {
+      if (error instanceof ActionError) throw error;
+      throw new ActionError(400, (error as Error).message);
+    }
+  }
   run(value: unknown): Promise<ActionReceipt> {
     if (!value || typeof value !== 'object' || Array.isArray(value))
       throw new ActionError(400, 'Choose an action.');
@@ -65,12 +77,30 @@ export class ActionsService {
         'apply_rule',
         'import_opml',
         'update_sender',
+        'mark_read',
       ].includes(String(input.kind)) ||
-      (input.kind !== 'import_opml' && !validId(input.id))
+      (!['import_opml', 'mark_read'].includes(String(input.kind)) && !validId(input.id))
     )
       throw new ActionError(400, 'Choose a valid action and item.');
     if (input.confirm !== true) throw new ActionError(428, 'Confirm this action first.');
     const identity = input.requestId === undefined ? {} : { requestId: input.requestId as string };
+    if (input.kind === 'mark_read') {
+      if (typeof input.revision !== 'string' || !/^[a-f\d]{64}$/.test(input.revision))
+        throw new ActionError(400, 'Review the current unread articles first.');
+      try {
+        const target = readActionTarget(input.target);
+        return this.storage.run({
+          ...identity,
+          kind: 'mark_read',
+          target,
+          revision: input.revision,
+          confirm: true,
+        });
+      } catch (error) {
+        if (error instanceof ActionError) throw error;
+        throw new ActionError(400, (error as Error).message);
+      }
+    }
     if (input.kind === 'update_sender') {
       if (typeof input.revision !== 'string' || !/^[a-f\d]{64}$/.test(input.revision))
         throw new ActionError(400, 'Review current sender settings first.');

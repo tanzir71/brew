@@ -6,6 +6,146 @@ import { isArticleOutputPath } from '../../packages/core/src/article-outputs';
 import { RulesService } from '../../targets/node/src/services/rules-service';
 import { isReaderPageOutputPath } from '../../packages/core/src/reader-pages';
 import { articles } from '../../targets/node/src/db/schema';
+import { composeFixture } from './compose-fixture';
+import { BrewService } from '../../targets/node/src/services/brew-service';
+
+test('an agent reviews the full paged Reader scope, cancels without writes and recovers a lost bulk acknowledgement and reload Undo', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page);
+  try {
+    const feed = (
+      f.database.sqlite.prepare("SELECT id FROM feeds WHERE title='Design journal'").get() as {
+        id: number;
+      }
+    ).id;
+    f.database.sqlite.transaction(() => {
+      const insert = f.database.sqlite.prepare(
+        'INSERT INTO articles(feed_id,guid,url,title,hash,published_at) VALUES(?,?,?,?,?,?)',
+      );
+      for (let i = 0; i < 120; i++)
+        insert.run(
+          feed,
+          `bulk-${i}`,
+          `https://rss.fixture.test/bulk-${i}`,
+          `Paged bulk story ${i}`,
+          `bulk-${i}`,
+          Date.parse('2026-11-25T06:00:00Z') - i * 60_000,
+        );
+    })();
+    const rows = () =>
+      f.database.sqlite
+        .prepare('SELECT id,read_at,starred_at FROM articles WHERE feed_id=? ORDER BY id')
+        .all(feed);
+    const before = rows();
+    const url = `/feed/${feed}?page=2&density=title&unread=true&sort=oldest`;
+    await page.goto(url);
+    const trigger = page.getByRole('button', { name: 'Mark all read', exact: true });
+    await expect(trigger).toBeEnabled();
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    const review = page.getByRole('dialog', { name: 'Mark all articles read?', exact: true });
+    await expect(review).toContainText('121 unread stories');
+    await expect(review.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(trigger).toBeFocused();
+    expect(rows()).toEqual(before);
+    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({
+      n: 0,
+    });
+    await page.keyboard.press('Enter');
+    let drop = true;
+    await page.context().route('**/api/actions', async (route) => {
+      if (drop && route.request().method() === 'POST') {
+        drop = false;
+        const response = await f.app.inject({
+          method: 'POST',
+          url: '/api/actions',
+          payload: route.request().postDataJSON(),
+        });
+        expect(response.json().updated).toBe(121);
+        return route.abort('failed');
+      }
+      return route.fallback();
+    });
+    await review.getByRole('button', { name: 'Mark all read', exact: true }).click();
+    await expect(review.getByRole('alert')).toContainText('may have finished');
+    await review.getByRole('button', { name: 'Check result', exact: true }).click();
+    await expect(page.getByRole('status', { name: 'Bulk read result', exact: true })).toContainText(
+      'Marked 121 read.',
+    );
+    expect(rows().every((row) => (row as { read_at: number | null }).read_at !== null)).toBe(true);
+    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({
+      n: 1,
+    });
+    await page.reload();
+    const result = page.getByRole('status', { name: 'Bulk read result', exact: true });
+    await expect(result).toContainText('Marked 121 read.');
+    await result.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(result).toContainText('Undid local changes.');
+    await expect(trigger).toBeFocused();
+    expect(rows()).toEqual(before);
+    await expect(page).toHaveURL(url);
+  } finally {
+    await f.close();
+  }
+});
+
+test('an agent marks a frozen Brew section and whole edition read and restores exact unread states with archived stories unchanged', async ({
+  page,
+}) => {
+  const f = await composeFixture(page);
+  try {
+    const service = new BrewService(f.database);
+    const issue = await service.generateComposition(f.config.id);
+    const payload = f.database.sqlite
+      .prepare('SELECT payload_json FROM brews WHERE id=?')
+      .get(issue.id);
+    f.database.sqlite
+      .prepare('UPDATE articles SET read_at=? WHERE id=1')
+      .run(Date.parse('2026-11-25T02:00:00Z'));
+    f.database.sqlite.prepare('DELETE FROM articles WHERE id=4').run();
+    const rows = () =>
+      f.database.sqlite.prepare('SELECT id,read_at,starred_at FROM articles ORDER BY id').all();
+    const before = rows();
+    await page.goto(`/b/${f.config.id}/${issue.id}`);
+    const section = page.getByRole('region', { name: 'Design & craft', exact: true });
+    const trigger = section.getByRole('button', { name: 'Mark section read', exact: true });
+    await trigger.click();
+    const review = page.getByRole('dialog', { name: 'Mark Design & craft read?', exact: true });
+    await expect(review).toContainText('2 unread stories');
+    await expect(review).toContainText('1 archived story is no longer in your library');
+    await page.keyboard.press('Enter');
+    await expect(trigger).toBeFocused();
+    expect(rows()).toEqual(before);
+    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({
+      n: 0,
+    });
+    await trigger.click();
+    await review.getByRole('button', { name: 'Mark 2 read', exact: true }).click();
+    const result = page.getByRole('status', { name: 'Bulk read result', exact: true });
+    await expect(result).toContainText('Marked 2 read.');
+    await page.reload();
+    await result.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(result).toContainText('Undid local changes.');
+    expect(rows()).toEqual(before);
+    const all = page.getByRole('button', { name: 'Mark all read', exact: true });
+    await expect(all).toBeFocused();
+    await page.keyboard.press('Enter');
+    const whole = page.getByRole('dialog', { name: 'Mark this Brew read?', exact: true });
+    await expect(whole).toContainText('3 unread stories');
+    await whole.getByRole('button', { name: 'Mark 3 read', exact: true }).click();
+    await expect(result).toContainText('Marked 3 read.');
+    await result.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(result).toContainText('Undid local changes.');
+    expect(rows()).toEqual(before);
+    expect(
+      f.database.sqlite.prepare('SELECT payload_json FROM brews WHERE id=?').get(issue.id),
+    ).toEqual(payload);
+  } finally {
+    await f.close();
+  }
+});
 
 test('an agent changes browser settings through native links, reloads reading choices and exports actual OPML without server writes', async ({
   page,

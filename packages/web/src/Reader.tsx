@@ -22,12 +22,13 @@ import { useBrowserPreferences } from './hooks/useBrowserPreferences';
 import { PreferenceFeedback } from './settings/BrowserPreferences';
 import { ModalSheet } from './components/Sheet';
 import { Badge } from './components/Badge';
-import { cachedArticleState, patchArticleStates, refreshArticleStates, updateArticleState } from './articleState';
+import { updateArticleState } from './articleState';
+import { useBulkRead } from './hooks/useBulkRead';
+import { BulkReadUi } from './components/BulkReadUi';
 import type {
   ArticleDetail,
   ArticlePage,
   ArticleSummary,
-  MarkAllReadResult,
   ReaderNavigation,
   SearchPage,
   TagSummary,
@@ -495,7 +496,7 @@ function SearchView({
   useLayoutEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target) || selectedArticle !== null || !items.length) return;
-      if ((event.target as HTMLElement | null)?.closest('button,a[href]')) return;
+      if (['Enter', ' '].includes(event.key) && (event.target as HTMLElement | null)?.closest('button,a[href]')) return;
       const key = event.key.toLowerCase();
       if (key === 'j' || key === 'k') {
         event.preventDefault();
@@ -627,7 +628,6 @@ function ArticleList({ selection }: { selection: Selection }) {
   const preferences = useBrowserPreferences();
   const openMode = preferences.values.openMode;
   const markOnScroll = preferences.values.readOnScroll === 'true';
-  const [undo, setUndo] = useState<(MarkAllReadResult & { articleIds: number[] }) | null>(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const scrolledIds = useRef(new Set<number>());
   const scope = `${selection.kind}:${selection.id ?? 'root'}`;
@@ -639,6 +639,14 @@ function ArticleList({ selection }: { selection: Selection }) {
       ? storedDensity
       : 'magazine');
   const outputState = { ...state, density };
+  const bulk = useBulkRead(readerPageHref(outputState));
+  const askBulk = bulk.ask;
+  const bulkTrigger = useRef<HTMLButtonElement>(null);
+  const requestBulk = useCallback(() => {
+    void askBulk({ kind: 'reader', view: selection.kind === 'today' || selection.kind === 'starred' ? selection.kind : 'all',
+      ...(selection.kind === 'feed' && selection.id ? { feedId: selection.id } : {}),
+      ...(selection.kind === 'folder' && selection.id ? { folderId: selection.id } : {}) }, 'Mark all articles read?', bulkTrigger.current);
+  }, [askBulk, selection.kind, selection.id]);
   useTextAlternates(caps.data?.outputs?.twins ? readerPageHref(outputState) : null);
   const query = useInfiniteQuery({
     queryKey: ['articles', selection.kind, selection.id, unreadOnly, sort, state.page],
@@ -693,8 +701,6 @@ function ArticleList({ selection }: { selection: Selection }) {
   }, [virtualItems, rows.length, query]);
   const [failedScroll, setFailedScroll] = useState<number[]>([]);
   const [readError, setReadError] = useState('');
-  const [bulkBusy, setBulkBusy] = useState(false);
-  const [confirmBulk, setConfirmBulk] = useState(false);
   const markScrolled = useCallback(async (ids: number[]) => {
     const results = await Promise.allSettled(ids.map((id) => updateArticleState(client, id, { read: true })));
     const failed = ids.filter((_, index) => results[index]!.status === 'rejected');
@@ -717,14 +723,6 @@ function ArticleList({ selection }: { selection: Selection }) {
     for (const id of passed) scrolledIds.current.add(id);
     void markScrolled(passed);
   }, [markOnScroll, markScrolled, rows, virtualItems, virtualizer.scrollOffset]);
-  useEffect(() => {
-    if (!undo) return;
-    const timeout = window.setTimeout(
-      () => setUndo(null),
-      Math.max(0, new Date(undo.expiresAt).getTime() - Date.now()),
-    );
-    return () => window.clearTimeout(timeout);
-  }, [undo]);
   const chooseDensity = useCallback(
     (next: Density) => {
       localStorage.setItem(`brew:density:${scope}`, next);
@@ -732,55 +730,6 @@ function ArticleList({ selection }: { selection: Selection }) {
     },
     [scope],
   );
-  const markAll = useCallback(async () => {
-    if (bulkBusy) return;
-    setBulkBusy(true);
-    setReadError('');
-    const articleIds = articles.filter((article) => !article.readAt).map((article) => article.id);
-    patchArticleStates(client, articleIds, { readAt: new Date().toISOString() });
-    const body: { view: 'all' | 'today' | 'starred'; feedId?: number; folderId?: number } = {
-      view: selection.kind === 'today' || selection.kind === 'starred' ? selection.kind : 'all',
-    };
-    if (selection.kind === 'feed' && selection.id) body.feedId = selection.id;
-    if (selection.kind === 'folder' && selection.id) body.folderId = selection.id;
-    try {
-      const response = await fetch('/api/articles/mark-all-read', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      });
-      if (!response.ok) throw new Error('Could not mark articles read. Try again.');
-      const result = (await response.json()) as MarkAllReadResult;
-      setUndo({ ...result, articleIds });
-    } catch (error) {
-      patchArticleStates(client, articleIds, { readAt: null });
-      setReadError((error as Error).message);
-    } finally {
-      setBulkBusy(false);
-      refreshArticleStates(client);
-    }
-  }, [articles, bulkBusy, client, selection.id, selection.kind]);
-  const undoMarkAll = async () => {
-    if (!undo || bulkBusy) return;
-    const current = undo;
-    const previous = current.articleIds.map((id) => ({ id, readAt: cachedArticleState(client, id).readAt }));
-    setUndo(null);
-    setBulkBusy(true);
-    setReadError('');
-    patchArticleStates(client, current.articleIds, { readAt: null });
-    try {
-      const response = await fetch('/api/articles/mark-all-read/undo', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ undoToken: current.undoToken }),
-      });
-      if (!response.ok) throw new Error('Could not undo the read update. Try again.');
-    } catch (error) {
-      for (const item of previous) patchArticleStates(client, [item.id], { readAt: item.readAt });
-      setReadError((error as Error).message);
-      if (Date.parse(current.expiresAt) > Date.now()) setUndo(current);
-    } finally {
-      setBulkBusy(false);
-      refreshArticleStates(client);
-    }
-  };
   const updateFocused = useCallback(async (article: ArticleSummary, values: { read?: boolean; starred?: boolean }) => {
     setReadError('');
     try {
@@ -814,10 +763,10 @@ function ArticleList({ selection }: { selection: Selection }) {
         }
         return;
       }
-      if ((event.target as HTMLElement | null)?.closest('button,a[href]')) return;
+      if (['Enter', ' '].includes(event.key) && (event.target as HTMLElement | null)?.closest('button,a[href]')) return;
       if (event.shiftKey && key === 'a') {
         event.preventDefault();
-        setConfirmBulk(true);
+        requestBulk();
         return;
       }
       if (key === '1' || key === '2' || key === '3') {
@@ -872,7 +821,7 @@ function ArticleList({ selection }: { selection: Selection }) {
     articles,
     chooseDensity,
     focusedIndex,
-    markAll,
+    requestBulk,
     rows,
     selectedArticle,
     updateFocused,
@@ -905,8 +854,9 @@ function ArticleList({ selection }: { selection: Selection }) {
           </div>
           <button
             data-brew-action="mark-all-read"
-            onClick={() => setConfirmBulk(true)}
-            disabled={bulkBusy}
+            ref={bulkTrigger}
+            onClick={requestBulk}
+            disabled={bulk.busy || !bulk.capable}
             className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs font-semibold"
           >
             Mark all read
@@ -1023,25 +973,7 @@ function ArticleList({ selection }: { selection: Selection }) {
           </p>
         )}
       </div>
-      {undo && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="brew-undo-toast fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-full bg-inverse px-5 py-3 text-sm text-on-inverse shadow-overlay"
-        >
-          <span>Marked {undo.updated} read.</span>
-          <button onClick={undoMarkAll} className="font-semibold text-on-inverse">
-            Undo
-          </button>
-        </div>
-      )}
-      <ModalSheet open={confirmBulk} title="Mark all articles read?" onClose={() => setConfirmBulk(false)}>
-        <p>Mark every unread article in {selection.title} read? You can undo this for five seconds.</p>
-        <div className="mt-4 flex gap-3">
-          <button type="button" className="brew-button brew-button--secondary" onClick={() => setConfirmBulk(false)}>Cancel</button>
-          <button type="button" className="brew-button brew-button--primary" data-brew-action="confirm-mark-all-read" disabled={bulkBusy} onClick={() => { setConfirmBulk(false); void markAll(); }}>Mark all read</button>
-        </div>
-      </ModalSheet>
+      <BulkReadUi action={bulk} />
       {query.data?.pages[0]?.total !== undefined && <ReaderPageFooter state={outputState} total={query.data.pages[0].total} shown={articles.length} twins={Boolean(caps.data?.outputs?.twins)} />}
       {selectedArticle !== null && (
         <ArticleReader

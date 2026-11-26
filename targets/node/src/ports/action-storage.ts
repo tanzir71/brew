@@ -13,6 +13,8 @@ import { nodeClock, nodeRegex } from './runtime.js';
 import { createHash } from 'node:crypto';
 import { OpmlService } from '../services/opml-service.js';
 import { NewsletterLibrary } from '../services/newsletter-library.js';
+import { ReadActions } from '../services/read-actions.js';
+import type { ReadActionTarget } from '../../../../packages/core/src/read-actions.js';
 
 const undoMs = 30_000;
 interface Stored {
@@ -31,6 +33,11 @@ export class NodeActionStorage implements ActionStoragePort {
     { signature: string; task: Promise<ActionReceipt> }
   >();
   private args(request: ActionRequest) {
+    if (request.kind === 'mark_read')
+      return JSON.stringify({
+        revision: request.revision,
+        sha256: createHash('sha256').update(JSON.stringify(request.target)).digest('hex'),
+      });
     if (request.kind === 'update_sender')
       return JSON.stringify({
         id: request.id,
@@ -81,7 +88,7 @@ export class NodeActionStorage implements ActionStoragePort {
   private create(request: ActionRequest, summary: string, externalEffects: boolean) {
     const result = {
       kind: request.kind,
-      targetId: request.kind === 'import_opml' ? null : request.id,
+      targetId: request.kind === 'import_opml' || request.kind === 'mark_read' ? null : request.id,
       summary,
       status: 'pending',
       externalEffects,
@@ -111,6 +118,9 @@ export class NodeActionStorage implements ActionStoragePort {
       return run();
     });
   }
+  previewRead(target: ReadActionTarget) {
+    return new ReadActions(this.database, () => this.clock.now()).inspect(target).preview;
+  }
   run(request: ActionRequest): Promise<ActionReceipt> {
     const signature = `${request.kind}:${this.args(request)}`;
     const existing = request.requestId ? this.requests.get(request.requestId) : undefined;
@@ -138,6 +148,36 @@ export class NodeActionStorage implements ActionStoragePort {
           throw new ActionError(409, 'This request was already used for another action.');
         return this.metadata(prior.id);
       }
+    }
+    if (request.kind === 'mark_read') {
+      return this.database.sqlite.transaction(() => {
+        const service = new ReadActions(this.database, () => this.clock.now());
+        const { ids, preview } = service.inspect(request.target);
+        if (preview.revision !== request.revision)
+          throw new ActionError(
+            409,
+            'The unread articles changed. Close this confirmation and review the scope again.',
+          );
+        const id = this.create(request, 'Marking articles read…', false);
+        this.write(id, () => service.apply(ids));
+        this.database.sqlite
+          .prepare('UPDATE agent_actions SET result_json=?,undo_json=? WHERE id=?')
+          .run(
+            JSON.stringify({
+              kind: request.kind,
+              targetId: null,
+              summary: `Marked ${ids.length} read.`,
+              status: 'complete',
+              externalEffects: false,
+              updated: ids.length,
+            }),
+            ids.length
+              ? JSON.stringify({ version: 1, expiresAt: this.clock.now().getTime() + undoMs })
+              : null,
+            id,
+          );
+        return this.metadata(id);
+      })();
     }
     if (request.kind === 'update_sender') {
       return this.database.sqlite.transaction(() => {

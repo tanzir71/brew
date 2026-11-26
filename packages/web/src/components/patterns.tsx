@@ -19,6 +19,7 @@ export function TopBar({
   onPrevious,
   onNext,
   onMarkAllRead,
+  markAllDisabled = false,
   onMore,
   rightActions,
 }: {
@@ -31,6 +32,7 @@ export function TopBar({
   onPrevious?: () => void;
   onNext?: () => void;
   onMarkAllRead?: () => void;
+  markAllDisabled?: boolean;
   onMore?: () => void;
   rightActions?: ReactNode;
 }) {
@@ -82,6 +84,7 @@ export function TopBar({
                   type="button"
                   className="brew-topbar-mark"
                   data-brew-action="mark-all-read"
+                  disabled={markAllDisabled}
                   onClick={onMarkAllRead}
                 >
                   <Icon name="check" size={14} />

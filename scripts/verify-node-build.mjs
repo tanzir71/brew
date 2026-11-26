@@ -419,6 +419,49 @@ try {
     database.sqlite.prepare('SELECT * FROM brew_configs ORDER BY id').all(),
     senderBrewsBefore,
   );
+  const readRowsBefore = database.sqlite
+    .prepare('SELECT id,read_at,starred_at FROM articles ORDER BY id')
+    .all();
+  const readPreview = await app.inject({
+    method: 'POST',
+    url: '/api/actions/mark-read/preview',
+    payload: { kind: 'items', ids: [letter.articleId] },
+  });
+  assert.equal(readPreview.statusCode, 200);
+  assert.equal(readPreview.json().updated, 1);
+  assert.equal(readPreview.headers['cache-control'], 'private, no-store');
+  assert.deepEqual(
+    database.sqlite.prepare('SELECT id,read_at,starred_at FROM articles ORDER BY id').all(),
+    readRowsBefore,
+  );
+  const readAction = await app.inject({
+    method: 'POST',
+    url: '/api/actions',
+    payload: {
+      kind: 'mark_read',
+      target: { kind: 'items', ids: [letter.articleId] },
+      revision: readPreview.json().revision,
+      requestId: 'compiled-bulk-read-action',
+      confirm: true,
+    },
+  });
+  assert.equal(readAction.statusCode, 200);
+  assert.equal(readAction.json().updated, readPreview.json().updated);
+  assert.equal(readAction.json().canUndo, true);
+  assert.equal(
+    (
+      await app.inject({
+        method: 'POST',
+        url: `/api/actions/${readAction.json().id}/undo`,
+        payload: {},
+      })
+    ).statusCode,
+    200,
+  );
+  assert.deepEqual(
+    database.sqlite.prepare('SELECT id,read_at,starred_at FROM articles ORDER BY id').all(),
+    readRowsBefore,
+  );
   const hiddenBefore = database.sqlite
     .prepare('SELECT hidden FROM articles WHERE id=?')
     .get(letter.articleId);

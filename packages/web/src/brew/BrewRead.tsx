@@ -1,4 +1,13 @@
-import { useEffect, useRef, useState, lazy, Suspense, type CSSProperties } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  lazy,
+  Suspense,
+  type CSSProperties,
+} from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { BrewFormats } from './BrewFormats';
 import { useBrewReadState } from './useBrewReadState';
@@ -10,7 +19,8 @@ import { Icon } from '../components/Icon';
 import { Badge } from '../components/Badge';
 import { letterDate, senderInitial } from '../newsletters/dates';
 import { newsletterCleaningLabel } from '../newsletters/cleaning';
-import { ModalSheet } from '../components/Sheet';
+import { useBulkRead } from '../hooks/useBulkRead';
+import { BulkReadUi } from '../components/BulkReadUi';
 const ArticleReader = lazy(() =>
   import('../Reader').then((module) => ({ default: module.ArticleReader })),
 );
@@ -87,9 +97,38 @@ export function BrewRead({
   );
   const [open, setOpen] = useState<number | null>(null);
   const [activeSection, setActiveSection] = useState(snapshot?.sections[0]?.id ?? '');
-  const [confirm, setConfirm] = useState<{ title: string; ids: number[] } | null>(null);
-  const [undo, setUndo] = useState<number[]>([]);
-  const [busy, setBusy] = useState(false);
+  const [singleBusy, setBusy] = useState(false);
+  const bulk = useBulkRead(`brew:${snapshot?.id ?? 'empty'}`);
+  const busy = singleBusy || bulk.busy;
+  const bulkRef = useRef(bulk);
+  useLayoutEffect(() => {
+    bulkRef.current = bulk;
+  }, [bulk]);
+  const items = useMemo(
+    () => [
+      ...new Map(
+        (snapshot?.sections.flatMap((section) => section.items) ?? []).map((item) => [
+          item.id,
+          item,
+        ]),
+      ).values(),
+    ],
+    [snapshot],
+  );
+  useEffect(() => {
+    if (!markAllRequested) return;
+    const opener = document.activeElement as HTMLElement;
+    const frame = requestAnimationFrame(() => {
+      onMarkAllClosed();
+      if (items.length)
+        void bulkRef.current.ask(
+          { kind: 'items', ids: items.map((item) => item.id) },
+          'Mark this Brew read?',
+          opener,
+        );
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [markAllRequested, items, onMarkAllClosed]);
   const [message, setMessage] = useState('');
   const opener = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -121,11 +160,6 @@ export function BrewRead({
       </main>
     );
 
-  const items = [
-    ...new Map(
-      snapshot.sections.flatMap((section) => section.items).map((item) => [item.id, item]),
-    ).values(),
-  ];
   const current = (item: BrewItem): BrewArticleState =>
     (state.isError ? undefined : state.data)?.articles.find((entry) => entry.id === item.id) ?? {
       id: item.id,
@@ -157,7 +191,6 @@ export function BrewRead({
   const update = (id: number, values: { read?: boolean; starred?: boolean }) =>
     updateArticleState(client, id, values);
   const change = async (id: number, values: { read?: boolean; starred?: boolean }) => {
-    setUndo([]);
     setBusy(true);
     try {
       await update(id, values);
@@ -176,30 +209,6 @@ export function BrewRead({
       setBusy(false);
     }
   };
-  const markIds = async (ids: number[], value: boolean) => {
-    setBusy(true);
-    const results = await Promise.allSettled(
-      ids.map(async (id) => {
-        await update(id, { read: value });
-        return id;
-      }),
-    );
-    const changed = results.flatMap((result) =>
-      result.status === 'fulfilled' ? [result.value] : [],
-    );
-    setUndo(value ? changed : []);
-    setMessage(
-      `${changed.length} marked ${value ? 'read' : 'unread'}.${changed.length < ids.length ? ` ${ids.length - changed.length} could not be updated. Try again.` : ''}`,
-    );
-    setBusy(false);
-    setConfirm(null);
-    onMarkAllClosed();
-  };
-  const requestIds = markAllRequested ? items.map((item) => item.id) : (confirm?.ids ?? []);
-  const unreadIds = requestIds.filter((id) => {
-    const item = items.find((entry) => entry.id === id);
-    return item && current(item).available && !current(item).readAt;
-  });
   const next = state.data?.nextAt;
 
   return (
@@ -217,7 +226,9 @@ export function BrewRead({
               </time>{' '}
               · No. {'issueNumber' in snapshot ? snapshot.issueNumber : snapshot.id}
             </p>
-            <h1 className="type-display-l">{snapshot.configName}</h1>
+            <h1 tabIndex={-1} className="type-display-l">
+              {snapshot.configName}
+            </h1>
             <p className="type-reading-lede">
               {items.length
                 ? `${numberWords(items.length).replace(/^./, (letter) => letter.toUpperCase())} ${items.length === 1 ? 'story' : 'stories'} from ${numberWords(sources)} ${sources === 1 ? 'source' : 'sources'}. About ${numberWords(minutes)} minutes, then you’re done.`
@@ -332,16 +343,18 @@ export function BrewRead({
                       icon={<Icon name="check" size={14} />}
                       disabled={
                         busy ||
+                        !bulk.capable ||
                         !state.data ||
                         !section.items.some(
                           (item) => current(item).available && !current(item).readAt,
                         )
                       }
-                      onClick={() =>
-                        setConfirm({
-                          title: section.title,
-                          ids: section.items.map((item) => item.id),
-                        })
+                      onClick={(event) =>
+                        void bulk.ask(
+                          { kind: 'items', ids: section.items.map((item) => item.id) },
+                          `Mark ${section.title} read?`,
+                          event.currentTarget,
+                        )
                       }
                     >
                       Mark section read
@@ -471,52 +484,8 @@ export function BrewRead({
       </div>
       <div role="status" aria-live="polite" className={message ? 'brew-read-status' : 'sr-only'}>
         {message}
-        {undo.length > 0 && (
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={busy}
-            onClick={() => void markIds(undo, false)}
-          >
-            Undo
-          </Button>
-        )}
       </div>
-      <ModalSheet
-        open={markAllRequested || !!confirm}
-        onClose={() => {
-          setConfirm(null);
-          onMarkAllClosed();
-        }}
-        title={
-          markAllRequested ? 'Mark this Brew read?' : `Mark ${confirm?.title ?? 'section'} read?`
-        }
-        footer={
-          <>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setConfirm(null);
-                onMarkAllClosed();
-              }}
-              disabled={busy}
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={busy || !unreadIds.length}
-              onClick={() => void markIds(unreadIds, true)}
-            >
-              Mark {unreadIds.length} read
-            </Button>
-          </>
-        }
-      >
-        <p>
-          {unreadIds.length} unread {unreadIds.length === 1 ? 'story' : 'stories'} will also be
-          marked read in your library. You can undo this.
-        </p>
-      </ModalSheet>
+      <BulkReadUi action={bulk} counted />
       {open !== null && (
         <Suspense fallback={<p role="status">Loading article…</p>}>
           <ArticleReader

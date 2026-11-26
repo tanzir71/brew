@@ -111,7 +111,9 @@ test('Read actions, scoped bulk undo, contents and archived editions work by key
     .click();
   await expect(page.getByRole('dialog', { name: 'Mark Design & craft read?' })).toBeVisible();
   await page.getByRole('button', { name: 'Mark 2 read', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('2 marked read.');
+  await expect(page.getByRole('status', { name: 'Bulk read result', exact: true })).toContainText(
+    'Marked 2 read.',
+  );
   expect(fixture.state.articles.filter((item) => item.readAt)).toHaveLength(8);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByRole('progressbar')).toHaveAttribute('value', '6');
@@ -139,7 +141,9 @@ test('failed mutations keep read state, retry recovers, and unavailable formats 
   const item = page.getByRole('article', { name: fixture.items[2]!.title });
   fixture.failUpdates(true);
   await item.getByRole('button', { name: 'Mark read', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('Could not update article. Try again.');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Could not update article. Try again.' }),
+  ).toBeVisible();
   await expect(item).toHaveAttribute('data-brew-state', 'unread highlighted');
   fixture.failUpdates(false);
   await item.getByRole('button', { name: 'Open', exact: true }).click();
@@ -156,6 +160,10 @@ test('failed mutations keep read state, retry recovers, and unavailable formats 
   await page.route('**/api/brews/*/state', (route) => route.fulfill({ json: fixture.state }));
   await page.getByRole('button', { name: 'Retry', exact: true }).click();
   await expect(item.getByRole('button', { name: 'Star', exact: true })).toBeEnabled();
+  const readsBeforeBulk = fixture.state.articles.map((article) => ({
+    id: article.id,
+    readAt: article.readAt,
+  }));
   await page
     .getByRole('region', { name: 'Design & craft' })
     .getByRole('button', { name: 'Mark section read' })
@@ -167,7 +175,17 @@ test('failed mutations keep read state, retry recovers, and unavailable formats 
     'aria-pressed',
     'true',
   );
-  await expect(page.getByRole('button', { name: 'Undo', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByRole('status', { name: 'Bulk read result', exact: true })).toContainText(
+    'Undid local changes.',
+  );
+  expect(
+    fixture.state.articles.map((article) => ({ id: article.id, readAt: article.readAt })),
+  ).toEqual(readsBeforeBulk);
+  await expect(item.getByRole('button', { name: 'Starred', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
 });
 
 test('image privacy handles stored proxy URLs and requires explicit direct-image opt-in', async ({

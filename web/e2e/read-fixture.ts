@@ -1,5 +1,6 @@
 import { upgradeLegacyDraft } from '../../packages/core/src/composition-model';
 import { nodeCapabilities } from '../../targets/node/src/capabilities';
+import { installBulkReadFixture } from './bulk-read-fixture';
 import type { Page } from '@playwright/test';
 import type {
   BrewConfig,
@@ -209,6 +210,13 @@ export async function mockRead(page: Page, theme = 'light') {
       },
     });
   });
+  await installBulkReadFixture(
+    page,
+    () => fixture.state.articles,
+    (id, readAt) => {
+      fixture.state.articles.find((item) => item.id === id)!.readAt = readAt;
+    },
+  );
   return {
     ...fixture,
     failUpdates: (value: boolean) => {

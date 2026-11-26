@@ -67,6 +67,16 @@ before opening Reader. It then verifies the actual saved article controls. Separ
 checks cover shared values across tabs, failed writes/read retry, light/dark axe,
 desktop/phone captures and fresh deep-link focus recovery.
 
+Two more role/label-only journeys bring the total to nineteen. One reviews all
+121 unread items while viewing page two, cancels without changes, recovers a lost
+bulk acknowledgement and restores exact read states through reload Undo while
+preserving its URL. The other reviews a frozen Brew section and whole edition,
+reports an unavailable archived story, preserves already-read timestamps and
+restores the actual rows without changing the saved payload. Six additional
+browser cases cover light/dark review layout/axe/focus, stale scopes, atomic Undo
+conflicts, cancelled/obsolete previews, unavailable capabilities and successful
+writes followed by read outages.
+
 ESLint restricts that file's UI selectors to `getByRole` and `getByLabel`, rejecting
 CSS/test-ID/text/placeholder/title selectors and injected DOM evaluation. Browser
 setup, navigation, response inspection and SQL assertions remain available to
@@ -236,6 +246,41 @@ bypass the fixture's browser request interception and reach the real dev server.
 The captured v1 export body/status/other headers remain unchanged; the contract
 test explicitly requires the new private-cache and no-index headers.
 
+## Confirmed bulk reads
+
+Reader click/Shift+A and Brew section/edition Mark read share the journalled
+`mark_read` owner action. `POST /api/actions/mark-read/preview` accepts a canonical
+Reader scope (`all|today|starred`, optionally one feed/folder) or explicit item IDs.
+It returns only an exact unread count, unavailable-item count and revision under
+private/no-store/no-index headers, without writes or content/source details.
+Reader previews cover the full scope before pagination and retain hidden/muted
+and Only in Brew visibility rules. Explicit Brew IDs preserve access to letters
+included in that edition. Duplicate IDs are canonicalized; large ID lists are
+queried in bounded chunks.
+
+Native confirmation is bound to the previewed state. Cancel focuses its opener
+and writes nothing; failed previews retry the same scope. Navigation, unmount
+and explicit cancellation abort reads and prevent late previews from submitting.
+No-op review keeps confirmation disabled. Unsupported writes remain visible with
+Badge/setup links. Read results use a named polite Bulk read result region, and
+post-Undo focus returns to the trigger or a visible toolbar fallback. Native
+Enter/Space activation takes precedence on buttons/links; letter shortcuts remain
+available after restoring toolbar focus.
+
+The server rechecks the revision inside one SQLite transaction and updates only
+reviewed unread rows. Journalled read timestamps, a stable request identity and
+30-second Undo support lost-response Check result, reload and a new connection.
+Already-read timestamps and frozen issues remain untouched. Later Star changes
+survive restoration; conflicting read changes reject the entire Undo. Audit args
+retain target hashes and revisions instead of article IDs or content. A write
+followed by a view outage reports completion plus a refresh failure; Reload only
+reads again. Existing legacy mark-all endpoints retain their captured contracts,
+while the current UI uses the confirmed action path.
+
+Static visual/keyboard fixtures use an isolated transport stand-in for the new
+routes. It is not the evidence for server behavior: backend transaction/replay/
+scope/expiry tests and the role-only Node/SQLite journeys verify actual changes.
+
 ## Article twins
 
 `GET`/`HEAD /a/:id.md` and `/a/:id.json` use portable core renderers and Hono routes,
@@ -360,7 +405,8 @@ disabled with a setup badge/link until their adapter provides it. This capabilit
 does not enable agent tokens, MCP or other write access.
 
 `POST /api/actions` accepts a confirmed `delete_feed`, `delete_folder`,
-`delete_rule`, `apply_rule` or `import_opml` request. Rule application also accepts 1–3650 days
+`delete_rule`, `apply_rule`, `import_opml`, `update_sender` or `mark_read` request.
+Sender and read actions require their current preview revision. Rule application also accepts 1–3650 days
 (30 by default). Confirmation is mandatory; missing confirmation returns 428.
 The browser creates one request identity for each confirmation sheet and retains
 it across retries. A repeated identity returns the same result; using it for

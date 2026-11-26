@@ -18,6 +18,7 @@ import { ModalSheet } from './components/Sheet';
 import { BrewRead } from './brew/BrewRead';
 import { useBrewReadState } from './brew/useBrewReadState';
 import { usePageAlternates } from './hooks/usePageAlternates';
+import { useCapabilities } from './hooks/useCapabilities';
 import { composeJson } from './brew/useComposeDraft';
 const BrewCompose = lazy(() =>
   import('./brew/BrewCompose').then((module) => ({ default: module.BrewCompose })),
@@ -31,6 +32,7 @@ function remember(id: number, issue?: number, compose = false) {
   window.history.replaceState({}, '', `/b/${id}${compose ? '/compose' : issue ? `/${issue}` : ''}`);
 }
 export function BrewPage({ preferences }: { preferences: ReactNode }) {
+  const capabilities = useCapabilities();
   const client = useQueryClient();
   const [chosen, setChosen] = useState(() =>
     parsedId(
@@ -66,8 +68,19 @@ export function BrewPage({ preferences }: { preferences: ReactNode }) {
   const issue = history.data?.find((value) => value.id === issueId) ?? history.data?.[0] ?? null;
   const state = useBrewReadState(!editing ? issue?.id : undefined);
   const config = configs.data?.find((value) => value.id === selected);
-  usePageAlternates(!editing && !issue && !configs.isPending && !history.isFetching && !configs.isError && !history.isError
-    ? config ? `/b/${config.id}/read` : '/index' : null, 'Saved Brew configuration');
+  usePageAlternates(
+    !editing &&
+      !issue &&
+      !configs.isPending &&
+      !history.isFetching &&
+      !configs.isError &&
+      !history.isError
+      ? config
+        ? `/b/${config.id}/read`
+        : '/index'
+      : null,
+    'Saved Brew configuration',
+  );
   useEffect(() => {
     if (!issue || editing) return;
     const frame = requestAnimationFrame(() => window.scrollTo(0, issue.scrollPosition));
@@ -230,6 +243,10 @@ export function BrewPage({ preferences }: { preferences: ReactNode }) {
               }
               onNext={position > 0 ? () => selectIssue(history.data![position - 1]!) : undefined}
               onMarkAllRead={issue ? () => setMarkAll(true) : undefined}
+              markAllDisabled={
+                !capabilities.data?.actions?.undo ||
+                !issue?.sections.some((section) => section.items.length)
+              }
               onMore={() => setMore(true)}
             />
             {configs.isError || history.isError ? (

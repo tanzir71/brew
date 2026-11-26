@@ -199,6 +199,7 @@ export async function composeFixture(
     });
   });
   return {
+    app,
     config,
     database,
     puts,

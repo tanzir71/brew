@@ -151,7 +151,16 @@ content opens before the read write completes. Failed writes restore confirmed
 state and allow retry; queued actions on one article keep their order. Reader's
 optional read-on-scroll has an explicit retry for failed saves, and bulk read/Undo
 refreshes both views. Selecting a Brew card alone does not mark it read.
-OPML import, rule application/deletion and feed/folder deletion use confirmation sheets with
+
+Reader **Mark all read** reviews every unread item in its current feed, folder or
+view, including items beyond the loaded page. Brew section/edition actions review
+their frozen item IDs and report stories no longer in the library. Cancel writes
+nothing. Confirmation marks the reviewed unread set in one transaction, preserving
+already-read timestamps and frozen issue content. A changed scope requires another
+review. The result offers actual 30-second Undo, including after reload; a lost
+response offers **Check result**. Undo preserves unrelated Star changes and refuses
+overlapping read edits. Unsupported bulk writes stay disabled with setup guidance.
+Bulk reads, OPML import, rule application/deletion and feed/folder deletion use confirmation sheets with
 30-second server Undo. Recent Undo survives reload; retries recover the same
 result. Later conflicting edits prevent restoration, and notifications/webhooks
 cannot be recalled. See [owner actions and Undo](docs/agent-dom.md#confirmed-owner-actions-and-undo)
