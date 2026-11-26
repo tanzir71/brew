@@ -77,20 +77,22 @@ export function Toggle({
   const controlId = id ?? generated;
   return (
     <span className="brew-toggle-label">
-      <button
-        id={controlId}
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={hideLabel ? label : undefined}
-        aria-describedby={descriptionId}
-        data-brew-action={action}
-        disabled={disabled}
-        onClick={() => onCheckedChange(!checked)}
-        className={`brew-toggle ${className}`}
-      >
-        <span />
-      </button>
+      <span className="brew-toggle-shell">
+        <button
+          id={controlId}
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          aria-label={hideLabel ? label : undefined}
+          aria-describedby={descriptionId}
+          data-brew-action={action}
+          disabled={disabled}
+          onClick={() => onCheckedChange(!checked)}
+          className={`brew-toggle ${className}`}
+        >
+          <span />
+        </button>
+      </span>
       <label htmlFor={controlId} className={hideLabel ? 'sr-only' : ''}>
         {label}
       </label>

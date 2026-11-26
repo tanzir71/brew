@@ -417,7 +417,7 @@ export function NewslettersPage() {
                         ? 'Needs a feed URL'
                         : 'Needs mail add-on'}
                 </Badge>
-                <button onClick={() => setGmail(true)}>Forward from Gmail</button>
+                <button className="brew-compact-control" onClick={() => setGmail(true)}>Forward from Gmail</button>
               </div>
               {!address && <a href="/settings/runs#setup-newsletters">Set up mail</a>}
               {(mailbox.isError || caps.isError) && (

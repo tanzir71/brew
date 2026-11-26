@@ -297,6 +297,7 @@ export function LetterPane({
           <Icon name="shield" size={14} />
           <span>{summary}</span>
           <button
+            className="brew-compact-control"
             aria-pressed={displayingOriginal}
             disabled={!letter.originalAvailable}
             title={letter.originalAvailable ? undefined : 'Original expired with sender retention'}

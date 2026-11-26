@@ -156,6 +156,10 @@
 .compose-editor .brew-segment {
   padding-inline: 10px;
 }
+.compose-editor .brew-section-card h3 input {
+  height: 24px;
+  margin-block: -4px;
+}
 .compose-editor .brew-select {
   width: 180px;
   height: 30px;

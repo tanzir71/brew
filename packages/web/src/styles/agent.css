@@ -32,8 +32,3 @@
   color: var(--brew-text-soft);
   margin: 0;
 }
-.agent-mode-card .agent-mode-toggle {
-  height: 24px;
-  border-block: 3px solid var(--brew-bg-surface);
-  background-clip: padding-box;
-}

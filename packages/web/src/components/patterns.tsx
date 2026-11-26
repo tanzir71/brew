@@ -463,7 +463,11 @@ export function CapabilityRow({
         <p>{description}</p>
       </div>
       {setup && (
-        <a href={setup.href} aria-label={`${setup.label} ${title}`}>
+        <a
+          className={appearance === 'default' ? 'brew-compact-control' : undefined}
+          href={setup.href}
+          aria-label={`${setup.label} ${title}`}
+        >
           {setup.label}
         </a>
       )}

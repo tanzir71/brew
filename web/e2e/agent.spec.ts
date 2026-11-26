@@ -10,6 +10,44 @@ import { composeFixture } from './compose-fixture';
 import { BrewService } from '../../targets/node/src/services/brew-service';
 import { agentModeFixture } from './agent-mode-fixture';
 
+test('an agent uses compact rule targets, edits native draft controls and cancels deletion without writes', async ({ page }) => {
+  const f = await newslettersFixture(page);
+  try {
+    const service = new RulesService(f.database);
+    service.create({ name: 'Target rule', enabled: false, matchType: 'all', scope: {}, conditions: [{ field: 'title', operator: 'contains', value: 'Design' }], actions: [{ type: 'star' }], stopProcessing: false });
+    await page.goto('/rules');
+    const original = page.getByRole('article', { name: 'Target rule', exact: true });
+    const copy = original.getByRole('button', { name: 'Copy', exact: true });
+    const box = (await copy.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(24);
+    expect(box.height).toBeGreaterThanOrEqual(24);
+    await page.mouse.click(box.x + box.width / 2, box.y + 1);
+    const copied = page.getByRole('article', { name: 'Target rule copy', exact: true });
+    await expect(copied).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Rule name', exact: true })).toHaveValue('Target rule copy');
+    expect(f.database.sqlite.prepare('SELECT name,enabled FROM rules ORDER BY id').all()).toEqual([{ name: 'Target rule', enabled: 0 }, { name: 'Target rule copy', enabled: 0 }]);
+    const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    const enabled = page.getByRole('checkbox', { name: 'Enabled', exact: true });
+    await enabled.focus();
+    await page.keyboard.press('Space');
+    await expect(enabled).toBeChecked();
+    await page.getByRole('button', { name: '+ Add condition', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    await page.getByLabel('Condition 2 value', { exact: true }).fill('Draft only');
+    const remove = copied.getByRole('button', { name: 'Delete', exact: true });
+    const target = (await remove.boundingBox())!;
+    expect(target.height).toBeGreaterThanOrEqual(24);
+    await page.mouse.click(target.x + target.width / 2, target.y + target.height - 1);
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(dialog).toHaveCount(0);
+    await expect(remove).toBeFocused();
+    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM rules').get()).toEqual({ n: 2 });
+  } finally { await f.close(); }
+});
+
 test('an agent enables saved agent mode, pages the full DOM by keyboard and reads an exact search item', async ({ page }) => {
   const f = await agentModeFixture(page);
   try {

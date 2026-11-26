@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import { agentPageHref } from '../agentLocation';
 import { useQuery } from '@tanstack/react-query';
 import type {
   BrewConfig,
@@ -295,7 +296,7 @@ function ComposeEditor({ initial, ...props }: Props & { initial: BrewConfig }) {
                     {capabilities.data?.emailDelivery ? 'Preview only' : 'Needs mail add-on'}
                   </Badge>
                 </span>
-                <a href="/settings/runs#setup-delivery">Set up</a>
+                <a href={agentPageHref('/settings/runs#setup-delivery')}>Set up</a>
               </div>
             </section>
             <div className="compose-sections-heading">
@@ -478,7 +479,7 @@ function ComposeEditor({ initial, ...props }: Props & { initial: BrewConfig }) {
                         {!capabilities.data?.ai.configured && (
                           <p className="compose-gate">
                             <Badge tone="locked">Set up AI</Badge>
-                            <a href="/settings/runs#setup-ai">Set up</a>
+                            <a className="brew-compact-control" href={agentPageHref('/settings/runs#setup-briefs')}>Set up</a>
                           </p>
                         )}
                       </div>

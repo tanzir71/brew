@@ -276,6 +276,11 @@ not save a preference; native app navigation retains it. In Agent access, **Use
 saved preference** removes the temporary override. Page links retain filters and
 history, and Markdown/JSON links describe the selected page and active mode.
 MCP, tokens and WebMCP remain separate M12 work.
+
+Shared switches and checkboxes provide 24px activation areas while keeping their
+existing visual sizes. Compact rule actions, Compose fields, setup links and
+newsletter controls also meet that minimum. Browser checks cover the controls
+and verify that clicks along the enlarged edges activate the intended control.
 See [agent DOM implementation](docs/agent-dom.md) for the current role/label-only
 journey and the remaining M12 checklist work.
 

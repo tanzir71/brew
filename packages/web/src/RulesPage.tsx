@@ -1,3 +1,4 @@
+import { Checkbox } from './components/controls';
 import { agentPageHref } from './agentLocation';
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useOwnerActions } from './hooks/useOwnerActions';
@@ -294,24 +295,20 @@ export function RulesPage() {
             ? 'Notifications enabled'
             : 'Enable notifications'}
         </button>
-        <label className="mt-3 flex items-center gap-2 text-xs text-soft">
-          <input
-            type="checkbox"
+        <Checkbox className="mt-3" label="Hide near-duplicate titles (3 days)"
             checked={duplicateFilter}
             onChange={(event) => {
               const enabled = event.target.checked;
               setDuplicateFilter(enabled);
               void json('/api/rules/duplicate-filter', { method: 'PUT', body: JSON.stringify({ enabled }) });
             }}
-          />
-          Hide near-duplicate titles (3 days)
-        </label>
+        />
         <div className="mt-5 rounded-xl bg-subtle p-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-soft">Templates</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <button type="button" onClick={()=>{newRule({...blankDraft(),name:'Mute a keyword',conditions:[{field:'title',operator:'contains',value:'keyword'}],actions:[{type:'hide'}]})}} className="text-xs text-soft">Mute keyword</button>
-            <button type="button" onClick={()=>{newRule({...blankDraft(),name:'Highlight an author',conditions:[{field:'author',operator:'equals',value:'Author name'}],actions:[{type:'highlight',color:'#f59e0b'}]})}} className="text-xs text-soft">Highlight author</button>
-            <button type="button" onClick={()=>{newRule({...blankDraft(),name:'Feature a folder',scope:{folderIds:navigation.folders[0]?[navigation.folders[0].id]:[]},conditions:[],actions:[{type:'feature_in_brew'}]})}} className="text-xs text-soft">Feature folder</button>
+            <button type="button" onClick={()=>{newRule({...blankDraft(),name:'Mute a keyword',conditions:[{field:'title',operator:'contains',value:'keyword'}],actions:[{type:'hide'}]})}} className="brew-compact-control text-xs text-soft">Mute keyword</button>
+            <button type="button" onClick={()=>{newRule({...blankDraft(),name:'Highlight an author',conditions:[{field:'author',operator:'equals',value:'Author name'}],actions:[{type:'highlight',color:'#f59e0b'}]})}} className="brew-compact-control text-xs text-soft">Highlight author</button>
+            <button type="button" onClick={()=>{newRule({...blankDraft(),name:'Feature a folder',scope:{folderIds:navigation.folders[0]?[navigation.folders[0].id]:[]},conditions:[],actions:[{type:'feature_in_brew'}]})}} className="brew-compact-control text-xs text-soft">Feature folder</button>
           </div>
         </div>
         <div className="mt-5 space-y-2">
@@ -345,16 +342,16 @@ export function RulesPage() {
                 </span>
               </a>
               <div className="mt-2 flex gap-2">
-                <button data-brew-action="copy-rule" onClick={() => duplicate(rule)} className="text-xs text-soft">
+                <button data-brew-action="copy-rule" onClick={() => duplicate(rule)} className="brew-compact-control text-xs text-soft">
                   Copy
                 </button>
-                <button data-brew-action="delete-rule" disabled={!owner.capable || owner.busy} onClick={() => remove(rule)} className="text-xs text-danger">
+                <button data-brew-action="delete-rule" disabled={!owner.capable || owner.busy} onClick={() => remove(rule)} className="brew-compact-control text-xs text-danger">
                   Delete
                 </button>
-                <a data-brew-action="rule-log" href={agentPageHref(rulePageHref(rule.id, 'log'))} onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); void showLogs(rule); }} className="text-xs text-soft">
+                <a data-brew-action="rule-log" href={agentPageHref(rulePageHref(rule.id, 'log'))} onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); void showLogs(rule); }} className="brew-compact-control text-xs text-soft">
                   Logs
                 </a>
-                <button data-brew-action="apply-rule" disabled={!owner.capable || owner.busy} onClick={() => applyExisting(rule)} className="text-xs text-accent">
+                <button data-brew-action="apply-rule" disabled={!owner.capable || owner.busy} onClick={() => applyExisting(rule)} className="brew-compact-control text-xs text-accent">
                   Apply 30d
                 </button>
               </div>
@@ -370,16 +367,12 @@ export function RulesPage() {
             onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
             className="min-w-0 flex-1 border-0 bg-transparent text-2xl font-semibold outline-none"
           />
-          <label className="flex items-center gap-2 text-xs text-soft">
-            <input
-              type="checkbox"
+          <Checkbox label="Enabled"
               checked={draft.enabled}
               onChange={(event) =>
                 setDraft((current) => ({ ...current, enabled: event.target.checked }))
               }
-            />{' '}
-            Enabled
-          </label>
+          />
         </div>
         <div className="mt-8 text-[17px] leading-[2.7] text-soft">
           When an article in{' '}
@@ -510,7 +503,7 @@ export function RulesPage() {
                     conditions: current.conditions.filter((_, item) => item !== index),
                   }))
                 }
-                className="px-2 text-muted disabled:opacity-30"
+                className="brew-compact-control px-2 text-muted disabled:opacity-30"
               >
                 ×
               </button>
@@ -528,7 +521,7 @@ export function RulesPage() {
                 ],
               }))
             }
-            className="text-xs font-semibold text-accent"
+            className="brew-compact-control text-xs font-semibold text-accent"
           >
             + Add condition
           </button>
@@ -565,7 +558,7 @@ export function RulesPage() {
                     actions: current.actions.filter((_, item) => item !== index),
                   }))
                 }
-                className="px-2 text-muted disabled:opacity-30"
+                className="brew-compact-control px-2 text-muted disabled:opacity-30"
               >
                 ×
               </button>
@@ -579,21 +572,17 @@ export function RulesPage() {
                 actions: [...current.actions, { type: 'star' }],
               }))
             }
-            className="text-xs font-semibold text-accent"
+            className="brew-compact-control text-xs font-semibold text-accent"
           >
             + Add action
           </button>
         </div>
-        <label className="mt-7 flex items-center gap-2 text-sm text-soft">
-          <input
-            type="checkbox"
+        <Checkbox className="mt-7" label="Stop processing later rules when this matches"
             checked={draft.stopProcessing}
             onChange={(event) =>
               setDraft((current) => ({ ...current, stopProcessing: event.target.checked }))
             }
-          />{' '}
-          Stop processing later rules when this matches
-        </label>
+        />
         {(message || previewError) && (
           <p role="status" className="mt-4 text-sm text-soft">
             {message || previewError}

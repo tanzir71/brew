@@ -195,8 +195,45 @@ Three unit cases verify URL/preference precedence, preservation of reading state
 and safe flag propagation. Browser checks cover actual storage failures,
 cross-tab mode changes with a retained tag draft, temporary-override removal,
 native control sizing, light/dark axe and desktop/phone captures. The remaining
-DOM audit includes shared control targets: the new agent switch has a measured
-24px target, while the shared Toggle still renders an 18px pill elsewhere.
+DOM audit continues with conditional controls and legacy Rules feedback. Shared
+switches now expose a 24px native button around the unchanged 18px visual pill;
+native checkboxes expose a 24px input around the existing 16px box.
+
+## Native activation targets
+
+`web/e2e/control-targets.spec.ts` measures application controls in 14 real view and
+dialog states: primitive components, the shared sheet, Reader, article reading,
+Rules, feeds, Newsletters, instance and reading settings, a generated Read edition,
+Compose, source selection, Schedule & delivery, and the Briefs setup guide. It
+checks native controls and their associated activation labels after fonts load,
+scopes modal checks to the active dialog, and writes the measured defects to
+browser-test artifacts. Inline publisher links in reading content are separate
+from application controls. The test runs against Node/SQLite fixtures and keeps
+the existing light/dark visual baselines.
+
+Two more cases click the top and bottom of the native switch target and opposite
+corners of the checkbox target in both themes. These points lie outside the
+unchanged visual artwork. They verify actual activation, unchanged neighbouring
+values and keyboard Space behavior. The shared controls retain native button /
+checkbox semantics, labels, disabled states and focus. Hit boxes extend beyond
+their original layout shells; a baseline marker preserves the switch's original
+inline alignment. Compact text actions add clickable padding while cancelling
+that padding's layout footprint. Drag handles retain their existing grip and
+native drag / keyboard alternatives.
+
+A twenty-fourth role/label-only journey clicks the padded edge of Copy on a real
+saved rule, verifies the actual disabled copy in SQLite, edits native draft
+controls, then clicks the padded Delete edge and cancels the native confirmation.
+Draft changes and Cancel cause no further writes, and focus returns to Delete.
+Geometry checks also cover labelled search/sort/title/numeric fields and compact
+setup/navigation links. Existing Briefs setup links using `#setup-ai` now reach the
+actual Briefs guide; the current Compose control uses `#setup-briefs` and retains
+the agent flag.
+
+This completes the shared-target defect identified in M12.16, rather than the
+entire DOM criterion. The remaining Rules audit includes its More actions and
+acknowledged feedback for Copy failures, duplicate-filter saves and browser
+notification permission outcomes. The first global DOM checkbox stays open.
 
 The client serializes tag writes per item, cancels obsolete detail reads and
 patches only tags in article/newsletter caches. It refreshes dependent previews
@@ -224,7 +261,7 @@ metadata and geometry directly; they do not substitute for this agent journey.
 | Totals and pagination | Newsletter, Reader, search and feed-library/audit views announce showing ranges/totals. Counts remain available to assistive technology in Calm mode. Newsletter/Reader/search/hidden articles offer native Previous/Next links with URL page state; hidden counts exceed the legacy 500-item cap. Normal Reader/search retain virtual/infinite lists; agent mode instead renders one complete 50-item DOM page with numbered links, exact totals and retained URL filters. | Maintain announcements as later views are added. Agent-mode paging, motion suppression and scroll-marking suppression are verified. |
 | Confirmation and undo | Reader bulk click/Shift+A and frozen Brew section/edition reads, rule apply/delete, feed/folder deletion, library/Compose OPML import, risky sender settings and browser saved-search deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs, folder assignments, sender retention and Brew routing. OPML Undo protects later uses of imported records. Browser bookmarks have separate local Undo with reload recovery. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
 | Text twins | All currently implemented data views have private twins: frozen Brews/articles; Reader/search; saved Compose/rules/logs; feed library/health/hidden articles; Newsletters lists; instance settings; Reader welcome and empty Brew/library states. Selection/filter parameters survive in alternate links. Explicitly opened content overrides its underlying page; subscription links remain separate. | Continue coverage when later milestones add views. Draft forms export explicitly labelled saved state; unsaved previews stay separate. The full DOM checkbox remains open for the other rows. |
-| Visible state and targets | Read/star/tag changes update real controls and stable state; article Open and reading-toolbar targets are at least 24px; More/confirmation reuse existing controls. Newsletter navigation declares current selection, has visible keyboard focus and focuses an explicitly opened reading pane. | Full target-size/focus/overlay and post-action visibility audit across every implemented screen. |
+| Visible state and targets | Read/star/tag changes update real controls and stable state; article Open and reading-toolbar targets are at least 24px; More/confirmation reuse existing controls. Newsletter navigation declares current selection, has visible keyboard focus and focuses an explicitly opened reading pane. | Native controls are measured in 14 core states with real edge activation in both themes and unchanged Figma visuals. Continue the conditional-control and legacy Rules action/result audit. |
 
 ## Browser saved-search bookmarks
 

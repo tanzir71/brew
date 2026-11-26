@@ -96,23 +96,52 @@
   font: 400 13px/19px var(--brew-font-ui);
   color: var(--brew-text-primary);
 }
+/* Keep the Figma pill and its inline baseline; enlarge only the native hit box. */
+.brew-toggle-shell {
+  display: inline-flex;
+  position: relative;
+  width: 32px;
+  height: 18px;
+  padding: 2px;
+  flex-shrink: 0;
+}
+.brew-toggle-shell::after {
+  /* Match the original knob's flex baseline without painting another element. */
+  content: '';
+  width: 0;
+  height: 14px;
+}
 .brew-toggle {
   display: inline-flex;
+  position: absolute;
+  left: 0;
+  top: -3px;
+  width: 32px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  padding: 5px 2px;
+  background: transparent;
+  cursor: pointer;
+}
+.brew-toggle::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 3px;
   width: 32px;
   height: 18px;
   border-radius: 999px;
-  padding: 2px;
   background: var(--brew-border-strong);
-  cursor: pointer;
-  flex-shrink: 0;
 }
 .brew-toggle span {
+  position: relative;
   width: 14px;
   height: 14px;
   border-radius: 999px;
   background: var(--brew-bg-surface);
 }
-.brew-toggle[aria-checked='true'] {
+.brew-toggle[aria-checked='true']::before {
   background: var(--brew-text-primary);
 }
 .brew-toggle[aria-checked='true'] span {
@@ -186,16 +215,29 @@
   height: 16px;
 }
 .brew-checkbox-box input {
+  /* The native input covers 24px; its existing 16px artwork stays in the shell. */
   appearance: none;
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 24px;
+  height: 24px;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  margin: 0;
+  cursor: pointer;
+}
+.brew-checkbox-box input::before {
+  content: '';
+  display: block;
   width: 16px;
   height: 16px;
   border: 1px solid var(--brew-border-strong);
   border-radius: var(--brew-radius-sm);
   background: var(--brew-bg-surface);
-  margin: 0;
-  cursor: pointer;
 }
-.brew-checkbox-box input:checked {
+.brew-checkbox-box input:checked::before {
   background: var(--brew-text-primary);
   border-color: var(--brew-text-primary);
 }
@@ -212,6 +254,15 @@
 }
 .brew-checkbox-label:has(input:disabled) {
   opacity: 0.5;
+}
+.brew-compact-control {
+  /* Cancel the added padding in layout while retaining the clickable rectangle. */
+  display: inline-flex;
+  align-items: center;
+  min-width: 24px;
+  min-height: 24px;
+  padding-block: max(0px, calc((24px - 1lh) / 2));
+  margin-block: min(0px, calc((1lh - 24px) / 2));
 }
 .brew-avatar {
   display: inline-flex;
@@ -348,6 +399,8 @@
   align-items: center;
 }
 .brew-brew-switcher select {
+  height: 24px;
+  margin-block: -4px;
   appearance: none;
   padding-right: 22px;
   font: 500 13px/16px var(--brew-font-ui);
@@ -396,6 +449,10 @@
   color: var(--brew-text-primary);
 }
 .brew-drag-handle {
+  min-width: 24px;
+  min-height: 24px;
+  padding: 4px;
+  margin: -4px;
   color: var(--brew-text-caption);
   cursor: grab;
   display: inline-flex;
@@ -501,6 +558,7 @@
   cursor: not-allowed;
 }
 .brew-stepper input {
+  height: 24px;
   appearance: textfield;
   width: 32px;
   text-align: center;

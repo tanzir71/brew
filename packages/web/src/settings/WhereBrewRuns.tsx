@@ -34,9 +34,12 @@ export function WhereBrewRuns() {
   const query = useCapabilities();
   const capabilities = query.data;
   const hash = useSyncExternalStore(subscribeHash, () => location.hash);
-  const topic = hash.startsWith('#setup-')
-    ? topics.find((item) => item === hash.slice(7))
-    : undefined;
+  const topic =
+    hash === '#setup-ai'
+      ? 'briefs'
+      : hash.startsWith('#setup-')
+        ? topics.find((item) => item === hash.slice(7))
+        : undefined;
   const preferenceTopic =
     hash === '#preferences-general'
       ? 'general'
@@ -221,7 +224,7 @@ export function WhereBrewRuns() {
               <img src={runAssets.upload} alt="" />
               Import
             </button>
-            <a href="#setup-data" className="runs-transfer-help">
+            <a href="#setup-data" className="runs-transfer-help brew-compact-control">
               <Badge tone="warning">Needs setup</Badge>Set up
             </a>
             <span>No exports yet</span>

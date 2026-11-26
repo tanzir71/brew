@@ -7,6 +7,7 @@ import { useCapabilities } from '../hooks/useCapabilities';
 import { Icon } from '../components/Icon';
 import { Badge } from '../components/Badge';
 import { composeJson } from './useComposeDraft';
+import { agentPageHref } from '../agentLocation';
 
 export function BrewFormats({ snapshot }: { snapshot: BrewIssue }) {
   const caps = useCapabilities();
@@ -87,11 +88,12 @@ export function BrewFormats({ snapshot }: { snapshot: BrewIssue }) {
         <p>
           <Badge tone="locked">{unavailable}</Badge>{' '}
           <a
-            href={
+            className="brew-compact-control"
+            href={agentPageHref(
               feeds
                 ? `/b/${snapshot.brewConfigId}/compose?sheet=schedule`
-                : '/settings/runs#setup-outputs'
-            }
+                : '/settings/runs#setup-outputs',
+            )}
           >
             {feeds ? 'Schedule & delivery' : 'About formats'}
           </a>

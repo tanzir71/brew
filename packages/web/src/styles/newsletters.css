@@ -91,6 +91,8 @@
   font-weight: 400;
 }
 .letters-senders-heading select {
+  min-height: 24px;
+  margin-block: -4px;
   max-width: 64px;
   padding: 0;
   border: 0;
