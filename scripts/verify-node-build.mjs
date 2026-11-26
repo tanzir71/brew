@@ -13,6 +13,7 @@ import { smtpConfigFromEnv } from '../dist/targets/node/src/outbound-config.js';
 import { renderBrewJson, renderBrewMarkdown } from '../dist/packages/core/src/brew-outputs.js';
 import { inboundConfigFromEnv } from '../dist/targets/node/src/inbound-config.js';
 import { verifyMcpBuild } from './verify-mcp-build.mjs';
+import { verifyReaderSyncBuild } from './verify-reader-sync-build.mjs';
 
 // A built install must find migrations and the SPA outside the repository cwd.
 const previousDirectory = process.cwd();
@@ -689,6 +690,8 @@ try {
   log(
     await verifyMcpBuild().then(()=> 'Built MCP: HTTP triage, reopened CLI stdio replay and real Undo passed outside the repository cwd.'),
   );
+  await verifyReaderSyncBuild();
+  log('Built Reader sync: app password, Google Reader IDs/content/state, Fever, namespace isolation and revocation passed outside the repository cwd.');
   log(
     'Built Node target: migrations, MIME/cleaning, signed inbound webhook/replay, health, output twins/feeds/delivery, SMTP setup, SPA, assets and fallback passed outside the repository cwd.',
   );

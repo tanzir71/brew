@@ -22,6 +22,8 @@ The document includes:
   route patterns, ID discovery and paginated list guidance.
 - Names/descriptions directly from the shared MCP/WebMCP catalog. No independent
   list of tool names needs maintenance.
+- Separate Reader app authentication and Google Reader/Fever links when app
+  access is configured; see [Reader apps](reader-api.md).
 
 This is metadata, not a library export. Generation calls only the capability
 adapter, checks the presence of the token adapter, and constructs tool definitions.

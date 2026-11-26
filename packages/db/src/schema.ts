@@ -251,7 +251,30 @@ export const agentActionChanges = sqliteTable(
   (table) => [index('agent_action_changes_action').on(table.actionId, table.id)],
 );
 
+export const readerAccess = sqliteTable('reader_access', {
+  id: integer('id').primaryKey(),
+  username: text('username').notNull(),
+  salt: text('salt').notNull(),
+  passwordHash: text('password_hash').notNull(),
+  feverHash: text('fever_hash').notNull(),
+  generation: text('generation').notNull(),
+  createdAt: timestamp('created_at').notNull(),
+});
+export const readerSessions = sqliteTable(
+  'reader_sessions',
+  {
+    tokenHash: text('token_hash').primaryKey(),
+    writeHash: text('write_hash').notNull().unique(),
+    generation: text('generation').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+    createdAt: timestamp('created_at').notNull(),
+  },
+  (table) => [index('reader_sessions_expiry').on(table.expiresAt)],
+);
+
 export const schema = {
+  readerAccess,
+  readerSessions,
   apiTokens,
   agentActions,
   agentActionChanges,

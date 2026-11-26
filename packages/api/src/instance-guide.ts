@@ -13,7 +13,7 @@ export async function instanceGuide(services: ApiServices, hasMcpTransport: bool
     '',
     `Mode: ${caps.mode}. Read state: ${caps.readState}. MCP: ${mcp ?? 'unavailable'}. WebMCP: ${caps.webmcp ? 'experimental; browser opt-in required' : 'disabled'}.`,
     '',
-    'Access: owner HTML, REST, text exports and this guide use the existing network/reverse-proxy access gate. This guide grants no access and contains no account or token. Scoped bearer tokens authorize only /mcp; do not send them to owner REST or this guide.',
+    'Access: owner HTML, REST, text exports and this guide use the existing network/reverse-proxy access gate. This guide grants no access and contains no account or token. MCP bearer tokens authorize only /mcp; Reader app sessions authorize only their protocol routes. Do not send client credentials to owner REST or this guide.',
     ...(mcp
       ? [
           '',
@@ -74,6 +74,11 @@ export async function instanceGuide(services: ApiServices, hasMcpTransport: bool
   if (caps.webmcp)
     lines.push(
       '- [WebMCP catalog](/api/webmcp/tools): Shared definitions. Owner same-origin invocations use POST /api/webmcp/call; browser code binds arguments to mounted UI and stages confirmed writes.',
+    );
+  if (caps.readerApi)
+    lines.push(
+      '- [Google Reader API](/api/greader/reader/api/0/user-info): Reader app base URL /api/greader. POST accounts/ClientLogin below that base with Email and Passwd to obtain a Reader session; use GoogleLogin auth=<session> or its Reader bearer header. Fetch reader/api/0/token for write token T. These are separate app credentials, not MCP tokens.',
+      '- [Fever API](/api/fever): Use a dedicated generated app password; send api_key=MD5(username:password) in a URL-encoded POST. This credential permits reading/synchronizing state and subscriptions through the reader protocols, never owner REST or MCP. Setup and rotation use the owner-only /api/reader-access endpoint.',
     );
   if (!caps.agentAccess && !mcp && !caps.webmcp)
     lines.push(

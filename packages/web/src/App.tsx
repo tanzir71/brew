@@ -1,4 +1,5 @@
 import { useWebMcpSurface } from './webmcp/useWebMcpSurface';
+import { useReaderSyncEvents } from './hooks/useReaderSyncEvents';
 import { agentPageHref } from './agentLocation';
 import { ReaderHelp } from './components/ReaderHelp';
 import { AgentMode } from './components/AgentMode';
@@ -21,6 +22,7 @@ export function App() {
   return <ErrorBoundary><AgentMode><WebMcpProvider><AppContent /></WebMcpProvider></AgentMode></ErrorBoundary>;
 }
 function AppContent() {
+  useReaderSyncEvents();
   const [mode, setMode] = useState<'brew' | 'reader' | 'feeds' | 'rules'>(()=>{
     if (/^\/rules(?:\/[1-9]\d*)?$/.test(location.pathname)) return 'rules';
     if (location.pathname === '/feeds') return 'feeds';

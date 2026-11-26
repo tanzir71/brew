@@ -9,7 +9,7 @@ curl http://127.0.0.1:4400/api/openapi.json
 The document uses OpenAPI `3.1.0` and a relative `/` server URL. It describes the
 actual registered Hono handlers, including REST, private Markdown/JSON exports,
 Atom/JSON issue feeds, SSE, inbound webhooks, MCP, flagged WebMCP and the instance
-agent guide. At M12.24 it covers 122 operations on 104 paths with 55 reusable data schemas. It excludes HTML application routes,
+agent guide, Google Reader/Fever and reader app-password management. It excludes HTML application routes,
 static assets and unimplemented endpoints.
 
 GET and HEAD return `application/json`, `Cache-Control: private, no-store` and
@@ -39,6 +39,11 @@ management requires a same-origin Origin header for writes. See [Agent access](a
 Basic authentication. Mailgun verifies signed payload fields or raw-body signature
 headers, as described on the inbound operations. No credential values appear in
 the document.
+
+[Reader apps](reader-api.md) have a separate app password, Google Reader session
+and Fever protocol key. Those credentials cannot authorize MCP or owner REST.
+Reader forms use URL encoding or text-only multipart; XML OPML import is explicitly
+documented. Their routes remain present when access is disabled.
 
 The Node [MCP server](mcp.md) serves `/mcp` and CLI stdio, sharing the existing
 services and durable action journal. Experimental [WebMCP](webmcp.md) uses

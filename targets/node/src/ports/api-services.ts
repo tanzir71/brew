@@ -20,6 +20,8 @@ import { nodeCapabilities } from '../capabilities.js';
 import { ActionsService } from '../../../../packages/core/src/actions.js';
 import { NodeActionStorage } from './action-storage.js';
 import { NodeAgentAccess } from './agent-access.js';
+import { NodeReaderAccess } from './reader-access.js';
+import { NodeReaderSyncStorage } from './reader-sync-storage.js';
 
 export function nodeApiServices(
   database: BrewDatabase,
@@ -41,13 +43,21 @@ export function nodeApiServices(
     broker.publish('notification', article),
   );
   const actions = new ActionsService(actionStorage);
+  const readerAccess = new NodeReaderAccess(database, () => clock?.now().getTime() ?? Date.now());
+  const readerSync = new NodeReaderSyncStorage(
+    database,
+    () => clock?.now().getTime() ?? Date.now(),
+    () => broker.publish('reader:sync', {}),
+  );
   return {
+    readerSync: { access: readerAccess, storage: readerSync },
     actions,
     agentAccess: new NodeAgentAccess(database, actionStorage, options.clock),
     outputBaseUrl: options.publicUrl,
     newsletters: new NewsletterLibrary(database, options.clock),
     capabilities: () => ({
       ...nodeCapabilities(),
+      readerApi: readerAccess.status().enabled,
       webmcp: options.webmcp === true,
       emailDelivery: options.outboundMail?.kind ?? null,
       inboundMail: options.inboundMail ?? null,

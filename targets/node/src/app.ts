@@ -54,11 +54,29 @@ export async function createApp(
     throw new Error('BREW_PUBLIC_URL is required for SMTP links and images.');
   const smtp = options.smtp ? new SmtpMail(options.smtp, options.smtpTls) : undefined;
   const outboundMail = options.outboundMail ?? smtp;
-  const app = Fastify({ logger: options.logger ?? process.env.NODE_ENV !== 'test' });
+  const loggerEnabled = options.logger ?? process.env.NODE_ENV !== 'test';
+  const app = Fastify({
+    logger: loggerEnabled
+      ? {
+          serializers: {
+            req: (request) => ({
+              method: request.method,
+              url: /^\/api\/(?:greader|fever|reader-access)(?:[/.?]|$)/.test(request.url ?? '')
+                ? request.url.split('?')[0]
+                : request.url,
+              host: request.host,
+              remoteAddress: request.ip,
+              remotePort: request.socket?.remotePort,
+            }),
+          },
+        }
+      : false,
+  });
   app.addHook('onSend', async (request, reply, payload) => {
     if (
       request.url.split('?')[0] === '/mcp' ||
       request.url.split('?')[0] === '/llms.txt' ||
+      /^\/api\/(?:greader|fever|reader-access)(?:[/?]|$)/.test(request.url) ||
       request.url.startsWith('/api/agent-access/') ||
       request.url.startsWith('/api/webmcp/')
     ) {

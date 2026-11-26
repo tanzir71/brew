@@ -522,6 +522,11 @@
 .compose-brief-gate a {
   color: var(--brew-accent-default);
 }
+.compose-brief-gate a {
+  min-height: 24px;
+  padding-block: 3px;
+  margin-block: -3px;
+}
 .compose-gate {
   margin-top: 6px;
 }

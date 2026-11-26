@@ -8,6 +8,11 @@
 
 Brew fetches your RSS/Atom feeds, stores everything locally, lets you build rules to triage articles, and produces daily "Brew" snapshots — a curated daily digest built from your own subscriptions. It is intentionally single-user: one person, one machine, one database file you can back up by copying it.
 
+Node also offers [Google Reader and Fever compatibility APIs](docs/reader-api.md)
+with a separate generated app password, shared read/star state and subscription
+management. App access defaults off. The Apps & sync settings interface and
+native-client capture review remain part of M13's next steps.
+
 ## Architecture
 
 ```

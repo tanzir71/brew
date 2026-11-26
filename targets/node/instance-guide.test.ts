@@ -104,7 +104,7 @@ it.each(['none', 'http', 'webmcp'] as const)(
       },
     ) as unknown as ApiServices;
     const api = createApi(services, {
-      mcp: adapter === 'http' ? { handleRequest: async () => new Response() } : undefined,
+      mcp: adapter === 'http' ? { fetch: async () => new Response() } : undefined,
     });
     servingGuide = true;
     const result = await api.request('/llms.txt');

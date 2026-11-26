@@ -9,7 +9,7 @@ export function registerInstanceGuide(app: Hono, services: ApiServices, hasMcpTr
   app.use('/llms.txt', async (c, next) => {
     c.header('Cache-Control', 'private, no-store');
     c.header('X-Robots-Tag', 'noindex, nofollow');
-    if (/^Bearer\b/i.test(c.req.header('authorization') ?? ''))
+    if (/^(?:Bearer|GoogleLogin)\b/i.test(c.req.header('authorization') ?? ''))
       return json(c, { error: 'Scoped tokens are accepted only at /mcp.' }, 403);
     await next();
   });

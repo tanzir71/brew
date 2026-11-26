@@ -1,4 +1,5 @@
 import { useWebMcpSurface } from './webmcp/useWebMcpSurface';
+import { subscribeReaderEvents } from './readerEvents';
 import { agentPageHref } from './agentLocation';
 import {
   useInfiniteQuery,
@@ -92,13 +93,11 @@ export function Reader({
     const refresh = () => {
       void queryClient.invalidateQueries({ queryKey: ['reader-navigation'] }, { cancelRefetch: false });
     };
-    const events = new EventSource('/api/events');
-    events.addEventListener('article:new', () => {
+    const stopEvents = subscribeReaderEvents({ 'article:new': () => {
       void queryClient.invalidateQueries({ queryKey: ['reader-navigation'] });
       void queryClient.invalidateQueries({ queryKey: ['articles'] });
       void queryClient.invalidateQueries({ queryKey: ['search'] });
-    });
-    events.addEventListener('notification', (event) => {
+    }, notification: (event) => {
       if (!('Notification' in window) || Notification.permission !== 'granted') return;
       try {
         const article = JSON.parse((event as MessageEvent<string>).data) as {
@@ -110,10 +109,10 @@ export function Reader({
       } catch {
         // Ignore malformed events without interrupting the live reader connection.
       }
-    });
+    }});
     window.addEventListener('brew:navigation-refresh', refresh);
     return () => {
-      events.close();
+      stopEvents();
       window.removeEventListener('brew:navigation-refresh', refresh);
     };
   }, [queryClient]);

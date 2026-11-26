@@ -17,8 +17,15 @@ export function mountApi(server: FastifyInstance, api: ReturnType<typeof createA
     const path = request.url.split('?')[0]!;
     if (path.startsWith('/b/') && !isBrewOutputPath(path)) return reply.callNotFound();
     if (path.startsWith('/a/') && !isArticleOutputPath(path)) return reply.callNotFound();
-    if ((path.startsWith('/f/') || path.startsWith('/feed/')) && !isReaderPageOutputPath(path)) return reply.callNotFound();
-    if ((path.startsWith('/rules/') || path.startsWith('/settings/') || path.startsWith('/letters/')) && !isAppPageOutputPath(path)) return reply.callNotFound();
+    if ((path.startsWith('/f/') || path.startsWith('/feed/')) && !isReaderPageOutputPath(path))
+      return reply.callNotFound();
+    if (
+      (path.startsWith('/rules/') ||
+        path.startsWith('/settings/') ||
+        path.startsWith('/letters/')) &&
+      !isAppPageOutputPath(path)
+    )
+      return reply.callNotFound();
     const controller = new AbortController();
     const abort = () => controller.abort();
     reply.raw.once('close', abort);
@@ -56,12 +63,21 @@ export function mountApi(server: FastifyInstance, api: ReturnType<typeof createA
   void server.register(async (scope) => {
     scope.removeAllContentTypeParsers();
     scope.addContentTypeParser(
-      ['application/json', 'application/x-www-form-urlencoded', 'multipart/form-data'],
+      [
+        'application/json',
+        'application/x-www-form-urlencoded',
+        'multipart/form-data',
+        'text/xml',
+        'application/xml',
+        'text/x-opml',
+      ],
       { parseAs: 'buffer', bodyLimit: MAX_INBOUND_REQUEST_BYTES },
       (_request, value, done) => done(null, value),
     );
     for (const url of ['/api/inbound/email', '/api/inbound/email/json', '/api/inbound/email/mime'])
       scope.post(url, { bodyLimit: MAX_INBOUND_REQUEST_BYTES }, handler);
+    for (const url of ['/api/greader/*', '/api/fever', '/api/fever/'])
+      scope.all(url, { bodyLimit: 1_048_576 }, handler);
   });
   // A confirmed OPML action carries up to 1 MB of XML in a JSON envelope.
   server.post('/api/actions', { bodyLimit: opmlDocumentLimit * 2 + 4096 }, handler);

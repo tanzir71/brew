@@ -25,6 +25,9 @@ import { registerMcpRoutes, type McpHttpPort } from './routes/mcp.js';
 import { registerAgentAccessRoutes } from './routes/agent-access.js';
 import { registerWebMcpRoutes } from './routes/webmcp.js';
 import { registerInstanceGuide } from './routes/instance-guide.js';
+import { registerReaderAccess } from './routes/reader-access.js';
+import { registerGoogleReader } from './reader-sync/google-reader.js';
+import { registerFever } from './reader-sync/fever.js';
 
 export const securityHeaders = {
   'Content-Security-Policy':
@@ -50,8 +53,18 @@ export function createApi(
   );
   app.notFound(options.notFound ?? ((c) => json(c, { error: 'Not found' }, 404)));
   app.use('/api/*', async (c, next) => {
+    if (
+      /^GoogleLogin\b/i.test(c.req.header('authorization') ?? '') &&
+      !c.req.path.startsWith('/api/greader/')
+    ) {
+      c.header('Cache-Control', 'private, no-store');
+      return json(c, { error: 'Reader sessions are accepted only at /api/greader.' }, 403);
+    }
     // Scoped MCP credentials must never fall through to trusted-owner REST handlers.
-    if (/^Bearer\b/i.test(c.req.header('authorization') ?? '')) {
+    if (
+      /^Bearer\b/i.test(c.req.header('authorization') ?? '') &&
+      !c.req.path.startsWith('/api/greader/')
+    ) {
       c.header('Cache-Control', 'private, no-store');
       return json(c, { error: 'Scoped tokens are accepted only at /mcp.' }, 403);
     }
@@ -60,6 +73,9 @@ export function createApi(
   registerAgentAccessRoutes(app, services);
   registerWebMcpRoutes(app, services);
   registerInstanceGuide(app, services, Boolean(options.mcp));
+  registerReaderAccess(app, services);
+  registerGoogleReader(app, services);
+  registerFever(app, services);
   registerFeedRoutes(app, services);
   registerSourceRoutes(app, services);
   registerArticleRoutes(app, services);

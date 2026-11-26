@@ -152,6 +152,7 @@ test('Compose, source and delivery controls expose at least 24px activation targ
     await expect(
       page.getByRole('textbox', { name: 'Section title', exact: true }).first(),
     ).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Configure Briefs', exact: true })).toBeVisible();
     views.compose = await undersized(page);
     await page.getByRole('button', { name: '+ Source', exact: true }).first().click();
     await expect(

@@ -96,6 +96,13 @@ export function registerOpenApi(app: Hono) {
               description:
                 'Hashed, expiring Brew tokens. Accepted only at /mcp; read-only by default. Write scope never permits arbitrary deletion or saving rules.',
             },
+            readerSession: {
+              type: 'apiKey',
+              in: 'header',
+              name: 'Authorization',
+              description:
+                'GoogleLogin auth=<Reader session>, obtained with the separate app password at /api/greader/accounts/ClientLogin. Reader sessions authorize only the Google Reader namespace. Writes also require T (Reeder T=x needs this header); native XML import uses this header alone.',
+            },
             postmarkBasic: {
               type: 'http',
               scheme: 'basic',

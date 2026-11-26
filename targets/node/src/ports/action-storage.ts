@@ -45,6 +45,7 @@ export class NodeActionStorage implements ActionStoragePort {
         tokenId: undefined,
         agentName: undefined,
         signal: undefined,
+        readerGeneration: undefined,
         confirm: undefined,
       };
       return JSON.stringify({
@@ -166,10 +167,21 @@ export class NodeActionStorage implements ActionStoragePort {
         'Tokens can mark, star, tag and add feeds. Review other changes in Brew.',
       );
   }
+  private authorizeReader(request: ActionRequest) {
+    if (
+      request.actor === 'reader' &&
+      (!request.readerGeneration ||
+        !this.database.sqlite
+          .prepare('SELECT 1 FROM reader_access WHERE id=1 AND generation=?')
+          .get(request.readerGeneration))
+    )
+      throw new ActionError(403, 'Reader access has changed. Sign in again.');
+  }
   run(request: ActionRequest): Promise<ActionReceipt> {
     if (request.signal?.aborted)
       throw new ActionError(409, 'The tool was cancelled before writing.');
     this.authorizeToken(request.tokenId, request.kind);
+    this.authorizeReader(request);
     const key = this.requestKey(request);
     const signature = `${request.kind}:${this.args(request)}`;
     const existing = key ? this.requests.get(key) : undefined;
@@ -251,6 +263,7 @@ export class NodeActionStorage implements ActionStoragePort {
         if (request.signal?.aborted)
           throw new ActionError(409, 'The tool was cancelled before writing.');
         this.authorizeToken(request.tokenId, request.kind);
+        this.authorizeReader(request);
         const id = this.create(request, 'Applying agent change…', false);
         const targetId = this.write(id, () => {
           const articles = new ArticleService(this.database, this.fetcher, () => this.clock.now());
@@ -384,6 +397,7 @@ export class NodeActionStorage implements ActionStoragePort {
         throw new ActionError(400, 'Invalid OPML document. Check the file and its feed URLs.');
       }
       return this.database.sqlite.transaction(() => {
+        this.authorizeReader(request);
         const id = this.create(request, 'Importing OPML…', false);
         const result = this.write(id, () => opml.import(request.opml));
         this.database.sqlite
@@ -418,6 +432,7 @@ export class NodeActionStorage implements ActionStoragePort {
     const title = item.title ?? item.name ?? 'item';
     if (request.kind !== 'apply_rule') {
       return this.database.sqlite.transaction(() => {
+        this.authorizeReader(request);
         const id = this.create(request, `Deleted ${title}.`, false);
         this.write(id, () =>
           this.database.sqlite.prepare(`DELETE FROM ${table} WHERE id=?`).run(request.id),

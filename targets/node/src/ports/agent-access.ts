@@ -145,7 +145,7 @@ export class NodeAgentAccess implements AgentAccessPort {
     this.actions.cleanup();
     const rows = this.database.sqlite
       .prepare(
-        "SELECT id,agent,tool,result_json,created_at FROM agent_actions WHERE (token_id IS NOT NULL OR agent IN ('mcp','WebMCP','webmcp')) AND id<? ORDER BY id DESC LIMIT 21",
+        "SELECT id,agent,tool,result_json,created_at FROM agent_actions WHERE (token_id IS NOT NULL OR agent IN ('mcp','WebMCP','webmcp','reader','Reader sync')) AND id<? ORDER BY id DESC LIMIT 21",
       )
       .all(before ?? Number.MAX_SAFE_INTEGER) as Array<{
       id: number;
