@@ -1,6 +1,5 @@
 import {
   useInfiniteQuery,
-  useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -16,22 +15,19 @@ import { readerWelcomeCopy } from '@brew/core/app-pages';
 import { ModeChip } from './components/ModeChip';
 import { articleRouteId } from './articleRoute';
 import { articleDom } from './articleDom';
-import { useArticleAlternates } from './hooks/useArticleAlternates';
+import { ArticleReader } from './ArticleReader';
+import { useArticleFocusReturn } from './hooks/useArticleFocusReturn';
 import { useCapabilities } from './hooks/useCapabilities';
 import { useBrowserPreferences } from './hooks/useBrowserPreferences';
 import { PreferenceFeedback } from './settings/BrowserPreferences';
-import { ModalSheet } from './components/Sheet';
-import { Badge } from './components/Badge';
 import { updateArticleState } from './articleState';
 import { useBulkRead } from './hooks/useBulkRead';
 import { BulkReadUi } from './components/BulkReadUi';
 import type {
-  ArticleDetail,
   ArticlePage,
   ArticleSummary,
   ReaderNavigation,
   SearchPage,
-  TagSummary,
 } from '@brew/core/types/api';
 
 type Selection = {
@@ -475,6 +471,12 @@ function SearchView({
     [results.data],
   );
   const parent = useRef<HTMLDivElement>(null);
+  const listHeading = useRef<HTMLHeadingElement>(null);
+  const { prepareArticle, articleReturnTarget } = useArticleFocusReturn(parent, items, listHeading);
+  const openArticle = useCallback((id: number) => {
+    prepareArticle(id);
+    setSelectedArticle(id);
+  }, [prepareArticle]);
   // eslint-disable-next-line react-hooks/incompatible-library -- Search results use the same mandated virtual list engine as the Reader.
   const virtualizer = useVirtualizer({
     count: items.length + (results.hasNextPage ? 1 : 0),
@@ -495,7 +497,7 @@ function SearchView({
   }, [items.length, results, virtualItems]);
   useLayoutEffect(() => {
     const keydown = (event: KeyboardEvent) => {
-      if (isEditableTarget(event.target) || selectedArticle !== null || !items.length) return;
+      if (isEditableTarget(event.target) || !items.length) return;
       if (['Enter', ' '].includes(event.key) && (event.target as HTMLElement | null)?.closest('button,a[href]')) return;
       const key = event.key.toLowerCase();
       if (key === 'j' || key === 'k') {
@@ -509,18 +511,19 @@ function SearchView({
       }
       if (key === 'o' || event.key === 'Enter') {
         event.preventDefault();
-        setSelectedArticle(items[Math.max(0, focusedIndex)]!.id);
+        openArticle(items[Math.max(0, focusedIndex)]!.id);
       }
     };
     window.addEventListener('keydown', keydown);
     return () => window.removeEventListener('keydown', keydown);
-  }, [focusedIndex, items, selectedArticle, virtualizer]);
+  }, [focusedIndex, items, openArticle, virtualizer]);
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col">
+    <div className="reader-workspace flex h-[calc(100vh-4rem)] min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line px-8 py-5">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[.18em] text-soft">Search</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">“{query}”</h1>
+          <h1 ref={listHeading} tabIndex={-1} className="mt-1 text-2xl font-semibold tracking-tight">“{query}”</h1>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={onSave} className="rounded-lg border border-line-strong px-3 py-2 text-xs">Save search</button>
@@ -586,7 +589,7 @@ function SearchView({
                     focused={items[focusedIndex]?.id === article.id}
                     onOpen={() => {
                       setFocusedIndex(virtual.index);
-                      setSelectedArticle(article.id);
+                      openArticle(article.id);
                     }}
                   />
                 ) : (
@@ -603,11 +606,13 @@ function SearchView({
         )}
       </div>
       {results.data?.pages[0]?.total !== undefined && <ReaderPageFooter state={state} total={results.data.pages[0].total} shown={items.length} twins={Boolean(caps.data?.outputs?.twins)} />}
+      </div>
       {selectedArticle !== null && (
         <ArticleReader
           id={selectedArticle}
           mode={preferences.values.openMode}
           onClose={() => setSelectedArticle(null)}
+          returnFocus={articleReturnTarget}
         />
       )}
     </div>
@@ -625,6 +630,7 @@ function ArticleList({ selection }: { selection: Selection }) {
   const caps = useCapabilities();
 
   const [selectedArticle, setSelectedArticle] = useState<number | null>(() => articleRouteId(location.pathname));
+  const [openTags, setOpenTags] = useState(false);
   const preferences = useBrowserPreferences();
   const openMode = preferences.values.openMode;
   const markOnScroll = preferences.values.readOnScroll === 'true';
@@ -683,6 +689,13 @@ function ArticleList({ selection }: { selection: Selection }) {
     ]);
   }, [articles, selection.kind]);
   const parent = useRef<HTMLDivElement>(null);
+  const listHeading = useRef<HTMLHeadingElement>(null);
+  const { prepareArticle, articleReturnTarget } = useArticleFocusReturn(parent, articles, listHeading);
+  const openArticle = useCallback((id: number, tags = false) => {
+    prepareArticle(id);
+    setOpenTags(tags);
+    setSelectedArticle(id);
+  }, [prepareArticle]);
   const lanes = density === 'cards' && selection.kind !== 'today' ? 2 : 1;
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual is the mandated list engine and intentionally manages mutable measurements.
   const virtualizer = useVirtualizer({
@@ -743,26 +756,6 @@ function ArticleList({ selection }: { selection: Selection }) {
       if (isEditableTarget(event.target)) return;
       const key = event.key.toLowerCase();
       if ((event.target as HTMLElement | null)?.closest('dialog')) return;
-      const dialog = document.querySelector<HTMLElement>('[aria-label="Article reader"]');
-      if (dialog) {
-        if (key === 'm') {
-          event.preventDefault();
-          dialog.querySelector<HTMLButtonElement>('[data-shortcut="m"]')?.click();
-        }
-        if (key === 's') {
-          event.preventDefault();
-          dialog.querySelector<HTMLButtonElement>('[data-shortcut="s"]')?.click();
-        }
-        if (key === 't') {
-          event.preventDefault();
-          dialog.querySelector<HTMLButtonElement>('[data-shortcut="t"]')?.click();
-        }
-        if (key === 'v') {
-          event.preventDefault();
-          dialog.querySelector<HTMLAnchorElement>('a[href]')?.click();
-        }
-        return;
-      }
       if (['Enter', ' '].includes(event.key) && (event.target as HTMLElement | null)?.closest('button,a[href]')) return;
       if (event.shiftKey && key === 'a') {
         event.preventDefault();
@@ -792,7 +785,7 @@ function ArticleList({ selection }: { selection: Selection }) {
       if (!article) return;
       if (key === 'o' || event.key === 'Enter') {
         event.preventDefault();
-        setSelectedArticle(article.id);
+        openArticle(article.id);
       }
       if (key === 'm') {
         event.preventDefault();
@@ -804,11 +797,7 @@ function ArticleList({ selection }: { selection: Selection }) {
       }
       if (key === 't') {
         event.preventDefault();
-        setSelectedArticle(article.id);
-        window.setTimeout(() => {
-          const dialog = document.querySelector<HTMLElement>('[aria-label="Article reader"]');
-          dialog?.querySelector<HTMLButtonElement>('[data-shortcut="t"]')?.click();
-        }, 80);
+        openArticle(article.id, true);
       }
       if (key === 'v') {
         event.preventDefault();
@@ -823,17 +812,18 @@ function ArticleList({ selection }: { selection: Selection }) {
     focusedIndex,
     requestBulk,
     rows,
-    selectedArticle,
+    openArticle,
     updateFocused,
     virtualizer,
   ]);
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col">
+    <div className="reader-workspace flex h-[calc(100vh-4rem)] min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line px-8 py-5">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[.18em] text-soft">Reader</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{selection.title}</h1>
+          <h1 ref={listHeading} tabIndex={-1} className="mt-1 text-2xl font-semibold tracking-tight">{selection.title}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-lg bg-subtle p-1" aria-label="Article filter">
@@ -956,7 +946,7 @@ function ArticleList({ selection }: { selection: Selection }) {
                         setFocusedIndex(
                           articles.findIndex((article) => article.id === row.article.id),
                         );
-                        setSelectedArticle(row.article.id);
+                        openArticle(row.article.id);
                       }}
                     />
                   )
@@ -975,11 +965,14 @@ function ArticleList({ selection }: { selection: Selection }) {
       </div>
       <BulkReadUi action={bulk} />
       {query.data?.pages[0]?.total !== undefined && <ReaderPageFooter state={outputState} total={query.data.pages[0].total} shown={articles.length} twins={Boolean(caps.data?.outputs?.twins)} />}
+      </div>
       {selectedArticle !== null && (
         <ArticleReader
           id={selectedArticle}
+          initialTags={openTags}
           mode={openMode}
           onClose={() => setSelectedArticle(null)}
+          returnFocus={articleReturnTarget}
         />
       )}
     </div>
@@ -1093,310 +1086,5 @@ function ArticleRow({
         />
       )}
     </article>
-  );
-}
-
-export function ArticleReader({
-  id,
-  mode,
-  onClose,
-}: {
-  id: number;
-  mode: 'overlay' | 'pane';
-  onClose: () => void;
-}) {
-  const client = useQueryClient();
-  const detail = useQuery({
-    queryKey: ['article', id],
-    staleTime: 0,
-    queryFn: ({ signal }) => getJson<ArticleDetail>(`/api/articles/${id}`, signal),
-  });
-  const opened = useRef<number | null>(null);
-  const [extracting, setExtracting] = useState(false);
-  const [message, setMessage] = useState('');
-  const [showTags, setShowTags] = useState(false);
-  const [more, setMore] = useState(false);
-  const formats = useCapabilities();
-  useArticleAlternates(detail.data?.id ?? null);
-  const preferences = useBrowserPreferences();
-  const readingPrefs = preferences.values;
-  useEffect(() => {
-    const close = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !document.querySelector('dialog[open]')) onClose();
-    };
-    window.addEventListener('keydown', close);
-    return () => window.removeEventListener('keydown', close);
-  }, [onClose]);
-  const extract = async () => {
-    setExtracting(true);
-    setMessage('');
-    try {
-      const response = await fetch(`/api/articles/${id}/full-text`, { method: 'POST' });
-      const body = (await response.json()) as ArticleDetail & { error?: string };
-      if (!response.ok) throw new Error(body.error || 'Could not load full article');
-      client.setQueryData(['article', id], body);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not load full article');
-    } finally {
-      setExtracting(false);
-    }
-  };
-  const copy = async () => {
-    if (!detail.data) return;
-    await navigator.clipboard.writeText(detail.data.url);
-    setMessage('Link copied.');
-  };
-  const updateState = async (values: { read?: boolean; starred?: boolean }) => {
-    setMessage('');
-    try {
-      await updateArticleState(client, id, values);
-    } catch (error) {
-      setMessage((error as Error).message);
-    }
-  };
-  useEffect(() => {
-    if (!detail.data || detail.isFetching || detail.isError || opened.current === id) return;
-    opened.current = id;
-    if (!detail.data.readAt)
-      void updateArticleState(client, id, { read: true }).catch((error: Error) => setMessage(error.message));
-  }, [client, detail.data, detail.isError, detail.isFetching, id]);
-  const shell =
-    mode === 'overlay'
-      ? 'fixed inset-0 top-16 z-40 bg-scrim/30 p-4 md:p-8'
-      : 'fixed bottom-0 right-0 top-16 z-30 w-[min(48rem,58vw)] border-l border-line bg-surface shadow-overlay';
-  return (
-    <div
-      className={shell}
-      onMouseDown={(event) => {
-        if (mode === 'overlay' && event.target === event.currentTarget) onClose();
-      }}
-    >
-      <section
-        role="dialog"
-        aria-modal={mode === 'overlay'}
-        aria-label="Article reader"
-        className={`${mode === 'overlay' ? 'mx-auto h-full max-w-3xl rounded-2xl' : 'h-full'} overflow-y-auto bg-surface shadow-overlay`}
-      >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface/95 px-6 py-3 backdrop-blur">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onClose}
-              aria-label="Close article"
-              className="rounded-full px-3 py-2 text-soft hover:bg-subtle"
-            >
-              ✕
-            </button>
-            {detail.data && (
-              <>
-                <a
-                  href={detail.data.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-lg px-3 py-2 text-xs font-medium hover:bg-subtle"
-                >
-                  View original ↗
-                </a>
-                <button
-                  onClick={copy}
-                  className="rounded-lg px-3 py-2 text-xs font-medium hover:bg-subtle"
-                >
-                  Copy link
-                </button>
-              </>
-            )}
-          </div>
-          <div className="flex gap-1" aria-label="Reading preferences">
-            <select aria-label="Reader font" data-brew-action="set-reader-font" value={readingPrefs.font} onChange={(event)=>preferences.save('font', event.target.value, 'Reader font')} className="rounded border px-2 py-1 text-xs"><option value="sans">Sans</option><option value="serif">Serif</option></select>
-            <select aria-label="Reader width" data-brew-action="set-reader-width" value={readingPrefs.width} onChange={(event)=>preferences.save('width', event.target.value, 'Reader width')} className="rounded border px-2 py-1 text-xs"><option value="narrow">Narrow</option><option value="wide">Wide</option></select>
-            <select aria-label="Reader line height" data-brew-action="set-reader-line-height" value={readingPrefs.lineHeight} onChange={(event)=>preferences.save('lineHeight', event.target.value, 'Reader line height')} className="rounded border px-2 py-1 text-xs"><option value="compact">Compact</option><option value="relaxed">Relaxed</option></select>
-            <button type="button" aria-label="More article actions" data-brew-action="more" onClick={() => setMore(true)} className="rounded border px-2 py-1 text-xs">More</button>
-          </div>
-        </div>
-        <PreferenceFeedback preferences={preferences} name="Article preferences result" />
-        {detail.isLoading ? (
-          <p className="p-12 text-center text-sm text-soft">Opening article…</p>
-        ) : detail.isError || !detail.data ? (
-          <p role="alert" className="p-12 text-center text-sm text-danger">
-            Could not open this article.
-          </p>
-        ) : (
-          <article aria-label={detail.data.title} {...articleDom(detail.data)} className={`mx-auto px-7 py-12 ${readingPrefs.width==='wide'?'max-w-[880px]':'max-w-[680px]'}`}>
-            <p className="text-xs font-semibold uppercase tracking-wider text-soft">
-              {detail.data.feedTitle}
-            </p>
-            <h1 className="mt-3 type-display-l">
-              {detail.data.title}
-            </h1>
-            <div className="mt-4 flex flex-wrap gap-2 text-sm text-soft">
-              {detail.data.author && <span>By {detail.data.author}</span>}
-              <span>{detail.data.readTimeMinutes} min read</span>
-              <time>
-                {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
-                  new Date(detail.data.publishedAt),
-                )}
-              </time>
-            </div>
-            <div className="mt-6 flex flex-wrap gap-2">
-              <button
-                data-shortcut="m"
-                data-brew-action="mark-read"
-                onClick={() => updateState({ read: !detail.data.readAt })}
-                className="rounded-full border border-line-strong px-4 py-2 text-sm font-semibold"
-              >
-                {detail.data.readAt ? 'Mark unread' : 'Mark read'}
-              </button>
-              <button
-                data-shortcut="s"
-                data-brew-action="star"
-                onClick={() => updateState({ starred: !detail.data.starredAt })}
-                aria-pressed={Boolean(detail.data.starredAt)}
-                className={`rounded-full border px-4 py-2 text-sm font-semibold ${detail.data.starredAt ? 'starred-burst border-line-strong bg-subtle text-soft' : 'border-line-strong'}`}
-              >
-                {detail.data.starredAt ? '★ Starred' : '☆ Star'}
-              </button>
-              <button
-                data-shortcut="t"
-                data-brew-action="tag"
-                onClick={() => setShowTags((value) => !value)}
-                className="rounded-full border border-line-strong px-4 py-2 text-sm font-semibold"
-              >
-                Tag{detail.data.tags.length ? ` · ${detail.data.tags.length}` : ''}
-              </button>
-            </div>
-            {showTags && (
-              <TagEditor
-                article={detail.data}
-                onChange={(next) => client.setQueryData(['article', id], next)}
-              />
-            )}{' '}
-            {!detail.data.fullTextHtml && (
-              <button
-                disabled={extracting}
-                onClick={extract}
-                className="mt-8 rounded-full border border-line-strong px-4 py-2 text-sm font-semibold hover:bg-canvas disabled:opacity-50"
-              >
-                {extracting ? 'Loading full article…' : 'Load full article'}
-              </button>
-            )}
-            {message && (
-              <p role="status" aria-live="polite" className="mt-3 text-sm text-soft">
-                {message}
-              </p>
-            )}
-            {detail.data.enclosureUrl && detail.data.enclosureType?.startsWith('audio/') && (
-              <audio
-                aria-label={`Listen to ${detail.data.title}`}
-                controls
-                preload="none"
-                className="mt-7 w-full"
-                src={`/api/media?src=${encodeURIComponent(detail.data.enclosureUrl)}`}
-              />
-            )}
-            <div
-              data-reading-font={readingPrefs.font??'serif'}
-              data-reading-line-height={readingPrefs.lineHeight??'relaxed'}
-              className={`article-content mt-9 type-reading-body text-ink [&_a]:text-accent [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-5 [&_h2]:mt-9 [&_h2]:text-2xl [&_img]:my-7 [&_img]:h-auto [&_img]:max-w-full [&_p]:my-5`}
-              dangerouslySetInnerHTML={{
-                __html:
-                  detail.data.fullTextHtml ??
-                  detail.data.contentHtml ??
-                  detail.data.summaryHtml ??
-                  '<p>No article content was provided.</p>',
-              }}
-            />
-          </article>
-        )}
-      </section>
-      <ModalSheet open={more} onClose={() => setMore(false)} title="Article actions">
-        {detail.data && <div className="grid gap-3">
-          <button type="button" className="brew-button brew-button--secondary brew-button--sm" data-brew-action="mark-read" onClick={() => void updateState({ read: !detail.data.readAt })}>{detail.data.readAt ? 'Mark unread' : 'Mark read'}</button>
-          <button type="button" className="brew-button brew-button--secondary brew-button--sm" data-brew-action="star" aria-pressed={Boolean(detail.data.starredAt)} onClick={() => void updateState({ starred: !detail.data.starredAt })}>{detail.data.starredAt ? 'Unstar' : 'Star'}</button>
-          <button type="button" className="brew-button brew-button--secondary brew-button--sm" data-brew-action="tag" onClick={() => { setMore(false); setShowTags(true); }}>Tag</button>
-          {(['md', 'json'] as const).map((format) => formats.data?.outputs?.twins
-            ? <a key={format} className="brew-button brew-button--secondary brew-button--sm" data-brew-action="export" href={`/a/${id}.${format}`} target="_blank" rel="noreferrer">{format === 'md' ? 'Markdown' : 'JSON'}</a>
-            : <button key={format} type="button" disabled data-brew-action="export" className="brew-button brew-button--secondary brew-button--sm" aria-label={`${format === 'md' ? 'Markdown' : 'JSON'} · ${formats.isError ? 'Formats unavailable' : 'Needs setup'}`}>{format === 'md' ? 'Markdown' : 'JSON'}<Badge tone="warning">{formats.isError ? 'Formats unavailable' : 'Needs setup'}</Badge></button>)}
-          {!formats.data?.outputs?.twins && <a href="/settings/runs">Set up article outputs</a>}
-          <a href={detail.data.url} target="_blank" rel="noreferrer">View original</a>
-        </div>}
-      </ModalSheet>
-    </div>
-  );
-}
-
-function TagEditor({
-  article,
-  onChange,
-}: {
-  article: ArticleDetail;
-  onChange: (article: ArticleDetail) => void;
-}) {
-  const client = useQueryClient();
-  const tags = useQuery({ queryKey: ['tags'], queryFn: () => getJson<TagSummary[]>('/api/tags') });
-  const [name, setName] = useState('');
-  const save = async (selected: TagSummary[]) => {
-    const previous = article.tags;
-    onChange({ ...article, tags: selected });
-    const response = await fetch(`/api/articles/${article.id}/tags`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tagIds: selected.map((tag) => tag.id) }),
-    });
-    if (response.ok) onChange((await response.json()) as ArticleDetail);
-    else onChange({ ...article, tags: previous });
-  };
-  const create = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!name.trim()) return;
-    const response = await fetch('/api/tags', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    });
-    if (!response.ok) return;
-    const tag = (await response.json()) as TagSummary;
-    client.setQueryData<TagSummary[]>(['tags'], (current) => [...(current ?? []).filter((item) => item.id !== tag.id), tag].sort((a, b) => a.name.localeCompare(b.name)));
-    setName('');
-    await save([...article.tags, tag]);
-  };
-  return (
-    <div className="mt-4 rounded-2xl border border-line bg-canvas p-4">
-      <p className="text-xs font-semibold uppercase tracking-wider text-soft">Tags</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {tags.data?.map((tag) => {
-          const active = article.tags.some((item) => item.id === tag.id);
-          return (
-            <button
-              key={tag.id}
-              aria-pressed={active}
-              onClick={() =>
-                save(
-                  active
-                    ? article.tags.filter((item) => item.id !== tag.id)
-                    : [...article.tags, tag],
-                )
-              }
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${active ? 'bg-inverse text-on-inverse' : 'border border-line-strong bg-surface'}`}
-            >
-              {tag.name}
-            </button>
-          );
-        })}
-      </div>
-      <form onSubmit={create} className="mt-3 flex gap-2">
-        <label className="sr-only" htmlFor={`new-tag-${article.id}`}>
-          New tag
-        </label>
-        <input
-          id={`new-tag-${article.id}`}
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="New tag"
-          className="min-w-0 flex-1 rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm"
-        />
-        <button className="rounded-lg bg-inverse px-3 text-xs font-semibold text-on-inverse">
-          Add
-        </button>
-      </form>
-    </div>
   );
 }

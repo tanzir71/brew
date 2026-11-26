@@ -22,7 +22,7 @@ import { newsletterCleaningLabel } from '../newsletters/cleaning';
 import { useBulkRead } from '../hooks/useBulkRead';
 import { BulkReadUi } from '../components/BulkReadUi';
 const ArticleReader = lazy(() =>
-  import('../Reader').then((module) => ({ default: module.ArticleReader })),
+  import('../ArticleReader').then((module) => ({ default: module.ArticleReader })),
 );
 
 const numberWords = (value: number): string => {
@@ -491,10 +491,10 @@ export function BrewRead({
           <ArticleReader
             id={open}
             mode="overlay"
+            returnFocus={() => opener.current}
             onClose={() => {
               setOpen(null);
               void state.refetch();
-              opener.current?.focus();
             }}
           />
         </Suspense>

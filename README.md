@@ -244,6 +244,12 @@ Articles and cleaned newsletter letters have private content twins at
 `/a/<article id>.md` and `.json`, available from the reading pane's More sheet.
 GET/HEAD does not mark an item read or extract content. The open article owns
 Markdown/JSON discovery until it closes, then the selected Brew's links return.
+Article overlays use native modal dialogs: focus starts in the article, stays
+inside the active dialog and returns to its opener on close. If an unread row
+disappears, focus moves to a visible neighbouring row or the list heading.
+Desktop panes sit beside the list; on small screens they use the same modal
+behavior while retaining the saved pane preference. More actions form a separate
+native dialog, and article-load failures offer Retry article.
 See [agent DOM implementation](docs/agent-dom.md) for the current role/label-only
 journey and the remaining M12 checklist work.
 

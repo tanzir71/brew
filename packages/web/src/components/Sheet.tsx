@@ -1,5 +1,7 @@
 import { useId, useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { IconButton } from './controls';
+import { lockDialogScroll } from '../dialogScrollLock';
+import { containDialogBlur, containDialogTab } from '../dialogFocus';
 
 type SheetProps = {
   open: boolean;
@@ -28,13 +30,12 @@ function SheetBody({
   useLayoutEffect(() => {
     const dialog = ref.current!;
     const previous = returnFocusRef?.current ?? (document.activeElement as HTMLElement | null);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const unlock = lockDialogScroll();
     dialog.showModal();
     initialFocusRef?.current?.focus();
     return () => {
       dialog.close();
-      document.body.style.overflow = overflow;
+      unlock();
       if (
         previous?.isConnected &&
         previous !== document.body &&
@@ -55,23 +56,8 @@ function SheetBody({
         event.preventDefault();
         onClose();
       }}
-      onKeyDown={(event) => {
-        if (event.key !== 'Tab') return;
-        const controls = [
-          ...event.currentTarget.querySelectorAll<HTMLElement>(
-            'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
-          ),
-        ].filter((control) => control.getClientRects().length > 0);
-        const first = controls[0];
-        const last = controls.at(-1);
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last?.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first?.focus();
-        }
-      }}
+      onKeyDownCapture={containDialogTab}
+      onBlurCapture={containDialogBlur}
       onClose={(event) => {
         if (!event.currentTarget.open) onClose();
       }}

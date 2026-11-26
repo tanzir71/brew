@@ -101,6 +101,7 @@ test('supports the complete Reader keyboard map and cheat sheet', async ({ page 
     .poll(() => page.evaluate(() => localStorage.getItem('brew:reading-prefs')))
     .toContain('compact');
   await expect(page.getByRole('button', { name: '☆ Star' })).toBeVisible();
+  await page.getByRole('dialog', { name: 'Article reader' }).getByRole('article', { name: 'First keyboard story', exact: true }).focus();
   await page.keyboard.press('s');
   await expect(page.getByRole('button', { name: '★ Starred' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mark unread' })).toBeVisible();

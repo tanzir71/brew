@@ -9,6 +9,39 @@ import { articles } from '../../targets/node/src/db/schema';
 import { composeFixture } from './compose-fixture';
 import { BrewService } from '../../targets/node/src/services/brew-service';
 
+test('an agent opens unread articles with native focus, returns to the next row and closes a one-item search at its heading', async ({ page }) => {
+  const f = await newslettersFixture(page);
+  try {
+    const stories = f.database.sqlite.prepare("SELECT a.id,a.title FROM articles a JOIN feeds f ON f.id=a.feed_id WHERE f.kind='rss' ORDER BY a.id DESC LIMIT 2").all() as { id: number; title: string }[];
+    await page.goto('/all?density=title&unread=true');
+    const first = page.getByRole('button', { name: `Open article · ${stories[0]!.title}`, exact: true });
+    await first.focus();
+    await page.keyboard.press('Enter');
+    const reader = page.getByRole('dialog', { name: 'Article reader', exact: true });
+    await expect(reader.getByRole('article', { name: stories[0]!.title, exact: true })).toBeFocused();
+    await expect(reader.getByRole('button', { name: 'Mark unread', exact: true })).toBeVisible();
+    await reader.getByRole('button', { name: 'More article actions', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await expect(reader.getByRole('button', { name: 'More article actions', exact: true })).toBeFocused();
+    await page.keyboard.press('Escape');
+    const next = page.getByRole('button', { name: `Open article · ${stories[1]!.title}`, exact: true });
+    await expect(next).toBeFocused();
+    await expect(first).toHaveCount(0);
+    expect(f.database.sqlite.prepare('SELECT read_at FROM articles WHERE id=?').get(stories[0]!.id)).not.toEqual({ read_at: null });
+    const search = page.getByLabel('Search', { exact: true });
+    await search.fill(stories[1]!.title);
+    await search.press('Enter');
+    await next.focus();
+    await page.keyboard.press('Enter');
+    await expect(reader.getByRole('article', { name: stories[1]!.title, exact: true })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('heading', { name: `“${stories[1]!.title}”`, exact: true })).toBeFocused();
+    await expect(next).toHaveCount(0);
+    await expect(page).toHaveURL(/\/search\?.*unread=true/);
+    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({ n: 0 });
+  } finally { await f.close(); }
+});
+
 test('an agent reviews the full paged Reader scope, cancels without writes and recovers a lost bulk acknowledgement and reload Undo', async ({
   page,
 }) => {

@@ -77,6 +77,28 @@ browser cases cover light/dark review layout/axe/focus, stale scopes, atomic Und
 conflicts, cancelled/obsolete previews, unavailable capabilities and successful
 writes followed by read outages.
 
+A twentieth role/label-only journey opens articles by keyboard, checks initial
+article focus and nested More/Escape restoration, then closes to the next unread
+row and the empty search heading. Real automatic read writes remove the rows;
+the test verifies both SQLite state and retained search filters. Additional
+browser checks cover native modal/background inertness, Tab containment, docked
+desktop geometry, phone/resize behavior, nested scroll locks, navigation without
+focus theft, light/dark axe/captures, retry and rejected clipboard feedback.
+
+The article surface is a native `dialog`. Overlays and phone panes use
+`showModal()`; desktop panes use `show()` in a separate column beside the list.
+Each surface has a named article landmark and visible native actions with stable
+hooks. Closing returns to the visible Open button, a neighbouring visible row if
+the item disappeared, or a focusable view heading. Late list refreshes repair
+focus when a returned row is removed, without moving focus from another control.
+Navigation and a newly opened article suppress obsolete focus restoration.
+More actions use a separate native dialog; Escape closes only the active dialog.
+Switching between pane and modal closes More and restores its button, while
+retaining an open tag draft and the saved pane preference. Shared scroll locks
+release only after the last native dialog closes, including during navigation.
+Reader shortcuts run inside the article and respect input/select editing and
+native Enter/Space activation. Tag opening waits for content instead of a timer.
+
 ESLint restricts that file's UI selectors to `getByRole` and `getByLabel`, rejecting
 CSS/test-ID/text/placeholder/title selectors and injected DOM evaluation. Browser
 setup, navigation, response inspection and SQL assertions remain available to
@@ -90,12 +112,12 @@ metadata and geometry directly; they do not substitute for this agent journey.
 | Landmarks | Existing Brew Library/main/In this Brew; named Reader Library navigation; real article landmarks inside Reader dialogs and newsletter panes; named Compose and instance-settings main landmarks. | Finish the remaining view/dialog and older shell audit. |
 | Native controls | Reader scope/folder/feed and saved-search bookmarks, saved-rule selection/logs and attribution, feed audit views, newsletter sender/letter/page navigation and legacy shell toolbar navigation use real hrefs. Feed-library names and hidden-page navigation also use native links. Feed/folder renames and retention now use native labelled dialogs. Article actions and bulk confirmation use real controls. | Audit all remaining navigation, icon-only labels and toggles. |
 | Stable hooks | Article rows/panes share `data-brew-id`, kind and read/unread/starred/highlighted state. Reader/search rows also declare their actual density. Newsletter rows/panes and frozen Brew letters identify as letters; rules expose identity/enablement/actions; Compose already identifies sections. | Audit the rest of each screen's actions, settings and result rows. |
-| Accessible alternatives | Article and letter actions are available directly and in native More sheets. Saved-search deletion, feed-library/folder, feed health, hidden and sender rows have labelled More controls and native sheets. Sender-row More appears on hover, keyboard focus or selection. General/Reading settings and setup guides use native dialogs and links. Existing Compose drag controls retain button/keyboard alternatives. | Finish remaining controls and focus/selection behavior, including bulk and older shells. |
-| Polite results | Existing Compose/Brew status plus explicit Reader bulk, saved-search and owner-action result live regions with real Undo. Rule partial failures, mutation errors, browser storage failures, refresh failures and action-history recovery failures have visible feedback. | Audit success/error announcements for remaining mutations and error/retry paths. |
+| Accessible alternatives | Article and letter actions are available directly and in native More sheets. Saved-search deletion, feed-library/folder, feed health, hidden and sender rows have labelled More controls and native sheets. Sender-row More appears on hover, keyboard focus or selection. General/Reading settings and setup guides use native dialogs and links. Article overlays and phone panes use native modals; desktop panes dock beside usable rows. Initial/nested/return focus, unread row removal and native media controls are tested. Existing Compose drag controls retain button/keyboard alternatives. | Finish the remaining controls and older-shell focus/selection audit. |
+| Polite results | Existing Compose/Brew status plus explicit Reader bulk, saved-search and owner-action result live regions with real Undo. Rule partial failures, mutation errors, browser storage failures, refresh failures and action-history recovery failures have visible feedback. Article loading offers explicit retry; clipboard failures and cancelled extraction are handled. | Audit success/error announcements for remaining mutations, especially tag loading/creation/assignment and nested More action results. |
 | Totals and pagination | Newsletter, Reader, search and feed-library/audit views announce showing ranges/totals. Counts remain available to assistive technology in Calm mode. Newsletter/Reader/search/hidden articles offer native Previous/Next links with URL page state; hidden counts exceed the legacy 500-item cap. Normal Reader/search retain virtual/infinite lists. | Remaining list announcements and agent-mode pagination without virtualization/motion/scroll marking. |
-| Confirmation and undo | Reader bulk click/Shift+A, rule apply/delete, feed/folder deletion, library/Compose OPML import, risky sender settings and browser saved-search deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs, folder assignments, sender retention and Brew routing. OPML Undo protects later uses of imported records. Browser bookmarks have separate local Undo with reload recovery. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
+| Confirmation and undo | Reader bulk click/Shift+A and frozen Brew section/edition reads, rule apply/delete, feed/folder deletion, library/Compose OPML import, risky sender settings and browser saved-search deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs, folder assignments, sender retention and Brew routing. OPML Undo protects later uses of imported records. Browser bookmarks have separate local Undo with reload recovery. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
 | Text twins | All currently implemented data views have private twins: frozen Brews/articles; Reader/search; saved Compose/rules/logs; feed library/health/hidden articles; Newsletters lists; instance settings; Reader welcome and empty Brew/library states. Selection/filter parameters survive in alternate links. Explicitly opened content overrides its underlying page; subscription links remain separate. | Continue coverage when later milestones add views. Draft forms export explicitly labelled saved state; unsaved previews stay separate. The full DOM checkbox remains open for the other rows. |
-| Visible state and targets | Read/star/tag changes update real controls and stable state; new article Open target is at least 24px; More/confirmation reuse existing controls. Newsletter navigation declares current selection, has visible keyboard focus and focuses an explicitly opened reading pane. | Full target-size/focus/overlay and post-action visibility audit across every implemented screen. |
+| Visible state and targets | Read/star/tag changes update real controls and stable state; article Open and reading-toolbar targets are at least 24px; More/confirmation reuse existing controls. Newsletter navigation declares current selection, has visible keyboard focus and focuses an explicitly opened reading pane. | Full target-size/focus/overlay and post-action visibility audit across every implemented screen. |
 
 ## Browser saved-search bookmarks
 

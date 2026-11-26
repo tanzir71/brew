@@ -53,7 +53,7 @@ test('an ingested MIME letter opens at its local URL with inert cleaned content 
       )
       .not.toBeNull();
     const violations = (
-      await new AxeBuilder({ page }).include('[role="dialog"]').analyze()
+      await new AxeBuilder({ page }).include('dialog[aria-label="Article reader"]').analyze()
     ).violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? ''));
     expect(violations).toEqual([]);
     await dialog.getByRole('button', { name: 'Close article', exact: true }).click();

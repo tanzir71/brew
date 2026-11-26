@@ -1,0 +1,76 @@
+.article-reader {
+  border: 0;
+  padding: 0;
+  color: var(--brew-text-primary);
+  max-width: none;
+  max-height: none;
+}
+.article-reader--overlay {
+  position: fixed;
+  inset: 64px 0 0;
+  width: 100%;
+  height: calc(100dvh - 64px);
+  margin: 0;
+  padding: 16px;
+  background: transparent;
+  overflow: hidden;
+}
+.article-reader--overlay::backdrop {
+  background: linear-gradient(
+    to bottom,
+    transparent 64px,
+    color-mix(in srgb, var(--brew-bg-scrim) 30%, transparent) 64px
+  );
+}
+.article-reader-surface {
+  height: 100%;
+  overscroll-behavior: contain;
+}
+.article-reader--overlay .article-reader-surface {
+  max-width: 768px;
+  margin-inline: auto;
+  border-radius: 16px;
+}
+.article-reader--pane {
+  position: relative;
+  inset: auto;
+  flex: 0 0 58%;
+  width: 58%;
+  max-width: 48rem;
+  height: 100%;
+  margin: 0;
+  min-width: 0;
+  border-left: 1px solid var(--brew-border-default);
+  background: var(--brew-bg-surface);
+}
+.article-reader-toolbar :is(button, a, select) {
+  min-height: 28px;
+  min-width: 28px;
+}
+.article-reader :is(button, a, select, input):focus-visible {
+  outline: 2px solid var(--brew-text-primary);
+  outline-offset: 2px;
+}
+.article-reader article:focus-visible {
+  outline-offset: -3px;
+}
+.article-reader .article-content {
+  overflow-wrap: anywhere;
+}
+.article-reader .article-content pre {
+  overflow-x: auto;
+  max-width: 100%;
+}
+@media (min-width: 768px) {
+  .article-reader--overlay {
+    padding: 32px;
+  }
+}
+@media (max-width: 599px) {
+  .article-reader-toolbar {
+    padding: 12px;
+  }
+  .article-reader article {
+    padding: 24px 20px;
+  }
+}
