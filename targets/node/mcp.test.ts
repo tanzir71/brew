@@ -32,8 +32,17 @@ const rule = {
   actions: [{ type: 'star' }],
   stopProcessing: false,
 };
+function libraryState(database: ReturnType<typeof openDatabase>) {
+  // Audit rows and last-used timestamps are expected; all library tables must stay identical.
+  const tables = database.sqlite
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('api_tokens','agent_actions','__brew_migrations') ORDER BY name",
+    )
+    .all() as Array<{ name: string }>;
+  return tables.map(({ name }) => [name, database.sqlite.prepare(`SELECT * FROM "${name}"`).all()]);
+}
 async function fixture(
-  options: { filename?: string; seed?: boolean; fetcher?: typeof fetch } = {},
+  options: { filename?: string; seed?: boolean; fetcher?: typeof fetch; token?: string } = {},
 ) {
   const database = openDatabase(options.filename ?? ':memory:');
   let time = Date.now();
@@ -53,8 +62,14 @@ async function fixture(
     clock: { now: () => new Date(time), monotonic: () => 0 },
   });
   const base = await app.listen({ host: '127.0.0.1', port: 0 });
+  const token =
+    options.token ?? nodeServices(app).agentAccess!.create({ name: 'mcp', scopes: 'write' }).token;
   const client = new Client({ name: 'brew-contract', version: '1' });
-  await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', base)));
+  await client.connect(
+    new StreamableHTTPClientTransport(new URL('/mcp', base), {
+      requestInit: { headers: { Authorization: `Bearer ${token}` } },
+    }),
+  );
   const close = async () => {
     await client.close();
     await app.close();
@@ -87,6 +102,7 @@ async function fixture(
   }
   return {
     app,
+    token,
     base,
     client,
     database,
@@ -120,6 +136,7 @@ describe('Brew MCP', () => {
   it('serves legacy streamable HTTP negotiation and rejects malformed transport requests privately', async () => {
     const f = await fixture();
     const headers = {
+      authorization: `Bearer ${f.token}`,
       accept: 'application/json, text/event-stream',
       'content-type': 'application/json',
       'mcp-protocol-version': '2025-11-25',
@@ -155,7 +172,11 @@ describe('Brew MCP', () => {
           await f.app.inject({
             method,
             url: '/mcp',
-            headers: { accept: headers.accept, 'mcp-protocol-version': '2025-11-25' },
+            headers: {
+              authorization: headers.authorization,
+              accept: headers.accept,
+              'mcp-protocol-version': '2025-11-25',
+            },
           })
         ).statusCode,
       ).toBe(405);
@@ -176,7 +197,7 @@ describe('Brew MCP', () => {
     };
     const saved = await config.createComposition(draft);
     await config.generateComposition(saved.id);
-    const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    const before = libraryState(f.database);
     const tools = await f.client.listTools();
     expect(tools.tools.map((t) => t.name)).toEqual([
       'search_items',
@@ -225,7 +246,7 @@ describe('Brew MCP', () => {
       await call(f.client, 'mark_read', { target: { kind: 'items', ids: [1, 2] } }),
     );
     expect(review).toMatchObject({ updated: 2, requires_confirmation: true });
-    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+    expect(libraryState(f.database)).toEqual(before);
     expect(f.fetcher).not.toHaveBeenCalled();
   });
 
@@ -302,12 +323,17 @@ describe('Brew MCP', () => {
     expect(data(await call(f.client, 'get_item', { id: 2 })).tags).toHaveLength(1);
   });
 
-  it('creates a rule only after explicit opt-in, replays once, and undoes only an unchanged unexecuted rule', async () => {
+  it('keeps rule creation a dry run for scoped tokens, including enabled rules with indirect effects', async () => {
     const f = await fixture();
-    const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
-    expect((await call(f.client, 'create_rule', { draft: rule, dry_run: false })).isError).toBe(
-      true,
-    );
+    const before = libraryState(f.database);
+    expect(data(await call(f.client, 'create_rule', { draft: rule })).dry_run).toBe(true);
+    const refused = await call(f.client, 'create_rule', {
+      draft: { ...rule, enabled: true },
+      dry_run: false,
+      confirm: true,
+      request_id: 'mcp-rule-contract-001',
+    });
+    expect(refused.structuredContent).toMatchObject({ status: 403 });
     expect(
       (
         await call(f.client, 'create_rule', {
@@ -318,33 +344,7 @@ describe('Brew MCP', () => {
         })
       ).isError,
     ).toBe(true);
-    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
-    const args = {
-      draft: rule,
-      dry_run: false,
-      confirm: true,
-      request_id: 'mcp-rule-contract-001',
-    };
-    const written = data(await call(f.client, 'create_rule', args));
-    expect(data(await call(f.client, 'create_rule', args)).undo_id).toBe(written.undo_id);
-    const rows = (await f.app.inject('/api/rules')).json();
-    expect(rows).toHaveLength(1);
-    expect(data(await call(f.client, 'get_item', { id: 1 })).starred_at).toBeNull();
-    await call(f.client, 'undo', { undo_id: written.undo_id, confirm: true });
-    expect((await f.app.inject('/api/rules')).json()).toHaveLength(0);
-    const next = data(
-      await call(f.client, 'create_rule', { ...args, request_id: 'mcp-rule-contract-002' }),
-    );
-    const changed = (await f.app.inject('/api/rules')).json()[0];
-    await f.app.inject({
-      method: 'PUT',
-      url: `/api/rules/${changed.id}`,
-      payload: { ...changed, name: 'Later rule edit' },
-    });
-    expect(
-      (await call(f.client, 'undo', { undo_id: next.undo_id, confirm: true })).structuredContent,
-    ).toMatchObject({ status: 409 });
-    expect((await f.app.inject('/api/rules')).json()[0].name).toBe('Later rule edit');
+    expect(libraryState(f.database)).toEqual(before);
   });
 
   it('fetches subscriptions before journaling, joins concurrent retries and preserves unrelated writes during the fetch', async () => {
@@ -400,7 +400,7 @@ describe('Brew MCP', () => {
     const args = { id: 1, starred: true, confirm: true, request_id: 'mcp-reopen-contract-001' };
     const written = data(await call(f.client, 'star', args));
     await f.close();
-    const g = await fixture({ filename: storage.filename, seed: false });
+    const g = await fixture({ filename: storage.filename, seed: false, token: f.token });
     expect(data(await call(g.client, 'star', args)).undo_id).toBe(written.undo_id);
     expect(
       (await call(g.client, 'star', { ...args, starred: false })).structuredContent,
@@ -421,7 +421,7 @@ describe('Brew MCP', () => {
 
   it('rejects unconfirmed, malformed, missing and read-only writes without mutations; defends HTTP Host/Origin', async () => {
     const f = await fixture();
-    const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    const before = libraryState(f.database);
     for (const [name, args] of [
       ['star', { id: 1 }],
       ['star', { id: 1, confirm: true }],
@@ -434,7 +434,7 @@ describe('Brew MCP', () => {
       ['get_item', { id: 999 }],
     ] as const)
       expect((await call(f.client, name, args)).isError).toBe(true);
-    const readOnly = createBrewMcpHandler(nodeServices(f.app));
+    const readOnly = createBrewMcpHandler(nodeServices(f.app), { write: false });
     closes.unshift(() => readOnly.close());
     const client = new Client({ name: 'read-only', version: '1' });
     await client.connect(
@@ -446,7 +446,7 @@ describe('Brew MCP', () => {
     expect(
       (await call(client, 'star', { id: 1, confirm: true, request_id: 'mcp-readonly-contract' }))
         .structuredContent,
-    ).toMatchObject({ status: 501 });
+    ).toMatchObject({ status: 403 });
     for (const headers of [
       { host: 'attacker.example.test' },
       { origin: 'https://attacker.example.test' },
@@ -463,7 +463,7 @@ describe('Brew MCP', () => {
     }
     const absent = await createApi({} as ApiServices).request('/mcp', { method: 'POST' });
     expect(absent.status).toBe(501);
-    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+    expect(libraryState(f.database)).toEqual(before);
     expect(f.fetcher).not.toHaveBeenCalled();
   });
 
@@ -479,7 +479,11 @@ describe('Brew MCP', () => {
     });
     expect(result.isError).toBe(true);
     expect(JSON.stringify(result)).not.toContain('private-constraint-marker');
-    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({
+    expect(
+      f.database.sqlite
+        .prepare('SELECT count(*) AS n FROM agent_actions WHERE undo_json IS NOT NULL')
+        .get(),
+    ).toEqual({
       n: 0,
     });
     expect((await f.app.inject('/api/feeds')).json()).toHaveLength(1);

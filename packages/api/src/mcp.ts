@@ -6,6 +6,7 @@ import { agentRuleDraft } from '../../core/src/agent-writes.js';
 import { renderArticleMarkdown } from '../../core/src/article-outputs.js';
 import { brewOutputSnapshot } from '../../core/src/brew-output-snapshot.js';
 import { renderBrewJson, renderBrewMarkdown } from '../../core/src/brew-outputs.js';
+import type { AgentConnection } from '../../core/src/agent-access.js';
 
 const id = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const limit = z.number().int().min(1).max(100).default(50);
@@ -82,12 +83,30 @@ const safe = async (run: () => Promise<CallToolResult>): Promise<CallToolResult>
 /** One catalog for both transports. It defaults to read-only until the ingress grants writes. */
 export function createBrewMcpServer(
   services: ApiServices,
-  access: { write: boolean } = { write: false },
+  access: AgentConnection = { write: false },
 ) {
   const server = new McpServer(
     { name: 'brew', version: '0.1.0' },
     { maxToolInputElements: 51_500 },
   );
+  const tracked = (tool: string) => async (run: () => Promise<CallToolResult>) => {
+    const result = await safe(async () => {
+      if (access.tokenId !== undefined && !services.agentAccess?.current(access.tokenId))
+        throw new ActionError(403, 'This token has expired or been revoked.');
+      return run();
+    });
+    // Durable writes already have one authoritative receipt; log reads, previews and failures.
+    return safe(async () => {
+      if (
+        services.agentAccess &&
+        (!(result.structuredContent as Record<string, unknown> | undefined)?.receipt ||
+          result.isError ||
+          tool === 'undo')
+      )
+        services.agentAccess.record(access, tool, result.isError ? 'failed' : 'complete');
+      return result;
+    });
+  };
   const read = {
     readOnlyHint: true,
     destructiveHint: false,
@@ -106,12 +125,14 @@ export function createBrewMcpServer(
     return services.actions;
   };
   const commit = async (input: ActionInput, confirm: boolean, identity?: string) => {
-    if (!access.write) throw new ActionError(501, 'This connection is read-only.');
+    if (!access.write) throw new ActionError(403, 'This connection is read-only.');
+    if (access.tokenId !== undefined && input.kind === 'create_rule')
+      throw new ActionError(403, 'Tokens can preview rules. Save reviewed rules in Brew.');
     if (!confirm) throw new ActionError(428, 'Explicit confirm: true is required.');
     if (!identity) throw new ActionError(400, 'Choose a request_id before writing.');
     const receipt = await actions().run(
       { ...input, confirm: true, requestId: identity },
-      { agent: 'mcp' },
+      { agent: 'mcp', tokenId: access.tokenId, name: access.name },
     );
     return success({ undo_id: receipt.id, receipt });
   };
@@ -132,7 +153,7 @@ export function createBrewMcpServer(
       annotations: read,
     },
     (input) =>
-      safe(async () => {
+      tracked('search_items')(async () => {
         const page = await services.search.search(input.query, input.scope, {
           folderId: input.folder_id,
           unread: input.unread,
@@ -159,7 +180,7 @@ export function createBrewMcpServer(
       annotations: read,
     },
     (input) =>
-      safe(async () => {
+      tracked('list_unread')(async () => {
         const page = await services.reader.articles({
           view: input.view,
           feedId: input.feed_id,
@@ -181,7 +202,7 @@ export function createBrewMcpServer(
       annotations: read,
     },
     ({ id }) =>
-      safe(async () => {
+      tracked('get_item')(async () => {
         const article = await services.articles.get(id);
         if (!article) throw new ActionError(404, 'Article not found.');
         const markdown = renderArticleMarkdown(article, services.outputBaseUrl);
@@ -213,7 +234,7 @@ export function createBrewMcpServer(
       annotations: write,
     },
     (input) =>
-      safe(async () => {
+      tracked('mark_read')(async () => {
         if (!input.confirm)
           return success({
             ...(await actions().previewRead(input.target)),
@@ -237,7 +258,7 @@ export function createBrewMcpServer(
       annotations: write,
     },
     (input) =>
-      safe(() =>
+      tracked('star')(() =>
         commit(
           { kind: 'star_item', id: input.id, starred: input.starred },
           input.confirm,
@@ -259,7 +280,7 @@ export function createBrewMcpServer(
       annotations: write,
     },
     (input) =>
-      safe(() =>
+      tracked('tag')(() =>
         commit(
           { kind: 'tag_item', id: input.id, add: input.add, remove: input.remove },
           input.confirm,
@@ -280,7 +301,7 @@ export function createBrewMcpServer(
       annotations: { ...write, openWorldHint: true },
     },
     (input) =>
-      safe(() =>
+      tracked('add_feed')(() =>
         commit(
           { kind: 'add_feed', url: input.url, folderId: input.folder_id },
           input.confirm,
@@ -297,7 +318,7 @@ export function createBrewMcpServer(
       annotations: write,
     },
     (input) =>
-      safe(async () => {
+      tracked('create_rule')(async () => {
         let value;
         try {
           value = agentRuleDraft(input.draft);
@@ -318,7 +339,7 @@ export function createBrewMcpServer(
       annotations: read,
     },
     () =>
-      safe(async () =>
+      tracked('list_brews')(async () =>
         success({
           items: (await services.brews.listConfigs()).map(({ id, name, enabled }) => ({
             id,
@@ -337,7 +358,7 @@ export function createBrewMcpServer(
       annotations: read,
     },
     ({ id, issue_id }) =>
-      safe(async () => {
+      tracked('get_brew')(async () => {
         const config = await services.brews.composition(id);
         if (!config) throw new ActionError(404, 'Brew not found.');
         const issue = issue_id
@@ -378,7 +399,7 @@ export function createBrewMcpServer(
       annotations: read,
     },
     ({ id, at }) =>
-      safe(async () => {
+      tracked('preview_brew')(async () => {
         const preview = await services.brews.previewBrew(id, at);
         if (!preview) throw new ActionError(404, 'Brew not found.');
         return success(
@@ -401,18 +422,21 @@ export function createBrewMcpServer(
       annotations: write,
     },
     ({ undo_id, confirm }) =>
-      safe(async () => {
-        if (!access.write) throw new ActionError(501, 'This connection is read-only.');
+      tracked('undo')(async () => {
+        if (!access.write) throw new ActionError(403, 'This connection is read-only.');
         if (!confirm) throw new ActionError(428, 'Explicit confirm:true is required.');
-        return success({ undo_id, receipt: await actions().undo(undo_id) });
+        return success({ undo_id, receipt: await actions().undo(undo_id, access.tokenId) });
       }),
   );
   return server;
 }
 
-export function createBrewMcpHandler(
-  services: ApiServices,
-  access: { write: boolean } = { write: false },
-) {
-  return createMcpHandler(() => createBrewMcpServer(services, access));
+export function createBrewMcpHandler(services: ApiServices, access?: AgentConnection) {
+  return createMcpHandler(({ requestInfo }) => {
+    const connection =
+      access ??
+      services.agentAccess?.authenticate(requestInfo?.headers.get('authorization') ?? null);
+    if (services.agentAccess && !connection) throw new ActionError(401, 'Use a valid Brew token.');
+    return createBrewMcpServer(services, connection ?? { write: false });
+  });
 }

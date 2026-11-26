@@ -5,7 +5,7 @@ export const isAppPageOutputPath = (path: string) =>
   /^\/(index|reader|feeds|letters|rules)\.(md|json)$/.test(path) ||
   /^\/rules\/[^/]+\.(md|json)$/.test(path) ||
   /^\/letters\/[^/]+(?:\/[^/]+)?\.(md|json)$/.test(path) ||
-  /^\/settings\/runs\.(md|json)$/.test(path) ||
+  /^\/settings\/(runs|agents)\.(md|json)$/.test(path) ||
   /^\/b\/[^/]+\/(compose|read)\.(md|json)$/.test(path);
 export const readerWelcomeCopy = {
   title: 'The Brew',

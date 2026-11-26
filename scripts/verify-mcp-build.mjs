@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
-import { createApp } from '../dist/targets/node/src/app.js';
+import { createApp, nodeServices } from '../dist/targets/node/src/app.js';
 import { openDatabase } from '../dist/targets/node/src/db/database.js';
 
 export async function verifyMcpBuild() {
@@ -33,8 +33,16 @@ export async function verifyMcpBuild() {
       .run(Date.now());
     app = await createApp({ database, logger: false });
     const base = await app.listen({ host: '127.0.0.1', port: 0 });
+    const token = nodeServices(app).agentAccess.create({
+      name: 'Compiled client',
+      scopes: 'write',
+    }).token;
     client = new Client({ name: 'compiled-http-owner', version: '1' });
-    await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', base)));
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL('/mcp', base), {
+        requestInit: { headers: { Authorization: `Bearer ${token}` } },
+      }),
+    );
     assert.equal((await client.listTools()).tools.length, 12);
     assert.equal(data(await call('list_unread')).total, 1);
     assert.match(data(await call('get_item', { id: 1 })).markdown, /Compiled content/);
@@ -58,7 +66,13 @@ export async function verifyMcpBuild() {
       command: process.execPath,
       args: [fileURLToPath(new URL('../dist/targets/node/src/index.js', import.meta.url)), 'mcp'],
       cwd: dir,
-      env: { ...process.env, BREW_DB_PATH: filename, BREW_PUBLIC_URL: '', NODE_ENV: 'production' },
+      env: {
+        ...process.env,
+        BREW_DB_PATH: filename,
+        BREW_MCP_TOKEN: token,
+        BREW_PUBLIC_URL: '',
+        NODE_ENV: 'production',
+      },
       stderr: 'pipe',
     });
     let stderr = '';

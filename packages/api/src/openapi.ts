@@ -83,13 +83,19 @@ export function registerOpenApi(app: Hono) {
           title: 'Brew instance API',
           version: '0.1.0',
           description:
-            'Single-owner instance API. Protect access at the deployment boundary. Scoped API tokens are not implemented yet; this document does not grant authorization. Check /api/capabilities before using optional features (501 means setup is required). GET also supports HEAD. Legacy REST writes do not all offer Undo; use confirmed /api/actions for supported durable owner actions. Private text exports are included; HTML application routes and static files are not API operations.',
+            'Single-owner instance API. Protect owner REST and HTML access at the deployment boundary. Scoped bearer tokens authorize only /mcp and are explicitly refused by owner REST routes. Manage them in Settings → Agent access. Check /api/capabilities before using optional features (501 means setup is required). GET also supports HEAD. Legacy REST writes do not all offer Undo; use confirmed /api/actions for supported durable owner actions. Private text exports are included; HTML application routes and static files are not API operations.',
         },
         // Stable and same-origin; do not trust Host/forwarded headers or publish configuration.
         servers: [{ url: '/', description: 'This Brew instance' }],
         components: {
           schemas,
           securitySchemes: {
+            brewToken: {
+              type: 'http',
+              scheme: 'bearer',
+              description:
+                'Hashed, expiring Brew tokens. Accepted only at /mcp; read-only by default. Write scope never permits arbitrary deletion or saving rules.',
+            },
             postmarkBasic: {
               type: 'http',
               scheme: 'basic',

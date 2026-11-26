@@ -2,8 +2,8 @@
 
 Brew exposes one catalog through Node CLI stdio and streamable HTTP at `/mcp`.
 Node advertises `mcp: "stdio+http"` in `/api/capabilities`. Other adapters return
-501 until they provide MCP. Scoped tokens, the full Agent access setup and
-WebMCP remain separate M12 work.
+501 until they provide MCP. Settings → Agent access provides scoped tokens, a
+private activity log with Undo, and client setup. WebMCP remains separate M12 work.
 
 ## Connect
 
@@ -35,19 +35,27 @@ Stdout contains JSON-RPC only; startup errors use stderr. The process opens no
 HTTP listener and starts no poller, Brew scheduler, mailbox or SMTP transport.
 Pipe closure and SIGINT/SIGTERM close the SDK, drain writes and close SQLite.
 An explicitly confirmed `add_feed` can fetch its requested feed metadata.
+Without `BREW_MCP_TOKEN`, stdio is a trusted local owner process with the same
+access as the database file. Set `BREW_MCP_TOKEN` to use a scoped token instead;
+its scope, expiry and revocation are checked on every tool call. An invalid
+startup token stops the process without printing the secret.
 
 For HTTP, connect to `http://127.0.0.1:4400/mcp`, the configured public origin, or
-the development proxy on port 4401. The SDK supports modern and 2025 protocol
-clients. HTTP is stateless; legacy GET/DELETE session operations return 405.
+the development proxy on port 4401. Create a token in Agent access and send
+`Authorization: Bearer <YOUR_BREW_TOKEN>` on every request. Query parameters do
+not authenticate. Missing, expired or revoked credentials return 401 with a Bearer
+challenge. The SDK supports modern and 2025 protocol clients. HTTP is stateless;
+authorized legacy GET/DELETE session operations return 405.
 Host validation accepts exact loopback hostnames and the configured public
 hostname. Browser Origin must match the request or configured public origin.
 Responses, including parser errors, are private/no-store. No permissive
 cross-origin policy is added.
 
-This criterion provides trusted-owner access, as with the existing Node REST API.
-Protect deployed instance access at its deployment boundary. Scoped tokens are
-not implemented yet. The shared factory defaults to read-only; Node's owner
-transports explicitly enable confirmed writes.
+Owner REST routes, HTML and text exports retain the single-owner deployment
+boundary. Protect them with your existing network or reverse-proxy access gate.
+If exposing `/mcp` separately, keep that gate on every other path. MCP tokens
+are deliberately refused by `/api/*`; they cannot authorize token creation,
+owner deletion routes or other legacy REST writes. See [Agent access](agent-access.md).
 
 ## Tools
 
@@ -75,14 +83,19 @@ in scope beyond the loaded page. SDK schemas validate fields and identities.
 Writes require `confirm:true`. All writes except `undo` also require a
 16–80 character `request_id` of letters, digits, underscores or hyphens. Preserve
 it after a lost acknowledgement. Success returns a numeric `undo_id` and receipt.
-Replays recover the same receipt across transports and process restarts, including
-after Undo or expiry. Changing arguments with the same identity conflicts.
+Replays recover the same receipt for the same token across transports and
+process restarts, including after Undo or expiry. For HTTP-to-stdio recovery,
+set the same token in `BREW_MCP_TOKEN`. Each token has its own identity namespace;
+a different token cannot recover or Undo another token’s action. The owner can
+Undo token actions from the activity log. Changing arguments with the same identity conflicts.
 
 For `mark_read`, first omit confirmation to obtain the current revision/count.
 Confirm that same target/revision; stale state requires a fresh review. For
-`create_rule`, saving additionally requires `dry_run:false`. A dry run works on
-a read-only connection and does not journal anything. A saved enabled rule may
-run its configured actions on future ingestion.
+`create_rule`, tokens can only dry run: saving is refused even with write scope,
+`confirm:true` and `dry_run:false`. Review and save rules in Brew. Trusted local
+owner stdio can save with both flags; enabled rules may run actions on future
+ingestion. Dry runs leave library content unchanged and add only redacted activity
+metadata. Read calls also update last-used timestamps and activity, never read state.
 
 Undo lasts 30 seconds and preserves unrelated later fields. It refuses overlapping
 edits, new feeds already used by articles/references, new rules with edits/history,

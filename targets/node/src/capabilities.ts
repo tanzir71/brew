@@ -10,6 +10,7 @@ export function nodeCapabilities(): Capabilities {
     emailDelivery: null,
     readerApi: false,
     mcp: 'stdio+http',
+    agentAccess: true,
     webmcp: false,
     ai: { available: [], configured: false },
     readState: 'server',

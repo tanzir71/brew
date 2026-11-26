@@ -1,11 +1,17 @@
 import type { Hono } from 'hono';
 import { documented, errors, response } from '../openapi.js';
 import { json } from '../http.js';
+import type { AgentAccessPort } from '../../../core/src/agent-access.js';
 
 export interface McpHttpPort {
   fetch(request: Request): Promise<Response>;
 }
-export function registerMcpRoutes(app: Hono, port?: McpHttpPort, publicUrl?: string) {
+export function registerMcpRoutes(
+  app: Hono,
+  port?: McpHttpPort,
+  publicUrl?: string,
+  access?: AgentAccessPort,
+) {
   const publicOrigin = publicUrl ? new URL(publicUrl).origin : undefined;
   const hosts = new Set(['localhost', '127.0.0.1', '[::1]']);
   if (publicUrl) hosts.add(new URL(publicUrl).hostname);
@@ -14,7 +20,8 @@ export function registerMcpRoutes(app: Hono, port?: McpHttpPort, publicUrl?: str
       '/mcp',
       documented('MCP', 'Use the Brew MCP streamable HTTP transport', {
         description:
-          'JSON-RPC MCP endpoint. Validate Host and same-origin browser requests before dispatch. The transport negotiates protocol versions; unsupported stream/session methods return 405. Node currently provides trusted-owner access; scoped tokens are a later criterion. Tool writes require explicit confirmation and return undo_id.',
+          'JSON-RPC MCP endpoint. Validate Host, Origin and expiring Brew bearer token before dispatch. The transport negotiates protocol versions; unsupported stream/session methods return 405. Read-only by default. Write tokens can mark, star, tag, add feeds and Undo their own changes; they cannot delete content or save rules. Tool writes require explicit confirmation and return undo_id.',
+        security: [{ brewToken: [] }],
         ...(method === 'post'
           ? {
               requestBody: {
@@ -33,6 +40,7 @@ export function registerMcpRoutes(app: Hono, port?: McpHttpPort, publicUrl?: str
           },
           202: { description: 'Accepted notification; no body' },
           400: response({ type: 'object' }, 'Invalid MCP request'),
+          401: response({ type: 'object' }, 'Missing, expired or revoked bearer token'),
           403: response({ type: 'object' }, 'Untrusted Host or Origin'),
           405: { description: 'Unsupported transport method' },
           ...errors(501),
@@ -49,6 +57,10 @@ export function registerMcpRoutes(app: Hono, port?: McpHttpPort, publicUrl?: str
           (origin !== undefined && origin !== url.origin && origin !== publicOrigin)
         )
           return json(c, { error: 'Untrusted MCP Host or Origin.' }, 403);
+        if (access && !access.authenticate(c.req.header('authorization') ?? null)) {
+          c.header('WWW-Authenticate', 'Bearer realm="Brew MCP"');
+          return json(c, { error: 'Use a valid Brew token from Settings → Agent access.' }, 401);
+        }
         return port.fetch(c.req.raw);
       },
     );

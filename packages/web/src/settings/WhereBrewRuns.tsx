@@ -1,3 +1,4 @@
+import { SettingsNav } from './SettingsNav';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { AppSidebar } from '../components/AppSidebar';
 import { Badge } from '../components/Badge';
@@ -69,43 +70,7 @@ export function WhereBrewRuns() {
     <div className="runs-app">
       <AppSidebar />
       <div className="runs-panel">
-        <nav aria-label="Settings" className="runs-settings-nav">
-          <h2>Settings</h2>
-          <a
-            href="#preferences-general"
-            aria-current={preferenceTopic === 'general' ? 'page' : undefined}
-          >
-            <img src={runAssets.general} alt="" />
-            General
-          </a>
-          <a
-            href="#preferences-reading"
-            aria-current={preferenceTopic === 'reading' ? 'page' : undefined}
-          >
-            <img src={runAssets.reading} alt="" />
-            Reading
-          </a>
-          <a href="/settings/runs" aria-current={preferenceTopic ? undefined : 'page'}>
-            <img src={runAssets.runs} alt="" />
-            Where Brew runs
-          </a>
-          <a href="#setup-newsletters">
-            <img src={runAssets.inbox} alt="" />
-            Newsletters
-          </a>
-          <a href="#setup-agents">
-            <img src={runAssets.agent} alt="" />
-            Agent access
-          </a>
-          <a href="#setup-apps">
-            <img src={runAssets.apps} alt="" />
-            Apps &amp; sync
-          </a>
-          <a href="#setup-data">
-            <img src={runAssets.backup} alt="" />
-            Data &amp; backup
-          </a>
-        </nav>
+        <SettingsNav preferenceTopic={preferenceTopic} />
         <main className="runs-content" id="main-content" aria-label="Instance settings">
           <header className="runs-intro">
             <h1 tabIndex={-1}>Where Brew runs</h1>

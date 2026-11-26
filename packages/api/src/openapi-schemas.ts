@@ -599,6 +599,7 @@ export const schemas: Record<string, SchemaObject> = {
       emailDelivery: nullable(values('smtp', 'cloudflare-email', 'resend', 'php-mail')),
       readerApi: bool,
       mcp: nullable(values('stdio+http', 'http')),
+      agentAccess: bool,
       webmcp: bool,
       ai: object({
         available: array(values('byo', 'ollama', 'workers-ai', 'chrome-builtin')),

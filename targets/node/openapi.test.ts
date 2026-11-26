@@ -81,6 +81,9 @@ describe('route-derived OpenAPI 3.1', () => {
     expect(doc.paths['/settings/runs.json']).toBeDefined();
     expect(doc.paths['/api/*']).toBeUndefined();
     expect(doc.paths['/mcp']?.post).toBeDefined();
+    expect(doc.paths['/mcp']?.post?.security).toEqual([{ brewToken: [] }]);
+    expect(doc.paths['/api/agent-access/tokens']?.post?.responses['201']).toBeDefined();
+    expect(doc.paths['/settings/agents.md']?.get).toBeDefined();
     expect(doc.components?.securitySchemes).not.toHaveProperty('bearerAuth');
     // Fail for missing required path parameters, including embedded :id suffixes.
     for (const [path, methods] of Object.entries(doc.paths)) {
@@ -310,5 +313,25 @@ describe('route-derived OpenAPI 3.1', () => {
     expect(undone.statusCode).toBe(200);
     matchesResponse(doc, operation(doc, '/api/actions/{id}/undo', 'post'), 200, undone.json());
     expect((await app.inject('/api/rules')).json()).toHaveLength(1);
+    const token = await app.inject({
+      method: 'POST',
+      url: '/api/agent-access/tokens',
+      headers: { origin: 'http://localhost' },
+      payload: { name: 'Contract agent' },
+    });
+    expect(token.statusCode).toBe(201);
+    matchesResponse(doc, operation(doc, '/api/agent-access/tokens', 'post'), 201, token.json());
+    matchesResponse(
+      doc,
+      operation(doc, '/api/agent-access/tokens', 'get'),
+      200,
+      (await app.inject('/api/agent-access/tokens')).json(),
+    );
+    matchesResponse(
+      doc,
+      operation(doc, '/api/agent-access/actions', 'get'),
+      200,
+      (await app.inject('/api/agent-access/actions')).json(),
+    );
   });
 });

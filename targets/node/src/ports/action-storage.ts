@@ -22,6 +22,7 @@ import { copiedRuleDraft, ruleCopySource } from '../../../../packages/core/src/r
 const undoMs = 30_000;
 interface Stored {
   id: number;
+  token_id: number | null;
   tool: ActionRequest['kind'];
   args_json: string;
   result_json: string;
@@ -37,7 +38,14 @@ export class NodeActionStorage implements ActionStoragePort {
   >();
   private args(request: ActionRequest) {
     if (['star_item', 'tag_item', 'add_feed', 'create_rule'].includes(request.kind)) {
-      const input = { ...request, requestId: undefined, actor: undefined, confirm: undefined };
+      const input = {
+        ...request,
+        requestId: undefined,
+        actor: undefined,
+        tokenId: undefined,
+        agentName: undefined,
+        confirm: undefined,
+      };
       return JSON.stringify({
         sha256: createHash('sha256').update(JSON.stringify(input)).digest('hex'),
       });
@@ -76,7 +84,7 @@ export class NodeActionStorage implements ActionStoragePort {
     this.journal = new ActionJournal(database);
     this.cleanup();
   }
-  private metadata(id: number): ActionReceipt {
+  receipt(id: number): ActionReceipt {
     const row = this.database.sqlite.prepare('SELECT * FROM agent_actions WHERE id=?').get(id) as
       Stored | undefined;
     if (!row) throw new ActionError(404, 'Action not found.');
@@ -110,11 +118,12 @@ export class NodeActionStorage implements ActionStoragePort {
     return Number(
       this.database.sqlite
         .prepare(
-          'INSERT INTO agent_actions(agent,request_id,tool,args_json,result_json,undo_json,created_at) VALUES(?,?,?,?,?,?,?)',
+          'INSERT INTO agent_actions(agent,token_id,request_id,tool,args_json,result_json,undo_json,created_at) VALUES(?,?,?,?,?,?,?,?)',
         )
         .run(
-          request.actor ?? 'web',
-          request.requestId ?? null,
+          request.agentName ?? request.actor ?? 'web',
+          request.tokenId ?? null,
+          this.requestKey(request) ?? null,
           request.kind,
           this.args(request),
           JSON.stringify(result),
@@ -136,9 +145,31 @@ export class NodeActionStorage implements ActionStoragePort {
   previewRead(target: ReadActionTarget) {
     return new ReadActions(this.database, () => this.clock.now()).inspect(target).preview;
   }
+  private requestKey(request: ActionRequest) {
+    return (
+      request.requestId &&
+      (request.tokenId === undefined
+        ? request.requestId
+        : `token:${request.tokenId}:${request.requestId}`)
+    );
+  }
+  private authorizeToken(tokenId?: number, kind?: string) {
+    if (tokenId === undefined) return;
+    const token = this.database.sqlite
+      .prepare("SELECT id FROM api_tokens WHERE id=? AND scopes='write' AND expires_at>?")
+      .get(tokenId, this.clock.now().getTime());
+    if (!token) throw new ActionError(403, 'This token cannot write.');
+    if (kind && !['mark_read', 'star_item', 'tag_item', 'add_feed'].includes(kind))
+      throw new ActionError(
+        403,
+        'Tokens can mark, star, tag and add feeds. Review other changes in Brew.',
+      );
+  }
   run(request: ActionRequest): Promise<ActionReceipt> {
+    this.authorizeToken(request.tokenId, request.kind);
+    const key = this.requestKey(request);
     const signature = `${request.kind}:${this.args(request)}`;
-    const existing = request.requestId ? this.requests.get(request.requestId) : undefined;
+    const existing = key ? this.requests.get(key) : undefined;
     if (existing) {
       if (existing.signature !== signature)
         throw new ActionError(409, 'This request was already used for another action.');
@@ -146,22 +177,22 @@ export class NodeActionStorage implements ActionStoragePort {
     }
     const task = this.execute(request).finally(() => {
       this.tasks.delete(task);
-      if (request.requestId) this.requests.delete(request.requestId);
+      if (key) this.requests.delete(key);
     });
     this.tasks.add(task);
-    if (request.requestId) this.requests.set(request.requestId, { signature, task });
+    if (key) this.requests.set(key, { signature, task });
     return task;
   }
   private async execute(request: ActionRequest): Promise<ActionReceipt> {
     this.cleanup();
     if (request.requestId) {
       const prior = this.database.sqlite
-        .prepare('SELECT id,tool,args_json FROM agent_actions WHERE request_id=?')
-        .get(request.requestId) as Stored | undefined;
+        .prepare('SELECT id,tool,args_json,token_id FROM agent_actions WHERE request_id=?')
+        .get(this.requestKey(request)) as Stored | undefined;
       if (prior) {
         if (prior.tool !== request.kind || prior.args_json !== this.args(request))
           throw new ActionError(409, 'This request was already used for another action.');
-        return this.metadata(prior.id);
+        return this.receipt(prior.id);
       }
     }
     if (request.kind === 'copy_rule') {
@@ -198,7 +229,7 @@ export class NodeActionStorage implements ActionStoragePort {
           }),
           id,
         );
-        return this.metadata(id);
+        return this.receipt(id);
       })();
     }
     if (
@@ -214,6 +245,7 @@ export class NodeActionStorage implements ActionStoragePort {
           ? await feedService.prepareAdd(request.url, request.folderId)
           : null;
       return this.database.sqlite.transaction(() => {
+        this.authorizeToken(request.tokenId, request.kind);
         const id = this.create(request, 'Applying agent change…', false);
         const targetId = this.write(id, () => {
           const articles = new ArticleService(this.database, this.fetcher, () => this.clock.now());
@@ -248,19 +280,17 @@ export class NodeActionStorage implements ActionStoragePort {
           add_feed: 'Subscribed to feed.',
           create_rule: 'Created rule without running its actions.',
         };
-        this.database.sqlite
-          .prepare('UPDATE agent_actions SET result_json=? WHERE id=?')
-          .run(
-            JSON.stringify({
-              kind: request.kind,
-              targetId,
-              summary: summaries[request.kind],
-              status: 'complete',
-              externalEffects: false,
-            }),
-            id,
-          );
-        return this.metadata(id);
+        this.database.sqlite.prepare('UPDATE agent_actions SET result_json=? WHERE id=?').run(
+          JSON.stringify({
+            kind: request.kind,
+            targetId,
+            summary: summaries[request.kind],
+            status: 'complete',
+            externalEffects: false,
+          }),
+          id,
+        );
+        return this.receipt(id);
       })();
     }
     if (request.kind === 'mark_read') {
@@ -290,7 +320,7 @@ export class NodeActionStorage implements ActionStoragePort {
               : null,
             id,
           );
-        return this.metadata(id);
+        return this.receipt(id);
       })();
     }
     if (request.kind === 'update_sender') {
@@ -338,7 +368,7 @@ export class NodeActionStorage implements ActionStoragePort {
               : null,
             id,
           );
-        return this.metadata(id);
+        return this.receipt(id);
       })();
     }
     if (request.kind === 'import_opml') {
@@ -367,7 +397,7 @@ export class NodeActionStorage implements ActionStoragePort {
               : null,
             id,
           );
-        return this.metadata(id);
+        return this.receipt(id);
       })();
     }
     const table =
@@ -392,7 +422,7 @@ export class NodeActionStorage implements ActionStoragePort {
             "UPDATE agent_actions SET result_json=json_set(result_json,'$.status','complete') WHERE id=?",
           )
           .run(id);
-        return this.metadata(id);
+        return this.receipt(id);
       })();
     }
     const external = (JSON.parse(item.actions_json!) as Array<{ type: string }>).some((action) =>
@@ -454,12 +484,20 @@ export class NodeActionStorage implements ActionStoragePort {
     } finally {
       this.running.delete(id);
     }
-    return this.metadata(id);
+    return this.receipt(id);
   }
-  undo(id: number): ActionReceipt {
+  undo(id: number, tokenId?: number): ActionReceipt {
+    this.authorizeToken(tokenId);
+    if (
+      tokenId !== undefined &&
+      !this.database.sqlite
+        .prepare('SELECT id FROM agent_actions WHERE id=? AND token_id=?')
+        .get(id, tokenId)
+    )
+      throw new ActionError(404, 'Action not found.');
     this.cleanup();
     return this.database.sqlite.transaction(() => {
-      const receipt = this.metadata(id);
+      const receipt = this.receipt(id);
       if (receipt.status === 'undone') return receipt;
       if (this.running.has(id)) throw new ActionError(409, 'Wait for the action to finish.');
       if (!receipt.canUndo) throw new ActionError(410, 'The Undo window has expired.');
@@ -476,16 +514,18 @@ export class NodeActionStorage implements ActionStoragePort {
         .prepare('UPDATE agent_actions SET undone_at=?,undo_json=NULL WHERE id=?')
         .run(this.clock.now().getTime(), id);
       this.database.sqlite.prepare('DELETE FROM agent_action_changes WHERE action_id=?').run(id);
-      return this.metadata(id);
+      return this.receipt(id);
     })();
   }
   recent(): ActionReceipt[] {
     this.cleanup();
     return (
       this.database.sqlite
-        .prepare('SELECT id FROM agent_actions ORDER BY id DESC LIMIT 20')
+        .prepare(
+          "SELECT id FROM agent_actions WHERE undo_json IS NOT NULL OR json_type(result_json,'$.kind') IS NOT NULL ORDER BY id DESC LIMIT 20",
+        )
         .all() as Array<{ id: number }>
-    ).map(({ id }) => this.metadata(id));
+    ).map(({ id }) => this.receipt(id));
   }
   cleanup(): void {
     const expired = this.database.sqlite

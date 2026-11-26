@@ -4,8 +4,9 @@ M12 is in progress. The nine-item DOM checklist and agent-friendly-mode criteria
 are implemented and audited across current screens. Browser coverage includes
 26 role/label-only journeys and ten DOM audit cases. OpenAPI 3.1 is implemented
 and covered separately in [API discovery](agent-api.md).
-The [MCP server](mcp.md) provides Node stdio and HTTP. Token/log/setup, WebMCP and
-llms.txt remain unfinished criteria. Later screens must preserve these DOM contracts.
+The [MCP server](mcp.md) provides Node stdio and HTTP. [Agent access](agent-access.md)
+provides scoped tokens, the activity log with Undo, setup snippets and private
+settings twins. WebMCP and llms.txt remain unfinished criteria. Later screens must preserve these DOM contracts.
 
 ## Current evidence
 
@@ -172,8 +173,9 @@ updates mounted views and other tabs through the existing preference store.
 also applies to URLs without the flag. The visible switch edits the saved setting;
 an explicit URL override explains why the mode remains on and offers a native
 Use saved preference link. Failed saves retain the actual saved value and report
-the failure. The current Agent access setup dialog hosts the Figma 15:2576 card;
-the full 15:2295 MCP/token/log page belongs to its remaining criteria.
+the failure. The Figma 15:2576 card is shared by the setup guide and the full
+15:2295 Agent access page. The latter now includes scoped tokens, the activity
+log with Undo, setup snippets, native focus recovery and private text twins.
 
 Reader/search disable the virtualizer and automatic cursor loading, use separate
 query identities and render ordinary document-flow rows for one 50-item page.

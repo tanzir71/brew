@@ -215,6 +215,15 @@ export const inboundReceipts = sqliteTable(
   (table) => [index('inbound_receipts_expiry').on(table.expiresAt)],
 );
 
+export const apiTokens = sqliteTable('api_tokens', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  scopes: text('scopes', { enum: ['read', 'write'] }).notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  lastUsedAt: timestamp('last_used_at'),
+  createdAt: timestamp('created_at').notNull(),
+});
 export const agentActions = sqliteTable('agent_actions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   tokenId: integer('token_id'),
@@ -243,6 +252,7 @@ export const agentActionChanges = sqliteTable(
 );
 
 export const schema = {
+  apiTokens,
   agentActions,
   agentActionChanges,
   inboundAddresses,

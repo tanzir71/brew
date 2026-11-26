@@ -9,6 +9,7 @@ export interface Capabilities {
   emailDelivery: 'smtp' | 'cloudflare-email' | 'resend' | 'php-mail' | null;
   readerApi: boolean;
   mcp: 'stdio+http' | 'http' | null;
+  agentAccess?: boolean;
   webmcp: boolean;
   ai: {
     available: Array<'byo' | 'ollama' | 'workers-ai' | 'chrome-builtin'>;
@@ -48,6 +49,7 @@ export function isCapabilities(value: unknown): value is Capabilities {
       oneOf(value.emailDelivery, ['smtp', 'cloudflare-email', 'resend', 'php-mail'])) &&
     typeof value.readerApi === 'boolean' &&
     (value.mcp === null || oneOf(value.mcp, ['stdio+http', 'http'])) &&
+    (value.agentAccess === undefined || typeof value.agentAccess === 'boolean') &&
     typeof value.webmcp === 'boolean' &&
     record(ai) &&
     Array.isArray(ai.available) &&

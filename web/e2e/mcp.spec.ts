@@ -7,9 +7,19 @@ test('the real Node MCP transport works through the same-origin development prox
 }) => {
   const capabilities = await request.get('/api/capabilities');
   expect((await capabilities.json()).mcp).toBe('stdio+http');
+  const created = await request.post('/api/agent-access/tokens', {
+    headers: { Origin: baseURL! },
+    data: { name: 'Proxy test' },
+  });
+  expect(created.status()).toBe(201);
+  const { token, entry } = await created.json();
   const client = new Client({ name: 'brew-proxy-test', version: '1' });
   try {
-    await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', baseURL)));
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL('/mcp', baseURL), {
+        requestInit: { headers: { Authorization: `Bearer ${token}` } },
+      }),
+    );
     const tools = await client.listTools();
     expect(tools.tools.map((t) => t.name)).toContain('undo');
     expect(tools.tools).toHaveLength(12);
@@ -18,6 +28,7 @@ test('the real Node MCP transport works through the same-origin development prox
     expect(result.structuredContent).toHaveProperty('items');
   } finally {
     await client.close();
+    await request.delete(`/api/agent-access/tokens/${entry.id}`, { headers: { Origin: baseURL! } });
   }
   const rejected = await request.post('/mcp', {
     headers: { Origin: 'https://untrusted.example.test' },

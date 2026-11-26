@@ -19,6 +19,7 @@ import { NodeApiData } from './api-data.js';
 import { nodeCapabilities } from '../capabilities.js';
 import { ActionsService } from '../../../../packages/core/src/actions.js';
 import { NodeActionStorage } from './action-storage.js';
+import { NodeAgentAccess } from './agent-access.js';
 
 export function nodeApiServices(
   database: BrewDatabase,
@@ -35,12 +36,13 @@ export function nodeApiServices(
 ): ApiServices {
   const clock = options.clock;
   const now = clock ? () => clock.now() : undefined;
+  const actionStorage = new NodeActionStorage(database, options.clock, fetcher, (article) =>
+    broker.publish('notification', article),
+  );
+  const actions = new ActionsService(actionStorage);
   return {
-    actions: new ActionsService(
-      new NodeActionStorage(database, options.clock, fetcher, (article) =>
-        broker.publish('notification', article),
-      ),
-    ),
+    actions,
+    agentAccess: new NodeAgentAccess(database, actionStorage, options.clock),
     outputBaseUrl: options.publicUrl,
     newsletters: new NewsletterLibrary(database, options.clock),
     capabilities: () => ({

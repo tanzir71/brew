@@ -10,8 +10,15 @@ export async function runMcpStdio() {
   });
   let closed: Promise<void> | undefined;
   const closeApp = () => (closed ??= app.close());
+  const services = nodeServices(app);
+  const token = process.env.BREW_MCP_TOKEN;
+  const access = token ? services.agentAccess?.authenticate(`Bearer ${token}`) : { write: true };
+  if (!access) {
+    await closeApp();
+    throw new Error('Invalid Brew MCP token.');
+  }
   const handle = serveStdio(() => {
-    const server = createBrewMcpServer(nodeServices(app), { write: true });
+    const server = createBrewMcpServer(services, access);
     server.server.onclose = () => {
       void closeApp();
     };

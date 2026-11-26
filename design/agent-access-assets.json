@@ -1,0 +1,67 @@
+{
+  "fileKey": "NcqNdBhgeg6om2CCZwrYV8",
+  "frame": "15:2295",
+  "purpose": "Unchanged exports for Agent access. The native 20px copy icon is transformed inside its 15px Figma wrapper; other exports render at native size. Sidebar, Badge and Toggle compose existing checked assets and primitives.",
+  "assets": [
+    {
+      "file": "packages/web/public/figma/agents/611cd.svg",
+      "node": "5:81",
+      "slot": "MCP endpoint copy",
+      "width": 20,
+      "height": 20,
+      "renderedWidth": 15,
+      "renderedHeight": 15,
+      "sha256": "97ee4a0d402fda94802b1f80323412f27d8f55bfaddf8af2178c75b20726d30b"
+    },
+    {
+      "file": "packages/web/public/figma/agents/2d1f8.svg",
+      "node": "5:44",
+      "slot": "New token",
+      "width": 14,
+      "height": 14,
+      "renderedWidth": 14,
+      "renderedHeight": 14,
+      "sha256": "b5a83429620b3de1359f0e6b5892a065893485bdb2a7e7558b392409c73dff3e"
+    },
+    {
+      "file": "packages/web/public/figma/agents/3ac7a.svg",
+      "node": "5:84",
+      "slot": "Full log",
+      "width": 14,
+      "height": 14,
+      "renderedWidth": 14,
+      "renderedHeight": 14,
+      "sha256": "3d09e6e2d26483d94136d3cc136a0e194a2034b859991fd5c770c609086bb422"
+    },
+    {
+      "file": "packages/web/public/figma/agents/c58e4.svg",
+      "node": "5:89",
+      "slot": "Activity agent chip",
+      "width": 14,
+      "height": 14,
+      "renderedWidth": 14,
+      "renderedHeight": 14,
+      "sha256": "75860fdb531155b2e40f7c905b5cdfe198d9dec43805e2851d3a3b0aba6ed7ce"
+    },
+    {
+      "file": "packages/web/public/figma/agents/1d102.svg",
+      "node": "I15:2454;6:65",
+      "slot": "Selected Agent access navigation",
+      "width": 16,
+      "height": 16,
+      "renderedWidth": 16,
+      "renderedHeight": 16,
+      "sha256": "3ce69c97f07a1986a45dfb1ac0fc567cbd35eac84cbc0c86d94ef70da63a0e9b"
+    },
+    {
+      "file": "packages/web/public/figma/agents/342e1.svg",
+      "node": "I15:2437;6:72",
+      "slot": "Where Brew runs navigation",
+      "width": 16,
+      "height": 16,
+      "renderedWidth": 16,
+      "renderedHeight": 16,
+      "sha256": "c93995d3472eae4ca26c0f642d5ff6a15d80eac665641adade4269234baf96d9"
+    }
+  ]
+}

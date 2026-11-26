@@ -3,6 +3,7 @@ import type { SetupTopic } from './capabilityRows';
 import type { Capabilities } from '@brew/core/types/capabilities';
 import { Badge } from '../components/Badge';
 import { AgentPreferences } from './AgentPreferences';
+import { agentPageHref } from '../agentLocation';
 
 const guides: Record<SetupTopic, { title: string; description: string; steps: string[] }> = {
   outputs: {
@@ -137,6 +138,11 @@ export function SetupDialog({
       </div>
       <p>{guide.description}</p>
       {topic === 'agents' && <AgentPreferences />}
+      {topic === 'agents' && (
+        <a className="runs-button" href={agentPageHref('/settings/agents')}>
+          Open Agent access settings
+        </a>
+      )}
       <ol>
         {steps.map((step) => (
           <li key={step}>{step}</li>

@@ -22,6 +22,7 @@ import { registerNewsletterRoutes } from './newsletters.js';
 import { documented, response, registerOpenApi } from './openapi.js';
 import { ref, str } from './openapi-schemas.js';
 import { registerMcpRoutes, type McpHttpPort } from './routes/mcp.js';
+import { registerAgentAccessRoutes } from './routes/agent-access.js';
 
 export const securityHeaders = {
   'Content-Security-Policy':
@@ -46,6 +47,15 @@ export function createApi(
     json(c, { statusCode: 500, error: 'Internal Server Error', message: error.message }, 500),
   );
   app.notFound(options.notFound ?? ((c) => json(c, { error: 'Not found' }, 404)));
+  app.use('/api/*', async (c, next) => {
+    // Scoped MCP credentials must never fall through to trusted-owner REST handlers.
+    if (/^Bearer\b/i.test(c.req.header('authorization') ?? '')) {
+      c.header('Cache-Control', 'private, no-store');
+      return json(c, { error: 'Scoped tokens are accepted only at /mcp.' }, 403);
+    }
+    return next();
+  });
+  registerAgentAccessRoutes(app, services);
   registerFeedRoutes(app, services);
   registerSourceRoutes(app, services);
   registerArticleRoutes(app, services);
@@ -63,7 +73,7 @@ export function createApi(
   registerMediaRoutes(app, services);
   registerInboundRoutes(app, services);
   registerNewsletterRoutes(app, services);
-  registerMcpRoutes(app, options.mcp, services.outputBaseUrl);
+  registerMcpRoutes(app, options.mcp, services.outputBaseUrl, services.agentAccess);
   app.get(
     '/api/capabilities',
     documented('Instance', 'Read effective instance capabilities', {

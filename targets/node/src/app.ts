@@ -55,7 +55,7 @@ export async function createApp(
   const outboundMail = options.outboundMail ?? smtp;
   const app = Fastify({ logger: options.logger ?? process.env.NODE_ENV !== 'test' });
   app.addHook('onSend', async (request, reply, payload) => {
-    if (request.url.split('?')[0] === '/mcp') {
+    if (request.url.split('?')[0] === '/mcp' || request.url.startsWith('/api/agent-access/')) {
       reply.header('Cache-Control', 'private, no-store');
       reply.header('X-Robots-Tag', 'noindex, nofollow');
     }
@@ -128,7 +128,7 @@ export async function createApp(
   });
   const actionTimer = setInterval(() => services.actions?.cleanup(), 5_000);
   app.decorate('brewServices', services);
-  const mcp = createBrewMcpHandler(services, { write: true });
+  const mcp = createBrewMcpHandler(services);
   actionTimer.unref();
   const api = createApi(services, {
     mcp,

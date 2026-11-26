@@ -14,7 +14,12 @@ export type ActionInput =
   | { kind: 'mark_read'; target: ReadActionTarget; revision: string }
   | { kind: 'copy_rule'; id: number; definition: string };
 export type ActionIntentRequest = ActionInput & { requestId?: string };
-export type ActionRequest = ActionIntentRequest & { confirm: true; actor?: 'mcp' };
+export type ActionRequest = ActionIntentRequest & {
+  confirm: true;
+  actor?: 'mcp';
+  tokenId?: number;
+  agentName?: string;
+};
 export interface ActionReceipt {
   id: number;
   kind: ActionKind;
@@ -36,7 +41,7 @@ export interface ActionReceipt {
 }
 export class ActionError extends Error {
   constructor(
-    public readonly status: 400 | 404 | 409 | 410 | 428 | 501,
+    public readonly status: 400 | 401 | 403 | 404 | 409 | 410 | 428 | 501,
     message: string,
   ) {
     super(message);
@@ -45,7 +50,7 @@ export class ActionError extends Error {
 export interface ActionStoragePort {
   previewRead(target: ReadActionTarget): ReadActionPreview;
   run(request: ActionRequest): Promise<ActionReceipt>;
-  undo(id: number): ActionReceipt;
+  undo(id: number, tokenId?: number): ActionReceipt;
   recent(): ActionReceipt[];
   cleanup(): void;
   drain(): Promise<void>;
@@ -63,7 +68,10 @@ export class ActionsService {
       throw new ActionError(400, (error as Error).message);
     }
   }
-  run(value: unknown, context?: { agent: 'mcp' }): Promise<ActionReceipt> {
+  run(
+    value: unknown,
+    context?: { agent: 'mcp'; tokenId?: number; name?: string },
+  ): Promise<ActionReceipt> {
     if (!value || typeof value !== 'object' || Array.isArray(value))
       throw new ActionError(400, 'Choose an action.');
     const input = value as Record<string, unknown>;
@@ -96,6 +104,9 @@ export class ActionsService {
     const identity = {
       ...(input.requestId === undefined ? {} : { requestId: input.requestId as string }),
       ...(context?.agent === 'mcp' ? { actor: 'mcp' as const } : {}),
+      ...(context?.tokenId === undefined
+        ? {}
+        : { tokenId: context.tokenId, agentName: context.name }),
     };
     try {
       const parsed = agentWrite(input);
@@ -182,9 +193,9 @@ export class ActionsService {
       ...(input.days === undefined ? {} : { days: Number(input.days) }),
     });
   }
-  undo(id: unknown): ActionReceipt {
+  undo(id: unknown, tokenId?: number): ActionReceipt {
     if (!validId(id)) throw new ActionError(400, 'Choose a valid action.');
-    return this.storage.undo(id);
+    return this.storage.undo(id, tokenId);
   }
   cleanup() {
     this.storage.cleanup();

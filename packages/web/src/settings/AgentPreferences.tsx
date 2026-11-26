@@ -3,7 +3,7 @@ import { Toggle } from '../components/controls';
 import { useBrowserPreferences } from '../hooks/useBrowserPreferences';
 import { PreferenceFeedback } from './BrowserPreferences';
 
-export function AgentPreferences() {
+export function AgentPreferences({ compact = false }: { compact?: boolean }) {
   const preferences = useBrowserPreferences();
   const descriptionId = useId();
   const flagged = new URLSearchParams(location.search).get('agent') === '1';
@@ -33,7 +33,7 @@ export function AgentPreferences() {
           />
         </div>
       </section>
-      <p className="text-sm text-soft">Changes save immediately in this browser.</p>
+      {!compact && <p className="text-sm text-soft">Changes save immediately in this browser.</p>}
       {flagged && (
         <p role="status" className="text-sm text-soft">
           This URL enables agent-friendly mode, even when the saved setting is off.{' '}

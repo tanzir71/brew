@@ -1,0 +1,309 @@
+/* Agent access, Figma 15:2295. Native controls compose the shared design system. */
+.agent-content {
+  gap: 24px;
+  padding-bottom: 48px;
+}
+.agent-card {
+  border: 1px solid var(--brew-border-default);
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.agent-card-heading {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+.agent-card-heading > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.agent-card h2 {
+  font: 600 17px/22px var(--brew-font-ui);
+  letter-spacing: -0.17px;
+  margin: 0;
+}
+.agent-card p {
+  font: 400 13px/19px var(--brew-font-ui);
+  color: var(--brew-text-soft);
+  margin: 3px 0 0;
+}
+.agent-card .brew-button {
+  flex-shrink: 0;
+}
+.agent-card .brew-button img {
+  width: 14px;
+  height: 14px;
+}
+.agent-endpoint {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--brew-border-default);
+  border-radius: 8px;
+  background: var(--brew-bg-canvas);
+}
+.agent-endpoint > span {
+  font: 400 11px/14px var(--brew-font-mono);
+  color: var(--brew-text-caption);
+}
+.agent-endpoint code {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font: 400 12px/16px var(--brew-font-mono);
+}
+.agent-endpoint button {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  min-width: 24px;
+  min-height: 24px;
+}
+.agent-copy-icon {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+.agent-copy-icon img {
+  width: 20px;
+  height: 20px;
+  max-width: none;
+  transform: scale(0.75);
+  transform-origin: top left;
+}
+.agent-tool-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.agent-tool-list li {
+  background: var(--brew-bg-subtle);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font: 400 11px/14px var(--brew-font-mono);
+  color: var(--brew-text-soft);
+}
+.agent-table-scroll {
+  position: relative;
+  border: 1px solid var(--brew-border-default);
+  border-radius: 10px;
+  overflow: auto;
+}
+.agent-token-table {
+  border-collapse: collapse;
+  width: 100%;
+  font: 400 13px/19px var(--brew-font-ui);
+  text-align: left;
+}
+.agent-token-table th,
+.agent-token-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--brew-border-default);
+  vertical-align: middle;
+}
+.agent-token-table thead th {
+  background: var(--brew-bg-canvas);
+  padding-block: 9px;
+  font: 400 12px/16px var(--brew-font-ui);
+  color: var(--brew-text-caption);
+}
+.agent-token-table tbody th {
+  font-weight: 500;
+  min-width: 140px;
+  overflow-wrap: anywhere;
+  max-width: 220px;
+}
+.agent-token-table td {
+  color: var(--brew-text-soft);
+}
+.agent-token-table tr:last-child > * {
+  border-bottom: 0;
+}
+.agent-token-table .brew-badge {
+  white-space: nowrap;
+}
+.agent-revoke {
+  color: var(--brew-status-danger);
+  font: 500 12px/16px var(--brew-font-ui);
+  min-height: 24px;
+}
+.agent-mode-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+.agent-mode-grid .agent-mode-card {
+  margin: 0;
+}
+.agent-mode-grid > div > p {
+  margin-top: 8px;
+}
+.agent-mode-grid .agent-card {
+  align-self: start;
+}
+.agent-activity-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.agent-activity-list > li {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--brew-border-default);
+}
+.agent-activity-list > li:last-child {
+  border-bottom: 0;
+}
+.agent-activity-list time {
+  flex-shrink: 0;
+  width: 64px;
+  font: 400 12px/16px var(--brew-font-ui);
+  color: var(--brew-text-caption);
+}
+.agent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--brew-bg-subtle);
+  border-radius: 6px;
+  padding: 4px 7px;
+  font: 500 12px/16px var(--brew-font-ui);
+  max-width: 180px;
+  overflow-wrap: anywhere;
+}
+.agent-chip img {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.agent-activity-list p:not(.agent-action-result):not(.sr-only) {
+  flex: 1;
+  min-width: 100px;
+  margin: 0;
+  color: var(--brew-text-primary);
+  font: 400 13px/19px var(--brew-font-ui);
+}
+.agent-undo {
+  color: var(--brew-accent-default);
+  font: 500 12px/16px var(--brew-font-ui);
+  min-height: 24px;
+}
+.agent-action-result {
+  flex-basis: 100%;
+}
+.agent-card a {
+  color: var(--brew-accent-default);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.agent-card .brew-code-block {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.agent-mode-grid > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.agent-mode-grid .agent-mode-card {
+  flex: 1;
+}
+.agent-token-table th,
+.agent-token-table td {
+  padding-inline: 6px;
+}
+.agent-token-table tr > :first-child {
+  padding-left: 14px;
+}
+.agent-token-table tr > :last-child {
+  padding-right: 14px;
+}
+.agent-card .brew-segmented {
+  flex: none;
+}
+.agent-token-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.agent-token-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 500;
+}
+.agent-token-form :is(input, select) {
+  border: 1px solid var(--brew-border-strong);
+  border-radius: 8px;
+  min-height: 36px;
+  background: var(--brew-bg-surface);
+  color: var(--brew-text-primary);
+  padding: 8px 10px;
+}
+.agent-token-form p,
+.agent-token-secret p {
+  color: var(--brew-text-soft);
+  font: 400 13px/19px var(--brew-font-ui);
+}
+.agent-token-secret {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.agent-token-secret pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding-top: 24px;
+}
+.agent-log-paging {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+:root[data-resolved-theme='dark'] img[src^='/figma/agents/'] {
+  filter: invert(0.8);
+}
+@media (max-width: 1100px) {
+  .agent-mode-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 800px) {
+  .agent-card-heading {
+    flex-wrap: wrap;
+  }
+  .agent-card {
+    padding: 16px;
+  }
+  .agent-content {
+    padding: 24px 16px;
+  }
+  .agent-token-table {
+    min-width: 650px;
+  }
+  .agent-card-heading > div:first-child {
+    flex-basis: 180px;
+  }
+  .agent-activity-list > li {
+    gap: 8px;
+  }
+  .agent-activity-list time {
+    width: 48px;
+  }
+}

@@ -12,6 +12,7 @@ import { GeneralPreferences, PreferenceFeedback } from './settings/BrowserPrefer
 import { articleRouteId } from './articleRoute';
 import { closeSearchHref, isReaderLocation, navigateReader, searchHref } from './readerLocation';
 const WhereBrewRuns = lazy(() => import('./settings/WhereBrewRuns').then((module) => ({ default: module.WhereBrewRuns })));
+const AgentAccess = lazy(() => import('./settings/AgentAccess').then((module) => ({ default: module.AgentAccess })));
 const NewslettersPage = lazy(() => import('./NewslettersPage').then((module) => ({ default: module.NewslettersPage })));
 
 export function App() {
@@ -44,7 +45,8 @@ function AppContent() {
     window.addEventListener('popstate', restore);
     return () => window.removeEventListener('popstate', restore);
   }, []);
-  const isRuns = location.pathname === '/settings/runs';
+  const isAgents = location.pathname === '/settings/agents';
+  const isRuns = location.pathname === '/settings/runs' || isAgents;
   const isLetters = /^\/letters(?:\/|$)/.test(location.pathname);
   const preferences = useBrowserPreferences();
   const { theme, images, landing } = preferences.values;
@@ -59,9 +61,9 @@ function AppContent() {
     media.addEventListener('change', apply);
     return () => media.removeEventListener('change', apply);
   }, [theme]);
-  useEffect(() => { document.title = `${isLetters ? 'Newsletters' : isRuns ? 'Where Brew runs' : mode === 'brew' ? 'The Brew' : mode === 'reader' ? 'Reader' : mode === 'rules' ? 'Rules' : 'Feeds'} · Brew`; }, [mode, isRuns, isLetters]);
+  useEffect(() => { document.title = `${isLetters ? 'Newsletters' : isAgents ? 'Agent access' : isRuns ? 'Where Brew runs' : mode === 'brew' ? 'The Brew' : mode === 'reader' ? 'Reader' : mode === 'rules' ? 'Rules' : 'Feeds'} · Brew`; }, [mode, isRuns, isAgents, isLetters]);
   if (isLetters) return <Suspense fallback={<main role="status" className="p-8">Loading newsletters…</main>}><NewslettersPage /></Suspense>;
-  if (isRuns) return <Suspense fallback={<main role="status" className="p-8">Loading settings…</main>}><WhereBrewRuns /></Suspense>;
+  if (isRuns) return <Suspense fallback={<main role="status" className="p-8">Loading settings…</main>}>{isAgents ? <AgentAccess /> : <WhereBrewRuns />}</Suspense>;
   if (mode === 'brew') return <BrewPage preferences={<GeneralPreferences />} />;
   const LibraryHeader = mode === 'reader' ? 'header' : 'nav';
   return (
