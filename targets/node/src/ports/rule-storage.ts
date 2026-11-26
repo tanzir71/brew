@@ -1,5 +1,6 @@
 import { and, asc, eq } from 'drizzle-orm';
 import { articleText as text } from './article-text.js';
+import { ruleLogPageSize, type RuleLogPage } from '../../../../packages/core/src/types/rules.js';
 import type {
   RuleDraft,
   RuleLogRecord,
@@ -170,6 +171,37 @@ export class NodeRuleStorage implements RuleStoragePort {
       executedAt: new Date(row.executedAt).toISOString(),
       actions: JSON.parse(row.actionsJson),
     }));
+  }
+
+  logPage(ruleId: number, page: number): RuleLogPage {
+    return this.database.sqlite.transaction(() => {
+      const { total } = this.database.sqlite
+        .prepare(
+          'SELECT count(*) AS total FROM rule_logs l JOIN articles a ON a.id=l.article_id WHERE l.rule_id=?',
+        )
+        .get(ruleId) as { total: number };
+      const rows = this.database.sqlite
+        .prepare(
+          `SELECT l.id, l.article_id AS articleId, a.title AS articleTitle, l.executed_at AS executedAt, l.actions_taken_json AS actionsJson FROM rule_logs l JOIN articles a ON a.id=l.article_id WHERE l.rule_id=? ORDER BY l.executed_at DESC,l.id DESC LIMIT ? OFFSET ?`,
+        )
+        .all(ruleId, ruleLogPageSize, (page - 1) * ruleLogPageSize) as Array<{
+        id: number;
+        articleId: number;
+        articleTitle: string;
+        executedAt: number;
+        actionsJson: string;
+      }>;
+      return {
+        items: rows.map(({ executedAt, actionsJson, ...row }) => ({
+          ...row,
+          executedAt: new Date(executedAt).toISOString(),
+          actions: JSON.parse(actionsJson),
+        })),
+        total,
+        page,
+        pageSize: ruleLogPageSize,
+      };
+    })();
   }
 
   addTag(articleId: number, name: string): void {

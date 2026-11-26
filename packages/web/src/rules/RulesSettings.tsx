@@ -126,6 +126,7 @@ export function RulesSettings() {
       <Checkbox
         className="mt-3"
         label="Hide near-duplicate titles (3 days)"
+        data-brew-action="set-duplicate-filter"
         checked={filter.data?.enabled ?? false}
         disabled={!filter.data || pending || failedChoice !== null}
         onChange={(event) => void saveFilter(event.target.checked)}

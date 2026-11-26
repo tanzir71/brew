@@ -293,6 +293,16 @@ Rule, preview, scope-choice and execution-log read errors have separate retries.
 Duplicate-filter changes wait for the saved response and can retry the same value.
 Notification permission requests report blocked, dismissed and failed outcomes.
 
+Execution history has exact totals and native 50-row pages, including records
+beyond the former 100-row UI limit. Page links, reload/history and Markdown/JSON
+exports keep the selected rule and page. Paging preserves unsaved rule edits.
+The saved-rule count identifies stale data after a failed refresh. Undo restores
+usable keyboard focus after its button disappears, and delayed results preserve
+newer focus or navigation. The DOM acceptance audit is in
+[agent DOM implementation](docs/agent-dom.md); later M12 APIs and tokens remain
+separate work.
+
+
 Reader saved searches are browser-local bookmarks. **Save search** opens a labelled
 dialog and remembers the query, scope and current filters, starting on page one.
 Saved entries use native links in Reader and the app sidebar; older query-only

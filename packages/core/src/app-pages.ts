@@ -71,7 +71,11 @@ export function feedLibraryHref(state: FeedLibraryLocation): string {
   if (state.agent) params.set('agent', '1');
   return `/feeds${params.size ? `?${params}` : ''}`;
 }
-export function rulePageLocation(url: URL): { id: number | null; tab: 'preview' | 'log' } {
+export function rulePageLocation(url: URL): {
+  id: number | null;
+  tab: 'preview' | 'log';
+  page?: number;
+} {
   const match = /^\/rules(?:\/([^/]+))?$/.exec(url.pathname);
   const legacy = url.pathname === '/' && url.searchParams.get('view') === 'rules';
   if (!match && !legacy) return { id: null, tab: 'preview' };
@@ -79,10 +83,12 @@ export function rulePageLocation(url: URL): { id: number | null; tab: 'preview' 
   const id = value === undefined || value === null ? null : pageId(value);
   const tab = pageChoice(url.searchParams.get('tab'), ['preview', 'log'], 'preview');
   if (id === null && tab === 'log') throw new PageInputError('Choose a rule to read its log.');
-  return { id, tab };
+  const page = pageNumber(url.searchParams.get('page'));
+  if (page > 1 && tab !== 'log') throw new PageInputError('Choose an execution log to page.');
+  return { id, tab, ...(page > 1 ? { page } : {}) };
 }
-export const rulePageHref = (id: number | null, tab: 'preview' | 'log' = 'preview') =>
-  `/rules${id === null ? '' : `/${id}`}${tab === 'log' ? '?tab=log' : ''}`;
+export const rulePageHref = (id: number | null, tab: 'preview' | 'log' = 'preview', page = 1) =>
+  `/rules${id === null ? '' : `/${id}`}${tab === 'log' ? `?tab=log${page > 1 ? `&page=${page}` : ''}` : ''}`;
 export interface NewsletterLocation {
   view: NewsletterView;
   senderId: number | null;

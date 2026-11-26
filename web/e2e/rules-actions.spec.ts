@@ -331,12 +331,12 @@ test('failed rules, filter, preview and logs reads show retry instead of false e
         ? route.fulfill({ status: 503, json: { error: 'Offline setting' } })
         : route.fallback(),
     );
-    await page.route('**/api/rules/preview', (route) =>
+    await page.route('**/api/rules/preview*', (route) =>
       failing
         ? route.fulfill({ status: 503, json: { error: 'Offline preview' } })
         : route.fallback(),
     );
-    await page.route(`**/api/rules/${rule.id}/logs`, (route) =>
+    await page.route(`**/api/rules/${rule.id}/executions?*`, (route) =>
       failing ? route.fulfill({ status: 503, json: { error: 'Offline logs' } }) : route.fallback(),
     );
     await page.goto(`/rules/${rule.id}?tab=log`);

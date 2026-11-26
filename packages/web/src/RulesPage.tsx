@@ -6,6 +6,7 @@ import { ruleCopySource } from '@brew/core/rule-copy';
 import type { ActionKind } from '@brew/core/actions';
 import { ModalSheet } from './components/Sheet';
 import { Badge } from './components/Badge';
+import { RuleHistory } from './rules/RuleHistory';
 import { RulesSettings } from './rules/RulesSettings';
 import { useOwnerActions } from './hooks/useOwnerActions';
 import { OwnerActionUi } from './components/OwnerActionUi';
@@ -17,7 +18,6 @@ import type {
   RuleCondition,
   RuleDraft,
   RuleField,
-  RuleLogRecord,
   RuleOperator,
   RulePreviewItem,
   RuleRecord,
@@ -121,7 +121,11 @@ export function RulesPage() {
     () => rulePageLocation(new URL(location.href)).id,
   );
   const [tab, setTab] = useState(() => rulePageLocation(new URL(location.href)).tab);
-  usePageAlternates(rulePageHref(selectedId, selectedId === null ? 'preview' : tab), 'Saved rules');
+  const [logPage, setLogPage] = useState(() => rulePageLocation(new URL(location.href)).page ?? 1);
+  usePageAlternates(
+    rulePageHref(selectedId, selectedId === null ? 'preview' : tab, logPage),
+    'Saved rules',
+  );
   const [newDraft] = useState(blankDraft);
   const [draftState, updateDraft] = useState<RuleDraft | null>(null);
   const selectedRule = rules.find((rule) => rule.id === selectedId);
@@ -168,9 +172,11 @@ export function RulesPage() {
       const route = rulePageLocation(new URL(location.href));
       setSelectedId(route.id);
       setTab(route.tab);
+      setLogPage(route.page ?? 1);
       setMoreId(null);
       const selected = ruleList.data?.find((rule) => rule.id === route.id);
-      updateDraft(selected ? savedDraft(selected) : blankDraft());
+      if (editor.current.selectedId !== route.id)
+        updateDraft(selected ? savedDraft(selected) : blankDraft());
       setMessage(route.id !== null && ruleList.data && !selected ? 'Rule not found.' : '');
     };
     window.addEventListener('popstate', restore);
@@ -190,24 +196,22 @@ export function RulesPage() {
     return () => window.clearTimeout(timer);
   }, [previewBody]);
   const previewQuery = useQuery({
-    queryKey: ['rule-preview', previewInput],
+    queryKey: ['rule-preview', 'counted', previewInput],
     queryFn: ({ signal }) =>
-      json<{ items: RulePreviewItem[] }>('/api/rules/preview', {
+      json<{ items: RulePreviewItem[]; total: number }>('/api/rules/preview?includeTotal=true', {
         method: 'POST',
         signal,
         body: JSON.stringify(previewInput),
+      }).then((result) => {
+        if (!Number.isSafeInteger(result.total) || result.total < result.items.length)
+          throw new Error('Could not read the matching-article total. Retry preview.');
+        return result;
       }),
     retry: false,
   });
-  const previewPending = previewBody !== previewInput || previewQuery.isFetching;
+  const previewPending =
+    previewBody !== previewInput || previewQuery.isFetching || previewQuery.isPending;
   const preview = previewQuery.data?.items ?? [];
-  const logQuery = useQuery({
-    queryKey: ['rule-logs', selectedId],
-    enabled: selectedId !== null && tab === 'log',
-    queryFn: ({ signal }) => json<RuleLogRecord[]>(`/api/rules/${selectedId}/logs`, { signal }),
-    retry: false,
-  });
-  const logs = logQuery.data ?? [];
   const owner = useOwnerActions(async (receipt) => {
     const before = client
       .getQueryData<RuleRecord[]>(rulesKey)
@@ -240,6 +244,7 @@ export function RulesPage() {
   );
   const selectRule = (rule: RuleRecord, nextTab: 'preview' | 'log' = 'preview') => {
     editorEpoch.current++;
+    setLogPage(1);
     setSelectedId(rule.id);
     setDraft(savedDraft(rule));
     setTab(nextTab);
@@ -248,6 +253,7 @@ export function RulesPage() {
   };
   const newRule = (next = blankDraft()) => {
     editorEpoch.current++;
+    setLogPage(1);
     setSelectedId(null);
     setDraft(next);
     setTab('preview');
@@ -366,7 +372,7 @@ export function RulesPage() {
 
   return (
     <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-7 py-8 lg:grid-cols-[18rem_minmax(0,1fr)_20rem]">
-      <aside>
+      <aside aria-label="Saved rules">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-soft">Automations</p>
@@ -375,6 +381,7 @@ export function RulesPage() {
             </h1>
           </div>
           <button
+            data-brew-action="new-rule"
             onClick={() => {
               newRule();
             }}
@@ -389,6 +396,7 @@ export function RulesPage() {
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
+              data-brew-action="rule-template"
               onClick={() => {
                 newRule({
                   ...blankDraft(),
@@ -403,6 +411,7 @@ export function RulesPage() {
             </button>
             <button
               type="button"
+              data-brew-action="rule-template"
               onClick={() => {
                 newRule({
                   ...blankDraft(),
@@ -417,6 +426,7 @@ export function RulesPage() {
             </button>
             <button
               type="button"
+              data-brew-action="rule-template"
               onClick={() => {
                 newRule({
                   ...blankDraft(),
@@ -468,6 +478,18 @@ export function RulesPage() {
                 Retry scope choices
               </button>
             </div>
+          )}
+          {ruleList.data && (
+            <p
+              role="status"
+              aria-label="Saved rule total"
+              aria-live="polite"
+              aria-atomic="true"
+              className="text-xs text-soft"
+            >
+              {rules.length} saved {rules.length === 1 ? 'rule' : 'rules'}
+              {(ruleList.isError || ruleList.isFetching) && ' · Last loaded'}
+            </p>
           )}
           {ruleList.isPending && (
             <p role="status" aria-label="Rules loading">
@@ -579,6 +601,7 @@ export function RulesPage() {
         </div>
       </aside>
       <form
+        aria-label="Rule editor"
         onSubmit={save}
         className="min-w-0 rounded-3xl border border-line bg-surface p-7 shadow-raised"
       >
@@ -591,6 +614,7 @@ export function RulesPage() {
           <div className="flex items-center gap-3">
             <input
               aria-label="Rule name"
+              data-brew-action="set-rule-name"
               value={draft.name}
               onChange={(event) =>
                 setDraft((current) => ({ ...current, name: event.target.value }))
@@ -599,6 +623,7 @@ export function RulesPage() {
             />
             <Checkbox
               label="Enabled"
+              data-brew-action="set-rule-enabled"
               checked={draft.enabled}
               onChange={(event) =>
                 setDraft((current) => ({ ...current, enabled: event.target.checked }))
@@ -609,6 +634,7 @@ export function RulesPage() {
             When an article in{' '}
             <select
               aria-label="Rule scope"
+              data-brew-action="set-rule-scope"
               value={scopeMode}
               onChange={(event) => {
                 const value = event.target.value;
@@ -637,6 +663,7 @@ export function RulesPage() {
             {scopeMode === 'feed' && (
               <select
                 aria-label="Scope feed"
+                data-brew-action="set-rule-scope-feed"
                 value={draft.scope.feedIds?.[0] ?? ''}
                 onChange={(event) =>
                   setDraft((current) => ({
@@ -656,6 +683,7 @@ export function RulesPage() {
             {scopeMode === 'folder' && (
               <select
                 aria-label="Scope folder"
+                data-brew-action="set-rule-scope-folder"
                 value={draft.scope.folderIds?.[0] ?? ''}
                 onChange={(event) =>
                   setDraft((current) => ({
@@ -697,6 +725,7 @@ export function RulesPage() {
               >
                 <select
                   aria-label={`Condition ${index + 1} field`}
+                  data-brew-action="set-rule-condition-field"
                   value={condition.field}
                   onChange={(event) =>
                     setCondition(index, { field: event.target.value as RuleField })
@@ -709,6 +738,7 @@ export function RulesPage() {
                 </select>
                 <select
                   aria-label={`Condition ${index + 1} operator`}
+                  data-brew-action="set-rule-condition-operator"
                   value={condition.operator}
                   onChange={(event) =>
                     setCondition(index, { operator: event.target.value as RuleOperator })
@@ -723,6 +753,7 @@ export function RulesPage() {
                 </select>
                 <input
                   aria-label={`Condition ${index + 1} value`}
+                  data-brew-action="set-rule-condition-value"
                   value={condition.value}
                   onChange={(event) => setCondition(index, { value: event.target.value })}
                   placeholder="value"
@@ -731,6 +762,7 @@ export function RulesPage() {
                 <button
                   type="button"
                   aria-label={`Remove condition ${index + 1}`}
+                  data-brew-action="remove-rule-condition"
                   disabled={draft.conditions.length === 1}
                   onClick={() =>
                     setDraft((current) => ({
@@ -746,6 +778,7 @@ export function RulesPage() {
             ))}
             <button
               type="button"
+              data-brew-action="add-rule-condition"
               disabled={draft.conditions.length >= 10}
               onClick={() =>
                 setDraft((current) => ({
@@ -770,6 +803,7 @@ export function RulesPage() {
               >
                 <select
                   aria-label={`Action ${index + 1}`}
+                  data-brew-action="set-rule-action"
                   value={action.type}
                   onChange={(event) =>
                     setAction(index, defaultAction(event.target.value as RuleAction['type']))
@@ -786,6 +820,7 @@ export function RulesPage() {
                 <button
                   type="button"
                   aria-label={`Remove action ${index + 1}`}
+                  data-brew-action="remove-rule-action"
                   disabled={draft.actions.length === 1}
                   onClick={() =>
                     setDraft((current) => ({
@@ -800,6 +835,7 @@ export function RulesPage() {
               </div>
             ))}
             <button
+              data-brew-action="add-rule-action"
               type="button"
               onClick={() =>
                 setDraft((current) => ({
@@ -815,6 +851,7 @@ export function RulesPage() {
           <Checkbox
             className="mt-7"
             label="Stop processing later rules when this matches"
+            data-brew-action="set-rule-stop-processing"
             checked={draft.stopProcessing}
             onChange={(event) =>
               setDraft((current) => ({ ...current, stopProcessing: event.target.checked }))
@@ -834,18 +871,24 @@ export function RulesPage() {
           </button>
         </fieldset>
       </form>
-      <aside className="rounded-3xl border border-line bg-surface p-5">
+      <aside aria-label="Rule preview" className="rounded-3xl border border-line bg-surface p-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-soft">Live preview</p>
         <h2 className="mt-1 text-lg font-semibold">
           {previewPending
             ? 'Updating preview…'
             : previewQuery.isError
               ? 'Preview unavailable'
-              : `Would match ${preview.length}`}
+              : `Would match ${previewQuery.data?.total ?? preview.length}`}
         </h2>
         <p className="mt-1 text-xs text-soft">
-          Most recent matching articles, without running actions.
+          Up to 50 recent matching articles, without running actions.
         </p>
+        {!previewPending && !previewQuery.isError && previewQuery.data && (
+          <p role="status" aria-label="Preview range" className="mt-2 text-xs text-soft">
+            Showing {preview.length ? 1 : 0}–{preview.length} of {previewQuery.data.total} matching
+            articles
+          </p>
+        )}
         <div className="mt-4 space-y-2">
           {!previewPending &&
             !previewQuery.isError &&
@@ -877,49 +920,15 @@ export function RulesPage() {
             <p className="py-8 text-center text-sm text-muted">No matches yet.</p>
           )}
         </div>
-        {(logs.length > 0 || tab === 'log') && (
-          <section className="mt-7 border-t border-line pt-5" aria-label="Rule execution log">
-            <h2 className="text-sm font-semibold">Recent executions</h2>
-            {logQuery.isFetching && (
-              <p role="status" aria-label="Rule log loading">
-                Loading executions…
-              </p>
-            )}
-            {logQuery.isError && (
-              <div role="alert" className="text-xs text-danger">
-                Could not load executions.
-                <button
-                  type="button"
-                  className="brew-compact-control block text-accent"
-                  onClick={() => void logQuery.refetch()}
-                >
-                  Retry executions
-                </button>
-              </div>
-            )}
-            {!logQuery.isFetching && !logQuery.isError && logs.length === 0 && (
-              <p className="mt-3 text-xs text-soft">No executions yet.</p>
-            )}
-            <div className="mt-3 max-h-72 space-y-3 overflow-auto">
-              {logs.map((log) => (
-                <article
-                  key={log.id}
-                  data-brew-id={log.id}
-                  data-brew-kind="rule-log"
-                  data-brew-state="executed"
-                  className="text-xs"
-                >
-                  <p className="font-medium">{log.articleTitle}</p>
-                  <p className="text-muted">{new Date(log.executedAt).toLocaleString()}</p>
-                  <p className="text-soft">
-                    {log.actions
-                      .map((action) => `${action.type}: ${action.ok ? 'ok' : action.error}`)
-                      .join(', ')}
-                  </p>
-                </article>
-              ))}
-            </div>
-          </section>
+        {selectedId !== null && tab === 'log' && (
+          <RuleHistory
+            id={selectedId}
+            page={logPage}
+            onPage={(page, href) => {
+              setLogPage(page);
+              if (location.pathname + location.search !== href) history.pushState(null, '', href);
+            }}
+          />
         )}
       </aside>
       <ModalSheet
@@ -1031,6 +1040,7 @@ function ActionValue({
     return (
       <input
         aria-label="Tag name"
+        data-brew-action="set-rule-tag"
         value={action.tag}
         onChange={(event) => onChange({ ...action, tag: event.target.value })}
         placeholder="tag name"
@@ -1041,6 +1051,7 @@ function ActionValue({
     return (
       <input
         aria-label="Highlight color"
+        data-brew-action="set-rule-highlight"
         type="color"
         value={action.color}
         onChange={(event) => onChange({ ...action, color: event.target.value })}
@@ -1051,6 +1062,7 @@ function ActionValue({
     return (
       <input
         aria-label="Webhook URL"
+        data-brew-action="set-rule-webhook"
         type="url"
         value={action.url}
         onChange={(event) => onChange({ ...action, url: event.target.value })}

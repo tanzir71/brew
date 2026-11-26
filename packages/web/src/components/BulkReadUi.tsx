@@ -50,7 +50,12 @@ export function BulkReadUi({
           </div>
         )}
       </OwnerActionConfirmation>
-      <OwnerActionResult action={action.owner} status resultName="Bulk read result" />
+      <OwnerActionResult
+        action={action.owner}
+        status
+        resultName="Bulk read result"
+        handlesUndoFocus
+      />
       {!action.owner.intent && action.owner.error && (
         <a href={location.pathname + location.search} className="text-sm underline">
           Reload view

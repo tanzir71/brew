@@ -300,7 +300,7 @@ export function NewslettersPage() {
             </Button>
           </p>
         )}
-        <OwnerActionResult action={flow.owner} showSetup={false} />
+        <OwnerActionResult action={flow.owner} showSetup={false} handlesUndoFocus />
         {flow.owner.error && !flow.owner.intent && (
           <p className="letters-action-error">
             <a href={newsletterHref(route)}>Reload Newsletters</a>

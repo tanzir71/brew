@@ -6,7 +6,7 @@ import {RulesService} from '../../server/services/rules-service.js';
 test('creates five realistic rules in the UI and applies exact article states',async({page})=>{const database=openDatabase(':memory:');const folder=database.db.insert(folders).values({title:'Design',position:0}).returning().get();const feed=database.db.insert(feeds).values({title:'Design Notes',url:'https://rules-exit.test/feed',folderId:folder.id}).returning().get();const service=new RulesService(database);let duplicateFilter=false;
   await page.route('**/api/reader/navigation',route=>route.fulfill({json:{counts:{all:0,today:0,starred:0},folders:[{id:folder.id,title:'Design',unreadCount:0,feeds:[{id:feed.id,folderId:folder.id,title:'Design Notes',unreadCount:0,muted:false}]}],unfiled:[]}}));
   await page.route('**/api/rules/duplicate-filter',async route=>{if(route.request().method()==='PUT')duplicateFilter=Boolean((route.request().postDataJSON() as {enabled:boolean}).enabled);return route.fulfill({json:{enabled:duplicateFilter}})});
-  await page.route('**/api/rules/preview',route=>route.fulfill({json:{items:[]}}));
+  await page.route('**/api/rules/preview*',route=>route.fulfill({json:{items:[],total:0,limit:50}}));
   await page.route('**/api/rules',async route=>{if(route.request().method()==='GET')return route.fulfill({json:service.list()});return route.fulfill({status:201,json:service.create(route.request().postDataJSON())})});
   await page.goto('/');await page.getByRole('link', { name: 'Rules', exact: true }).click();
   const save=async()=>{await page.getByRole('button',{name:'Save rule'}).click();await expect(page.getByRole('status', { name: 'Rule editor result' })).toContainText('Rule saved.')};

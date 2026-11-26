@@ -1,9 +1,10 @@
 # Agent DOM implementation
 
-M12 is in progress. Passing the core journey does not complete the nine-item DOM
-checklist or the later OpenAPI, MCP, token/log, WebMCP and llms.txt work. The
-agent-friendly-mode criterion is implemented; the global DOM audit stays open.
-The M12 DOM acceptance checkbox stays open until the remaining work below is done.
+M12 is in progress. The nine-item DOM checklist and agent-friendly-mode criteria
+are implemented and audited across current screens. The final full browser gate
+passes all 238 cases, including 26 role/label-only journeys and ten DOM audit
+cases. OpenAPI, MCP, token/log/setup, WebMCP and llms.txt remain separate unfinished
+criteria. Later screens must preserve these DOM contracts.
 
 ## Current evidence
 
@@ -194,8 +195,8 @@ links do not turn that saved preference into a permanent URL override.
 Three unit cases verify URL/preference precedence, preservation of reading state,
 and safe flag propagation. Browser checks cover actual storage failures,
 cross-tab mode changes with a retained tag draft, temporary-override removal,
-native control sizing, light/dark axe and desktop/phone captures. The remaining
-DOM audit continues with conditional controls and legacy Rules feedback. Shared
+native control sizing, light/dark axe and desktop/phone captures. The conditional
+controls and legacy Rules feedback audit is completed by M12.18–M12.19 below. Shared
 switches now expose a 24px native button around the unchanged 18px visual pill;
 native checkboxes expose a 24px input around the existing 16px box.
 
@@ -233,7 +234,7 @@ the agent flag.
 This completes the shared-target defect identified in M12.16, rather than the
 entire DOM criterion. M12.18 adds native Rules More actions and acknowledged feedback for Copy,
 duplicate-filter saves and browser notification permission outcomes, described
-below. The first global DOM checkbox stays open pending the final checklist audit.
+below. The final M12.19 checklist audit below supersedes the open status at that checkpoint.
 
 The client serializes tag writes per item, cancels obsolete detail reads and
 patches only tags in article/newsletter caches. It refreshes dependent previews
@@ -251,17 +252,21 @@ metadata and geometry directly; they do not substitute for this agent journey.
 
 ## Checklist coverage
 
-| Requirement | Implemented evidence | Remaining work before the criterion is complete |
+This is the acceptance audit for the currently implemented screens. New screens
+must keep these contracts; later M12 API, token and setup criteria remain separate.
+The full gate result is recorded in PROGRESS.md.
+
+| Requirement | Current implementation | Authoritative verification |
 | --- | --- | --- |
-| Landmarks | Existing Brew Library/main/In this Brew; named Reader Library navigation; real article landmarks inside Reader dialogs and newsletter panes; named Compose and instance-settings main landmarks. | Finish the remaining view/dialog and older shell audit. |
-| Native controls | Reader scope/folder/feed and saved-search bookmarks, saved-rule selection/logs and attribution, feed audit views, newsletter sender/letter/page navigation and legacy shell toolbar navigation use real hrefs. Feed-library names and hidden-page navigation also use native links. Feed/folder renames and retention now use native labelled dialogs. Article actions and bulk confirmation use real controls. | Audit all remaining navigation, icon-only labels and toggles. |
-| Stable hooks | Article rows/panes share `data-brew-id`, kind and read/unread/starred/highlighted state. Reader/search rows also declare their actual density. Newsletter rows/panes and frozen Brew letters identify as letters; rules expose identity/enablement/actions; Compose already identifies sections. | Audit the rest of each screen's actions, settings and result rows. |
-| Accessible alternatives | Article and letter actions are available directly and in native More sheets. Saved-search deletion, feed-library/folder, feed health, hidden and sender rows have labelled More controls and native sheets. Sender-row More appears on hover, keyboard focus or selection. General/Reading settings and setup guides use native dialogs and links. Article overlays and phone panes use native modals; desktop panes dock beside usable rows. Initial/nested/return focus, unread row removal and native media controls are tested. Existing Compose drag controls retain button/keyboard alternatives. | Finish the remaining controls and older-shell focus/selection audit. |
-| Polite results | Existing Compose/Brew status plus explicit Reader bulk, saved-search and owner-action result live regions with real Undo. Rule partial failures, mutation errors, browser storage failures, refresh failures and action-history recovery failures have visible feedback. Article/tag loading and mutation failures have retry; tag drafts survive partial creation/assignment, and read/star results and field retries stay in the active More surface. Clipboard failures and cancelled extraction are handled. | Audit success/error announcements for the remaining older-shell mutations and list reads. |
-| Totals and pagination | Newsletter, Reader, search and feed-library/audit views announce showing ranges/totals. Counts remain available to assistive technology in Calm mode. Newsletter/Reader/search/hidden articles offer native Previous/Next links with URL page state; hidden counts exceed the legacy 500-item cap. Normal Reader/search retain virtual/infinite lists; agent mode instead renders one complete 50-item DOM page with numbered links, exact totals and retained URL filters. | Maintain announcements as later views are added. Agent-mode paging, motion suppression and scroll-marking suppression are verified. |
-| Confirmation and undo | Reader bulk click/Shift+A and frozen Brew section/edition reads, rule apply/delete, feed/folder deletion, library/Compose OPML import, risky sender settings and browser saved-search deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs, folder assignments, sender retention and Brew routing. OPML Undo protects later uses of imported records. Browser bookmarks have separate local Undo with reload recovery. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
-| Text twins | All currently implemented data views have private twins: frozen Brews/articles; Reader/search; saved Compose/rules/logs; feed library/health/hidden articles; Newsletters lists; instance settings; Reader welcome and empty Brew/library states. Selection/filter parameters survive in alternate links. Explicitly opened content overrides its underlying page; subscription links remain separate. | Continue coverage when later milestones add views. Draft forms export explicitly labelled saved state; unsaved previews stay separate. The full DOM checkbox remains open for the other rows. |
-| Visible state and targets | Read/star/tag changes update real controls and stable state; article Open and reading-toolbar targets are at least 24px; More/confirmation reuse existing controls. Newsletter navigation declares current selection, has visible keyboard focus and focuses an explicitly opened reading pane. | Native controls are measured in 14 core states with real edge activation in both themes and unchanged Figma visuals. Rules More, Copy/recovery/Undo, saved filter acknowledgement and notification results are now covered. Reconcile the remaining list-total and landmark/hook audit before checking the global criterion. |
+| Landmarks | Library navigation and one main in Brew, Compose, Reader/search, Newsletters, Rules, Feeds and settings. Article/letter reading panes use article landmarks. Read editions have In this Brew. Saved rules and Rule preview have distinct sidebar names. | `dom-audit.spec.ts` checks eleven real screen/filter states, including landmarks and axe. `article-focus.spec.ts`, `runs.spec.ts` and the role/label journeys cover reading panes, settings and native dialogs. |
+| Native controls | Navigation uses real hrefs; actions use native buttons/inputs. Icon controls have names, switches have checked state, and draft controls retain explicit labels. Section and article headings follow their actual page/group hierarchy. | The cross-screen DOM audit checks button tags/names, icon labels, hrefs and switch state. `components.spec.ts`, `keyboard.spec.ts`, `compose-keyboard.spec.ts` and all agent journeys exercise their native behavior. |
+| Stable hooks | Article/letter/section/rule identities, action hooks and visible read/star/highlight state remain available. Feed/folder and execution rows extend the vocabulary with their actual identities. Rule draft and settings actions expose stable hooks too. | `agent.spec.ts` asserts content identity/state alongside real SQLite results. `dom-audit.spec.ts` checks identities across screens and exact execution rows; `control-targets.spec.ts` verifies named controls and actual edge activation. |
+| Accessible alternatives | Row actions are visible directly or on focus/selection and are available in native More surfaces. Section drag handles retain Move up/down buttons and Alt+Arrow alternatives. Dialog focus stays contained and returns to a usable trigger/result. | `article-focus.spec.ts`, `audit-actions.spec.ts`, `sender-actions.spec.ts`, `rules-actions.spec.ts`, `compose.spec.ts` and `compose-keyboard.spec.ts` cover the alternatives, nested dialogs, Escape and focus. |
+| Polite results | Mutation feedback waits for acknowledgement and uses polite result regions. Failed reads/writes have explicit retry. Undo restores a still-visible button after failure and a visible opener/result after its button is removed; later user focus/navigation takes precedence. | `dom-audit.spec.ts` covers lost Undo acknowledgement/retry and delayed Rules/Feed focus. Existing bulk, sender, OPML, storage, tag and recovery suites cover their active surfaces. |
+| Totals and pagination | Reader/search, newsletters and feed-library/audit views announce exact ranges. Agent mode renders complete numbered DOM pages instead of virtual lists. Rules announce saved totals and Last loaded on refresh failure. All retained execution history has exact totals and 50-row pages; dry-run previews announce their full match total with a 50-item sample. | `agent-mode.spec.ts`, `reader-recovery.spec.ts`, `agent.spec.ts` and `dom-audit.spec.ts`; backend execution/twin tests cover 126 rows, ties, final/empty pages and read-only requests. |
+| Confirmation and undo | Destructive/bulk paths confirm: rule apply/delete, feed/folder delete, read batches, OPML import, risky sender settings, saved-search deletion and Compose section removal. Cancel writes nothing. Server or browser-local Undo restores actual state with conflict/expiry protection; external effects are disclosed. | Node `actions.test.ts`, `read-actions.test.ts` and `sender-actions.test.ts`; role/label journeys plus `bulk-read.spec.ts`, `opml-actions.spec.ts`, `saved-searches.spec.ts`, `sender-actions.spec.ts` and `compose.spec.ts`. |
+| Text twins | Current data views expose private Markdown/JSON twins and alternate links. Selected items, filters and execution pages agree with the UI; explicit reading panes take precedence. Draft editors clearly export saved state and projections omit credentials/private action errors. | Node `page-outputs.test.ts` and `reader-pages.test.ts`; `page-discovery.spec.ts`, `agent.spec.ts` and compiled smoke cover real links, responses, headers and page totals. |
+| Visible state and targets | Every current action has pending/success/error or visibly changed native state. Native modals remain visible and contain focus. Application controls have targets of at least 24px, retaining existing Figma artwork and fonts. | `control-targets.spec.ts` measures fourteen core view/dialog states and tests actual pointer edges. Existing light/dark component, Compose, Schedule, Read and newsletter goldens plus browser axe/focus/failure suites remain required. |
 
 ## Browser saved-search bookmarks
 
@@ -692,8 +697,42 @@ outcomes. A twenty-fifth role/label-only journey exercises More, Copy recovery,
 reload Undo and the saved filter against actual Node/SQLite state. Compiled smoke
 checks Copy/replay/Undo outside the repository working directory.
 
-The nine-row coverage table remains a live audit, not a claim that the whole DOM
-criterion is finished. Next reconcile saved-rule/execution-list totals and the
-remaining older-shell landmarks/action hooks with the current tests, then mark
-only requirements supported by that audit. OpenAPI, MCP, WebMCP, scoped tokens,
+The M12.19 acceptance audit below adds complete execution totals/paging, old-shell
+landmarks, native-control checks and removed-Undo focus coverage to this evidence. OpenAPI, MCP, WebMCP, scoped tokens,
 the full action-log/settings view and llms.txt remain separate M12 criteria.
+
+
+## M12.19 acceptance audit
+
+Execution history now uses private `GET /api/rules/:id/executions?page=N` with
+`{items,total,page,pageSize}`. Pages contain 50 rows in descending execution time
+and ID order, including ties. Count and rows share one read transaction. Missing
+rules return 404, malformed pages fail validation, and empty/outdated pages offer
+a native First page link. The legacy `/logs` array remains limited to 100 rows
+for existing callers. Current Rules UI and its twins use the complete page API.
+Canonical log URLs retain page, selected rule and temporary agent mode through
+reload/history; navigation preserves an unsaved editor draft. Cached counts are
+explicitly Last loaded when refresh fails, and missing initial data does not
+claim zero executions. Opt-in `POST /api/rules/preview?includeTotal=true` counts all visible matches without running actions and returns a 50-row sample. Its count and sample are also in saved preview twins; the legacy response stays unchanged.
+
+The native page controls are shared with Reader and retain its existing graphics.
+Fresh Figma 13:1415 context confirms the numbered-pagination vocabulary; no new
+static asset is needed. The pre-existing Rules layout is retained. Compose card
+headings and Reader row headings use their actual parent/group level. Card
+tracking stays explicit so app-level h2 styles cannot change the Figma text.
+
+The shared result tracks whether Undo still owns focus, including disabled-button
+focus loss during a request. Failure returns to the visible Undo button; success
+or expiry can return to a visible opener/result. Existing bulk, sender and feed
+restoration also check ownership. Focus or pointer movement, browser history,
+window blur and unmount cancel obsolete restoration. Pagination likewise restores
+its heading only while the initiating page/control still owns the interaction.
+
+A twenty-sixth role/label-only journey reads all three execution pages, follows
+the matching real JSON twin, verifies no read writes, retains a draft, copies a
+rule and restores actual state with keyboard Undo after reload. Ten DOM audit
+cases cover exact/stale totals, two themes and phone captures, read retries,
+obsolete focus, lost Undo acknowledgement and delayed Feed/Rule Undo, then check
+eleven real screens/filters for landmarks, native controls, identities and axe.
+Three backend regressions and compiled smoke verify full history beyond 100 rows,
+private GET/HEAD, canonical paging, unchanged legacy arrays and redacted twins.

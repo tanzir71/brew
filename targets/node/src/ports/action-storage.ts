@@ -341,6 +341,7 @@ export class NodeActionStorage implements ActionStoragePort {
       articleIds: storage.articleIds.bind(storage),
       publishedAt: storage.publishedAt.bind(storage),
       logs: storage.logs.bind(storage),
+      logPage: storage.logPage.bind(storage),
       addTag: (...args) => this.write(id, () => storage.addTag(...args)),
       removeTag: (...args) => this.write(id, () => storage.removeTag(...args)),
       updateArticle: (...args) => this.write(id, () => storage.updateArticle(...args)),

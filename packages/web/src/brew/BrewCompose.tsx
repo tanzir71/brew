@@ -315,6 +315,7 @@ function ComposeEditor({ initial, ...props }: Props & { initial: BrewConfig }) {
             </div>
             {draft.sections.map((section, index) => (
               <SectionCard
+                headingLevel={2}
                 key={section.id}
                 sectionId={section.id}
                 title={section.title}

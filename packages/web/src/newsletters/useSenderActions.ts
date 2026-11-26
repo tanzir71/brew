@@ -45,6 +45,7 @@ export function useSenderActions(scopeKey: string) {
       ),
     );
   }, kinds);
+  const { canRestoreUndoFocus } = owner;
   const latest = useRef(owner);
   useLayoutEffect(() => {
     latest.current = owner;
@@ -62,12 +63,14 @@ export function useSenderActions(scopeKey: string) {
     if (owner.busy) return;
     if (
       owner.receipt?.status === 'undone' &&
+      canRestoreUndoFocus() &&
       previous.current?.id === owner.receipt.id &&
       previous.current.status !== 'undone'
     ) {
       const id = owner.receipt.targetId;
       cancelAnimationFrame(focusFrame.current);
       focusFrame.current = requestAnimationFrame(() => {
+        if (!canRestoreUndoFocus()) return;
         const targets = document.querySelectorAll<HTMLButtonElement>(
           `[data-brew-sender="${id}"][data-brew-action="more"]`,
         );
@@ -76,7 +79,7 @@ export function useSenderActions(scopeKey: string) {
       });
     }
     previous.current = owner.receipt;
-  }, [owner.receipt, owner.busy]);
+  }, [owner.receipt, owner.busy, canRestoreUndoFocus]);
   const save = async (
     id: number,
     patch: NewsletterSettingsPatch,

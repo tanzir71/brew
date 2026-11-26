@@ -10,14 +10,14 @@ test('builds a sentence rule with live dry-run preview', async ({ page }) => {
       .insert(feeds)
       .values({ title: 'Design Notes', url: 'https://design.test/feed', folderId: folder.id })
       .run();
-    await page.route('**/api/rules/preview', async (route) => {
+    await page.route('**/api/rules/preview*', async (route) => {
       const body = route.request().postDataJSON() as { conditions: Array<{ value: string }> };
       const match = body.conditions.some((condition) =>
         condition.value.toLowerCase().includes('figma'),
       );
       return route.fulfill({
         json: {
-          items: match
+          total: match ? 1 : 0, limit: 50, items: match
             ? [
                 {
                   id: 7,

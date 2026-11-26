@@ -48,3 +48,10 @@ export interface RuleLogRecord {
   executedAt: string;
   actions: Array<{ type: RuleAction['type']; ok: boolean; error?: string }>;
 }
+export const ruleLogPageSize = 50;
+export interface RuleLogPage {
+  items: RuleLogRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+}

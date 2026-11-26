@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type {
   ActionReceipt,
@@ -40,6 +40,33 @@ export function useOwnerActions(
   const [historyVersion, setHistoryVersion] = useState(0);
   const waiting = useRef<((value: ActionReceipt | null) => void) | null>(null);
   const executing = useRef(false);
+  const undoFocus = useRef<{ allowed: boolean; trigger: Element | null }>({
+    allowed: false,
+    trigger: null,
+  });
+  const canRestoreUndoFocus = useCallback(() => undoFocus.current.allowed, []);
+  useEffect(() => {
+    const moved = (event: FocusEvent | PointerEvent) => {
+      if (
+        event.target !== document.body &&
+        !undoFocus.current.trigger?.contains(event.target as Node)
+      )
+        undoFocus.current.allowed = false;
+    };
+    const left = () => {
+      undoFocus.current.allowed = false;
+    };
+    document.addEventListener('focusin', moved);
+    document.addEventListener('pointerdown', moved);
+    window.addEventListener('popstate', left);
+    window.addEventListener('blur', left);
+    return () => {
+      document.removeEventListener('focusin', moved);
+      document.removeEventListener('pointerdown', moved);
+      window.removeEventListener('popstate', left);
+      window.removeEventListener('blur', left);
+    };
+  }, []);
   useEffect(
     () => () => {
       waiting.current?.(null);
@@ -129,6 +156,10 @@ export function useOwnerActions(
   };
   const undo = async () => {
     if (!receipt?.canUndo || busy || executing.current || !capable) return;
+    undoFocus.current = {
+      allowed: Boolean(document.activeElement?.matches('[data-brew-action="undo"]')),
+      trigger: document.activeElement,
+    };
     executing.current = true;
     setBusy(true);
     setError('');
@@ -161,6 +192,7 @@ export function useOwnerActions(
       if (intent && !busy && capable) return execute(intent, true);
     },
     undo,
+    canRestoreUndoFocus,
     close: () => {
       if (!busy && !executing.current) {
         waiting.current?.(null);

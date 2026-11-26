@@ -2,6 +2,7 @@ import type { Hono } from 'hono';
 import type { RuleDraft } from '../../../core/src/types/rules.js';
 import type { ApiServices } from '../ports.js';
 import { body, errorMessage, json } from '../http.js';
+import { pageId, pageNumber, PageInputError } from '../../../core/src/app-pages.js';
 
 export function registerRulesRoutes(app: Hono, { rules: service, data }: ApiServices): void {
   app.get('/api/rules/duplicate-filter', async (c) =>
@@ -37,6 +38,23 @@ export function registerRulesRoutes(app: Hono, { rules: service, data }: ApiServ
   app.get('/api/rules/:id/logs', async (c) =>
     json(c, await service.logs(Number(c.req.param('id')))),
   );
+  app.get('/api/rules/:id/executions', async (c) => {
+    c.header('Cache-Control', 'private, no-store');
+    c.header('X-Robots-Tag', 'noindex, nofollow');
+    try {
+      const result = await service.logPage(
+        pageId(c.req.param('id')),
+        pageNumber(c.req.query('page') ?? null),
+      );
+      return result ? json(c, result) : json(c, { error: 'Rule not found.' }, 404);
+    } catch (error) {
+      return json(
+        c,
+        { error: errorMessage(error, 'Could not read executions.') },
+        error instanceof PageInputError ? error.status : 400,
+      );
+    }
+  });
   app.post('/api/rules/:id/apply', async (c) => {
     try {
       const input = await body<{ days?: number }>(c);
@@ -49,6 +67,16 @@ export function registerRulesRoutes(app: Hono, { rules: service, data }: ApiServ
   });
   app.post('/api/rules/preview', async (c) => {
     try {
+      if (c.req.query('includeTotal') === 'true') {
+        c.header('Cache-Control', 'private, no-store');
+        c.header('X-Robots-Tag', 'noindex, nofollow');
+        return json(
+          c,
+          await service.previewSummary(
+            await body<Pick<RuleDraft, 'scope' | 'matchType' | 'conditions'>>(c),
+          ),
+        );
+      }
       return json(c, {
         items: await service.preview(
           await body<Pick<RuleDraft, 'scope' | 'matchType' | 'conditions'>>(c),

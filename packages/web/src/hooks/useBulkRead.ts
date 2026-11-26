@@ -27,6 +27,7 @@ export function useBulkRead(scopeKey: string) {
       ),
     );
   }, kinds);
+  const { canRestoreUndoFocus } = owner;
   const current = useRef(owner);
   useLayoutEffect(() => {
     current.current = owner;
@@ -53,9 +54,12 @@ export function useBulkRead(scopeKey: string) {
     controller.current?.abort();
     if (!current.current.busy) current.current.close();
   }, [scopeKey]);
-  const restoreFocus = useCallback(() => {
+  const restoreFocus = useCallback((afterUndo = false) => {
     cancelAnimationFrame(frame.current);
+    const started = scope.current;
     frame.current = requestAnimationFrame(() => {
+      if (afterUndo && (!current.current.canRestoreUndoFocus() || scope.current !== started))
+        return;
       if (
         returnFocus.current?.isConnected &&
         returnFocus.current.getClientRects().length &&
@@ -77,13 +81,14 @@ export function useBulkRead(scopeKey: string) {
     if (owner.busy) return;
     if (
       owner.receipt?.status === 'undone' &&
+      canRestoreUndoFocus() &&
       previous.current?.id === owner.receipt.id &&
       previous.current.status !== 'undone' &&
       focusScope.current === scope.current
     )
-      restoreFocus();
+      restoreFocus(true);
     previous.current = owner.receipt;
-  }, [owner.receipt, owner.busy, restoreFocus]);
+  }, [owner.receipt, owner.busy, canRestoreUndoFocus, restoreFocus]);
   const ask = useCallback(
     async (target: ReadActionTarget, title: string, opener?: HTMLElement | null): Promise<void> => {
       if (

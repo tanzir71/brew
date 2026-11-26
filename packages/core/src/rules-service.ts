@@ -188,6 +188,17 @@ export class RulesService {
   logs(ruleId: number) {
     return this.storage.logs(ruleId);
   }
+  logPage(ruleId: number, page = 1) {
+    if (!Number.isSafeInteger(page) || page < 1 || page > 1_000_000)
+      throw new Error('Invalid page number.');
+    if (
+      !Number.isSafeInteger(ruleId) ||
+      ruleId < 1 ||
+      !this.storage.definitions().some((rule) => rule.id === ruleId)
+    )
+      return null;
+    return this.storage.logPage(ruleId, page);
+  }
 
   async applyToExisting(ruleId: number, days: number): Promise<number> {
     const rule = this.storage.definitions().find((rule) => rule.id === ruleId);
@@ -228,5 +239,27 @@ export class RulesService {
       if (matches.length === 50) break;
     }
     return matches;
+  }
+  async previewSummary(draft: Pick<RuleDraft, 'scope' | 'matchType' | 'conditions'>) {
+    if (draft.conditions.length > 10) throw new Error('A rule may have at most 10 conditions');
+    const items: RulePreviewItem[] = [];
+    let total = 0;
+    for (const id of this.storage.articleIds({ visibleOnly: true })) {
+      const context = this.storage.context(id);
+      if (
+        !context ||
+        !(await this.definitionMatches(context, draft.scope, draft.matchType, draft.conditions))
+      )
+        continue;
+      total++;
+      if (items.length < 50)
+        items.push({
+          id,
+          title: context.title,
+          feedTitle: context.feed,
+          publishedAt: this.storage.publishedAt(id).toISOString(),
+        });
+    }
+    return { items, total, limit: 50 };
   }
 }

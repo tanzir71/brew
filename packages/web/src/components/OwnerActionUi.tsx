@@ -7,17 +7,23 @@ export function OwnerActionUi({
   action,
   children,
   returnFocusRef,
+  handlesUndoFocus = false,
 }: {
   action: ReturnType<typeof useOwnerActions>;
   children?: ReactNode;
   returnFocusRef?: RefObject<HTMLElement>;
+  handlesUndoFocus?: boolean;
 }) {
   return (
     <>
       <OwnerActionConfirmation action={action} returnFocusRef={returnFocusRef}>
         {children}
       </OwnerActionConfirmation>
-      <OwnerActionResult action={action} />
+      <OwnerActionResult
+        action={action}
+        returnFocusRef={returnFocusRef}
+        handlesUndoFocus={handlesUndoFocus}
+      />
     </>
   );
 }

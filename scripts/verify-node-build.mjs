@@ -247,6 +247,22 @@ try {
     (await app.inject('/api/rules')).json().find((rule) => rule.id === copySource.id).name,
     copySource.name,
   );
+  database.sqlite.transaction(() => {
+    const insert = database.sqlite.prepare('INSERT INTO rule_logs(rule_id,article_id,executed_at,actions_taken_json) VALUES(?,?,?,?)');
+    for (let i = 0; i < 106; i++) insert.run(copySource.id, letter.articleId, Date.now(), '[{"type":"star","ok":true}]');
+  })();
+  const executionChanges = database.sqlite.prepare('SELECT total_changes() AS n').get();
+  const executionPage = await app.inject(`/api/rules/${copySource.id}/executions?page=3`);
+  assert.equal(executionPage.headers['cache-control'], 'private, no-store');
+  assert.equal(executionPage.json().total, 106);
+  assert.equal(executionPage.json().items.length, 6);
+  const executionTwin = (await app.inject(`/rules/${copySource.id}.json?tab=log&page=3`)).json();
+  assert.equal(executionTwin.sections[1].text, 'Showing 101–106 of 106 executions');
+  assert.equal(executionTwin.sections[1].items.length, 6);
+  const countedPreview = await app.inject({ method: 'POST', url: '/api/rules/preview?includeTotal=true', payload: { scope: {}, matchType: 'all', conditions: [] } });
+  assert.equal(countedPreview.headers['cache-control'], 'private, no-store');
+  assert.equal(countedPreview.json().total, database.sqlite.prepare('SELECT count(*) AS n FROM articles WHERE hidden=0').get().n);
+  assert.deepEqual(database.sqlite.prepare('SELECT total_changes() AS n').get(), executionChanges);
   assert.equal((await app.inject('/feeds.json?section=hidden')).json().kind, 'hidden-articles');
   assert.equal((await app.inject('/feeds.json?section=hidden&page=2')).json().state.page, 2);
   assert.equal(

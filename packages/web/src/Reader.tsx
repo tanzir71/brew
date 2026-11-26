@@ -345,11 +345,12 @@ function PagedReaderRows({ rows, density, directImages, focusedId, onOpen, class
   onOpen: (id: number) => void;
   className: string;
 }) {
+  const rowHeadingLevel = rows.some((row) => row.kind === 'header') ? 3 : 2;
   return <div className={className}>{rows.map((row) => row.kind === 'header' ? (
     <h2 key={`folder:${row.title}`} className="border-b border-line py-3 text-xs font-semibold uppercase tracking-wider text-muted">{row.title}</h2>
   ) : (
     <div key={row.article.id} className="py-1">
-      <ArticleRow article={row.article} density={density} directImages={directImages} focused={row.article.id === focusedId} onOpen={() => onOpen(row.article.id)} />
+      <ArticleRow headingLevel={rowHeadingLevel} article={row.article} density={density} directImages={directImages} focused={row.article.id === focusedId} onOpen={() => onOpen(row.article.id)} />
     </div>
   ))}</div>;
 }
@@ -625,6 +626,7 @@ function ArticleList({ selection }: { selection: Selection }) {
     setSelectedArticle(id);
   }, [prepareArticle]);
   const lanes = density === 'cards' && selection.kind !== 'today' ? 2 : 1;
+  const rowHeadingLevel = rows.some((row) => row.kind === 'header') ? 3 : 2;
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual is the mandated list engine and intentionally manages mutable measurements.
   const virtualizer = useVirtualizer({
     enabled: !agent,
@@ -875,6 +877,7 @@ function ArticleList({ selection }: { selection: Selection }) {
                     </h2>
                   ) : (
                     <ArticleRow
+                      headingLevel={rowHeadingLevel}
                       article={row.article}
                       directImages={preferences.values.images === 'direct'}
                       density={density}
@@ -918,13 +921,16 @@ function ArticleRow({
   density,
   focused,
   onOpen,
+  headingLevel = 2,
 }: {
   article: ArticleSummary;
   directImages: boolean;
   density: Density;
   focused: boolean;
   onOpen: () => void;
+  headingLevel?: 2 | 3;
 }) {
+  const Heading = headingLevel === 3 ? 'h3' : 'h2';
   const highlightStyle = article.highlightColor
     ? { borderLeftColor: article.highlightColor, borderLeftWidth: 4 }
     : undefined;
@@ -956,7 +962,7 @@ function ArticleRow({
         onClick={(event) => { if (!(event.target as HTMLElement).closest('a,button,input,select,textarea')) onOpen(); }}
         className={`brew-list-item flex min-h-14 cursor-pointer items-center justify-between border-b border-line bg-surface py-3 outline-none focus-visible:ring-2 focus-visible:ring-ink ${focused ? 'ring-2 ring-inset ring-ink' : ''} ${article.readAt ? 'opacity-50' : ''}`}
       >
-        <h3 aria-label={article.title} className="truncate pr-4 text-sm font-semibold">{openButton}</h3>
+        <Heading aria-label={article.title} className="truncate pr-4 text-sm font-semibold">{openButton}</Heading>
         {meta}
       </article>
     );
@@ -978,9 +984,9 @@ function ArticleRow({
         )}
         <div className="p-4">
           {meta}
-          <h3 aria-label={article.title} className="mt-2 line-clamp-2 text-lg font-semibold leading-snug tracking-tight">
+          <Heading aria-label={article.title} className="mt-2 line-clamp-2 text-lg font-semibold leading-snug tracking-tight">
             {openButton}
-          </h3>
+          </Heading>
           {article.summaryHtml && (
             <div
               className="mt-2 line-clamp-2 text-sm text-soft"
@@ -1002,7 +1008,7 @@ function ArticleRow({
     >
       <div className="min-w-0 flex-1">
         {meta}
-        <h3 aria-label={article.title} className="mt-1 text-lg font-semibold tracking-tight">{openButton}</h3>
+        <Heading aria-label={article.title} className="mt-1 text-lg font-semibold tracking-tight">{openButton}</Heading>
         {article.summaryHtml && (
           <div
             className="mt-1 line-clamp-2 text-sm text-soft"

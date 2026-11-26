@@ -112,6 +112,7 @@ export function SectionCard({
   children,
   titleEditor,
   sectionId,
+  headingLevel = 3,
 }: {
   title: string;
   expanded: boolean;
@@ -125,8 +126,10 @@ export function SectionCard({
   children: ReactNode;
   titleEditor?: ReactNode;
   sectionId?: string;
+  headingLevel?: 2 | 3;
 }) {
   const id = useId();
+  const Heading = headingLevel === 2 ? 'h2' : 'h3';
   return (
     <section
       className="brew-section-card"
@@ -157,7 +160,7 @@ export function SectionCard({
         >
           <Icon name="grip" size={16} />
         </button>
-        <h3>{titleEditor ?? title}</h3>
+        <Heading>{titleEditor ?? title}</Heading>
         <span className="brew-spacer" />
         <IconButton
           icon="arrow-up"

@@ -14,6 +14,7 @@ import {
   newsletterListHref,
   newsletterLocation,
   rulePageLocation,
+  rulePageHref,
 } from '../../packages/core/src/app-pages.js';
 
 const closes: Array<() => Promise<void>> = [];
@@ -175,6 +176,153 @@ async function setup() {
   return { database, app, feed, sender, rule, config, get, requests: () => requests };
 }
 describe('saved-page Markdown/JSON twins', () => {
+  it('reports complete dry-run totals beyond the 50-row sample without running actions or changing the legacy response', async () => {
+    const f = await setup();
+    for (let i = 0; i < 82; i++)
+      f.database.db
+        .insert(articles)
+        .values({
+          feedId: f.feed.id,
+          guid: `preview-${i}`,
+          hash: `preview-${i}`,
+          title: `Needle ${i}`,
+          url: `https://preview.test/${i}`,
+          publishedAt: new Date(),
+        })
+        .run();
+    f.database.db
+      .insert(articles)
+      .values({
+        feedId: f.feed.id,
+        guid: 'hidden-preview',
+        hash: 'hidden-preview',
+        title: 'Needle hidden',
+        url: 'https://preview.test/hidden',
+        hidden: true,
+        publishedAt: new Date(),
+      })
+      .run();
+    const payload = {
+      scope: { feedIds: [f.feed.id] },
+      matchType: 'all',
+      conditions: [{ field: 'title', operator: 'contains', value: 'Needle' }],
+    };
+    const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    const summary = await f.app.inject({
+      method: 'POST',
+      url: '/api/rules/preview?includeTotal=true',
+      payload,
+    });
+    expect(summary.statusCode).toBe(200);
+    expect(summary.headers['cache-control']).toBe('private, no-store');
+    expect(summary.json()).toMatchObject({ total: 83, limit: 50 });
+    expect(summary.json().items).toHaveLength(50);
+    const legacy = await f.app.inject({ method: 'POST', url: '/api/rules/preview', payload });
+    expect(Object.keys(legacy.json())).toEqual(['items']);
+    expect(legacy.json().items).toEqual(summary.json().items);
+    const twin = (await f.get(`/rules/${f.rule.id}.json`)).json();
+    expect(twin.sections[1].data).toEqual({ total: 83, shown: 50, limit: 50 });
+    expect(twin.sections[1].text).toContain('Showing 1–50 of 83 matching articles');
+    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+    expect(f.requests()).toBe(0);
+  });
+  it('pages all rule executions with exact totals and stable ties while preserving the legacy 100-row log contract', async () => {
+    const f = await setup();
+    const articleId = (
+      f.database.sqlite.prepare('SELECT id FROM articles ORDER BY id LIMIT 1').get() as {
+        id: number;
+      }
+    ).id;
+    const insert = f.database.sqlite.prepare(
+      'INSERT INTO rule_logs(rule_id,article_id,executed_at,actions_taken_json) VALUES(?,?,?,?)',
+    );
+    f.database.sqlite.transaction(() => {
+      for (let i = 0; i < 125; i++)
+        insert.run(f.rule.id, articleId, 1_000, '[{"type":"star","ok":true}]');
+    })();
+    const expected = f.database.sqlite
+      .prepare('SELECT id FROM rule_logs WHERE rule_id=? ORDER BY executed_at DESC,id DESC')
+      .all(f.rule.id) as Array<{ id: number }>;
+    const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    const seen: number[] = [];
+    for (let page = 1; page <= 3; page++) {
+      const path = `/api/rules/${f.rule.id}/executions?page=${page}`;
+      const response = await f.get(path);
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['cache-control']).toBe('private, no-store');
+      const data = response.json();
+      expect(data).toMatchObject({ total: 126, page, pageSize: 50 });
+      expect(data.items).toHaveLength(page < 3 ? 50 : 26);
+      seen.push(...data.items.map((item: { id: number }) => item.id));
+      const head = await f.get(path, 'HEAD');
+      expect(head.statusCode).toBe(200);
+      expect(head.body).toBe('');
+    }
+    expect(seen).toEqual(expected.map((row) => row.id));
+    expect(new Set(seen).size).toBe(126);
+    expect((await f.get(`/api/rules/${f.rule.id}/logs`)).json()).toHaveLength(100);
+    expect((await f.get(`/api/rules/${f.rule.id}/executions?page=9`)).json()).toEqual({
+      items: [],
+      total: 126,
+      page: 9,
+      pageSize: 50,
+    });
+    for (const page of ['0', '-1', '1.5', '1000001', 'nope'])
+      expect((await f.get(`/api/rules/${f.rule.id}/executions?page=${page}`)).statusCode).toBe(400);
+    for (const id of ['0', '01', '999999'])
+      expect((await f.get(`/api/rules/${id}/executions`)).statusCode).toBe(404);
+    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+    expect(f.requests()).toBe(0);
+  });
+  it('keeps execution page counts, range and native navigation in private Markdown/JSON twins without exposing action errors', async () => {
+    const f = await setup();
+    const articleId = (
+      f.database.sqlite.prepare('SELECT id FROM articles ORDER BY id LIMIT 1').get() as {
+        id: number;
+      }
+    ).id;
+    const insert = f.database.sqlite.prepare(
+      'INSERT INTO rule_logs(rule_id,article_id,actions_taken_json) VALUES(?,?,?)',
+    );
+    f.database.sqlite.transaction(() => {
+      for (let i = 0; i < 105; i++)
+        insert.run(
+          f.rule.id,
+          articleId,
+          '[{"type":"webhook","ok":false,"error":"private-log-error-token"}]',
+        );
+    })();
+    const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    const path = `/rules/${f.rule.id}.json?tab=log&page=3&agent=1`;
+    const response = await f.get(path);
+    expect(response.statusCode).toBe(200);
+    const data = response.json();
+    expect(data.state).toEqual({ ruleId: f.rule.id, tab: 'log', page: 3 });
+    expect(data.sections[1]).toMatchObject({
+      text: 'Showing 101–106 of 106 executions',
+      data: {
+        total: 106,
+        shown: 6,
+        page: 3,
+        pageSize: 50,
+        previous: `https://pages.example.test/rules/${f.rule.id}?tab=log&page=2&agent=1`,
+        next: null,
+      },
+    });
+    expect(data.sections[1].items).toHaveLength(6);
+    expect(response.body).not.toContain('private-log-error-token');
+    expect((await f.get(path.replace('.json', '.md'))).body).toContain(
+      'Showing 101–106 of 106 executions',
+    );
+    expect(
+      rulePageLocation(new URL(`https://pages.test/rules/${f.rule.id}?tab=log&page=3`)),
+    ).toEqual({ id: f.rule.id, tab: 'log', page: 3 });
+    expect(rulePageHref(f.rule.id, 'log', 3)).toBe(`/rules/${f.rule.id}?tab=log&page=3`);
+    for (const query of ['tab=log&page=0', 'tab=preview&page=2', 'tab=log&page=1000001'])
+      expect((await f.get(`/rules/${f.rule.id}.json?${query}`)).statusCode).toBe(400);
+    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+    expect(f.requests()).toBe(0);
+  });
   it('round-trips canonical newsletter identities and all-senders context while retaining query and rule aliases', () => {
     const base = 'https://pages.example.test';
     const route = newsletterLocation(

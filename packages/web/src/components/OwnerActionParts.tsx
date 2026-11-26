@@ -1,4 +1,11 @@
-import { useRef, type ReactNode, type RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { ModalSheet } from './Sheet';
 import { Button } from './controls';
 import { Badge } from './Badge';
@@ -120,13 +127,85 @@ export function OwnerActionResult({
   showSetup = true,
   status = false,
   resultName = 'Action result',
+  returnFocusRef,
+  handlesUndoFocus = false,
 }: {
   action: OwnerAction;
   inline?: boolean;
   showSetup?: boolean;
   status?: boolean;
   resultName?: string;
+  returnFocusRef?: RefObject<HTMLElement>;
+  handlesUndoFocus?: boolean;
 }) {
+  const result = useRef<HTMLElement>(null);
+  const undoButton = useRef<HTMLButtonElement | null>(null);
+  const ownsFocus = useRef(false);
+  const restore = useRef(false);
+  useEffect(() => {
+    const moved = (event: FocusEvent | PointerEvent) => {
+      if (event.target !== document.body && !undoButton.current?.contains(event.target as Node)) {
+        ownsFocus.current = false;
+        restore.current = false;
+      }
+    };
+    const left = () => {
+      ownsFocus.current = false;
+      restore.current = false;
+    };
+    document.addEventListener('focusin', moved);
+    document.addEventListener('pointerdown', moved);
+    window.addEventListener('popstate', left);
+    window.addEventListener('blur', left);
+    return () => {
+      document.removeEventListener('focusin', moved);
+      document.removeEventListener('pointerdown', moved);
+      window.removeEventListener('popstate', left);
+      window.removeEventListener('blur', left);
+    };
+  }, []);
+  const buttonRef = useCallback((node: HTMLButtonElement | null) => {
+    if (!node && undoButton.current && ownsFocus.current) {
+      restore.current = true;
+      ownsFocus.current = false;
+    }
+    undoButton.current = node;
+  }, []);
+  useLayoutEffect(() => {
+    if (!restore.current || action.busy) return;
+    if (handlesUndoFocus && action.receipt?.status === 'undone') {
+      restore.current = false;
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      if (!restore.current) return;
+      restore.current = false;
+      if (document.activeElement !== document.body) return;
+      const opener = returnFocusRef?.current;
+      const openerBox = opener?.getBoundingClientRect();
+      const retry = undoButton.current;
+      const target =
+        retry?.isConnected && !retry.disabled
+          ? retry
+          : opener?.isConnected &&
+              openerBox &&
+              openerBox.width > 0 &&
+              openerBox.height > 0 &&
+              openerBox.bottom > 0 &&
+              openerBox.top < innerHeight &&
+              !opener.matches(':disabled')
+            ? opener
+            : result.current;
+      const modal = document.querySelector('dialog:modal');
+      if (
+        target?.isConnected &&
+        target.getClientRects().length &&
+        (!modal || modal.contains(target))
+      )
+        target.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  });
   return (
     <>
       {showSetup && !action.capable && (
@@ -135,6 +214,8 @@ export function OwnerActionResult({
         </p>
       )}
       <section
+        ref={result}
+        tabIndex={-1}
         aria-label={resultName}
         role={status && action.receipt ? 'status' : undefined}
         aria-live="polite"
@@ -154,10 +235,18 @@ export function OwnerActionResult({
             </span>
             {action.receipt.canUndo && (
               <button
+                ref={buttonRef}
                 type="button"
                 data-brew-action="undo"
                 disabled={action.busy || !action.capable}
-                onClick={() => void action.undo()}
+                onFocus={() => {
+                  ownsFocus.current = true;
+                }}
+                onClick={() => {
+                  ownsFocus.current = true;
+                  restore.current = true;
+                  void action.undo();
+                }}
                 className="min-h-6 font-semibold"
               >
                 Undo

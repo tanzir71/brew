@@ -65,6 +65,7 @@ export interface RuleStoragePort {
   updateArticle(id: number, changes: ArticleChanges): void;
   log(ruleId: number, articleId: number, results: ActionResult[]): void;
   logs(ruleId: number): RuleLogRecord[];
+  logPage(ruleId: number, page: number): import('./types/rules.js').RuleLogPage;
   articleIds(options: { since?: number; visibleOnly?: boolean }): number[];
   publishedAt(articleId: number): Date;
 }

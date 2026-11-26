@@ -444,8 +444,10 @@
   align-items: center;
   min-height: 25px;
 }
-.brew-section-card h3 {
+/* Heading level follows the page hierarchy while card typography stays fixed. */
+.brew-section-card :is(h2, h3) {
   font: 500 13px/16px var(--brew-font-ui);
+  letter-spacing: normal;
   color: var(--brew-text-primary);
 }
 .brew-drag-handle {

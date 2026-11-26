@@ -63,9 +63,10 @@ function AppContent() {
   if (isLetters) return <Suspense fallback={<main role="status" className="p-8">Loading newsletters…</main>}><NewslettersPage /></Suspense>;
   if (isRuns) return <Suspense fallback={<main role="status" className="p-8">Loading settings…</main>}><WhereBrewRuns /></Suspense>;
   if (mode === 'brew') return <BrewPage preferences={<GeneralPreferences />} />;
+  const LibraryHeader = mode === 'reader' ? 'header' : 'nav';
   return (
-    <main className="min-h-screen bg-canvas text-ink">
-      <header className="flex h-16 items-center justify-between border-b border-line px-8">
+    <main aria-label={mode === 'rules' ? 'Rules' : mode === 'feeds' ? 'Manage feeds' : 'Reader'} data-brew-view={mode} className="min-h-screen bg-canvas text-ink">
+      <LibraryHeader aria-label={mode === 'reader' ? undefined : 'Library'} className="flex h-16 items-center justify-between border-b border-line px-8">
         <div className="flex items-center gap-3"><a href={agentPageHref('/')} aria-label="Brew home" className="brew-compact-control font-semibold tracking-tight">
           Brew
         </a><a href={agentPageHref('/settings/runs')} className="legacy-settings-link" aria-label="Settings · Where Brew runs"><img src={runAssets.settings} alt="" /></a></div>
@@ -75,6 +76,7 @@ function AppContent() {
           </label>
           <input
             id="global-search"
+            data-brew-action="search-library"
             type="search"
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.target.value)}
@@ -143,7 +145,7 @@ function AppContent() {
             {mode === 'feeds' ? 'Back to Brew' : 'Manage feeds'}
           </a>
         </div>
-      </header>
+      </LibraryHeader>
       <PreferenceFeedback preferences={preferences} name="General preferences result" />
       {mode === 'feeds' ? (
         <FeedManager />

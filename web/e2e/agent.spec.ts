@@ -9,6 +9,53 @@ import { articles } from '../../targets/node/src/db/schema';
 import { composeFixture } from './compose-fixture';
 import { BrewService } from '../../targets/node/src/services/brew-service';
 import { agentModeFixture } from './agent-mode-fixture';
+import { seedRuleHistory } from './rule-history-fixture';
+
+test('an agent pages the complete execution history, follows matching twins and recovers keyboard focus after Undo', async ({ page }) => {
+  const f = await newslettersFixture(page);
+  try {
+    const { rule, service } = seedRuleHistory(f);
+    const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    await page.context().route('**/rules/*.json*', async (route) => {
+      const url = new URL(route.request().url());
+      const response = await f.app.inject({ method: 'GET', url: url.pathname + url.search });
+      await route.fulfill({ status: response.statusCode, body: response.rawPayload, headers: { 'content-type': String(response.headers['content-type']) } });
+    });
+    await page.goto(`/rules/${rule.id}?tab=log&agent=1`);
+    await expect(page.getByRole('main', { name: 'Rules', exact: true })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Library', exact: true })).toBeVisible();
+    const log = page.getByRole('region', { name: 'Rule execution log', exact: true });
+    await expect(page.getByRole('status', { name: 'Saved rule total', exact: true })).toHaveText('1 saved rule');
+    await expect(log.getByRole('status', { name: 'Execution range', exact: true })).toHaveText('Showing 1–50 of 126 executions');
+    await page.getByLabel('Rule name', { exact: true }).fill('Unsaved history draft');
+    await log.getByRole('link', { name: 'Next', exact: true }).focus(); await page.keyboard.press('Enter');
+    await expect(log.getByRole('status', { name: 'Execution range', exact: true })).toHaveText('Showing 51–100 of 126 executions');
+    await expect(log.getByRole('heading', { name: 'Recent executions', exact: true })).toBeFocused();
+    await log.getByRole('link', { name: 'Page 3', exact: true }).click();
+    await expect(log.getByRole('status', { name: 'Execution range', exact: true })).toHaveText('Showing 101–126 of 126 executions');
+    await expect(log.getByRole('article')).toHaveCount(26);
+    await expect(page.getByLabel('Rule name', { exact: true })).toHaveValue('Unsaved history draft');
+    const [popup, response] = await Promise.all([
+      page.waitForEvent('popup'),
+      page.context().waitForEvent('response', { predicate: (response) => new URL(response.url()).pathname === `/rules/${rule.id}.json` }),
+      log.getByRole('link', { name: 'JSON', exact: true }).click(),
+    ]);
+    const document = await response.json();
+    expect(document.sections[1].data).toMatchObject({ total: 126, shown: 26, page: 3 });
+    expect(document.sections[1].items).toHaveLength(26);
+    await popup.close();
+    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+    await page.getByRole('button', { name: 'More actions for rule History rule', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Rule actions', exact: true }).getByRole('button', { name: 'Copy', exact: true }).click();
+    await expect(page.getByRole('status', { name: 'Saved rule total', exact: true })).toHaveText('2 saved rules');
+    await page.reload();
+    await page.getByRole('button', { name: 'Undo', exact: true }).focus(); await page.keyboard.press('Enter');
+    await expect(page.getByRole('region', { name: 'Action result', exact: true })).toBeFocused();
+    await expect(page.getByRole('status', { name: 'Saved rule total', exact: true })).toHaveText('1 saved rule');
+    expect(service.list()).toHaveLength(1);
+    expect((await f.app.inject(`/api/rules/${rule.id}/executions?page=3`)).json().items).toHaveLength(26);
+  } finally { await f.close(); }
+});
 
 test('an agent recovers a copied rule through More, reloads Undo and saves the duplicate filter using native controls', async ({
   page,

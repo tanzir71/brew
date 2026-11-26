@@ -237,6 +237,7 @@ export function FeedManager() {
     changed();
   }, [client, changed]);
   const owner = useOwnerActions(refresh);
+  const { canRestoreUndoFocus } = owner;
   const opml = useOpmlImport(owner);
   const busy = working || owner.busy || opml.preparing;
   const hadIntent = useRef(false);
@@ -254,6 +255,7 @@ export function FeedManager() {
     const receipt = owner.receipt;
     if (
       receipt?.status === 'undone' &&
+      canRestoreUndoFocus() &&
       priorReceipt.current?.id === receipt.id &&
       priorReceipt.current.status !== 'undone'
     ) {
@@ -271,7 +273,7 @@ export function FeedManager() {
           ?.focus();
     }
     priorReceipt.current = receipt;
-  }, [owner.receipt, owner.busy]);
+  }, [owner.receipt, owner.busy, canRestoreUndoFocus]);
   const run = async (work: () => Promise<string>) => {
     if (busy) return;
     setBusy(true);
@@ -598,6 +600,7 @@ export function FeedManager() {
       )}
       <OwnerActionUi
         action={owner}
+        handlesUndoFocus={owner.receipt?.kind === 'delete_feed' || owner.receipt?.kind === 'delete_folder'}
         returnFocusRef={owner.intent?.request.kind === 'import_opml' ? undefined : dialogReturn}
       >
         {opml.preview && <OpmlImportReview name={opml.preview.name} data={opml.preview.data} />}

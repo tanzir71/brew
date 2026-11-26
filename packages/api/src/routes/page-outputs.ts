@@ -15,6 +15,8 @@ import {
   newsletterSenderRoute,
   feedLibraryLocation,
   feedLibraryHref,
+  rulePageLocation,
+  rulePageHref,
 } from '../../../core/src/app-pages.js';
 import {
   pageDocument,
@@ -169,9 +171,8 @@ async function document(services: ApiServices, url: URL, caps: Capabilities) {
     );
   }
   if (path === '/rules' || path.startsWith('/rules/')) {
-    const id = path === '/rules' ? null : pageId(path.slice('/rules/'.length));
-    const tab = pageChoice(params.get('tab'), ['preview', 'log'], 'preview');
-    if (id === null && tab === 'log') throw new PageInputError('Choose a rule to read its log.');
+    const route = rulePageLocation(new URL(path + url.search, base));
+    const { id, tab } = route;
     const rules = await services.rules.list();
     const selected =
       id === null ? null : (rules.find((rule) => rule.id === id) ?? missing('Rule not found.'));
@@ -192,10 +193,31 @@ async function document(services: ApiServices, url: URL, caps: Capabilities) {
       },
     ];
     if (selected && tab === 'log') {
-      const logs = await services.rules.logs(selected.id);
+      const {
+        items: logs,
+        total,
+        page,
+        pageSize,
+      } = (await services.rules.logPage(selected.id, route.page ?? 1)) ??
+      missing('Rule not found.');
+      const from = logs.length ? (page - 1) * pageSize + 1 : 0;
+      const to = logs.length ? from + logs.length - 1 : 0;
+      const link = (page: number) => {
+        const target = new URL(rulePageHref(selected.id, 'log', page), base);
+        if (params.get('agent') === '1') target.searchParams.set('agent', '1');
+        return target.href;
+      };
       sections.push({
         title: 'Recent executions',
-        data: { total: logs.length },
+        text: `Showing ${from}\u2013${to} of ${total} executions`,
+        data: {
+          total,
+          shown: logs.length,
+          page,
+          pageSize,
+          previous: page > 1 ? link(page - 1) : null,
+          next: page * pageSize < total ? link(page + 1) : null,
+        },
         items: logs.map((log) => ({
           id: log.id,
           title: log.articleTitle,
@@ -207,11 +229,11 @@ async function document(services: ApiServices, url: URL, caps: Capabilities) {
         })),
       });
     } else if (selected) {
-      const matches = await services.rules.preview(selected);
+      const { items: matches, total } = await services.rules.previewSummary(selected);
       sections.push({
         title: 'Saved rule preview',
-        text: 'Most recent matches, without running actions.',
-        data: { shown: matches.length, limit: 50 },
+        text: `Showing ${matches.length ? 1 : 0}\u2013${matches.length} of ${total} matching articles, without running actions.`,
+        data: { total, shown: matches.length, limit: 50 },
         items: matches.map((item) => ({
           id: item.id,
           title: item.title,
@@ -224,7 +246,7 @@ async function document(services: ApiServices, url: URL, caps: Capabilities) {
       'rules',
       selected ? `Rules · ${selected.name}` : 'Rules',
       `${path}${url.search}`,
-      { ruleId: id, tab },
+      { ruleId: id, tab, ...(route.page ? { page: route.page } : {}) },
       sections,
     );
   }

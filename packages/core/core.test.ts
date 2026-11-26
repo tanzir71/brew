@@ -95,6 +95,7 @@ describe('portable core boundary', () => {
       updateArticle: vi.fn(),
       log: vi.fn(),
       logs: () => [],
+      logPage: (_id, page) => ({ items: [], total: 0, page, pageSize: 50 }),
       articleIds: () => [4],
       publishedAt: () => new Date(),
     };

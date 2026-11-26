@@ -28,14 +28,14 @@ test('a late preview preserves the rule save confirmation', async ({ page }) => 
     saved = [rule];
     return route.fulfill({ status: 201, json: rule });
   });
-  await page.route('**/api/rules/preview', async (route) => {
+  await page.route('**/api/rules/preview*', async (route) => {
     if (route.request().postDataJSON().conditions[0]?.value !== 'spam')
-      return route.fulfill({ json: { items: [] } });
+      return route.fulfill({ json: { items: [], total: 0, limit: 50 } });
     previewStarted();
     await blocked;
     await route.fulfill({
       json: {
-        items: [
+        total: 1, limit: 50, items: [
           {
             id: 1,
             title: 'Late preview result',
