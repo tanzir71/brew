@@ -185,6 +185,9 @@ try {
   assert.match((await app.inject(`/letters/${letter.feedId}/${letter.articleId}`)).body, /id="root"/);
   assert.equal((await app.inject('/rules.json')).json().kind, 'rules');
   assert.equal((await app.inject('/feeds.json?section=hidden')).json().kind, 'hidden-articles');
+  assert.equal((await app.inject('/feeds.json?section=hidden&page=2')).json().state.page, 2);
+  assert.equal((await app.inject('/api/articles-hidden?includeTotal=true&page=2')).json().pageSize, 50);
+  assert.equal((await app.inject('/api/articles-hidden?includeTotal=true&page=0')).statusCode, 400);
   assert.match((await app.inject('/reader.md')).body, /A calmer way/);
   for (const path of ['/rules', '/rules/1', '/feeds?section=health', '/reader', '/settings/runs'])
     assert.match((await app.inject(path)).body, /id="root"/);

@@ -1,9 +1,20 @@
 import type { Hono } from 'hono';
 import type { ApiServices, MarkAllScope } from '../ports.js';
 import { body, errorMessage, json } from '../http.js';
+import { pageNumber, PageInputError } from '../../../core/src/app-pages.js';
 
 export function registerArticleRoutes(app: Hono, { articles: service, data }: ApiServices): void {
-  app.get('/api/articles-hidden', async (c) => json(c, await data.hiddenArticles()));
+  app.get('/api/articles-hidden', async (c) => {
+    if (c.req.query('includeTotal') !== 'true') return json(c, await data.hiddenArticles());
+    c.header('Cache-Control', 'private, no-store');
+    try {
+      return json(c, await data.hiddenArticlePage(pageNumber(c.req.query('page') ?? null)));
+    } catch (error) {
+      return error instanceof PageInputError
+        ? json(c, { error: error.message }, 400)
+        : json(c, { error: 'Could not load hidden articles.' }, 500);
+    }
+  });
   app.post('/api/articles/:id/unhide', async (c) =>
     (await data.unhideArticle(Number(c.req.param('id'))))
       ? json(c, { ok: true })

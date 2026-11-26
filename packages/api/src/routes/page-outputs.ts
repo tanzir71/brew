@@ -13,6 +13,8 @@ import {
   newsletterListHref,
   newsletterLocation,
   newsletterSenderRoute,
+  feedLibraryLocation,
+  feedLibraryHref,
 } from '../../../core/src/app-pages.js';
 import {
   pageDocument,
@@ -227,19 +229,40 @@ async function document(services: ApiServices, url: URL, caps: Capabilities) {
     );
   }
   if (path === '/feeds') {
-    const section = pageChoice(params.get('section'), ['feeds', 'health', 'hidden'], 'feeds');
+    const route = feedLibraryLocation(url);
+    const { section } = route;
     if (section === 'hidden') {
-      const items = await services.data.hiddenArticles();
-      return make('hidden-articles', 'Hidden articles', `/feeds${url.search}`, { section }, [
+      const { items, total, page, pageSize } = await services.data.hiddenArticlePage(route.page);
+      const from = items.length ? (page - 1) * pageSize + 1 : 0;
+      const to = items.length ? from + items.length - 1 : 0;
+      const link = (page: number) => new URL(feedLibraryHref({ ...route, page }), base).href;
+      return make('hidden-articles', 'Hidden articles', feedLibraryHref(route), { section, page }, [
         {
           title: 'Hidden articles',
-          data: { total: items.length },
+          text: `Showing ${from ? `${from}–${to}` : '0'} of ${total} hidden articles`,
+          data: {
+            total,
+            page,
+            pageSize,
+            showing: { from, to },
+            previous: page > 1 ? link(page - 1) : null,
+            next: page * pageSize < total ? link(page + 1) : null,
+          },
           items: items.map((item) => ({
             id: item.id,
             title: item.title,
             url: `/a/${item.id}`,
             details: { feedTitle: item.feedTitle, publishedAt: item.publishedAt },
           })),
+        },
+        {
+          title: 'Pages',
+          items: [
+            ...(page > 1 ? [{ title: 'Previous hidden articles', url: link(page - 1) }] : []),
+            ...(page * pageSize < total
+              ? [{ title: 'Next hidden articles', url: link(page + 1) }]
+              : []),
+          ],
         },
       ]);
     }

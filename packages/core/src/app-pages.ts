@@ -46,6 +46,31 @@ export function pageNumber(value: string | null) {
     throw new PageInputError('Invalid page number.');
   return Number(value);
 }
+export interface FeedLibraryLocation {
+  section: 'feeds' | 'health' | 'hidden';
+  page: number;
+  agent?: boolean;
+}
+export const hiddenArticlePageSize = 50;
+export function feedLibraryLocation(url: URL): FeedLibraryLocation {
+  const section = pageChoice(
+    url.searchParams.get('section'),
+    ['feeds', 'health', 'hidden'],
+    'feeds',
+  );
+  return {
+    section,
+    page: section === 'hidden' ? pageNumber(url.searchParams.get('page')) : 1,
+    ...(url.searchParams.get('agent') === '1' ? { agent: true } : {}),
+  };
+}
+export function feedLibraryHref(state: FeedLibraryLocation): string {
+  const params = new URLSearchParams();
+  if (state.section !== 'feeds') params.set('section', state.section);
+  if (state.section === 'hidden' && state.page > 1) params.set('page', String(state.page));
+  if (state.agent) params.set('agent', '1');
+  return `/feeds${params.size ? `?${params}` : ''}`;
+}
 export function rulePageLocation(url: URL): { id: number | null; tab: 'preview' | 'log' } {
   const match = /^\/rules(?:\/([^/]+))?$/.exec(url.pathname);
   const legacy = url.pathname === '/' && url.searchParams.get('view') === 'rules';

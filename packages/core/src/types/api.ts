@@ -18,6 +18,14 @@ export interface FeedSummary {
 
 export interface FolderSummary { id: number; title: string; position: number }
 
+export interface HiddenArticleSummary { id: number; title: string; feedTitle: string; publishedAt: number }
+export interface HiddenArticlePage {
+  items: HiddenArticleSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface FeedCandidate { url: string; title: string; type: 'rss' | 'atom' | 'json' }
 
 export interface ReaderFeed { id: number; folderId: number | null; title: string; unreadCount: number; muted: boolean }

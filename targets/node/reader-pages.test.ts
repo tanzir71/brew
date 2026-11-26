@@ -219,4 +219,76 @@ describe('Reader URLs, exact totals and private page twins', () => {
     expect((await f.get('/search.json?q=Needle&scope=folder')).statusCode).toBe(400);
     expect((await f.get('/search.json?q=Needle&scope=folder&folderId=999')).statusCode).toBe(404);
   });
+  it('paginates all hidden articles beyond the legacy cap with exact totals and private read-only twins', async () => {
+    const f = await setup();
+    f.database.sqlite.prepare('UPDATE articles SET hidden=1').run();
+    const insert = f.database.sqlite.prepare(
+      'INSERT INTO articles(feed_id,guid,hash,title,url,published_at,hidden,raw_html) VALUES(?,?,?,?,?,?,1,?)',
+    );
+    f.database.sqlite.transaction(() => {
+      for (let i = 0; i < 510; i++)
+        insert.run(
+          f.feed.id,
+          `hidden-${i}`,
+          `hidden-${i}`,
+          `Hidden ${i}`,
+          `https://hidden.test/${i}`,
+          1_000_000,
+          'private-hidden-original',
+        );
+    })();
+    const expected = f.database.sqlite
+      .prepare('SELECT id FROM articles WHERE hidden=1 ORDER BY published_at DESC,id DESC')
+      .all() as { id: number }[];
+    expect(expected.length).toBeGreaterThan(500);
+    const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    const legacy = (await f.get('/api/articles-hidden')).json();
+    expect(legacy).toHaveLength(500);
+    expect(Object.keys(legacy[0])).toEqual(['id', 'title', 'feedTitle', 'publishedAt']);
+    const ids: number[] = [];
+    for (let page = 1; page <= Math.ceil(expected.length / 50); page++) {
+      const response = await f.get(`/api/articles-hidden?includeTotal=true&page=${page}`);
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['cache-control']).toBe('private, no-store');
+      const value = response.json();
+      expect(value).toMatchObject({ total: expected.length, page, pageSize: 50 });
+      expect(value.items.length).toBeLessThanOrEqual(50);
+      ids.push(...value.items.map((item: { id: number }) => item.id));
+      expect(response.body).not.toMatch(
+        /rawHtml|private-hidden-original|contentHtml|cleaning|mailto:/,
+      );
+    }
+    expect(ids).toEqual(expected.map((item) => item.id));
+    expect(new Set(ids).size).toBe(expected.length);
+    const twin = (await f.get('/feeds.json?section=hidden&page=3')).json();
+    expect(twin.state).toEqual({ section: 'hidden', page: 3 });
+    expect(twin.sections[0].data).toMatchObject({
+      total: expected.length,
+      page: 3,
+      showing: { from: 101, to: 150 },
+      previous: 'https://brew.example.test/feeds?section=hidden&page=2',
+      next: 'https://brew.example.test/feeds?section=hidden&page=4',
+    });
+    expect(twin.sections[0].items.map((item: { id: number }) => item.id)).toEqual(
+      expected.slice(100, 150).map((item) => item.id),
+    );
+    expect((await f.get('/feeds.md?section=hidden&page=3')).body).toContain(
+      `Showing 101–150 of ${expected.length}`,
+    );
+    expect((await f.get('/feeds.md?section=hidden&page=3')).body).toContain(
+      '[Next hidden articles]',
+    );
+    expect((await f.get('/api/articles-hidden?includeTotal=true', 'HEAD')).body).toBe('');
+    for (const page of ['0', '1e2', '1000001']) {
+      expect((await f.get(`/api/articles-hidden?includeTotal=true&page=${page}`)).statusCode).toBe(
+        400,
+      );
+      expect((await f.get(`/feeds.json?section=hidden&page=${page}`)).statusCode).toBe(400);
+    }
+    expect((await f.get('/api/articles-hidden?includeTotal=true&page=100')).json()).toMatchObject({
+      total: expected.length,
+      items: [],
+    });
+    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+  });
 });

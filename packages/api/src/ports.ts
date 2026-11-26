@@ -10,6 +10,7 @@ import type {
   FeedCandidate,
   FeedSummary,
   FolderSummary,
+  HiddenArticlePage,
   MarkAllReadResult,
   ReaderNavigation,
   TagSummary,
@@ -83,6 +84,7 @@ export interface ApiDataPort {
   hiddenArticles(): MaybePromise<
     Array<{ id: number; title: string; feedTitle: string; publishedAt: number }>
   >;
+  hiddenArticlePage(page: number): MaybePromise<HiddenArticlePage>;
   unhideArticle(id: number): MaybePromise<boolean>;
   duplicateFilterEnabled(): MaybePromise<boolean>;
   setDuplicateFilter(enabled: boolean): MaybePromise<void>;

@@ -6,6 +6,201 @@ import { RulesService } from '../../targets/node/src/services/rules-service';
 import { isReaderPageOutputPath } from '../../packages/core/src/reader-pages';
 import { articles } from '../../targets/node/src/db/schema';
 
+test('an agent pages hidden articles beyond the old cap and refills the list after unhiding the last page', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page);
+  try {
+    const feed = f.database.sqlite
+      .prepare("SELECT id FROM feeds WHERE title='Design journal'")
+      .get() as { id: number };
+    const insert = f.database.sqlite.prepare(
+      'INSERT INTO articles(feed_id,guid,hash,title,url,published_at,hidden) VALUES(?,?,?,?,?,?,1)',
+    );
+    f.database.sqlite.transaction(() => {
+      for (let i = 0; i < 501; i++)
+        insert.run(
+          feed.id,
+          `paging-hidden-${i}`,
+          `paging-hidden-${i}`,
+          `Paging hidden ${String(i).padStart(3, '0')}`,
+          `https://hidden.test/${i}`,
+          1_000_000 + i,
+        );
+    })();
+    const changes = () =>
+      (f.database.sqlite.prepare('SELECT total_changes() AS n').get() as { n: number }).n;
+    const before = changes();
+    await page.goto('/feeds?section=hidden');
+    const view = page.getByRole('region', { name: 'Hidden articles', exact: true });
+    await expect(view).toContainText('Showing 1–50 of 501 hidden articles');
+    await expect(view.getByRole('article')).toHaveCount(50);
+    const next = page.getByRole('link', { name: 'Next hidden articles', exact: true });
+    await expect(next).toHaveAttribute('href', '/feeds?section=hidden&page=2');
+    await next.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL('/feeds?section=hidden&page=2');
+    await expect(view).toContainText('Showing 51–100 of 501 hidden articles');
+    await page.reload();
+    await expect(
+      view.getByRole('article', { name: 'Paging hidden 450', exact: true }),
+    ).toBeVisible();
+    await page.getByRole('link', { name: 'Previous hidden articles', exact: true }).click();
+    await expect(view).toContainText('Showing 1–50 of 501 hidden articles');
+    await page.goto('/feeds?section=hidden&page=11');
+    await expect(view).toContainText('Showing 501–501 of 501 hidden articles');
+    const document = (await f.app.inject('/feeds.json?section=hidden&page=11')).json();
+    expect(document.state).toEqual({ section: 'hidden', page: 11 });
+    expect(document.sections[0].data).toMatchObject({
+      total: 501,
+      page: 11,
+      showing: { from: 501, to: 501 },
+    });
+    await expect(
+      page.getByRole('button', { name: 'Next hidden articles', exact: true }),
+    ).toBeDisabled();
+    expect(changes()).toBe(before);
+    await view
+      .getByRole('article', { name: 'Paging hidden 000', exact: true })
+      .getByRole('button', { name: 'Unhide', exact: true })
+      .click();
+    await expect(view).toContainText('Showing 0 of 500 hidden articles');
+    await expect(page.getByRole('link', { name: 'First page', exact: true })).toHaveAttribute(
+      'href',
+      '/feeds?section=hidden',
+    );
+    await page.getByRole('link', { name: 'First page', exact: true }).click();
+    await expect(view).toContainText('Showing 1–50 of 500 hidden articles');
+    await expect(view.getByRole('article')).toHaveCount(50);
+    expect(
+      f.database.sqlite.prepare('SELECT count(*) AS n FROM articles WHERE hidden=1').get(),
+    ).toEqual({ n: 500 });
+  } finally {
+    await f.close();
+  }
+});
+
+test('an agent edits feed and folder names and retention through native dialogs without overwriting other feed settings', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page);
+  try {
+    const source = f.database.sqlite
+      .prepare(
+        "SELECT id,folder_id AS folderId,retention_days AS days FROM feeds WHERE title='Design journal'",
+      )
+      .get() as { id: number; folderId: number; days: number };
+    const otherFolder = f.database.sqlite
+      .prepare("SELECT id FROM folders WHERE title='Engineering'")
+      .get() as { id: number };
+    const saved = () =>
+      f.database.sqlite
+        .prepare('SELECT title,folder_id AS folderId,retention_days AS days FROM feeds WHERE id=?')
+        .get(source.id);
+    const articleCount = f.database.sqlite.prepare('SELECT count(*) AS n FROM articles').get();
+    await page.goto('/feeds');
+    const row = page.getByRole('article', { name: 'Design journal', exact: true });
+    await expect(row).toHaveAttribute('data-brew-kind', 'feed');
+    const more = row.getByRole('button', {
+      name: 'More actions for feed Design journal',
+      exact: true,
+    });
+    await more.focus();
+    await page.keyboard.press('Enter');
+    let menu = page.getByRole('dialog', { name: 'Feed actions', exact: true });
+    await expect(menu.getByRole('link', { name: 'Open articles', exact: true })).toHaveAttribute(
+      'href',
+      `/feed/${source.id}`,
+    );
+    await menu.getByRole('button', { name: 'Rename', exact: true }).click();
+    let dialog = page.getByRole('dialog', { name: 'Rename feed', exact: true });
+    await expect(dialog.getByLabel('Feed name', { exact: true })).toBeFocused();
+    await dialog.getByLabel('Feed name', { exact: true }).fill('');
+    await expect(dialog.getByRole('button', { name: 'Save changes', exact: true })).toBeDisabled();
+    await dialog.getByLabel('Feed name', { exact: true }).fill('Cancelled name');
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    await expect(more).toBeFocused();
+    expect(saved()).toEqual({
+      title: 'Design journal',
+      folderId: source.folderId,
+      days: source.days,
+    });
+    await page.keyboard.press('Enter');
+    menu = page.getByRole('dialog', { name: 'Feed actions', exact: true });
+    await menu.getByRole('button', { name: 'Rename', exact: true }).click();
+    dialog = page.getByRole('dialog', { name: 'Rename feed', exact: true });
+    await dialog.getByLabel('Feed name', { exact: true }).fill('Design dispatch');
+    // Simulate an independent folder assignment while this name-only editor is open.
+    f.database.sqlite
+      .prepare('UPDATE feeds SET folder_id=? WHERE id=?')
+      .run(otherFolder.id, source.id);
+    await page.keyboard.press('Enter');
+    await expect(dialog).not.toBeVisible();
+    expect(saved()).toEqual({
+      title: 'Design dispatch',
+      folderId: otherFolder.id,
+      days: source.days,
+    });
+    const renamed = page.getByRole('article', { name: 'Design dispatch', exact: true });
+    await expect(
+      renamed.getByRole('link', { name: 'Design dispatch', exact: true }),
+    ).toHaveAttribute('href', `/feed/${source.id}`);
+    const result = page.getByRole('status', { name: 'Library result', exact: true });
+    await expect(result).toContainText('Renamed feed to “Design dispatch”.');
+    await expect(result).toHaveAttribute('aria-live', 'polite');
+    await page.reload();
+    await renamed
+      .getByRole('button', { name: 'Edit retention for Design dispatch', exact: true })
+      .click();
+    dialog = page.getByRole('dialog', { name: 'Feed retention', exact: true });
+    await expect(dialog.getByLabel('Retention in days', { exact: true })).toBeFocused();
+    await dialog.getByLabel('Retention in days', { exact: true }).fill('0');
+    await expect(dialog.getByRole('button', { name: 'Save changes', exact: true })).toBeDisabled();
+    await page.keyboard.press('Escape');
+    expect(saved()).toEqual({
+      title: 'Design dispatch',
+      folderId: otherFolder.id,
+      days: source.days,
+    });
+    await renamed
+      .getByRole('button', { name: 'More actions for feed Design dispatch', exact: true })
+      .click();
+    await menu.getByRole('button', { name: 'Retention', exact: true }).click();
+    await dialog.getByLabel('Retention in days', { exact: true }).fill('30');
+    await page.keyboard.press('Enter');
+    await expect(dialog).not.toBeVisible();
+    expect(saved()).toEqual({ title: 'Design dispatch', folderId: otherFolder.id, days: 30 });
+    await expect(
+      renamed.getByRole('button', { name: 'Edit retention for Design dispatch', exact: true }),
+    ).toHaveText('Keep 30 days');
+    await page.getByRole('button', { name: 'More actions for folder Design', exact: true }).click();
+    const folderMenu = page.getByRole('dialog', { name: 'Folder actions', exact: true });
+    await expect(
+      folderMenu.getByRole('link', { name: 'Open articles', exact: true }),
+    ).toHaveAttribute('href', `/f/${source.folderId}`);
+    await folderMenu.getByRole('button', { name: 'Rename', exact: true }).click();
+    dialog = page.getByRole('dialog', { name: 'Rename folder', exact: true });
+    await expect(dialog.getByLabel('Folder name', { exact: true })).toBeFocused();
+    await dialog.getByLabel('Folder name', { exact: true }).fill('Design archive');
+    await page.keyboard.press('Enter');
+    await expect(dialog).not.toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('link', { name: 'Design archive', exact: true })).toHaveAttribute(
+      'href',
+      `/f/${source.folderId}`,
+    );
+    await expect(
+      renamed.getByRole('button', { name: 'Edit retention for Design dispatch', exact: true }),
+    ).toHaveText('Keep 30 days');
+    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM articles').get()).toEqual(
+      articleCount,
+    );
+  } finally {
+    await f.close();
+  }
+});
+
 test('an agent saves scoped search bookmarks by keyboard, cancels deletion, then recovers local Undo after reload', async ({
   page,
 }, testInfo) => {

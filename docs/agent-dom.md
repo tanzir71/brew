@@ -44,6 +44,14 @@ focus, polite feedback and zero server writes. Separate browser tests exercise
 live updates in another tab, storage failures/retry, malformed data, minimum More
 target size and light/dark save/confirmation dialogs with axe checks.
 
+Two more role/label-only journeys exercise feed/folder name and retention editors,
+Cancel and explicit Save, persisted reloads, native row links/More actions and an
+independent folder assignment during a name edit. They also page through 501 hidden
+articles, reload a selected page, verify its actual text twin, and recover the
+empty last page after Unhide without losing other items. Separate browser cases
+verify read/create/update/unhide failures and actual retries, draft preservation,
+responsive native dialogs and light/dark axe checks.
+
 ESLint restricts that file's UI selectors to `getByRole` and `getByLabel`, rejecting
 CSS/test-ID/text/placeholder/title selectors and injected DOM evaluation. Browser
 setup, navigation, response inspection and SQL assertions remain available to
@@ -55,11 +63,11 @@ metadata and geometry directly; they do not substitute for this agent journey.
 | Requirement | Implemented evidence | Remaining work before the criterion is complete |
 | --- | --- | --- |
 | Landmarks | Existing Brew Library/main/In this Brew; named Reader Library navigation; real article landmarks inside Reader dialogs and newsletter panes; Compose now has a named main landmark. | Finish the view/dialog audit, including settings and older shell variants. |
-| Native controls | Reader scope/folder/feed and saved-search bookmarks, saved-rule selection/logs and attribution, feed audit views, newsletter sender/letter/page navigation and legacy shell toolbar navigation use real hrefs. Rows offer real Open buttons; pointer convenience preserves normal card clicks. Article actions and bulk confirmation use real controls. | Audit all remaining navigation, icon-only labels and toggles. |
+| Native controls | Reader scope/folder/feed and saved-search bookmarks, saved-rule selection/logs and attribution, feed audit views, newsletter sender/letter/page navigation and legacy shell toolbar navigation use real hrefs. Feed-library names and hidden-page navigation also use native links. Feed/folder renames and retention now use native labelled dialogs. Article actions and bulk confirmation use real controls. | Audit all remaining navigation, icon-only labels and toggles. |
 | Stable hooks | Article rows/panes share `data-brew-id`, kind and read/unread/starred/highlighted state. Reader/search rows also declare their actual density. Newsletter rows/panes and frozen Brew letters identify as letters; rules expose identity/enablement/actions; Compose already identifies sections. | Audit the rest of each screen's actions, settings and result rows. |
-| Accessible alternatives | Article actions are available directly and in a native More sheet. Saved-search deletion is available through a visible, labelled More control and native sheets. Existing Compose drag controls retain button/keyboard alternatives. | Add/audit More equivalents and focus/selection behavior on remaining rows and screens. |
+| Accessible alternatives | Article actions are available directly and in a native More sheet. Saved-search deletion and feed-library/folder actions have visible, labelled More controls and native sheets. Existing Compose drag controls retain button/keyboard alternatives. | Add/audit More equivalents and focus/selection behavior on remaining rows and screens, including health/hidden rows. |
 | Polite results | Existing Compose/Brew status plus explicit Reader bulk, saved-search and owner-action result live regions with real Undo. Rule partial failures, mutation errors, browser storage failures, refresh failures and action-history recovery failures have visible feedback. | Audit success/error announcements for remaining mutations and error/retry paths. |
-| Totals and pagination | Newsletter, Reader and search announce exact showing ranges/totals. Newsletter announcements stay available to assistive technology in Calm mode. Newsletter/Reader/search offer native Previous/Next links with URL page state; normal Reader/search retain virtual/infinite lists. | Remaining list announcements and agent-mode pagination without virtualization/motion/scroll marking. |
+| Totals and pagination | Newsletter, Reader, search and feed-library/audit views announce showing ranges/totals. Counts remain available to assistive technology in Calm mode. Newsletter/Reader/search/hidden articles offer native Previous/Next links with URL page state; hidden counts exceed the legacy 500-item cap. Normal Reader/search retain virtual/infinite lists. | Remaining list announcements and agent-mode pagination without virtualization/motion/scroll marking. |
 | Confirmation and undo | Reader bulk click/Shift+A, rule apply/delete, feed/folder deletion and browser saved-search deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs and folder assignments. Browser bookmarks have separate local Undo with reload recovery. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
 | Text twins | All currently implemented data views have private twins: frozen Brews/articles; Reader/search; saved Compose/rules/logs; feed library/health/hidden articles; Newsletters lists; instance settings; Reader welcome and empty Brew/library states. Selection/filter parameters survive in alternate links. Explicitly opened content overrides its underlying page; subscription links remain separate. | Continue coverage when later milestones add views. Draft forms export explicitly labelled saved state; unsaved previews stay separate. The full DOM checkbox remains open for the other rows. |
 | Visible state and targets | Read/star/tag changes update real controls and stable state; new article Open target is at least 24px; More/confirmation reuse existing controls. Newsletter navigation declares current selection, has visible keyboard focus and focuses an explicitly opened reading pane. | Full target-size/focus/overlay and post-action visibility audit across every implemented screen. |
@@ -94,6 +102,39 @@ native dialogs and controls, so Enter activates the focused action or link.
 These bookmarks and their recovery remain in browser storage; deleting one does
 not remove a server-saved Compose search source. The Node action journal below
 continues to govern server mutations. The broader DOM audit remains open.
+
+## Feed library and audits
+
+Feed/folder name editors and the retention editor reuse labelled native sheets,
+focus containment, validation, Cancel/Escape and opener restoration. Save changes
+waits for an acknowledged server response before replacing cached values; failures
+retain the draft with an alert and allow retry. Retention accepts 1–3650 days and
+has no blur write. Rename sends only the name, retaining independent changes to
+folder assignments or retention. Library rows have native `/feed/:id` and `/f/:id`
+links, stable feed/folder identity hooks and 28px More controls. Existing confirmed
+server delete/Undo behavior stays available directly and through More.
+
+Shared source query keys keep Compose's library consistent; reads receive abort
+signals, while acknowledged changes invalidate Reader/newsletter metadata. Native
+library, health and hidden-article views show loading and retryable read errors
+before claiming an empty result. Creation and Unhide failures retain their inputs
+or rows. A named polite result region announces actual outcomes, and showing ranges
+remain available to assistive technology when Calm hides visible counts.
+
+The default `GET /api/articles-hidden` keeps its legacy 500-item array contract.
+`includeTotal=true&page=N` opts into `{items,total,page,pageSize}` with 50-item pages,
+an exact joined count and deterministic date/ID ordering from one read transaction.
+Paged responses are private/no-store; invalid page values return JSON 400. Hidden
+HTML and `.md`/`.json` twins share `?section=hidden&page=N`, exact ranges and native
+Previous/Next links. Missing page content offers an explicit First page link.
+Unhide waits for acknowledgement and refills the page so shifted rows are not
+skipped; a failed refresh states that Unhide finished and offers read retry.
+Reads never unhide, extract, execute rules or write to the database. Exports omit
+article bodies, originals and source addresses/configuration.
+
+OPML bulk confirmation/Undo, health/hidden row More coverage and the remaining
+sender/settings/control/focus audit are still pending. These changes do not
+complete the global DOM criterion or enable agent mode.
 
 ## Article twins
 
@@ -164,7 +205,7 @@ this does not complete M12 or enable agent-mode behavior.
 | Brew without an edition | `/b/:id/read` | Saved configuration; frozen editions keep their existing immutable twins. |
 | Compose | `/b/:id/compose` | `section` and `sheet`; saved schedule, delivery enablement and section definitions. |
 | Rules | `/rules`, `/rules/:id` | Selected saved definition; `tab=preview|log`. Preview evaluates matches without running actions. |
-| Feed library/audit | `/feeds` | `section=feeds|health|hidden`. |
+| Feed library/audit | `/feeds` | `section=feeds|health|hidden`; hidden views also retain `page`. |
 | Newsletters list | `/letters`, `/letters/:senderId` | `view`, `page`, sender `sort`; exact filtered ranges and view unread count. Legacy `?sender=` filters remain readable. |
 | Instance settings | `/settings/runs` | Current capabilities; `setup=...` mirrors the setup hash dialog. |
 
