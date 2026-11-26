@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ModalSheet } from './Sheet';
 import { Button } from './controls';
+import { agentPageHref } from '../agentLocation';
 
 const groups = [
   [
@@ -84,7 +85,7 @@ export function ReaderHelp({ reader }: { reader: boolean }) {
         <>
           {!reader && (
             <a
-              href="/all"
+              href={agentPageHref('/all')}
               data-brew-action="open-reader"
               className="brew-button brew-button--secondary brew-button--md"
             >

@@ -1,3 +1,4 @@
+import { agentPageHref } from './agentLocation';
 import {
   useInfiniteQuery,
   useQuery,
@@ -17,6 +18,7 @@ import { ModeChip } from './components/ModeChip';
 import { articleRouteId } from './articleRoute';
 import { articleDom } from './articleDom';
 import { ArticleReader } from './ArticleReader';
+import { useAgentMode } from './hooks/useAgentMode';
 import { useArticleFocusReturn } from './hooks/useArticleFocusReturn';
 import { useCapabilities } from './hooks/useCapabilities';
 import { useBrowserPreferences } from './hooks/useBrowserPreferences';
@@ -54,7 +56,7 @@ const isEditableTarget = (target: EventTarget | null): boolean =>
 const imageSource = (value: string, direct: boolean) => direct && value.startsWith('/api/img?src=') ? decodeURIComponent(value.slice(13)) : direct ? value : value.startsWith('/api/img?') ? value : `/api/img?src=${encodeURIComponent(value)}`;
 
 function selectionHref(value: Selection): string {
-  if (value.kind === 'brew') return '/?view=reader&scope=brew';
+  if (value.kind === 'brew') return agentPageHref('/?view=reader&scope=brew');
   const density = localStorage.getItem(`brew:density:${value.kind}:${value.id ?? 'root'}`);
   return readerPageHref({ ...readerState(), kind: value.kind, id: value.id, q: '', scope: 'all', page: 1, unread: false, sort: 'newest', density: density === 'title' || density === 'cards' ? density : 'magazine' });
 }
@@ -335,6 +337,23 @@ function BrewWelcome() {
 type Density = 'title' | 'magazine' | 'cards';
 type VirtualRow = { kind: 'article'; article: ArticleSummary } | { kind: 'header'; title: string };
 
+function PagedReaderRows({ rows, density, directImages, focusedId, onOpen, className }: {
+  rows: readonly VirtualRow[];
+  density: Density;
+  directImages: boolean;
+  focusedId?: number;
+  onOpen: (id: number) => void;
+  className: string;
+}) {
+  return <div className={className}>{rows.map((row) => row.kind === 'header' ? (
+    <h2 key={`folder:${row.title}`} className="border-b border-line py-3 text-xs font-semibold uppercase tracking-wider text-muted">{row.title}</h2>
+  ) : (
+    <div key={row.article.id} className="py-1">
+      <ArticleRow article={row.article} density={density} directImages={directImages} focused={row.article.id === focusedId} onOpen={() => onOpen(row.article.id)} />
+    </div>
+  ))}</div>;
+}
+
 function SearchView({
   query,
   currentFolderId,
@@ -347,16 +366,17 @@ function SearchView({
   onSave:()=>void;
 }) {
   const preferences = useBrowserPreferences();
+  const agent = useAgentMode();
   const state = { ...readerState(), kind: 'search' as const, q: query };
   const scope = state.scope;
   const folderId = state.folderId ?? currentFolderId;
   const setScope = (scope: ReaderPageState['scope']) => navigateReader(readerPageHref({ ...state, scope, folderId, page: 1 }));
   const caps = useCapabilities();
-  useTextAlternates(caps.data?.outputs?.twins ? readerPageHref(state) : null);
+  useTextAlternates(caps.data?.outputs?.twins ? readerPageHref({ ...state, agent: agent || state.agent }) : null);
   const [selectedArticle, setSelectedArticle] = useState<number | null>(() => articleRouteId(location.pathname));
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const results = useInfiniteQuery({
-    queryKey: ['search', query, scope, folderId, state.page, state.unread, state.sort],
+    queryKey: ['search', query, scope, folderId, state.page, state.unread, state.sort, ...(agent ? ['agent'] : [])],
     initialPageParam: (state.page - 1) * readerPageSize,
     queryFn: ({ pageParam, signal }) => {
       const params = new URLSearchParams({
@@ -369,7 +389,7 @@ function SearchView({
         params.set('folderId', String(folderId));
       return getJson<SearchPage>(`/api/search?${params}`, signal);
     },
-    getNextPageParam: (page) => page.nextOffset ?? undefined,
+    getNextPageParam: (page) => agent ? undefined : page.nextOffset ?? undefined,
     enabled: scope !== 'folder' || folderId !== undefined,
   });
   const items = useMemo(
@@ -385,7 +405,8 @@ function SearchView({
   }, [prepareArticle]);
   // eslint-disable-next-line react-hooks/incompatible-library -- Search results use the same mandated virtual list engine as the Reader.
   const virtualizer = useVirtualizer({
-    count: items.length + (results.hasNextPage && !results.isError ? 1 : 0),
+    enabled: !agent,
+    count: agent ? 0 : items.length + (results.hasNextPage && !results.isError ? 1 : 0),
     getScrollElement: () => parent.current,
     estimateSize: () => state.density === 'title' ? 62 : state.density === 'cards' ? 270 : 126,
     overscan: 8,
@@ -394,6 +415,7 @@ function SearchView({
   useEffect(() => {
     const last = virtualItems.at(-1);
     if (
+      !agent &&
       last &&
       last.index >= items.length - 4 &&
       results.hasNextPage &&
@@ -401,7 +423,7 @@ function SearchView({
       !results.isFetchingNextPage
     )
       void results.fetchNextPage();
-  }, [items.length, results, virtualItems]);
+  }, [agent, items.length, results, virtualItems]);
   useLayoutEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target) || !items.length) return;
@@ -412,9 +434,10 @@ function SearchView({
         const next =
           key === 'j'
             ? Math.min(items.length - 1, focusedIndex + 1)
-            : Math.max(0, focusedIndex < 0 ? 0 : focusedIndex - 1);
+            : Math.max(0, Math.min(items.length - 1, focusedIndex < 0 ? 0 : focusedIndex - 1));
         setFocusedIndex(next);
-        virtualizer.scrollToIndex(next, { align: 'auto' });
+        if (agent) parent.current?.querySelector<HTMLElement>(`article[data-brew-id="${items[next]!.id}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+        else virtualizer.scrollToIndex(next, { align: 'auto' });
       }
       if (key === 'o' || event.key === 'Enter') {
         event.preventDefault();
@@ -423,7 +446,7 @@ function SearchView({
     };
     window.addEventListener('keydown', keydown);
     return () => window.removeEventListener('keydown', keydown);
-  }, [focusedIndex, items, openArticle, virtualizer]);
+  }, [agent, focusedIndex, items, openArticle, virtualizer]);
   return (
     <div className="reader-workspace flex h-[calc(100vh-4rem)] min-w-0">
       <div className="flex min-w-0 flex-1 flex-col">
@@ -472,10 +495,13 @@ function SearchView({
       <ReaderReadFeedback query={results} subject="search results" retryLabel="Retry search" moreLabel="Retry more results" focusRef={listHeading} />
       <div
         ref={parent}
-        data-testid="virtual-search-results"
+        data-testid={agent ? 'paged-search-results' : 'virtual-search-results'}
+        role={agent ? 'region' : undefined} aria-label={agent ? 'Search results' : undefined} tabIndex={agent ? 0 : undefined}
         className="min-h-0 flex-1 overflow-auto"
       >
-        <div className="relative mx-auto max-w-4xl" style={{ height: virtualizer.getTotalSize() }}>
+        {agent ? <PagedReaderRows rows={items.map((article) => ({ kind: 'article', article }))} className="mx-auto max-w-4xl px-8"
+          density={state.density} directImages={preferences.values.images === 'direct'} focusedId={items[focusedIndex]?.id}
+          onOpen={(id) => { setFocusedIndex(items.findIndex((article) => article.id === id)); openArticle(id); }} /> : <div className="relative mx-auto max-w-4xl" style={{ height: virtualizer.getTotalSize() }}>
           {virtualItems.map((virtual) => {
             const article = items[virtual.index];
             return (
@@ -503,10 +529,10 @@ function SearchView({
               </div>
             );
           })}
-        </div>
+        </div>}
         {results.isSuccess && !items.length && <ReaderEmptyPage state={state}>No matching articles. Try fewer or broader words.</ReaderEmptyPage>}
       </div>
-      {results.data?.pages[0]?.total !== undefined && <ReaderPageFooter state={state} total={results.data.pages[0].total} shown={items.length} stale={results.isError} twins={Boolean(caps.data?.outputs?.twins)} />}
+      {results.data?.pages[0]?.total !== undefined && <ReaderPageFooter state={state} total={results.data.pages[0].total} shown={items.length} numbered={agent} stale={results.isError} twins={Boolean(caps.data?.outputs?.twins)} />}
       </div>
       {selectedArticle !== null && (
         <ArticleReader
@@ -522,6 +548,7 @@ function SearchView({
 
 function ArticleList({ selection }: { selection: Selection }) {
   const client = useQueryClient();
+  const agent = useAgentMode();
   const state: ReaderPageState = { ...readerState(), kind: selection.kind === 'brew' ? 'all' : selection.kind, id: selection.id };
   const unreadOnly = state.unread;
   const sort = state.sort;
@@ -534,7 +561,7 @@ function ArticleList({ selection }: { selection: Selection }) {
   const [openTags, setOpenTags] = useState(false);
   const preferences = useBrowserPreferences();
   const openMode = preferences.values.openMode;
-  const markOnScroll = preferences.values.readOnScroll === 'true';
+  const markOnScroll = !agent && preferences.values.readOnScroll === 'true';
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const scrolledIds = useRef(new Set<number>());
   const scope = `${selection.kind}:${selection.id ?? 'root'}`;
@@ -554,9 +581,9 @@ function ArticleList({ selection }: { selection: Selection }) {
       ...(selection.kind === 'feed' && selection.id ? { feedId: selection.id } : {}),
       ...(selection.kind === 'folder' && selection.id ? { folderId: selection.id } : {}) }, 'Mark all articles read?', bulkTrigger.current);
   }, [askBulk, selection.kind, selection.id]);
-  useTextAlternates(caps.data?.outputs?.twins ? readerPageHref(outputState) : null);
+  useTextAlternates(caps.data?.outputs?.twins ? readerPageHref({ ...outputState, agent: agent || outputState.agent }) : null);
   const query = useInfiniteQuery({
-    queryKey: ['articles', selection.kind, selection.id, unreadOnly, sort, state.page],
+    queryKey: ['articles', selection.kind, selection.id, unreadOnly, sort, state.page, ...(agent ? ['agent'] : [])],
     initialPageParam: null as string | null,
     queryFn: ({ pageParam, signal }) => {
       const params = new URLSearchParams({
@@ -570,7 +597,7 @@ function ArticleList({ selection }: { selection: Selection }) {
       if (pageParam) params.set('cursor', pageParam);
       return getJson<ArticlePage>(`/api/articles?${params}`, signal);
     },
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    getNextPageParam: (page) => agent ? undefined : page.nextCursor ?? undefined,
   });
   const articles = useMemo(
     () => query.data?.pages.flatMap((page) => page.items) ?? [],
@@ -600,7 +627,8 @@ function ArticleList({ selection }: { selection: Selection }) {
   const lanes = density === 'cards' && selection.kind !== 'today' ? 2 : 1;
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual is the mandated list engine and intentionally manages mutable measurements.
   const virtualizer = useVirtualizer({
-    count: rows.length + (query.hasNextPage && !query.isError ? 1 : 0),
+    enabled: !agent,
+    count: agent ? 0 : rows.length + (query.hasNextPage && !query.isError ? 1 : 0),
     getScrollElement: () => parent.current,
     estimateSize: () => (density === 'title' ? 62 : density === 'cards' ? 270 : 126),
     overscan: 8,
@@ -610,9 +638,9 @@ function ArticleList({ selection }: { selection: Selection }) {
   const virtualItems = virtualizer.getVirtualItems();
   useEffect(() => {
     const last = virtualItems.at(-1);
-    if (last && last.index >= rows.length - 4 && query.hasNextPage && !query.isError && !query.isFetchingNextPage)
+    if (!agent && last && last.index >= rows.length - 4 && query.hasNextPage && !query.isError && !query.isFetchingNextPage)
       void query.fetchNextPage();
-  }, [virtualItems, rows.length, query]);
+  }, [agent, virtualItems, rows.length, query]);
   const [failedScroll, setFailedScroll] = useState<number[]>([]);
   const [readError, setReadError] = useState('');
   const markScrolled = useCallback(async (ids: number[]) => {
@@ -674,12 +702,13 @@ function ArticleList({ selection }: { selection: Selection }) {
         const next =
           key === 'j'
             ? Math.min(articles.length - 1, focusedIndex + 1)
-            : Math.max(0, focusedIndex < 0 ? 0 : focusedIndex - 1);
+            : Math.max(0, Math.min(articles.length - 1, focusedIndex < 0 ? 0 : focusedIndex - 1));
         setFocusedIndex(next);
         const rowIndex = rows.findIndex(
           (row) => row.kind === 'article' && row.article.id === articles[next]?.id,
         );
-        if (rowIndex >= 0) virtualizer.scrollToIndex(rowIndex, { align: 'auto' });
+        if (agent) parent.current?.querySelector<HTMLElement>(`article[data-brew-id="${articles[next]!.id}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+        else if (rowIndex >= 0) virtualizer.scrollToIndex(rowIndex, { align: 'auto' });
         return;
       }
       const article = articles[Math.max(0, focusedIndex)];
@@ -708,6 +737,7 @@ function ArticleList({ selection }: { selection: Selection }) {
     window.addEventListener('keydown', keydown);
     return () => window.removeEventListener('keydown', keydown);
   }, [
+    agent,
     articles,
     chooseDensity,
     focusedIndex,
@@ -756,6 +786,8 @@ function ArticleList({ selection }: { selection: Selection }) {
             <input
               type="checkbox"
               checked={markOnScroll}
+              disabled={agent}
+              aria-describedby={agent ? 'agent-scroll-note' : undefined}
               data-brew-action="set-read-on-scroll"
               onChange={(event) => {
                 if (preferences.save('readOnScroll', String(event.target.checked), 'Read on scroll')) {
@@ -807,14 +839,17 @@ function ArticleList({ selection }: { selection: Selection }) {
         </div>
       </header>
       <PreferenceFeedback preferences={preferences} name="Reader preferences result" />
+      {agent && <p id="agent-scroll-note" className="px-8 py-2 text-xs text-soft">Agent-friendly mode keeps scroll marking off. Your saved reading preference is unchanged.</p>}
       {readError && <p role="alert" className="px-8 py-2 text-sm text-danger">{readError}</p>}
       {failedScroll.length > 0 && <p role="alert" className="px-8 py-2 text-sm text-danger">
         Could not save {failedScroll.length} read updates.{' '}
         <button type="button" className="underline" onClick={() => void markScrolled(failedScroll)}>Retry read updates</button>
       </p>}
       <ReaderReadFeedback query={query} subject="articles" retryLabel="Retry articles" moreLabel="Retry more articles" focusRef={listHeading} announcement={query.data?.pages[0]?.total === undefined ? `${articles.length} articles loaded.` : ''} />
-      <div ref={parent} data-reader-scroll data-testid="virtual-article-list" className="min-h-0 flex-1 overflow-auto">
-        <div
+      <div ref={parent} data-reader-scroll data-testid={agent ? 'paged-article-list' : 'virtual-article-list'} role={agent ? 'region' : undefined} aria-label={agent ? 'Article results' : undefined} tabIndex={agent ? 0 : undefined} className="min-h-0 flex-1 overflow-auto">
+        {agent ? <PagedReaderRows rows={rows} className={`mx-auto max-w-5xl px-8 ${lanes === 2 ? 'grid grid-cols-2 gap-3' : ''}`}
+          density={density} directImages={preferences.values.images === 'direct'} focusedId={articles[focusedIndex]?.id}
+          onOpen={(id) => { setFocusedIndex(articles.findIndex((article) => article.id === id)); openArticle(id); }} /> : <div
           className="relative mx-auto max-w-5xl px-8"
           style={{ height: virtualizer.getTotalSize() }}
         >
@@ -858,11 +893,11 @@ function ArticleList({ selection }: { selection: Selection }) {
               </div>
             );
           })}
-        </div>
+        </div>}
         {query.isSuccess && rows.length === 0 && <ReaderEmptyPage state={state}>Nothing here yet. A quiet inbox is a good inbox.</ReaderEmptyPage>}
       </div>
       <BulkReadUi action={bulk} />
-      {query.data?.pages[0]?.total !== undefined && <ReaderPageFooter state={outputState} total={query.data.pages[0].total} shown={articles.length} stale={query.isError} twins={Boolean(caps.data?.outputs?.twins)} />}
+      {query.data?.pages[0]?.total !== undefined && <ReaderPageFooter state={outputState} total={query.data.pages[0].total} shown={articles.length} numbered={agent} stale={query.isError} twins={Boolean(caps.data?.outputs?.twins)} />}
       </div>
       {selectedArticle !== null && (
         <ArticleReader

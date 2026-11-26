@@ -1,4 +1,6 @@
+import { agentPageHref } from './agentLocation';
 import { ReaderHelp } from './components/ReaderHelp';
+import { AgentMode } from './components/AgentMode';
 import { FeedManager } from './FeedManager';
 import { Component, type ReactNode, lazy, Suspense, useEffect, useState } from 'react';
 const Reader = lazy(() => import('./Reader').then((module) => ({ default: module.Reader })));
@@ -13,7 +15,7 @@ const WhereBrewRuns = lazy(() => import('./settings/WhereBrewRuns').then((module
 const NewslettersPage = lazy(() => import('./NewslettersPage').then((module) => ({ default: module.NewslettersPage })));
 
 export function App() {
-  return <ErrorBoundary><AppContent /></ErrorBoundary>;
+  return <ErrorBoundary><AgentMode><AppContent /></AgentMode></ErrorBoundary>;
 }
 function AppContent() {
   const [mode, setMode] = useState<'brew' | 'reader' | 'feeds' | 'rules'>(()=>{
@@ -64,9 +66,9 @@ function AppContent() {
   return (
     <main className="min-h-screen bg-canvas text-ink">
       <header className="flex h-16 items-center justify-between border-b border-line px-8">
-        <div className="flex items-center gap-3"><a href="/" aria-label="Brew home" className="font-semibold tracking-tight">
+        <div className="flex items-center gap-3"><a href={agentPageHref('/')} aria-label="Brew home" className="font-semibold tracking-tight">
           Brew
-        </a><a href="/settings/runs" className="legacy-settings-link" aria-label="Settings · Where Brew runs"><img src={runAssets.settings} alt="" /></a></div>
+        </a><a href={agentPageHref('/settings/runs')} className="legacy-settings-link" aria-label="Settings · Where Brew runs"><img src={runAssets.settings} alt="" /></a></div>
         <div className="flex items-center gap-3">
           <label className="sr-only" htmlFor="global-search">
             Search
@@ -93,7 +95,7 @@ function AppContent() {
             className="w-36 rounded-full border border-line-strong bg-surface px-4 py-2 text-xs outline-none focus:w-56 focus:border-ink"
           />
           <a
-            href={mode === 'reader' ? '/' : '/?view=reader&scope=all'}
+            href={agentPageHref(mode === 'reader' ? '/' : '/?view=reader&scope=all')}
             className="rounded-full border border-line-strong px-4 py-2 text-sm font-medium"
           >
             {mode === 'reader' ? 'The Brew' : 'Reader'}
@@ -129,13 +131,13 @@ function AppContent() {
           </select>
           <label className="sr-only" htmlFor="landing-picker">Default landing page</label><select id="landing-picker" data-brew-action="set-landing" aria-label="Default landing page" value={landing} onChange={(event)=>preferences.save('landing', event.target.value, 'Default landing page')} className="rounded-full border border-line-strong bg-surface px-3 py-2 text-xs font-medium"><option value="brew">Start at Brew</option><option value="reader">Start at Reader</option></select>
           <a
-            href={mode === 'rules' ? '/' : '/?view=rules'}
+            href={agentPageHref(mode === 'rules' ? '/' : '/?view=rules')}
             className="rounded-full border border-line-strong px-4 py-2 text-sm font-medium hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
             {mode === 'rules' ? 'Back to Brew' : 'Rules'}
           </a>
           <a
-            href={mode === 'feeds' ? '/' : '/?view=feeds'}
+            href={agentPageHref(mode === 'feeds' ? '/' : '/?view=feeds')}
             className="rounded-full border border-line-strong px-4 py-2 text-sm font-medium hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
             {mode === 'feeds' ? 'Back to Brew' : 'Manage feeds'}

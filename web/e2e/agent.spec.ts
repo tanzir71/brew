@@ -8,6 +8,57 @@ import { isReaderPageOutputPath } from '../../packages/core/src/reader-pages';
 import { articles } from '../../targets/node/src/db/schema';
 import { composeFixture } from './compose-fixture';
 import { BrewService } from '../../targets/node/src/services/brew-service';
+import { agentModeFixture } from './agent-mode-fixture';
+
+test('an agent enables saved agent mode, pages the full DOM by keyboard and reads an exact search item', async ({ page }) => {
+  const f = await agentModeFixture(page);
+  try {
+    const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    await page.goto('/settings/runs#setup-agents');
+    const guide = page.getByRole('dialog', { name: 'Agent access', exact: true });
+    const toggle = guide.getByRole('switch', { name: 'Agent-friendly mode', exact: true });
+    await toggle.focus();
+    await page.keyboard.press('Space');
+    await expect(toggle).toBeChecked();
+    await page.keyboard.press('Escape');
+    await page.getByRole('navigation', { name: 'Library', exact: true }).getByRole('link', { name: /^All articles/ }).click();
+    const list = page.getByRole('region', { name: 'Article results', exact: true });
+    await expect(list.getByRole('article')).toHaveCount(50);
+    await list.getByRole('button', { name: 'Open article · Agent story 050', exact: true }).focus();
+    const next = page.getByRole('link', { name: 'Page 2', exact: true });
+    await next.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { name: 'All articles', exact: true })).toBeFocused();
+    await expect(list.getByRole('article')).toHaveCount(50);
+    await expect(page.getByRole('region', { name: 'Reader page', exact: true })).toContainText('Showing 51–100 of 121');
+    await page.getByRole('link', { name: 'Page 3', exact: true }).click();
+    await expect(list.getByRole('article')).toHaveCount(21);
+    await page.goBack();
+    await expect(list.getByRole('article')).toHaveCount(50);
+    await page.reload();
+    await expect(list.getByRole('article')).toHaveCount(50);
+    const search = page.getByLabel('Search', { exact: true });
+    await search.fill('Agent');
+    await search.press('Enter');
+    const results = page.getByRole('region', { name: 'Search results', exact: true });
+    await expect(results.getByRole('article')).toHaveCount(50);
+    await page.getByRole('link', { name: 'Page 2', exact: true }).click();
+    await expect(results.getByRole('article')).toHaveCount(50);
+    await expect(page.getByRole('navigation', { name: 'Reader text formats', exact: true }).getByRole('link', { name: 'JSON', exact: true })).toHaveAttribute('href', '/search.json?q=Agent&page=2&agent=1');
+    expect(new URL(page.url()).searchParams.has('agent')).toBe(false);
+    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+    const opener = results.getByRole('button', { name: 'Open article · Agent story 100', exact: true });
+    await opener.focus();
+    await page.keyboard.press('Enter');
+    const reader = page.getByRole('dialog', { name: 'Article reader', exact: true });
+    await expect(reader.getByRole('article', { name: 'Agent story 100', exact: true })).toBeFocused();
+    await expect(reader.getByRole('button', { name: 'Mark unread', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(opener).toBeFocused();
+    expect(f.database.sqlite.prepare('SELECT id FROM articles WHERE read_at IS NOT NULL').all()).toEqual([{ id: 100 }]);
+    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({ n: 0 });
+  } finally { await f.close(); }
+});
 
 test('an agent opens native shortcut help and recovers changed Reader and search pages without writes', async ({ page }) => {
   const f = await newslettersFixture(page);

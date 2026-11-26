@@ -1,3 +1,4 @@
+import { agentPageHref } from './agentLocation';
 import {
   useCallback,
   useEffect,
@@ -693,7 +694,7 @@ export function FeedManager() {
                   {hidden.data.total ? (
                     <>
                       No articles on this page.{' '}
-                      <a href={feedLibraryHref({ ...route, page: 1 })}>First page</a>
+                      <a href={agentPageHref(feedLibraryHref({ ...route, page: 1 }))}>First page</a>
                     </>
                   ) : (
                     'No hidden articles.'
@@ -709,7 +710,7 @@ export function FeedManager() {
                 <a
                   className="brew-button brew-button--secondary brew-button--sm"
                   aria-label="Previous hidden articles"
-                  href={feedLibraryHref({ ...route, page: route.page - 1 })}
+                  href={agentPageHref(feedLibraryHref({ ...route, page: route.page - 1 }))}
                 >
                   <Icon name="chevron-left" size={14} />
                   Previous
@@ -733,7 +734,7 @@ export function FeedManager() {
                 <a
                   className="brew-button brew-button--secondary brew-button--sm"
                   aria-label="Next hidden articles"
-                  href={feedLibraryHref({ ...route, page: route.page + 1 })}
+                  href={agentPageHref(feedLibraryHref({ ...route, page: route.page + 1 }))}
                 >
                   Next
                   <Icon name="chevron-right" size={14} />

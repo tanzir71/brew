@@ -263,6 +263,19 @@ native **First page** link that preserves filters. Library metadata has its own
 retry and does not block loaded articles. **Keyboard shortcuts** and `?` open
 native help with contained focus and Escape/Done restoration; the legacy Feeds
 and Rules toolbar opens the same Reader guide.
+
+Turn on **Agent-friendly mode** in **Settings → Agent access**, or add `?agent=1`
+to an app URL. Reader and search then render all 50 items on each numbered page
+in the DOM, announce exact totals and stop loading ahead. Animations, transitions
+and smooth scrolling stop across the app, and scrolling cannot mark articles read.
+Your saved Read on scroll preference stays unchanged. Explicitly opening an
+article still marks that article read.
+
+The setting saves in this browser and updates other open tabs. The URL flag does
+not save a preference; native app navigation retains it. In Agent access, **Use
+saved preference** removes the temporary override. Page links retain filters and
+history, and Markdown/JSON links describe the selected page and active mode.
+MCP, tokens and WebMCP remain separate M12 work.
 See [agent DOM implementation](docs/agent-dom.md) for the current role/label-only
 journey and the remaining M12 checklist work.
 

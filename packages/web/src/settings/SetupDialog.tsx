@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef } from 'react';
 import type { SetupTopic } from './capabilityRows';
 import type { Capabilities } from '@brew/core/types/capabilities';
 import { Badge } from '../components/Badge';
+import { AgentPreferences } from './AgentPreferences';
 
 const guides: Record<SetupTopic, { title: string; description: string; steps: string[] }> = {
   outputs: {
@@ -135,6 +136,7 @@ export function SetupDialog({
         </button>
       </div>
       <p>{guide.description}</p>
+      {topic === 'agents' && <AgentPreferences />}
       <ol>
         {steps.map((step) => (
           <li key={step}>{step}</li>

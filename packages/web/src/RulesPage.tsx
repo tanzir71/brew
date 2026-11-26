@@ -1,3 +1,4 @@
+import { agentPageHref } from './agentLocation';
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useOwnerActions } from './hooks/useOwnerActions';
 import { OwnerActionUi } from './components/OwnerActionUi';
@@ -65,7 +66,7 @@ const savedDraft = (rule: RuleRecord): RuleDraft => ({
   actions: structuredClone(rule.actions), stopProcessing: rule.stopProcessing, position: rule.position,
 });
 function writeRuleLocation(id: number | null, tab: 'preview' | 'log') {
-  const href = rulePageHref(id, tab);
+  const href = agentPageHref(rulePageHref(id, tab));
   if (location.pathname + location.search !== href) history.pushState(null, '', href);
 }
 
@@ -328,7 +329,7 @@ export function RulesPage() {
               data-brew-state={rule.enabled ? 'enabled' : 'disabled'}
               className={`rounded-xl border p-3 ${selectedId === rule.id ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}`}
             >
-              <a data-brew-action="edit-rule" aria-label={rule.name} href={rulePageHref(rule.id)} onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); selectRule(rule); }} className="block w-full text-left">
+              <a data-brew-action="edit-rule" aria-label={rule.name} href={agentPageHref(rulePageHref(rule.id))} onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); selectRule(rule); }} className="block w-full text-left">
                 <span className="flex items-center justify-between gap-2">
                   <strong className="truncate text-sm">{rule.name}</strong>
                   <span
@@ -350,7 +351,7 @@ export function RulesPage() {
                 <button data-brew-action="delete-rule" disabled={!owner.capable || owner.busy} onClick={() => remove(rule)} className="text-xs text-danger">
                   Delete
                 </button>
-                <a data-brew-action="rule-log" href={rulePageHref(rule.id, 'log')} onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); void showLogs(rule); }} className="text-xs text-soft">
+                <a data-brew-action="rule-log" href={agentPageHref(rulePageHref(rule.id, 'log'))} onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); void showLogs(rule); }} className="text-xs text-soft">
                   Logs
                 </a>
                 <button data-brew-action="apply-rule" disabled={!owner.capable || owner.busy} onClick={() => applyExisting(rule)} className="text-xs text-accent">

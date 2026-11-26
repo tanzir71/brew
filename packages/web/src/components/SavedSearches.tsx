@@ -5,6 +5,7 @@ import { savedSearchHref, type SavedSearch } from '../savedSearches';
 import type { useSavedSearches } from '../hooks/useSavedSearches';
 import { ModalSheet } from './Sheet';
 import { Button, IconButton, Input } from './controls';
+import { agentPageHref } from '../agentLocation';
 
 type Searches = ReturnType<typeof useSavedSearches>;
 const follow = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -38,7 +39,7 @@ export function SavedSearchList({ action }: { action: Searches }) {
             Saved searches
           </p>
           {action.searches.map((search) => {
-            const href = savedSearchHref(search);
+            const href = agentPageHref(savedSearchHref(search));
             const selected = location.pathname + location.search === href;
             return (
               <div key={search.id} className="saved-search-row" data-saved-search-id={search.id}>

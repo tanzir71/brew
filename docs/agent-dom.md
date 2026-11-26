@@ -1,7 +1,8 @@
 # Agent DOM implementation
 
 M12 is in progress. Passing the core journey does not complete the nine-item DOM
-checklist or the later agent-mode, OpenAPI, MCP, token/log, WebMCP and llms.txt work.
+checklist or the later OpenAPI, MCP, token/log, WebMCP and llms.txt work. The
+agent-friendly-mode criterion is implemented; the global DOM audit stays open.
 The M12 DOM acceptance checkbox stays open until the remaining work below is done.
 
 ## Current evidence
@@ -150,8 +151,52 @@ Native focus containment, Escape/Done, backdrop clicks and trigger restoration
 replace the old custom overlay. Reader shortcuts do not run behind it; opening
 help clears a pending Go chord. Its controls meet the 24px target minimum. Shared
 sheets distinguish selection dragging from a backdrop click and suppress their
-own stale return-focus action after path/query navigation. Agent mode remains
-pending, including the checklist's nonvirtual paginated list requirement.
+own stale return-focus action after path/query navigation.
+
+## Agent-friendly mode
+
+The twenty-third role/label-only journey saves Agent-friendly mode through
+Settings → Agent access, pages 121 real SQLite articles with native numbered
+links, reloads and follows history, searches, and explicitly opens item 100.
+Settings and list navigation cause no database writes; only the opened article
+becomes read. Six additional browser cases verify URL mode, all 50 offscreen DOM
+rows, exact 50/50/21 pages and totals, empty-page recovery, no loading ahead, no
+scroll marking despite a saved enabled preference, disabled animation/transition,
+Today groups, densities, folder/starred search and selected text twins.
+
+Agent-friendly mode saves as a validated browser preference, defaults off and
+updates mounted views and other tabs through the existing preference store.
+`?agent=1` temporarily enables it without writing storage. A saved enabled setting
+also applies to URLs without the flag. The visible switch edits the saved setting;
+an explicit URL override explains why the mode remains on and offers a native
+Use saved preference link. Failed saves retain the actual saved value and report
+the failure. The current Agent access setup dialog hosts the Figma 15:2576 card;
+the full 15:2295 MCP/token/log page belongs to its remaining criteria.
+
+Reader/search disable the virtualizer and automatic cursor loading, use separate
+query identities and render ordinary document-flow rows for one 50-item page.
+Current-page numbers, bounded neighbour links, first/last numbers, Previous/Next,
+ranges and First page recovery use canonical URLs and restore the heading after
+activation. Native j/k scrolling reaches actual DOM rows. Mode changes preserve
+an open article and tag draft, with indices bounded to the current page. Existing
+normal-mode virtual/infinite lists and visual baselines stay intact.
+
+A root flag disables CSS animation, transitions and smooth scrolling before the
+initial React render and tracks live preferences and history. Both Reader and
+Reading settings disable effective scroll marking while retaining its saved
+preference. Opening an article or choosing a read action remains an explicit
+write. The URL flag survives canonical Brew/Compose/rule changes, newsletter
+selection/paging, shared navigation and bookmarks. APIs, external links, assets
+and text outputs are not rewritten. Selected page twins/discovery carry the
+effective mode, including when it came from the saved setting; ordinary page
+links do not turn that saved preference into a permanent URL override.
+
+Three unit cases verify URL/preference precedence, preservation of reading state,
+and safe flag propagation. Browser checks cover actual storage failures,
+cross-tab mode changes with a retained tag draft, temporary-override removal,
+native control sizing, light/dark axe and desktop/phone captures. The remaining
+DOM audit includes shared control targets: the new agent switch has a measured
+24px target, while the shared Toggle still renders an 18px pill elsewhere.
 
 The client serializes tag writes per item, cancels obsolete detail reads and
 patches only tags in article/newsletter caches. It refreshes dependent previews
@@ -176,7 +221,7 @@ metadata and geometry directly; they do not substitute for this agent journey.
 | Stable hooks | Article rows/panes share `data-brew-id`, kind and read/unread/starred/highlighted state. Reader/search rows also declare their actual density. Newsletter rows/panes and frozen Brew letters identify as letters; rules expose identity/enablement/actions; Compose already identifies sections. | Audit the rest of each screen's actions, settings and result rows. |
 | Accessible alternatives | Article and letter actions are available directly and in native More sheets. Saved-search deletion, feed-library/folder, feed health, hidden and sender rows have labelled More controls and native sheets. Sender-row More appears on hover, keyboard focus or selection. General/Reading settings and setup guides use native dialogs and links. Article overlays and phone panes use native modals; desktop panes dock beside usable rows. Initial/nested/return focus, unread row removal and native media controls are tested. Existing Compose drag controls retain button/keyboard alternatives. | Finish the remaining controls and older-shell focus/selection audit. |
 | Polite results | Existing Compose/Brew status plus explicit Reader bulk, saved-search and owner-action result live regions with real Undo. Rule partial failures, mutation errors, browser storage failures, refresh failures and action-history recovery failures have visible feedback. Article/tag loading and mutation failures have retry; tag drafts survive partial creation/assignment, and read/star results and field retries stay in the active More surface. Clipboard failures and cancelled extraction are handled. | Audit success/error announcements for the remaining older-shell mutations and list reads. |
-| Totals and pagination | Newsletter, Reader, search and feed-library/audit views announce showing ranges/totals. Counts remain available to assistive technology in Calm mode. Newsletter/Reader/search/hidden articles offer native Previous/Next links with URL page state; hidden counts exceed the legacy 500-item cap. Normal Reader/search retain virtual/infinite lists. | Remaining list announcements and agent-mode pagination without virtualization/motion/scroll marking. |
+| Totals and pagination | Newsletter, Reader, search and feed-library/audit views announce showing ranges/totals. Counts remain available to assistive technology in Calm mode. Newsletter/Reader/search/hidden articles offer native Previous/Next links with URL page state; hidden counts exceed the legacy 500-item cap. Normal Reader/search retain virtual/infinite lists; agent mode instead renders one complete 50-item DOM page with numbered links, exact totals and retained URL filters. | Maintain announcements as later views are added. Agent-mode paging, motion suppression and scroll-marking suppression are verified. |
 | Confirmation and undo | Reader bulk click/Shift+A and frozen Brew section/edition reads, rule apply/delete, feed/folder deletion, library/Compose OPML import, risky sender settings and browser saved-search deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs, folder assignments, sender retention and Brew routing. OPML Undo protects later uses of imported records. Browser bookmarks have separate local Undo with reload recovery. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
 | Text twins | All currently implemented data views have private twins: frozen Brews/articles; Reader/search; saved Compose/rules/logs; feed library/health/hidden articles; Newsletters lists; instance settings; Reader welcome and empty Brew/library states. Selection/filter parameters survive in alternate links. Explicitly opened content overrides its underlying page; subscription links remain separate. | Continue coverage when later milestones add views. Draft forms export explicitly labelled saved state; unsaved previews stay separate. The full DOM checkbox remains open for the other rows. |
 | Visible state and targets | Read/star/tag changes update real controls and stable state; article Open and reading-toolbar targets are at least 24px; More/confirmation reuse existing controls. Newsletter navigation declares current selection, has visible keyboard focus and focuses an explicitly opened reading pane. | Full target-size/focus/overlay and post-action visibility audit across every implemented screen. |

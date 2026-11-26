@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { readerPageHref, type ReaderPageState } from '@brew/core/reader-pages';
-import { navigateReader } from '../readerLocation';
+import { navigateReaderPage } from '../readerLocation';
 
 type ReadQuery = {
   data: unknown;
@@ -155,7 +155,7 @@ export function ReaderEmptyPage({ state, children }: { state: ReaderPageState; c
             )
               return;
             event.preventDefault();
-            navigateReader(event.currentTarget.getAttribute('href')!);
+            navigateReaderPage(event.currentTarget.getAttribute('href')!);
           }}
         >
           First page

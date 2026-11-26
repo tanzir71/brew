@@ -1,6 +1,7 @@
 import { useCapabilities } from '../hooks/useCapabilities';
 import { runAssets } from './figmaAssets';
 import { runtimeNames } from './runtimeNames';
+import { agentPageHref } from '../agentLocation';
 
 export function ModeChip() {
   const query = useCapabilities();
@@ -10,7 +11,11 @@ export function ModeChip() {
       ? 'Unavailable'
       : 'Checking…';
   return (
-    <a className="brew-mode-chip" href="/settings/runs" aria-label={`${label} · Where Brew runs`}>
+    <a
+      className="brew-mode-chip"
+      href={agentPageHref('/settings/runs')}
+      aria-label={`${label} · Where Brew runs`}
+    >
       <img src={runAssets.mode} alt="" />
       {label}
     </a>

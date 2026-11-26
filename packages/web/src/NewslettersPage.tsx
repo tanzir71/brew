@@ -1,3 +1,4 @@
+import { agentPageHref } from './agentLocation';
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
@@ -22,8 +23,8 @@ import { LetterPane } from './newsletters/LetterPane';
 import { letterDate, senderInitial } from './newsletters/dates';
 import { senderInNewsletterView } from '@brew/core/types/newsletters';
 import {
-  newsletterHref,
-  newsletterListHref,
+  newsletterHref as baseNewsletterHref,
+  newsletterListHref as baseNewsletterListHref,
   newsletterLocation,
   newsletterSenderRoute,
   type NewsletterLocation,
@@ -33,6 +34,8 @@ import { newsletterJson } from './newsletters/api';
 import { useSenderActions } from './newsletters/useSenderActions';
 import { SenderActions, SenderChangeReview } from './newsletters/SenderActions';
 
+const newsletterHref = (route: NewsletterLocation) => agentPageHref(baseNewsletterHref(route));
+const newsletterListHref = (route: NewsletterLocation) => agentPageHref(baseNewsletterListHref(route));
 type Location = NewsletterLocation;
 const currentLocation = () => newsletterLocation(new URL(location.href));
 const mailDescriptions: Record<NonNullable<Capabilities['inboundMail']>, string> = {

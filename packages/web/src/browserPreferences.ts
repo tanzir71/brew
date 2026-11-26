@@ -4,6 +4,7 @@ export const preferenceOptions = {
   landing: ['brew', 'reader'],
   openMode: ['overlay', 'pane'],
   readOnScroll: ['false', 'true'],
+  agentMode: ['false', 'true'],
   font: ['serif', 'sans'],
   width: ['narrow', 'wide'],
   lineHeight: ['relaxed', 'compact'],
@@ -16,6 +17,7 @@ export const preferenceDefaults: BrowserPreferences = {
   landing: 'brew',
   openMode: 'overlay',
   readOnScroll: 'false',
+  agentMode: 'false',
   font: 'serif',
   width: 'narrow',
   lineHeight: 'relaxed',
@@ -26,8 +28,13 @@ const keys = {
   landing: 'brew:landing',
   openMode: 'brew:article-open-mode',
   readOnScroll: 'brew:mark-read-on-scroll',
+  agentMode: 'brew:agent-mode',
 } as const;
 export const preferenceKeys: readonly string[] = [...Object.values(keys), 'brew:reading-prefs'];
+
+/** A URL opts this view in without changing the browser's saved preference. */
+export const agentModeEnabled = (search: string, saved: BrowserPreferences['agentMode']) =>
+  new URLSearchParams(search).get('agent') === '1' || saved === 'true';
 type Storage = Pick<globalThis.Storage, 'getItem' | 'setItem'>;
 const valid = (key: Preference, value: unknown): value is string =>
   typeof value === 'string' && (preferenceOptions[key] as readonly string[]).includes(value);

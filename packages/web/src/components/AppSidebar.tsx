@@ -1,3 +1,4 @@
+import { agentPageHref } from '../agentLocation';
 import { useQuery } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { BrewConfig } from '@brew/core/types/legacy-brew';
@@ -23,6 +24,9 @@ export function AppSidebar({
 }: {
   activeHref?: string;
 }) {
+  const activeUrl = new URL(activeHref, location.origin);
+  activeUrl.searchParams.delete('agent');
+  activeHref = activeUrl.pathname + activeUrl.search;
   const search = useRef<HTMLInputElement>(null);
   useLayoutEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
@@ -67,7 +71,7 @@ export function AppSidebar({
   return (
     <aside className="runs-library">
       <header className="runs-library-header">
-        <a className="runs-wordmark" href="/?view=brew" aria-label="Brew home">
+        <a className="runs-wordmark" href={agentPageHref('/?view=brew')} aria-label="Brew home">
           <Wordmark />
         </a>
         <ModeChip />
@@ -75,6 +79,7 @@ export function AppSidebar({
       <form className="runs-search" action="/" role="search">
         <img src={runAssets.search} alt="" />
         <input type="hidden" name="view" value="reader" />
+        {new URLSearchParams(location.search).get('agent') === '1' && <input type="hidden" name="agent" value="1" />}
         <input ref={search} aria-label="Search library" name="q" placeholder="Search" />
         <Kbd>/</Kbd>
       </form>
@@ -92,7 +97,7 @@ export function AppSidebar({
               </NavItem>
             ))
           ) : (
-            <a href="/?view=brew">
+            <a href={agentPageHref('/?view=brew')}>
               <img src={runAssets.brew} alt="" />
               Brews
             </a>
@@ -162,7 +167,7 @@ export function AppSidebar({
           {navigation.data?.folders.map((folder) => (
             <a
               key={folder.id}
-              href={`/?view=reader&folder=${folder.id}&name=${encodeURIComponent(folder.title)}`}
+              href={agentPageHref(`/?view=reader&folder=${folder.id}&name=${encodeURIComponent(folder.title)}`)}
             >
               <img src={runAssets.folder} alt="" />
               {folder.title}
@@ -170,7 +175,7 @@ export function AppSidebar({
             </a>
           ))}
           {!navigation.data?.folders.length && (
-            <a href="/?view=feeds">
+            <a href={agentPageHref('/?view=feeds')}>
               <img src={runAssets.folder} alt="" />
               Add a feed
             </a>
@@ -180,7 +185,7 @@ export function AppSidebar({
           <div className="runs-nav-group">
             <p className="runs-overline">Saved searches</p>
             {saved.searches.map((item) => (
-              <a key={item.id} href={savedSearchHref(item)}>
+              <a key={item.id} href={agentPageHref(savedSearchHref(item))}>
                 <img src={runAssets.savedSearch} alt="" />
                 {item.name}
               </a>
@@ -196,7 +201,7 @@ export function AppSidebar({
           </div>
         )}
         <div className="runs-nav-bottom">
-          <a href="/?view=rules">
+          <a href={agentPageHref('/?view=rules')}>
             <img src={runAssets.rules} alt="" />
             Rules
           </a>

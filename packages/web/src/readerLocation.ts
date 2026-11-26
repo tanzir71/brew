@@ -4,10 +4,27 @@ import {
   readerPageHref,
   type ReaderPageState,
 } from '@brew/core/reader-pages';
+import { agentPageHref } from './agentLocation';
 
 export function navigateReader(href: string, replace = false) {
-  history[replace ? 'replaceState' : 'pushState'](null, '', href);
+  history[replace ? 'replaceState' : 'pushState'](null, '', agentPageHref(href));
   window.dispatchEvent(new PopStateEvent('popstate'));
+}
+export function navigateReaderPage(href: string) {
+  const previous = document.activeElement;
+  navigateReader(href);
+  const scope = location.pathname + location.search;
+  requestAnimationFrame(() => {
+    if (
+      scope !== location.pathname + location.search ||
+      document.querySelector('dialog:modal') ||
+      (document.activeElement !== document.body && document.activeElement !== previous)
+    )
+      return;
+    document
+      .querySelector<HTMLElement>('.reader-workspace h1[tabindex]')
+      ?.focus({ preventScroll: true });
+  });
 }
 export function readerState(): ReaderPageState {
   return (

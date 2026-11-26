@@ -2,6 +2,7 @@ import { Select } from '../components/patterns';
 import { Checkbox } from '../components/controls';
 import { ModalSheet } from '../components/Sheet';
 import { useBrowserPreferences } from '../hooks/useBrowserPreferences';
+import { useAgentMode } from '../hooks/useAgentMode';
 
 export function PreferenceFeedback({
   preferences,
@@ -81,6 +82,7 @@ export function GeneralPreferences() {
 }
 export function ReadingPreferences() {
   const preferences = useBrowserPreferences();
+  const agent = useAgentMode();
   const { values, save } = preferences;
   return (
     <>
@@ -95,12 +97,15 @@ export function ReadingPreferences() {
       </Select>
       <Checkbox
         label="Read on scroll"
-        checked={values.readOnScroll === 'true'}
+        checked={!agent && values.readOnScroll === 'true'}
+        disabled={agent}
         onChange={(e) => save('readOnScroll', String(e.target.checked), 'Read on scroll')}
         data-brew-action="set-read-on-scroll"
       />
       <p className="text-sm text-soft">
-        Read on scroll marks articles read as they leave the Reader list.
+        {agent
+          ? 'Agent-friendly mode keeps scroll marking off. Your saved reading preference is unchanged.'
+          : 'Read on scroll marks articles read as they leave the Reader list.'}
       </p>
       <Select
         label="Reader font"

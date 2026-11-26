@@ -1,0 +1,39 @@
+:root[data-agent-mode='true'],
+:root[data-agent-mode='true'] *,
+:root[data-agent-mode='true'] *::before,
+:root[data-agent-mode='true'] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+.agent-mode-card {
+  border: 1px solid var(--brew-border-default);
+  border-radius: 14px;
+  padding: 20px;
+  margin-block: 16px;
+  background: var(--brew-bg-surface);
+}
+.agent-mode-card-heading {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.agent-mode-card-heading > div {
+  flex: 1;
+  min-width: 0;
+}
+.agent-mode-card h3 {
+  font: 600 17px/22px var(--brew-font-ui);
+  letter-spacing: -0.17px;
+  margin: 0 0 3px;
+}
+.agent-mode-card p {
+  font: 400 13px/19px var(--brew-font-ui);
+  color: var(--brew-text-soft);
+  margin: 0;
+}
+.agent-mode-card .agent-mode-toggle {
+  height: 24px;
+  border-block: 3px solid var(--brew-bg-surface);
+  background-clip: padding-box;
+}

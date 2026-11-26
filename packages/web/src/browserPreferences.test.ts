@@ -3,6 +3,7 @@ import {
   preferenceDefaults,
   readBrowserPreferences,
   saveBrowserPreference,
+  agentModeEnabled,
 } from './browserPreferences';
 
 function storage(seed: Record<string, string> = {}) {
@@ -16,6 +17,22 @@ function storage(seed: Record<string, string> = {}) {
   };
 }
 describe('browser preference persistence', () => {
+  it('keeps URL agent mode temporary and saves it without changing reading preferences', () => {
+    const s = storage({ 'brew:mark-read-on-scroll': 'true' });
+    expect(agentModeEnabled('?agent=1', readBrowserPreferences(s).agentMode)).toBe(true);
+    expect(readBrowserPreferences(s).agentMode).toBe('false');
+    saveBrowserPreference(s, 'agentMode', 'true');
+    expect(agentModeEnabled('', readBrowserPreferences(s).agentMode)).toBe(true);
+    expect(agentModeEnabled('?agent=0', readBrowserPreferences(s).agentMode)).toBe(true);
+    saveBrowserPreference(s, 'agentMode', 'false');
+    expect(agentModeEnabled('?agent=1', readBrowserPreferences(s).agentMode)).toBe(true);
+    expect(agentModeEnabled('?agent=01', readBrowserPreferences(s).agentMode)).toBe(false);
+    expect(readBrowserPreferences(s).readOnScroll).toBe('true');
+    expect([...s.data]).toEqual([
+      ['brew:mark-read-on-scroll', 'true'],
+      ['brew:agent-mode', 'false'],
+    ]);
+  });
   it('reads the existing keys and legacy JSON without writes or new defaults in storage', () => {
     const s = storage({
       'brew:theme': 'dark',
@@ -32,6 +49,7 @@ describe('browser preference persistence', () => {
       landing: 'reader',
       openMode: 'pane',
       readOnScroll: 'true',
+      agentMode: 'false',
       font: 'sans',
       width: 'wide',
       lineHeight: 'compact',

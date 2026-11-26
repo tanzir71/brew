@@ -8,6 +8,7 @@ import {
 import { Icon, type IconName } from './Icon';
 import { ExportedIcon } from './ExportedIcon';
 import { avatarTone } from './avatarTone';
+import { agentPageHref } from '../agentLocation';
 
 type ButtonBase = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
   variant?: 'primary' | 'secondary' | 'ghost' | 'accent';
@@ -58,6 +59,9 @@ export function Toggle({
   disabled = false,
   hideLabel = false,
   id,
+  className = '',
+  action,
+  descriptionId,
 }: {
   label: string;
   checked: boolean;
@@ -65,6 +69,9 @@ export function Toggle({
   disabled?: boolean;
   hideLabel?: boolean;
   id?: string;
+  className?: string;
+  action?: string;
+  descriptionId?: string;
 }) {
   const generated = useId();
   const controlId = id ?? generated;
@@ -76,9 +83,11 @@ export function Toggle({
         role="switch"
         aria-checked={checked}
         aria-label={hideLabel ? label : undefined}
+        aria-describedby={descriptionId}
+        data-brew-action={action}
         disabled={disabled}
         onClick={() => onCheckedChange(!checked)}
-        className="brew-toggle"
+        className={`brew-toggle ${className}`}
       >
         <span />
       </button>
@@ -179,7 +188,7 @@ export function NavItem({
 }) {
   return (
     <a
-      href={href}
+      href={agentPageHref(href)}
       className={`brew-nav-item ${className}`}
       aria-current={active ? 'page' : undefined}
     >

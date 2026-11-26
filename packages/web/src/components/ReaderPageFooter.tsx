@@ -4,7 +4,7 @@ import {
   textTwinHref,
   type ReaderPageState,
 } from '@brew/core/reader-pages';
-import { navigateReader } from '../readerLocation';
+import { navigateReaderPage } from '../readerLocation';
 import { Badge } from './Badge';
 
 export function ReaderPageFooter({
@@ -13,27 +13,41 @@ export function ReaderPageFooter({
   shown,
   twins,
   stale = false,
+  numbered = false,
 }: {
   state: ReaderPageState;
   total: number;
   shown: number;
   twins: boolean;
   stale?: boolean;
+  numbered?: boolean;
 }) {
   const offset = (state.page - 1) * readerPageSize;
-  const href = readerPageHref(state);
+  const href = readerPageHref({ ...state, agent: numbered || state.agent });
+  const lastPage = Math.max(1, Math.ceil(total / readerPageSize));
+  const numbers = [
+    ...new Set([
+      1,
+      lastPage,
+      state.page,
+      ...Array.from({ length: 5 }, (_, i) => state.page + i - 2).filter(
+        (page) => page >= 1 && page <= lastPage,
+      ),
+    ]),
+  ].sort((a, b) => a - b);
   const link = (page: number, label: string) => (
     <a
       className="brew-button brew-button--secondary brew-button--sm"
       href={readerPageHref({ ...state, page })}
+      aria-label={label.startsWith('Page ') ? label : undefined}
       onClick={(event) => {
         if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
           return;
         event.preventDefault();
-        navigateReader(event.currentTarget.getAttribute('href')!);
+        navigateReaderPage(event.currentTarget.getAttribute('href')!);
       }}
     >
-      {label}
+      {label.startsWith('Page ') ? label.slice(5) : label}
     </a>
   );
   return (
@@ -53,7 +67,32 @@ export function ReaderPageFooter({
             Previous
           </button>
         )}
-        <span aria-current="page">Page {state.page}</span>
+        {numbered ? (
+          <>
+            <span className="sr-only">
+              Page {state.page}
+              {state.page <= lastPage ? ` of ${lastPage}` : ` · ${lastPage} available`}
+            </span>
+            {numbers.map((page, index) => (
+              <span key={page} className="inline-flex items-center gap-2">
+                {index > 0 && page - numbers[index - 1]! > 1 && <span aria-hidden="true">…</span>}
+                {page === state.page ? (
+                  <span
+                    aria-current="page"
+                    aria-label={`Page ${page}`}
+                    className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-md bg-subtle"
+                  >
+                    {page}
+                  </span>
+                ) : (
+                  link(page, `Page ${page}`)
+                )}
+              </span>
+            ))}
+          </>
+        ) : (
+          <span aria-current="page">Page {state.page}</span>
+        )}
         {offset + readerPageSize < total ? (
           link(state.page + 1, 'Next')
         ) : (

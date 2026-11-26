@@ -20,6 +20,7 @@ import { useBrewReadState } from './brew/useBrewReadState';
 import { usePageAlternates } from './hooks/usePageAlternates';
 import { useCapabilities } from './hooks/useCapabilities';
 import { composeJson } from './brew/useComposeDraft';
+import { agentPageHref } from './agentLocation';
 const BrewCompose = lazy(() =>
   import('./brew/BrewCompose').then((module) => ({ default: module.BrewCompose })),
 );
@@ -29,7 +30,7 @@ const parsedId = (value: string | null | undefined) => {
 };
 function remember(id: number, issue?: number, compose = false) {
   localStorage.setItem('brew:last-brew', String(id));
-  window.history.replaceState({}, '', `/b/${id}${compose ? '/compose' : issue ? `/${issue}` : ''}`);
+  window.history.replaceState({}, '', agentPageHref(`/b/${id}${compose ? '/compose' : issue ? `/${issue}` : ''}`));
 }
 export function BrewPage({ preferences }: { preferences: ReactNode }) {
   const capabilities = useCapabilities();
