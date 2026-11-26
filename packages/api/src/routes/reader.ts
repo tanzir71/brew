@@ -12,6 +12,8 @@ export function registerReaderRoutes(app: Hono, { reader: service }: ApiServices
     if (query.sort && !['newest', 'oldest'].includes(query.sort))
       return json(c, { error: 'Invalid sort order' }, 400);
     try {
+      if (query.offset !== undefined && (!/^\d+$/.test(query.offset) || !Number.isSafeInteger(Number(query.offset)) || Number(query.offset) > 50_000_000))
+        throw new Error('Invalid article offset');
       return json(
         c,
         await service.articles({
@@ -22,6 +24,8 @@ export function registerReaderRoutes(app: Hono, { reader: service }: ApiServices
           unread: query.unread === 'true',
           sort: query.sort as 'newest' | 'oldest' | undefined,
           cursor: query.cursor,
+          includeTotal: query.includeTotal === 'true',
+          offset: query.offset === undefined ? undefined : Number(query.offset),
         }),
       );
     } catch (error) {

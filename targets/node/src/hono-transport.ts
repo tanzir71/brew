@@ -1,5 +1,6 @@
 import { isBrewOutputPath } from '../../../packages/core/src/brew-output-paths.js';
 import { isArticleOutputPath } from '../../../packages/core/src/article-outputs.js';
+import { isReaderPageOutputPath } from '../../../packages/core/src/reader-pages.js';
 import type { createApi } from '../../../packages/api/src/app.js';
 import { isJsonContentType } from '../../../packages/api/src/http.js';
 import type { FastifyInstance, RouteHandlerMethod } from 'fastify';
@@ -14,6 +15,7 @@ export function mountApi(server: FastifyInstance, api: ReturnType<typeof createA
     const path = request.url.split('?')[0]!;
     if (path.startsWith('/b/') && !isBrewOutputPath(path)) return reply.callNotFound();
     if (path.startsWith('/a/') && !isArticleOutputPath(path)) return reply.callNotFound();
+    if ((path.startsWith('/f/') || path.startsWith('/feed/')) && !isReaderPageOutputPath(path)) return reply.callNotFound();
     const controller = new AbortController();
     const abort = () => controller.abort();
     reply.raw.once('close', abort);
@@ -61,4 +63,8 @@ export function mountApi(server: FastifyInstance, api: ReturnType<typeof createA
   server.all('/api/*', handler);
   server.all('/b/*', handler);
   server.all('/a/*', handler);
+  for (const path of ['/all', '/today', '/starred', '/search'])
+    for (const format of ['md', 'json']) server.all(`${path}.${format}`, handler);
+  server.all('/f/*', handler);
+  server.all('/feed/*', handler);
 }

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { textTwinHref } from '@brew/core/reader-pages';
 
 // A reading pane takes precedence over its underlying page. Removing it restores
 // the currently mounted page, including changes received while the pane was open.
@@ -15,7 +16,7 @@ function refresh() {
         const link = document.createElement('link');
         link.rel = 'alternate';
         link.type = type!;
-        link.href = `${current.path}.${format}`;
+        link.href = textTwinHref(current.path, format as 'md' | 'json');
         document.head.append(link);
         return link;
       })

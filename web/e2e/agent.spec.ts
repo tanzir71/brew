@@ -1,8 +1,137 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Route } from '@playwright/test';
 import { newslettersFixture } from './newsletters-fixture';
 import { newBrewSection } from '../../packages/core/src/composition-model';
 import { isArticleOutputPath } from '../../packages/core/src/article-outputs';
 import { RulesService } from '../../targets/node/src/services/rules-service';
+import { isReaderPageOutputPath } from '../../packages/core/src/reader-pages';
+import { articles } from '../../targets/node/src/db/schema';
+
+test('an agent reloads and navigates paged Reader and search filters and opens matching text twins', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page);
+  try {
+    const feed = f.database.sqlite
+      .prepare("SELECT id,folder_id AS folderId FROM feeds WHERE kind='rss' ORDER BY id LIMIT 1")
+      .get() as { id: number; folderId: number };
+    const totalBefore = (
+      f.database.sqlite
+        .prepare('SELECT count(*) AS n FROM articles WHERE feed_id=?')
+        .get(feed.id) as { n: number }
+    ).n;
+    f.database.sqlite.transaction(() => {
+      for (let i = 0; i < 120; i++)
+        f.database.db
+          .insert(articles)
+          .values({
+            feedId: feed.id,
+            guid: `paged-${i}`,
+            hash: `paged-${i}`,
+            title: `Paginationneedle ${i}`,
+            url: `https://paged.fixture.test/${i}`,
+            publishedAt: new Date(Date.parse('2026-11-24T01:00:00Z') + i * 1000),
+            readAt: i % 2 === 0 ? new Date('2026-11-25T01:00:00Z') : null,
+          })
+          .run();
+    })();
+    const outputs: Array<Record<string, unknown>> = [];
+    const forward = async (route: Route) => {
+      const url = new URL(route.request().url());
+      if (!isReaderPageOutputPath(url.pathname)) return route.fallback();
+      const response = await f.app.inject({
+        method: 'GET',
+        url: url.pathname + url.search,
+        headers: { host: url.host },
+      });
+      expect(response.statusCode).toBe(200);
+      if (url.pathname.endsWith('.json')) outputs.push(response.json());
+      await route.fulfill({
+        status: response.statusCode,
+        body: response.rawPayload,
+        headers: { 'content-type': String(response.headers['content-type']) },
+      });
+    };
+    await page.context().route('**/feed/**', forward);
+    await page.context().route('**/search.*', forward);
+    await page.goto(`/feed/${feed.id}?density=title&sort=oldest`);
+    const footer = page.getByRole('region', { name: 'Reader page', exact: true });
+    await expect(footer).toContainText(`Showing 1–50 of ${totalBefore + 120}`);
+    await page
+      .getByRole('navigation', { name: 'Reader pages', exact: true })
+      .getByRole('link', { name: 'Next', exact: true })
+      .click();
+    await expect(footer).toContainText(`Showing 51–100 of ${totalBefore + 120}`);
+    await expect(page).toHaveURL(/page=2&density=title&sort=oldest$/);
+    await page.reload();
+    await expect(footer).toContainText('Showing 51–100');
+    await expect(page.getByLabel('Sort articles', { exact: true })).toHaveValue('oldest');
+    await expect(page.getByRole('button', { name: 'title view', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await page.getByRole('button', { name: 'Unread', exact: true }).click();
+    await expect(page).toHaveURL(/density=title&unread=true&sort=oldest$/);
+    await expect(footer).toContainText('Showing 1–50');
+    const open = page.context().waitForEvent('page');
+    await page
+      .getByRole('navigation', { name: 'Reader text formats', exact: true })
+      .getByRole('link', { name: 'JSON', exact: true })
+      .click();
+    const twin = await open;
+    await twin.waitForLoadState();
+    expect(outputs.at(-1)).toMatchObject({
+      page: 1,
+      filters: { kind: 'feed', unread: true, sort: 'oldest', density: 'title' },
+    });
+    await twin.close();
+    await page.goBack();
+    await expect(footer).toContainText('Showing 51–100');
+    await page.goForward();
+    await expect(page.getByRole('button', { name: 'Unread', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await page.getByLabel('Search', { exact: true }).fill('Paginationneedle');
+    await page.getByLabel('Search', { exact: true }).press('Enter');
+    await expect(page).toHaveURL(/\/search\?q=Paginationneedle/);
+    await expect(footer).toContainText('Showing 1–50 of 60');
+    await expect(
+      page.getByRole('article', { name: 'Paginationneedle 1', exact: true }),
+    ).toHaveAttribute('data-brew-density', 'title');
+    await page.getByRole('button', { name: 'Starred', exact: true }).click();
+    await expect(footer).toContainText('Showing 0–0 of 0');
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Starred', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await page.getByRole('button', { name: 'Current folder', exact: true }).click();
+    await expect(footer).toContainText('Showing 1–50 of 60');
+    await expect(page).toHaveURL(new RegExp(`scope=folder&folderId=${feed.folderId}`));
+    const searchOpen = page.context().waitForEvent('page');
+    await page
+      .getByRole('navigation', { name: 'Reader text formats', exact: true })
+      .getByRole('link', { name: 'JSON', exact: true })
+      .click();
+    const searchTwin = await searchOpen;
+    await searchTwin.waitForLoadState();
+    expect(outputs.at(-1)).toMatchObject({
+      kind: 'search',
+      total: 60,
+      filters: { scope: 'folder', folderId: feed.folderId },
+    });
+    await searchTwin.close();
+    await page.getByRole('link', { name: 'Rules', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Rules', exact: true })).toBeVisible();
+    await page.getByLabel('Search', { exact: true }).fill('Paginationneedle');
+    await page.getByLabel('Search', { exact: true }).press('Enter');
+    await expect(page).toHaveURL(/\/search\?q=Paginationneedle/);
+    await page.goBack();
+    await expect(page.getByRole('heading', { name: 'Rules', exact: true })).toBeVisible();
+  } finally {
+    await f.close();
+  }
+});
 
 test('an agent recovers failed history and a lost delete acknowledgement without repeating the action', async ({
   page,

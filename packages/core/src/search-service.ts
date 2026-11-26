@@ -22,7 +22,7 @@ export class SearchService {
     const started = this.clock.monotonic();
     const query = compileFtsQuery(input);
     if (!query)
-      return { items: [], nextOffset: null, durationMs: this.clock.monotonic() - started };
+      return { items: [], nextOffset: null, durationMs: this.clock.monotonic() - started, ...(options.includeTotal ? { total: 0 } : {}) };
     if (scope === 'folder' && options.folderId === undefined)
       throw new Error('folderId is required for folder search');
     const limit = Math.min(100, Math.max(1, options.limit ?? 50));
@@ -34,10 +34,12 @@ export class SearchService {
       readAt: row.readAt === null ? null : new Date(row.readAt).toISOString(),
       starredAt: row.starredAt === null ? null : new Date(row.starredAt).toISOString(),
     }));
+    const total = options.includeTotal ? this.searchPort.count(query, scope, options) : undefined;
     return {
       items,
       nextOffset: rows.length > limit ? offset + limit : null,
       durationMs: this.clock.monotonic() - started,
+      ...(total === undefined ? {} : { total }),
     };
   }
 }

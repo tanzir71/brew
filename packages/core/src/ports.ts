@@ -158,6 +158,9 @@ export interface IngestStoragePort {
 }
 export type SearchScope = 'all' | 'folder' | 'starred';
 export interface SearchOptions {
+  includeTotal?: boolean;
+  unread?: boolean;
+  sort?: 'newest' | 'oldest';
   folderId?: number;
   limit?: number;
   offset?: number;
@@ -168,6 +171,7 @@ export type SearchRow = Omit<ArticleSummary, 'publishedAt' | 'readAt' | 'starred
   starredAt: number | null;
 };
 export interface SearchPort {
+  count(query: string, scope: SearchScope, options: SearchOptions): number;
   search(
     query: string,
     scope: SearchScope,

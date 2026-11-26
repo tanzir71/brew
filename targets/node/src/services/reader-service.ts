@@ -8,7 +8,7 @@ interface FolderRow { id: number; title: string; position: number }
 interface ArticleRow { id: number; url: string; title: string; author: string | null; summaryHtml: string | null; imageUrl: string | null; highlightColor: string | null; enclosureUrl:string|null; enclosureType:string|null; publishedAt: number; readAt: number | null; starredAt: number | null; feedId: number; feedTitle: string; folderId: number | null; folderTitle: string | null }
 
 export type ReaderView = 'all' | 'today' | 'starred';
-export interface ArticleQuery { view: ReaderView; feedId?: number; folderId?: number; limit?: number; unread?: boolean; sort?: 'newest' | 'oldest'; cursor?: string }
+export interface ArticleQuery { view: ReaderView; feedId?: number; folderId?: number; limit?: number; unread?: boolean; sort?: 'newest' | 'oldest'; cursor?: string; includeTotal?: boolean; offset?: number }
 
 export class ReaderService {
   constructor(private readonly database: BrewDatabase, private readonly now: () => Date = () => new Date()) {}
@@ -32,6 +32,7 @@ export class ReaderService {
     if (query.unread) clauses.push('a.read_at IS NULL');
     if (query.feedId !== undefined) { clauses.push('a.feed_id = ?'); parameters.push(query.feedId); }
     if (query.folderId !== undefined) { clauses.push('f.folder_id = ?'); parameters.push(query.folderId); }
+    const total = query.includeTotal ? (this.database.sqlite.prepare(`SELECT count(*) AS count FROM articles a JOIN feeds f ON f.id=a.feed_id WHERE ${clauses.join(' AND ')}`).get(...parameters) as CountRow).count : undefined;
     const direction = query.sort === 'oldest' ? 'ASC' : 'DESC';
     if (query.cursor) {
       const [timestamp, id] = query.cursor.split(':').map(Number);
@@ -41,12 +42,14 @@ export class ReaderService {
       parameters.push(timestamp!, timestamp!, id!);
     }
     const limit = Math.min(100, Math.max(1, query.limit ?? 50));
-    parameters.push(limit + 1);
-    const rows = this.database.sqlite.prepare(`SELECT a.id, a.url, a.title, a.author, a.summary_html AS summaryHtml, a.image_url AS imageUrl, a.highlight_color AS highlightColor, a.enclosure_url AS enclosureUrl, a.enclosure_type AS enclosureType, a.published_at AS publishedAt, a.read_at AS readAt, a.starred_at AS starredAt, f.id AS feedId, f.title AS feedTitle, fo.id AS folderId, fo.title AS folderTitle FROM articles a JOIN feeds f ON f.id = a.feed_id LEFT JOIN folders fo ON fo.id = f.folder_id WHERE ${clauses.join(' AND ')} ORDER BY a.published_at ${direction}, a.id ${direction} LIMIT ?`).all(...parameters) as ArticleRow[];
+    const offset = query.cursor ? 0 : query.offset ?? 0;
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > 50_000_000) throw new Error('Invalid article offset');
+    parameters.push(limit + 1, offset);
+    const rows = this.database.sqlite.prepare(`SELECT a.id, a.url, a.title, a.author, a.summary_html AS summaryHtml, a.image_url AS imageUrl, a.highlight_color AS highlightColor, a.enclosure_url AS enclosureUrl, a.enclosure_type AS enclosureType, a.published_at AS publishedAt, a.read_at AS readAt, a.starred_at AS starredAt, f.id AS feedId, f.title AS feedTitle, fo.id AS folderId, fo.title AS folderTitle FROM articles a JOIN feeds f ON f.id = a.feed_id LEFT JOIN folders fo ON fo.id = f.folder_id WHERE ${clauses.join(' AND ')} ORDER BY a.published_at ${direction}, a.id ${direction} LIMIT ? OFFSET ?`).all(...parameters) as ArticleRow[];
     const hasMore = rows.length > limit;
     const pageRows = rows.slice(0, limit);
     const items = pageRows.map((row): ArticleSummary => ({ ...row, publishedAt: new Date(row.publishedAt).toISOString(), readAt: row.readAt === null ? null : new Date(row.readAt).toISOString(), starredAt: row.starredAt === null ? null : new Date(row.starredAt).toISOString() }));
     const last = pageRows.at(-1);
-    return { items, nextCursor: hasMore && last ? `${last.publishedAt}:${last.id}` : null };
+    return { items, nextCursor: hasMore && last ? `${last.publishedAt}:${last.id}` : null, ...(total === undefined ? {} : { total }) };
   }
 }

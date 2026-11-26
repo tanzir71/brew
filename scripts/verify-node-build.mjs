@@ -165,6 +165,14 @@ try {
   assert.match(articleTwin.headers['cache-control'], /private, no-store/);
   assert.equal((await app.inject({ method: 'HEAD', url: `/a/${letter.articleId}.md` })).body, '');
   assert.match((await app.inject(`/a/${letter.articleId}`)).body, /id="root"/);
+  const readerTwin = await app.inject(`/feed/${letter.feedId}.json?density=title`);
+  assert.equal(readerTwin.statusCode, 200);
+  assert.equal(readerTwin.json().total, 1);
+  assert.equal(readerTwin.json().items[0].id, letter.articleId);
+  assert.match(readerTwin.headers['cache-control'], /private, no-store/);
+  assert.match((await app.inject('/search.md?q=Compiled')).body, /Compiled letter/);
+  assert.match((await app.inject('/all')).body, /id="root"/);
+  assert.equal((await app.inject({ method: 'HEAD', url: '/all.md' })).body, '');
   const letterDetail = (await app.inject(`/api/newsletters/letters/${letter.articleId}`)).json();
   assert.equal(letterDetail.originalAvailable, true);
   assert.equal(letterDetail.cleaning.trackers, 1);

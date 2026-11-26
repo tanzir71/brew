@@ -128,6 +128,7 @@ test('keyboard source selection saves sender/tag unions, defaults letters to Gri
     fixture.sheet.getByRole('checkbox', { name: 'Sender: Interface Letters', exact: true }),
   ).not.toBeChecked();
   await fixture.sheet.getByRole('button', { name: 'Add 1 source', exact: true }).click();
+  await expect(fixture.sheet).not.toBeVisible();
   await expect(page.getByLabel('Autosave')).toHaveText('All changes saved');
   expect(fixture.config().sections[0]).toMatchObject({
     layout: 'magazine',
@@ -182,6 +183,7 @@ test('newsletter library errors retry; missing IDs remain selected until explici
     .getByRole('checkbox', { name: 'All newsletter senders', exact: true })
     .check();
   await fixture.sheet.getByRole('button', { name: 'Add 1 source', exact: true }).click();
+  await expect(fixture.sheet).not.toBeVisible();
   await expect(page.getByLabel('Autosave')).toHaveText('All changes saved');
   expect(fixture.config().sections[0]?.sources).toEqual([{ kind: 'newsletters' }]);
 });
@@ -202,6 +204,7 @@ test('a connected mailbox can select future senders before its first letter arri
     .getByRole('checkbox', { name: 'All newsletter senders', exact: true })
     .check();
   await fixture.sheet.getByRole('button', { name: 'Add 2 sources', exact: true }).click();
+  await expect(fixture.sheet).not.toBeVisible();
   await expect(page.getByLabel('Autosave')).toHaveText('All changes saved');
   expect(fixture.config().sections[0]?.sources).toContainEqual({ kind: 'newsletters' });
 });

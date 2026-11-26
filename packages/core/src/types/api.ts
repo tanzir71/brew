@@ -46,7 +46,7 @@ export interface ArticleSummary {
   folderId: number | null;
   folderTitle: string | null;
 }
-export interface ArticlePage { items: ArticleSummary[]; nextCursor: string | null }
+export interface ArticlePage { items: ArticleSummary[]; nextCursor: string | null; total?: number }
 export interface ArticleDetail extends ArticleSummary {
   contentHtml: string | null;
   fullTextHtml: string | null;
@@ -55,4 +55,4 @@ export interface ArticleDetail extends ArticleSummary {
 }
 export interface TagSummary { id: number; name: string; color: string }
 export interface MarkAllReadResult { updated: number; undoToken: string; expiresAt: string }
-export interface SearchPage { items: ArticleSummary[]; nextOffset: number | null; durationMs: number }
+export interface SearchPage { items: ArticleSummary[]; nextOffset: number | null; durationMs: number; total?: number }

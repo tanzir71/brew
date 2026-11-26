@@ -149,6 +149,12 @@ result. Later conflicting edits prevent restoration, and notifications/webhooks
 cannot be recalled. See [owner actions and Undo](docs/agent-dom.md#confirmed-owner-actions-and-undo)
 for retention, API and capability behavior. The full M12 DOM checklist remains
 in progress.
+Reader uses `/all`, `/today`, `/starred`, `/f/:id`, `/feed/:id` and `/search?q=...`,
+with reloadable filters and numbered pages. Lists announce exact totals and
+offer private Markdown/JSON twins, for example `/all.md?unread=true&page=2`.
+Opening an article selects its content twins; closing restores the list's links.
+See [Reader pages](docs/agent-dom.md#reader-and-search-pages) for query and output
+behavior. Normal lists keep their virtual scrolling; agent mode is still pending.
 Legacy `hero` and `list` layout names remain readable during the v2 migration.
 Compose at `/b/<brew id>/compose` edits v2 sections with serial autosave,
 multiple library sources, layouts, depth, image/unread options, Rules-grade

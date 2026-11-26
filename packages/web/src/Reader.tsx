@@ -5,6 +5,10 @@ import {
 } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { readerPageHref, readerPageSize, type ReaderPageState } from '@brew/core/reader-pages';
+import { navigateReader, readerState } from './readerLocation';
+import { ReaderPageFooter } from './components/ReaderPageFooter';
+import { useTextAlternates } from './hooks/useTextAlternates';
 import { ModeChip } from './components/ModeChip';
 import { articleRouteId } from './articleRoute';
 import { articleDom } from './articleDom';
@@ -46,22 +50,16 @@ const imageSource = (value: string) => localStorage.getItem('brew:direct-images'
 
 function selectionHref(value: Selection): string {
   if (value.kind === 'brew') return '/?view=reader&scope=brew';
-  const params = new URLSearchParams({ view: 'reader' });
-  if (value.kind === 'feed' || value.kind === 'folder') {
-    params.set(value.kind, String(value.id));
-    params.set('name', value.title);
-  } else params.set('scope', value.kind);
-  return `/?${params}`;
+  const density = localStorage.getItem(`brew:density:${value.kind}:${value.id ?? 'root'}`);
+  return readerPageHref({ ...readerState(), kind: value.kind, id: value.id, q: '', scope: 'all', page: 1, unread: false, sort: 'newest', density: density === 'title' || density === 'cards' ? density : 'magazine' });
 }
 function selectionFromUrl(): Selection {
     if (articleRouteId(location.pathname) !== null) return { kind: 'all', title: 'All articles' };
     const params = new URLSearchParams(location.search);
-    for (const kind of ['feed', 'folder'] as const) {
-      const id = Number(params.get(kind));
-      if (Number.isInteger(id) && id > 0) return { kind, id, title: params.get('name') || (kind === 'feed' ? 'Feed' : 'Folder') };
-    }
-    const scope = params.get('scope');
-    return scope === 'all' || scope === 'today' || scope === 'starred' ? { kind: scope, title: { all: 'All articles', today: 'Today', starred: 'Starred' }[scope] } : { kind: 'brew', title: 'The Brew' };
+    if (location.pathname === '/' && (!params.get('scope') || params.get('scope') === 'brew') && !params.has('feed') && !params.has('folder') && !params.get('q')?.trim()) return { kind: 'brew', title: 'The Brew' };
+    const state = readerState();
+    const kind = state.kind === 'search' ? (state.folderId ? 'folder' : state.contextFeedId ? 'feed' : 'all') : state.kind;
+    return { kind, id: state.kind === 'search' ? state.folderId ?? state.contextFeedId : state.id, title: kind === 'today' ? 'Today' : kind === 'starred' ? 'Starred' : kind === 'feed' ? 'Feed' : kind === 'folder' ? 'Folder' : 'All articles' };
 
 }
 
@@ -115,7 +113,7 @@ export function Reader({
     };
   }, [queryClient]);
   const choose = useCallback((next: Selection) => {
-    history.pushState(null, '', selectionHref(next));
+    navigateReader(selectionHref(next));
     setError('');
     setSelection(next);
   }, []);
@@ -271,8 +269,9 @@ export function Reader({
           <div className="reader-mode-footer"><ModeChip /></div>
         </aside>
         <section className="min-w-0 bg-surface">
-          {searchQuery ? (
+          {searchQuery || location.pathname === '/search' ? (
             <SearchView
+              key={location.pathname + location.search}
               query={searchQuery}
               currentFolderId={
                 selection.kind === 'folder'
@@ -302,8 +301,8 @@ export function Reader({
             </>
           ) : (
             <ArticleList
-              key={`${selection.kind}:${selection.id ?? 'root'}`}
-              selection={selection}
+              key={`${selection.kind}:${selection.id ?? 'root'}:${location.search}`}
+              selection={{ ...selection, title: selection.kind === 'folder' ? navigation.folders.find((folder) => folder.id === selection.id)?.title ?? selection.title : selection.kind === 'feed' ? [...navigation.folders.flatMap((folder) => folder.feeds), ...navigation.unfiled].find((feed) => feed.id === selection.id)?.title ?? selection.title : selection.title }}
             />
           )}
         </section>
@@ -437,25 +436,30 @@ function SearchView({
   onClear: () => void;
   onSave:()=>void;
 }) {
-  const [scope, setScope] = useState<'all' | 'folder' | 'starred'>('all');
+  const state = { ...readerState(), kind: 'search' as const, q: query };
+  const scope = state.scope;
+  const folderId = state.folderId ?? currentFolderId;
+  const setScope = (scope: ReaderPageState['scope']) => navigateReader(readerPageHref({ ...state, scope, folderId, page: 1 }));
+  const caps = useCapabilities();
+  useTextAlternates(caps.data?.outputs?.twins ? readerPageHref(state) : null);
   const [selectedArticle, setSelectedArticle] = useState<number | null>(() => articleRouteId(location.pathname));
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const results = useInfiniteQuery({
-    queryKey: ['search', query, scope, currentFolderId],
-    initialPageParam: 0,
+    queryKey: ['search', query, scope, folderId, state.page, state.unread, state.sort],
+    initialPageParam: (state.page - 1) * readerPageSize,
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams({
         q: query,
         scope,
         limit: '50',
-        offset: String(pageParam),
+        offset: String(pageParam), includeTotal: 'true', unread: String(state.unread), sort: state.sort,
       });
-      if (scope === 'folder' && currentFolderId !== undefined)
-        params.set('folderId', String(currentFolderId));
+      if (scope === 'folder' && folderId !== undefined)
+        params.set('folderId', String(folderId));
       return getJson<SearchPage>(`/api/search?${params}`);
     },
     getNextPageParam: (page) => page.nextOffset ?? undefined,
-    enabled: scope !== 'folder' || currentFolderId !== undefined,
+    enabled: scope !== 'folder' || folderId !== undefined,
   });
   const items = useMemo(
     () => results.data?.pages.flatMap((page) => page.items) ?? [],
@@ -466,7 +470,7 @@ function SearchView({
   const virtualizer = useVirtualizer({
     count: items.length + (results.hasNextPage ? 1 : 0),
     getScrollElement: () => parent.current,
-    estimateSize: () => 126,
+    estimateSize: () => state.density === 'title' ? 62 : state.density === 'cards' ? 270 : 126,
     overscan: 8,
   });
   const virtualItems = virtualizer.getVirtualItems();
@@ -519,7 +523,7 @@ function SearchView({
               All
             </button>
             <button
-              disabled={currentFolderId === undefined}
+              disabled={folderId === undefined}
               onClick={() => setScope('folder')}
               aria-pressed={scope === 'folder'}
               className={`rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-40 ${scope === 'folder' ? 'bg-surface shadow-raised' : 'text-soft'}`}
@@ -567,7 +571,7 @@ function SearchView({
                 {article ? (
                   <ArticleRow
                     article={article}
-                    density="magazine"
+                    density={state.density}
                     focused={items[focusedIndex]?.id === article.id}
                     onOpen={() => {
                       setFocusedIndex(virtual.index);
@@ -587,6 +591,7 @@ function SearchView({
           </p>
         )}
       </div>
+      {results.data?.pages[0]?.total !== undefined && <ReaderPageFooter state={state} total={results.data.pages[0].total} shown={items.length} twins={Boolean(caps.data?.outputs?.twins)} />}
       {selectedArticle !== null && (
         <ArticleReader
           id={selectedArticle}
@@ -600,9 +605,14 @@ function SearchView({
 
 function ArticleList({ selection }: { selection: Selection }) {
   const client = useQueryClient();
-  const [unreadOnly, setUnreadOnly] = useState(false);
-  const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
-  const [densityByScope, setDensityByScope] = useState<Record<string, Density>>({});
+  const state: ReaderPageState = { ...readerState(), kind: selection.kind === 'brew' ? 'all' : selection.kind, id: selection.id };
+  const unreadOnly = state.unread;
+  const sort = state.sort;
+  const updateFilters = (patch: Partial<ReaderPageState>) => navigateReader(readerPageHref({ ...state, density, ...patch, page: 1 }));
+  const setUnreadOnly = (unread: boolean) => updateFilters({ unread });
+  const setSort = (sort: ReaderPageState['sort']) => updateFilters({ sort });
+  const caps = useCapabilities();
+
   const [selectedArticle, setSelectedArticle] = useState<number | null>(() => articleRouteId(location.pathname));
   const [openMode, setOpenMode] = useState<'overlay' | 'pane'>(() =>
     localStorage.getItem('brew:article-open-mode') === 'pane' ? 'pane' : 'overlay',
@@ -617,19 +627,21 @@ function ArticleList({ selection }: { selection: Selection }) {
   const storedDensity =
     typeof localStorage === 'undefined' ? null : localStorage.getItem(`brew:density:${scope}`);
   const density =
-    densityByScope[scope] ??
+    (new URLSearchParams(location.search).get('density') as Density | null) ??
     (storedDensity === 'title' || storedDensity === 'magazine' || storedDensity === 'cards'
       ? storedDensity
       : 'magazine');
+  const outputState = { ...state, density };
+  useTextAlternates(caps.data?.outputs?.twins ? readerPageHref(outputState) : null);
   const query = useInfiniteQuery({
-    queryKey: ['articles', selection.kind, selection.id, unreadOnly, sort],
+    queryKey: ['articles', selection.kind, selection.id, unreadOnly, sort, state.page],
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams({
         view: ['today', 'starred'].includes(selection.kind) ? selection.kind : 'all',
         unread: String(unreadOnly),
         sort,
-        limit: '50',
+        limit: '50', includeTotal: 'true', offset: String((state.page - 1) * readerPageSize),
       });
       if (selection.kind === 'feed' && selection.id) params.set('feedId', String(selection.id));
       if (selection.kind === 'folder' && selection.id) params.set('folderId', String(selection.id));
@@ -709,7 +721,7 @@ function ArticleList({ selection }: { selection: Selection }) {
   const chooseDensity = useCallback(
     (next: Density) => {
       localStorage.setItem(`brew:density:${scope}`, next);
-      setDensityByScope((current) => ({ ...current, [scope]: next }));
+      navigateReader(readerPageHref({ ...readerState(), density: next, page: 1 }));
     },
     [scope],
   );
@@ -1021,6 +1033,7 @@ function ArticleList({ selection }: { selection: Selection }) {
           <button type="button" className="brew-button brew-button--primary" data-brew-action="confirm-mark-all-read" disabled={bulkBusy} onClick={() => { setConfirmBulk(false); void markAll(); }}>Mark all read</button>
         </div>
       </ModalSheet>
+      {query.data?.pages[0]?.total !== undefined && <ReaderPageFooter state={outputState} total={query.data.pages[0].total} shown={articles.length} twins={Boolean(caps.data?.outputs?.twins)} />}
       {selectedArticle !== null && (
         <ArticleReader
           id={selectedArticle}
@@ -1069,6 +1082,7 @@ function ArticleRow({
         style={highlightStyle}
         aria-label={article.title}
         {...articleDom(article)}
+        data-brew-density={density}
         data-focused={focused}
         onClick={(event) => { if (!(event.target as HTMLElement).closest('a,button,input,select,textarea')) onOpen(); }}
         className={`brew-list-item flex min-h-14 cursor-pointer items-center justify-between border-b border-line bg-surface py-3 outline-none focus-visible:ring-2 focus-visible:ring-ink ${focused ? 'ring-2 ring-inset ring-ink' : ''} ${article.readAt ? 'opacity-50' : ''}`}
@@ -1083,6 +1097,7 @@ function ArticleRow({
         style={highlightStyle}
         aria-label={article.title}
         {...articleDom(article)}
+        data-brew-density={density}
         data-focused={focused}
         onClick={(event) => { if (!(event.target as HTMLElement).closest('a,button,input,select,textarea')) onOpen(); }}
         className={`h-[258px] cursor-pointer overflow-hidden rounded-2xl border border-line bg-surface shadow-raised outline-none focus-visible:ring-2 focus-visible:ring-ink ${focused ? 'ring-2 ring-ink' : ''} ${article.readAt ? 'opacity-55' : ''}`}
@@ -1111,6 +1126,7 @@ function ArticleRow({
       style={highlightStyle}
         aria-label={article.title}
         {...articleDom(article)}
+        data-brew-density={density}
       data-focused={focused}
         onClick={(event) => { if (!(event.target as HTMLElement).closest('a,button,input,select,textarea')) onOpen(); }}
       className={`flex min-h-[116px] cursor-pointer gap-5 border-b border-line bg-surface py-4 outline-none focus-visible:ring-2 focus-visible:ring-ink ${focused ? 'ring-2 ring-inset ring-ink' : ''} ${article.readAt ? 'opacity-55' : ''}`}

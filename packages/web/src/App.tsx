@@ -7,6 +7,7 @@ import { RulesPage } from './RulesPage';
 import { BrewPage } from './BrewPage';
 import { runAssets } from './components/figmaAssets';
 import { articleRouteId } from './articleRoute';
+import { closeSearchHref, isReaderLocation, navigateReader, searchHref } from './readerLocation';
 const WhereBrewRuns = lazy(() => import('./settings/WhereBrewRuns').then((module) => ({ default: module.WhereBrewRuns })));
 const NewslettersPage = lazy(() => import('./NewslettersPage').then((module) => ({ default: module.NewslettersPage })));
 
@@ -29,13 +30,25 @@ export function App() {
 }
 function AppContent() {
   const [mode, setMode] = useState<'brew' | 'reader' | 'feeds' | 'rules'>(()=>{
-    if (articleRouteId(location.pathname) !== null) return 'reader';
+    if (articleRouteId(location.pathname) !== null || isReaderLocation()) return 'reader';
     if (location.pathname.startsWith('/b/')) return 'brew';
     const view = new URLSearchParams(location.search).get('view');
     return view === 'brew' || view === 'reader' || view === 'feeds' || view === 'rules' ? view : localStorage.getItem('brew:landing')==='reader'?'reader':'brew';
   });
   const [searchDraft, setSearchDraft] = useState(() => new URLSearchParams(location.search).get('q') ?? '');
   const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(location.search).get('q')?.trim() ?? '');
+  useEffect(() => {
+    const restore = () => {
+      const view = new URLSearchParams(location.search).get('view');
+      if (isReaderLocation() || view === 'reader') setMode('reader');
+      else if (view === 'rules' || view === 'feeds' || view === 'brew') setMode(view);
+      else if (location.pathname.startsWith('/b/')) setMode('brew');
+      const q = new URLSearchParams(location.search).get('q') ?? '';
+      setSearchDraft(q); setSearchQuery(q.trim());
+    };
+    window.addEventListener('popstate', restore);
+    return () => window.removeEventListener('popstate', restore);
+  }, []);
   const isRuns = location.pathname === '/settings/runs';
   const isLetters = /^\/letters(?:\/[1-9]\d*)?\/?$/.test(location.pathname);
   const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => {
@@ -80,12 +93,13 @@ function AppContent() {
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 event.preventDefault();
-                setSearchQuery(searchDraft.trim());
+                navigateReader(searchDraft.trim() ? searchHref(searchDraft.trim()) : closeSearchHref());
                 setMode('reader');
               }
               if (event.key === 'Escape') {
                 setSearchDraft('');
                 setSearchQuery('');
+                if (location.pathname === '/search') navigateReader(closeSearchHref());
                 event.currentTarget.blur();
               }
             }}
@@ -149,11 +163,8 @@ function AppContent() {
       ) : (
         <Suspense fallback={<div role="status" className="p-8">Loading library…</div>}><Reader
           searchQuery={searchQuery}
-          onSearch={(query)=>{setSearchDraft(query);setSearchQuery(query)}}
-          onClearSearch={() => {
-            setSearchDraft('');
-            setSearchQuery('');
-          }}
+          onSearch={(query)=>navigateReader(searchHref(query))}
+          onClearSearch={() => navigateReader(closeSearchHref())}
         /></Suspense>
       )}
     </main>

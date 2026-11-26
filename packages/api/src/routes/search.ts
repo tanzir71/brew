@@ -9,11 +9,16 @@ export function registerSearchRoutes(app: Hono, { search: service }: ApiServices
     const scope = query.scope ?? 'all';
     if (!['all', 'folder', 'starred'].includes(scope))
       return json(c, { error: 'Invalid search scope' }, 400);
+    if (query.sort && !['newest', 'oldest'].includes(query.sort))
+      return json(c, { error: 'Invalid sort order' }, 400);
     try {
       const result = await service.search(query.q ?? '', scope as SearchScope, {
         folderId: query.folderId ? Number(query.folderId) : undefined,
         limit: query.limit ? Number(query.limit) : undefined,
         offset: query.offset ? Number(query.offset) : undefined,
+        includeTotal: query.includeTotal === 'true',
+        unread: query.unread === 'true',
+        sort: query.sort as 'newest' | 'oldest' | undefined,
       });
       c.header('Server-Timing', `search;dur=${result.durationMs.toFixed(2)}`);
       return json(c, result);

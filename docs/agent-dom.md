@@ -20,6 +20,12 @@ and recover a lost deletion acknowledgement without repeating the mutation. A
 failed recent-action read offers an explicit retry. The shell's Reader, Brew,
 Rules and Manage feeds navigation also uses native links with reloadable URLs.
 
+A fourth role/label-only journey uses numbered Reader pages, unread/sort/density
+filters, reload and browser history, and folder/starred search scopes. It opens
+real list/search JSON twins and verifies that their filters and totals match the
+current view. Reader list metadata takes precedence only until an article opens;
+the article's existing higher-priority twins remain authoritative while open.
+
 ESLint restricts that file's UI selectors to `getByRole` and `getByLabel`, rejecting
 CSS/test-ID/text/placeholder/title selectors and injected DOM evaluation. Browser
 setup, navigation, response inspection and SQL assertions remain available to
@@ -32,12 +38,12 @@ metadata and geometry directly; they do not substitute for this agent journey.
 | --- | --- | --- |
 | Landmarks | Existing Brew Library/main/In this Brew; named Reader Library navigation; real article landmarks inside Reader dialogs and newsletter panes. | Audit every other implemented view and dialog, including settings and older shell variants. |
 | Native controls | Reader scope/folder/feed and legacy shell toolbar navigation use real hrefs. Rows offer real Open buttons; pointer convenience preserves normal card clicks. Article actions and bulk confirmation use real controls. | Audit all remaining navigation, icon-only labels and toggles. |
-| Stable hooks | Article rows/panes share `data-brew-id`, kind and read/unread/starred/highlighted state. Newsletter rows/panes and frozen Brew letters identify as letters; rules expose identity/enablement/actions; Compose already identifies sections. | Audit the rest of each screen's actions, settings and result rows. |
+| Stable hooks | Article rows/panes share `data-brew-id`, kind and read/unread/starred/highlighted state. Reader/search rows also declare their actual density. Newsletter rows/panes and frozen Brew letters identify as letters; rules expose identity/enablement/actions; Compose already identifies sections. | Audit the rest of each screen's actions, settings and result rows. |
 | Accessible alternatives | Article actions are available directly and in a native More sheet. Existing Compose drag controls retain button/keyboard alternatives. | Add/audit More equivalents and focus/selection behavior on remaining rows and screens. |
 | Polite results | Existing Compose/Brew status plus explicit Reader bulk result and owner-action result live regions with real Undo. Rule partial failures, mutation errors, refresh failures and action-history recovery failures have visible feedback. | Audit success/error announcements for remaining mutations and error/retry paths. |
-| Totals and pagination | Newsletter totals/pages exist; Reader still has the existing normal virtual list. | Accurate list totals, remaining list announcements and agent-mode pagination/no-motion/no-scroll-marking. |
+| Totals and pagination | Newsletter, Reader and search announce exact showing ranges/totals. Reader/search offer native Previous/Next links with URL page state while retaining normal virtual/infinite lists. | Remaining list announcements and agent-mode pagination without virtualization/motion/scroll marking. |
 | Confirmation and undo | Reader bulk click/Shift+A, rule apply/delete and feed/folder deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs and folder assignments. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
-| Text twins | Frozen Brew twins/feeds plus private article twins, including letters. Selected article discovery overrides the underlying Brew twins and restores them on close; subscription links remain separate. | List/search/Compose/rules/settings and other page twins and alternate links, matching current URL state. |
+| Text twins | Frozen Brew twins/feeds plus private article, Reader list and search twins. Current list filters/page/density are retained in alternate links and exported documents. Selected article discovery overrides the underlying page twins and restores them on close; subscription links remain separate. | Compose/rules/settings/newsletter lists and other page twins and alternate links, matching current URL state. |
 | Visible state and targets | Read/star/tag changes update real controls and stable state; new article Open target is at least 24px; More/confirmation reuse existing controls. | Full target-size/focus/overlay and post-action visibility audit across every implemented screen. |
 
 ## Article twins
@@ -60,6 +66,45 @@ URLs, media types/HEAD and invalid identities. Browser tests verify alternate-li
 precedence/restoration, direct HTML article URLs and unavailable-format discovery.
 Compiled Node smoke verifies article twins and the separate HTML SPA route outside
 the repository working directory. The captured v1 DTOs remain unchanged.
+
+## Reader and search pages
+
+Reader navigation supports `/all`, `/today`, `/starred`, `/f/:id`, `/feed/:id`
+and `/search?q=...`. Existing root-query bookmarks still open. Page number,
+density, unread and sort filters live in the URL. Search scope and folder/feed
+context survive reload; Close search returns to its source, and browser history
+restores the selected view. Changing filters starts again on page one. Normal
+Reader/search retain their virtual/infinite lists; their native Previous/Next
+links also let a caller jump directly to a numbered page.
+
+`GET`/`HEAD` twins append `.md` or `.json` before query parameters, for example
+`/f/7.json?page=2&unread=true&sort=oldest`. Documents contain the current 50-item
+page, exact filtered total/range, source titles and reading state, canonical
+Previous/Next links, and article/content-twin links. They omit raw originals,
+cleaning/configuration fields and article HTML. Markdown escapes authored titles;
+JSON uses explicit fields. All responses are private/no-store/no-index, with
+media types and alternate Link headers. Reads never extract, mark read or write.
+Invalid filters/identities or absent sources return errors rather than HTML or
+a latest-page fallback. Configured canonical origins govern content links.
+
+The existing article/search endpoints add `total` only with
+`includeTotal=true`; old callers retain their captured DTO keys. Reader totals
+use the same visibility, date, scope and unread predicates as the rows but are
+independent of cursor/offset. FTS totals share search predicates and retain
+explicit search access to letters available only in a Brew. Explicit sort
+requests use chronological order; legacy search callers without a sort keep
+relevance ordering. The UI announces
+actual showing ranges and uses the existing Figma Reader footer pattern and
+controls. Unavailable text formats stay visible, disabled, with a setup path.
+
+Browser checks cover actual filter/page exports, reload/history, text metadata
+and article precedence/restoration. Backend tests cover filtered totals beyond
+the first page, cursors, source visibility, invalid inputs, content links,
+private fields, HEAD/read-only behavior and legacy response keys. The compiled
+Node smoke also exercises list/search twins and the independent HTML SPA routes.
+
+Compose, Rules, settings and newsletter list twins and the full URL/control
+audit remain open; this does not complete M12 or enable agent-mode behavior.
 
 ## Confirmed owner actions and Undo
 

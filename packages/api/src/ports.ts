@@ -35,6 +35,8 @@ type ServicePort<T> = {
 };
 export type ReaderView = 'all' | 'today' | 'starred';
 export interface ArticleQuery {
+  includeTotal?: boolean;
+  offset?: number;
   view: ReaderView;
   feedId?: number;
   folderId?: number;
