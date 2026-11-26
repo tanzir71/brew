@@ -117,6 +117,10 @@ const receiptKinds = values(
   'update_sender',
   'mark_read',
   'copy_rule',
+  'star_item',
+  'tag_item',
+  'add_feed',
+  'create_rule',
 );
 const requestFields = {
   confirm: { type: 'boolean', const: true } as Schema,
@@ -277,6 +281,10 @@ export const schemas: Record<string, SchemaObject> = {
   ReadPreview: object({ revision: str, updated: count, unavailable: count }),
   ActionRequest: {
     oneOf: [
+      action({ kind: values('star_item'), id, starred: bool }, ['id', 'starred']),
+      action({ kind: values('tag_item'), id, add: array(str), remove: array(str) }, ['id']),
+      action({ kind: values('add_feed'), url: str, folderId: nullable(id) }, ['url']),
+      action({ kind: values('create_rule'), draft: ref('RuleDraft') }, ['draft']),
       action(
         {
           kind: values('delete_feed', 'delete_folder', 'delete_rule', 'apply_rule'),

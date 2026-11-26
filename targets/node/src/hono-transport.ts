@@ -66,6 +66,7 @@ export function mountApi(server: FastifyInstance, api: ReturnType<typeof createA
   // A confirmed OPML action carries up to 1 MB of XML in a JSON envelope.
   server.post('/api/actions', { bodyLimit: opmlDocumentLimit * 2 + 4096 }, handler);
   server.all('/api/*', handler);
+  server.all('/mcp', handler);
   server.all('/b/*', handler);
   server.all('/a/*', handler);
   for (const path of ['/all', '/today', '/starred', '/search'])

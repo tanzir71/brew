@@ -14,6 +14,8 @@ import { createHash } from 'node:crypto';
 import { OpmlService } from '../services/opml-service.js';
 import { NewsletterLibrary } from '../services/newsletter-library.js';
 import { ReadActions } from '../services/read-actions.js';
+import { ArticleService } from '../services/article-service.js';
+import { FeedService } from '../services/feed-service.js';
 import type { ReadActionTarget } from '../../../../packages/core/src/read-actions.js';
 import { copiedRuleDraft, ruleCopySource } from '../../../../packages/core/src/rule-copy.js';
 
@@ -34,6 +36,12 @@ export class NodeActionStorage implements ActionStoragePort {
     { signature: string; task: Promise<ActionReceipt> }
   >();
   private args(request: ActionRequest) {
+    if (['star_item', 'tag_item', 'add_feed', 'create_rule'].includes(request.kind)) {
+      const input = { ...request, requestId: undefined, actor: undefined, confirm: undefined };
+      return JSON.stringify({
+        sha256: createHash('sha256').update(JSON.stringify(input)).digest('hex'),
+      });
+    }
     if (request.kind === 'copy_rule')
       return JSON.stringify({
         id: request.id,
@@ -53,7 +61,7 @@ export class NodeActionStorage implements ActionStoragePort {
     if (request.kind === 'import_opml')
       return JSON.stringify({ sha256: createHash('sha256').update(request.opml).digest('hex') });
     return JSON.stringify({
-      id: request.id,
+      id: 'id' in request ? request.id : null,
       ...(request.kind === 'apply_rule' ? { days: request.days ?? 30 } : {}),
     });
   }
@@ -94,7 +102,7 @@ export class NodeActionStorage implements ActionStoragePort {
   private create(request: ActionRequest, summary: string, externalEffects: boolean) {
     const result = {
       kind: request.kind,
-      targetId: request.kind === 'import_opml' || request.kind === 'mark_read' ? null : request.id,
+      targetId: 'id' in request ? request.id : null,
       summary,
       status: 'pending',
       externalEffects,
@@ -102,9 +110,10 @@ export class NodeActionStorage implements ActionStoragePort {
     return Number(
       this.database.sqlite
         .prepare(
-          "INSERT INTO agent_actions(agent,request_id,tool,args_json,result_json,undo_json,created_at) VALUES('web',?,?,?,?,?,?)",
+          'INSERT INTO agent_actions(agent,request_id,tool,args_json,result_json,undo_json,created_at) VALUES(?,?,?,?,?,?,?)',
         )
         .run(
+          request.actor ?? 'web',
           request.requestId ?? null,
           request.kind,
           this.args(request),
@@ -189,6 +198,68 @@ export class NodeActionStorage implements ActionStoragePort {
           }),
           id,
         );
+        return this.metadata(id);
+      })();
+    }
+    if (
+      request.kind === 'star_item' ||
+      request.kind === 'tag_item' ||
+      request.kind === 'create_rule' ||
+      request.kind === 'add_feed'
+    ) {
+      const feedService = new FeedService(this.database, this.fetcher);
+      // Network work never runs while the synchronous journal flag/transaction is active.
+      const prepared =
+        request.kind === 'add_feed'
+          ? await feedService.prepareAdd(request.url, request.folderId)
+          : null;
+      return this.database.sqlite.transaction(() => {
+        const id = this.create(request, 'Applying agent change…', false);
+        const targetId = this.write(id, () => {
+          const articles = new ArticleService(this.database, this.fetcher, () => this.clock.now());
+          if (request.kind === 'star_item') {
+            if (!articles.updateState(request.id, { starred: request.starred }))
+              throw new ActionError(404, 'Article not found.');
+            return request.id;
+          }
+          if (request.kind === 'tag_item') {
+            if (!articles.get(request.id)) throw new ActionError(404, 'Article not found.');
+            const existing = articles.listTags();
+            const add = request.add.map((name) => articles.createTag(name).id);
+            const remove = request.remove.flatMap((name) =>
+              existing.filter((tag) => tag.name === name).map((tag) => tag.id),
+            );
+            articles.changeTags(request.id, { add, remove });
+            return request.id;
+          }
+          if (request.kind === 'add_feed') return feedService.insertPrepared(prepared!).id;
+          const rules = new RulesService(
+            new NodeRuleStorage(this.database),
+            nodeRegex,
+            { fetch: this.fetcher },
+            { notify: this.notify },
+            { now: () => this.clock.now(), monotonic: nodeClock.monotonic },
+          );
+          return rules.create(request.draft).id;
+        });
+        const summaries = {
+          star_item: 'Updated starred state.',
+          tag_item: 'Updated article tags.',
+          add_feed: 'Subscribed to feed.',
+          create_rule: 'Created rule without running its actions.',
+        };
+        this.database.sqlite
+          .prepare('UPDATE agent_actions SET result_json=? WHERE id=?')
+          .run(
+            JSON.stringify({
+              kind: request.kind,
+              targetId,
+              summary: summaries[request.kind],
+              status: 'complete',
+              externalEffects: false,
+            }),
+            id,
+          );
         return this.metadata(id);
       })();
     }

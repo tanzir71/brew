@@ -276,7 +276,7 @@ The setting saves in this browser and updates other open tabs. The URL flag does
 not save a preference; native app navigation retains it. In Agent access, **Use
 saved preference** removes the temporary override. Page links retain filters and
 history, and Markdown/JSON links describe the selected page and active mode.
-MCP, tokens and WebMCP remain separate M12 work.
+MCP is available in Node; scoped tokens and WebMCP remain separate M12 work.
 
 Shared switches and checkboxes provide 24px activation areas while keeping their
 existing visual sizes. Compact rule actions, Compose fields, setup links and
@@ -306,8 +306,14 @@ newer focus or navigation. The DOM acceptance audit is in
 OpenAPI 3.1, including request/response schemas, query filters, private exports,
 webhooks and confirmed owner actions. It also supports HEAD and returns private,
 no-store headers. It contains no library records or credentials. See
-[API discovery](docs/agent-api.md) for examples and contract maintenance. Scoped
-tokens, MCP, WebMCP and the full Agent access setup remain separate M12 work.
+[API discovery](docs/agent-api.md) for examples and contract maintenance.
+
+The [MCP server](docs/mcp.md) exposes the same tools over `/mcp` and
+`node dist/targets/node/src/index.js mcp`. Search, unread lists, Markdown reading,
+Brew reads/previews and confirmed read/star/tag/feed/rule writes use real services
+and durable Undo. Rule creation defaults to a dry run. Use the same absolute
+`BREW_DB_PATH` for a host-launched stdio process and the Node server. Scoped
+tokens, WebMCP and the full Agent access setup remain separate M12 work.
 
 Reader saved searches are browser-local bookmarks. **Save search** opens a labelled
 dialog and remembers the query, scope and current filters, starting on page one.

@@ -16,7 +16,7 @@ it('reports wired Node capabilities without accepting client mode overrides', as
       inboundMail: null,
       emailDelivery: null,
       readerApi: false,
-      mcp: null,
+      mcp: 'stdio+http',
       webmcp: false,
       ai: { available: [], configured: false },
       readState: 'server',

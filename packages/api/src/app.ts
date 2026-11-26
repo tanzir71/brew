@@ -21,6 +21,7 @@ import { registerInboundRoutes } from './inbound.js';
 import { registerNewsletterRoutes } from './newsletters.js';
 import { documented, response, registerOpenApi } from './openapi.js';
 import { ref, str } from './openapi-schemas.js';
+import { registerMcpRoutes, type McpHttpPort } from './routes/mcp.js';
 
 export const securityHeaders = {
   'Content-Security-Policy':
@@ -31,7 +32,7 @@ export const securityHeaders = {
 
 export function createApi(
   services: ApiServices,
-  options: { notFound?: NotFoundHandler } = {},
+  options: { notFound?: NotFoundHandler; mcp?: McpHttpPort } = {},
 ): Hono {
   const app = new Hono();
   app.use('*', async (c, next) => {
@@ -62,6 +63,7 @@ export function createApi(
   registerMediaRoutes(app, services);
   registerInboundRoutes(app, services);
   registerNewsletterRoutes(app, services);
+  registerMcpRoutes(app, options.mcp, services.outputBaseUrl);
   app.get(
     '/api/capabilities',
     documented('Instance', 'Read effective instance capabilities', {

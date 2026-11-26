@@ -80,7 +80,7 @@ describe('route-derived OpenAPI 3.1', () => {
     expect(doc.paths['/b/{id}/compose.md']).toBeDefined();
     expect(doc.paths['/settings/runs.json']).toBeDefined();
     expect(doc.paths['/api/*']).toBeUndefined();
-    expect(doc.paths['/mcp']).toBeUndefined();
+    expect(doc.paths['/mcp']?.post).toBeDefined();
     expect(doc.components?.securitySchemes).not.toHaveProperty('bearerAuth');
     // Fail for missing required path parameters, including embedded :id suffixes.
     for (const [path, methods] of Object.entries(doc.paths)) {

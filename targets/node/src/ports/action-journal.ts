@@ -8,6 +8,7 @@ const tables = [
   'feeds',
   'articles',
   'article_tags',
+  'tags',
   'rules',
   'rule_logs',
   'brew_configs',
@@ -38,7 +39,13 @@ export class ActionJournal {
           event === 'INSERT' ? 'NULL' : event === 'UPDATE' ? changes('OLD') : object('OLD');
         const after =
           event === 'DELETE' ? 'NULL' : event === 'UPDATE' ? changes('NEW') : object('NEW');
-        sql.exec(`CREATE TEMP TRIGGER IF NOT EXISTS ${quote(`brew_action_${table}_${event}`)} AFTER ${event} ON main.${quote(table)} WHEN (SELECT id FROM brew_active_action) IS NOT NULL ${event === 'UPDATE' ? `AND (${changed})` : ''} BEGIN
+        // Legacy rule application retains reusable tag definitions. Only the
+        // explicit named-tag action owns creation/removal of a new definition.
+        const tagOwner =
+          table === 'tags'
+            ? "AND (SELECT tool FROM agent_actions WHERE id=(SELECT id FROM brew_active_action))='tag_item'"
+            : '';
+        sql.exec(`CREATE TEMP TRIGGER IF NOT EXISTS ${quote(`brew_action_${table}_${event}`)} AFTER ${event} ON main.${quote(table)} WHEN (SELECT id FROM brew_active_action) IS NOT NULL ${tagOwner} ${event === 'UPDATE' ? `AND (${changed})` : ''} BEGIN
           INSERT INTO agent_action_changes(action_id,table_name,key_json,before_json,after_json)
           VALUES((SELECT id FROM brew_active_action),'${table}',${object(event === 'DELETE' ? 'OLD' : 'NEW', keys)},${before},${after}); END`);
       }
@@ -121,6 +128,7 @@ export class ActionJournal {
     const articleChild = sql.prepare('SELECT 1 FROM articles WHERE feed_id=? LIMIT 1');
     const feedChild = sql.prepare('SELECT 1 FROM feeds WHERE folder_id=? LIMIT 1');
     const ruleHistory = sql.prepare('SELECT 1 FROM rule_logs WHERE rule_id=? LIMIT 1');
+    const tagUses = sql.prepare('SELECT 1 FROM article_tags WHERE tag_id=? LIMIT 1');
     for (const change of changes) {
       if (!tables.includes(change.table_name as (typeof tables)[number]))
         throw new ActionError(409, 'This action cannot be restored.');
@@ -161,6 +169,8 @@ export class ActionJournal {
           );
         // Parent rows may acquire children or saved source references after import.
         // Never cascade away that later work while reversing their insertion.
+        if (change.table_name === 'tags' && tagUses.get(key.id))
+          throw new ActionError(409, 'This new tag is now used by another article.');
         sql.prepare(`DELETE FROM ${table} WHERE ${where}`).run(...params);
       } else if (!after) {
         const names = Object.keys(before);

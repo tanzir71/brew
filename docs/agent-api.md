@@ -8,8 +8,8 @@ curl http://127.0.0.1:4400/api/openapi.json
 
 The document uses OpenAPI `3.1.0` and a relative `/` server URL. It describes the
 actual registered Hono handlers, including REST, private Markdown/JSON exports,
-Atom/JSON issue feeds, SSE and inbound webhooks. At M12.20 it covers 110 operations
-on 95 paths with 55 reusable data schemas. It excludes HTML application routes,
+Atom/JSON issue feeds, SSE, inbound webhooks and MCP. At M12.21 it covers 113 operations
+on 96 paths with 55 reusable data schemas. It excludes HTML application routes,
 static assets and unimplemented endpoints.
 
 GET and HEAD return `application/json`, `Cache-Control: private, no-store` and
@@ -29,11 +29,14 @@ contain an `error` string; unexpected failures may also contain `message` and
 
 Read `/api/capabilities` before using an optional feature. A documented operation
 can return 501 when its adapter needs setup. Documentation does not enable that
-adapter. Scoped API tokens and MCP are not implemented yet; protect instance
+adapter. Scoped API tokens are not implemented yet; protect instance
 access at its deployment boundary. Postmark webhooks already use configured HTTP
 Basic authentication. Mailgun verifies signed payload fields or raw-body signature
 headers, as described on the inbound operations. No credential values appear in
 the document.
+
+The Node [MCP server](mcp.md) serves `/mcp` and CLI stdio, sharing the existing
+services and durable action journal.
 
 For article lists, `includeTotal=true` adds the exact total; `nextCursor` drives
 cursor navigation. Search returns `nextOffset`. Rules history uses

@@ -24,7 +24,7 @@ test('same-origin API discovery serves route-derived OpenAPI with private header
   ).toEqual({ $ref: '#/components/schemas/RuleLogPage' });
   expect(doc.paths['/api/inbound/email/mime'].post.responses['501']).toBeDefined();
   expect(doc.paths['/rules/{output}'].get.responses['200'].content).toHaveProperty('text/markdown');
-  expect(doc.paths['/mcp']).toBeUndefined();
+  expect(doc.paths['/mcp'].post).toBeDefined();
   const head = await request.head('/api/openapi.json');
   expect(head.status()).toBe(200);
   expect(await head.body()).toHaveLength(0);

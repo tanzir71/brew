@@ -7,8 +7,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "concurrently -k -n server,web \"tsx watch targets/node/src/index.ts\" \"vite --config packages/web/vite.config.ts\"",
+    "dev": "concurrently -k -n server,web \"node --watch --import tsx targets/node/src/index.ts\" \"vite --config packages/web/vite.config.ts\"",
     "start": "node dist/targets/node/src/index.js",
+    "mcp": "node dist/targets/node/src/index.js mcp",
     "build": "npm run typography:check && npm run tokens:check && npm run icons:check && vite build --config packages/web/vite.config.ts && tsc -p tsconfig.server.json && node scripts/copy-build-assets.mjs && node scripts/verify-node-build.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",
     "lint": "npm run typography:check && npm run tokens:check && npm run icons:check && eslint .",
@@ -35,6 +36,7 @@
     "@apidevtools/swagger-parser": "^12.1.0",
     "@axe-core/playwright": "^4.12.1",
     "@eslint/js": "latest",
+    "@modelcontextprotocol/client": "^2.4.0",
     "@playwright/test": "latest",
     "@tailwindcss/vite": "latest",
     "@types/better-sqlite3": "latest",

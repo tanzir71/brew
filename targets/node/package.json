@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts"
+    "dev": "node --watch --import tsx src/index.ts"
   },
   "dependencies": {
     "@brew/api": "0.1.0",
     "@brew/core": "0.1.0",
     "@brew/db": "0.1.0",
     "@fastify/static": "latest",
+    "@modelcontextprotocol/server": "^2.4.0",
     "@mozilla/readability": "latest",
     "better-sqlite3": "latest",
     "drizzle-orm": "latest",

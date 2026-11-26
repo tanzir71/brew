@@ -23,6 +23,12 @@ import { ImapPoller, type ImapClientFactory } from './services/imap-poller.js';
 import type { NodeInboundConfig } from './inbound-config.js';
 import type { NewsletterIngestResult } from '../../../packages/core/src/types/newsletters.js';
 import { activateInboundAddress } from './ports/inbound-address.js';
+import { createBrewMcpHandler } from '../../../packages/api/src/mcp.js';
+import type { ApiServices } from '../../../packages/api/src/ports.js';
+
+export function nodeServices(app: FastifyInstance): ApiServices {
+  return app.getDecorator<ApiServices>('brewServices');
+}
 
 const webDirectory = fileURLToPath(new URL('../../../packages/web/dist/', import.meta.url));
 
@@ -39,6 +45,7 @@ export async function createApp(
     smtpTls?: Pick<ConnectionOptions, 'ca'>;
     inbound?: NodeInboundConfig | null;
     imapClientFactory?: ImapClientFactory;
+    logger?: false;
   } = {},
 ): Promise<FastifyInstance> {
   const publicUrl = outputBaseUrl(options.publicUrl);
@@ -46,8 +53,12 @@ export async function createApp(
     throw new Error('BREW_PUBLIC_URL is required for SMTP links and images.');
   const smtp = options.smtp ? new SmtpMail(options.smtp, options.smtpTls) : undefined;
   const outboundMail = options.outboundMail ?? smtp;
-  const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
-  app.addHook('onSend', async (_request, reply, payload) => {
+  const app = Fastify({ logger: options.logger ?? process.env.NODE_ENV !== 'test' });
+  app.addHook('onSend', async (request, reply, payload) => {
+    if (request.url.split('?')[0] === '/mcp') {
+      reply.header('Cache-Control', 'private, no-store');
+      reply.header('X-Robots-Tag', 'noindex, nofollow');
+    }
     for (const [name, value] of Object.entries(securityHeaders)) {
       if (name === 'Content-Security-Policy' && reply.hasHeader(name)) continue;
       reply.header(name, value);
@@ -116,8 +127,11 @@ export async function createApp(
     inboundMail: inbound ? (inbound.kind === 'imap' ? 'imap' : 'webhook') : null,
   });
   const actionTimer = setInterval(() => services.actions?.cleanup(), 5_000);
+  app.decorate('brewServices', services);
+  const mcp = createBrewMcpHandler(services, { write: true });
   actionTimer.unref();
   const api = createApi(services, {
+    mcp,
     notFound: options.serveWeb
       ? undefined
       : (c) =>
@@ -152,6 +166,7 @@ export async function createApp(
     clearInterval(actionTimer);
     if (brewTimer) clearInterval(brewTimer);
     broker.close();
+    await mcp.close();
   });
   app.addHook('onClose', async () => {
     poller.stop();

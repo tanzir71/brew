@@ -23,7 +23,10 @@ it('bundles the HTTP API without Node, SQLite, Fastify or target imports', async
       write: false,
       minify: false,
       lib: {
-        entry: fileURLToPath(new URL('./src/app.ts', import.meta.url)),
+        entry: {
+          api: fileURLToPath(new URL('./src/app.ts', import.meta.url)),
+          mcp: fileURLToPath(new URL('./src/mcp.ts', import.meta.url)),
+        },
         formats: ['es'],
         fileName: 'api',
       },

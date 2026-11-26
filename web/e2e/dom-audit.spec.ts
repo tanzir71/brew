@@ -188,6 +188,7 @@ test('Undo retry recovers a lost acknowledgement and focuses its result after re
     await expect(undo).toBeEnabled();
     await expect(page.getByRole('alert')).toBeVisible();
     expect(service.list()).toHaveLength(1);
+    await expect(undo).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(undo).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Action result', exact: true })).toBeFocused();
