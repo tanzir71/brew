@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ArticleDetail, TagSummary } from '@brew/core/types/api';
+import type { ArticleDetail } from '@brew/core/types/api';
 import { articleDom } from './articleDom';
 import { useArticleAlternates } from './hooks/useArticleAlternates';
 import { useCapabilities } from './hooks/useCapabilities';
@@ -8,9 +8,12 @@ import { useBrowserPreferences } from './hooks/useBrowserPreferences';
 import { PreferenceFeedback } from './settings/BrowserPreferences';
 import { ModalSheet } from './components/Sheet';
 import { Badge } from './components/Badge';
-import { updateArticleState } from './articleState';
 import { lockDialogScroll } from './dialogScrollLock';
 import { containDialogBlur, containDialogTab } from './dialogFocus';
+import { useTagEditor } from './hooks/useTagEditor';
+import { ArticleTags, TagFeedback } from './components/ArticleTags';
+import { useArticleActions } from './hooks/useArticleActions';
+import { ArticleActionFeedback } from './components/ArticleActionFeedback';
 
 async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(url, { signal });
@@ -71,6 +74,9 @@ function ArticleReaderBody({
   useArticleAlternates(detail.data?.id ?? null);
   const preferences = useBrowserPreferences();
   const readingPrefs = preferences.values;
+  const tagEditor = useTagEditor({ id, enabled: showTags });
+  const actions = useArticleActions(id);
+  const updateAction = actions.update;
   useEffect(() => {
     const media = matchMedia('(max-width: 899px)');
     const change = () => setSmallScreen(media.matches);
@@ -146,6 +152,7 @@ function ArticleReaderBody({
     extractRequest.current = request;
     setExtracting(true);
     setMessage('');
+    actions.clearMessage();
     try {
       const response = await fetch(`/api/articles/${id}/full-text`, {
         method: 'POST',
@@ -164,6 +171,8 @@ function ArticleReaderBody({
   };
   const copy = async () => {
     if (!detail.data) return;
+    setMessage('');
+    actions.clearMessage();
     try {
       await navigator.clipboard.writeText(detail.data.url);
       if (alive.current) setMessage('Link copied.');
@@ -173,20 +182,13 @@ function ArticleReaderBody({
   };
   const updateState = async (values: { read?: boolean; starred?: boolean }) => {
     setMessage('');
-    try {
-      await updateArticleState(client, id, values);
-    } catch (error) {
-      if (alive.current) setMessage((error as Error).message);
-    }
+    await updateAction(values);
   };
   useEffect(() => {
     if (!detail.data || detail.isFetching || detail.isError || opened.current === id) return;
     opened.current = id;
-    if (!detail.data.readAt)
-      void updateArticleState(client, id, { read: true }).catch((error: Error) => {
-        if (alive.current) setMessage(error.message);
-      });
-  }, [client, detail.data, detail.isError, detail.isFetching, id]);
+    if (!detail.data.readAt) void updateAction({ read: true }, true);
+  }, [detail.data, detail.isError, detail.isFetching, id, updateAction]);
   return (
     <>
       <dialog
@@ -370,6 +372,7 @@ function ArticleReaderBody({
                 <button
                   data-shortcut="t"
                   data-brew-action="tag"
+                  disabled={tagEditor.pending}
                   aria-expanded={showTags}
                   aria-controls={`article-tags-${id}`}
                   onClick={() => {
@@ -389,9 +392,11 @@ function ArticleReaderBody({
                   role="region"
                   aria-label="Article tags"
                 >
-                  <TagEditor
-                    article={detail.data}
-                    onChange={(next) => client.setQueryData(['article', id], next)}
+                  <ArticleTags
+                    editor={tagEditor}
+                    assigned={detail.data.tags}
+                    id={id}
+                    feedback={!more}
                   />
                 </div>
               )}{' '}
@@ -404,11 +409,7 @@ function ArticleReaderBody({
                   {extracting ? 'Loading full article…' : 'Load full article'}
                 </button>
               )}
-              {message && (
-                <p role="status" aria-live="polite" className="mt-3 text-sm text-soft">
-                  {message}
-                </p>
-              )}
+              {!more && <ArticleActionFeedback actions={actions} message={message} />}
               {detail.data.enclosureUrl && detail.data.enclosureType?.startsWith('audio/') && (
                 <audio
                   aria-label={`Listen to ${detail.data.title}`}
@@ -442,6 +443,10 @@ function ArticleReaderBody({
       >
         {detail.data && (
           <div className="grid gap-3">
+            <ArticleActionFeedback actions={actions} message={message} />
+            {(showTags || tagEditor.message || tagEditor.error || tagEditor.pending) && (
+              <TagFeedback editor={tagEditor} />
+            )}
             <button
               type="button"
               className="brew-button brew-button--secondary brew-button--sm"
@@ -463,6 +468,7 @@ function ArticleReaderBody({
               type="button"
               className="brew-button brew-button--secondary brew-button--sm"
               data-brew-action="tag"
+              disabled={tagEditor.pending}
               onClick={() => {
                 focusTags.current = true;
                 setMore(false);
@@ -507,87 +513,5 @@ function ArticleReaderBody({
         )}
       </ModalSheet>
     </>
-  );
-}
-
-function TagEditor({
-  article,
-  onChange,
-}: {
-  article: ArticleDetail;
-  onChange: (article: ArticleDetail) => void;
-}) {
-  const client = useQueryClient();
-  const tags = useQuery({ queryKey: ['tags'], queryFn: () => getJson<TagSummary[]>('/api/tags') });
-  const [name, setName] = useState('');
-  const save = async (selected: TagSummary[]) => {
-    const previous = article.tags;
-    onChange({ ...article, tags: selected });
-    const response = await fetch(`/api/articles/${article.id}/tags`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tagIds: selected.map((tag) => tag.id) }),
-    });
-    if (response.ok) onChange((await response.json()) as ArticleDetail);
-    else onChange({ ...article, tags: previous });
-  };
-  const create = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!name.trim()) return;
-    const response = await fetch('/api/tags', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    });
-    if (!response.ok) return;
-    const tag = (await response.json()) as TagSummary;
-    client.setQueryData<TagSummary[]>(['tags'], (current) =>
-      [...(current ?? []).filter((item) => item.id !== tag.id), tag].sort((a, b) =>
-        a.name.localeCompare(b.name),
-      ),
-    );
-    setName('');
-    await save([...article.tags, tag]);
-  };
-  return (
-    <div className="mt-4 rounded-2xl border border-line bg-canvas p-4">
-      <p className="text-xs font-semibold uppercase tracking-wider text-soft">Tags</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {tags.data?.map((tag) => {
-          const active = article.tags.some((item) => item.id === tag.id);
-          return (
-            <button
-              key={tag.id}
-              aria-pressed={active}
-              onClick={() =>
-                save(
-                  active
-                    ? article.tags.filter((item) => item.id !== tag.id)
-                    : [...article.tags, tag],
-                )
-              }
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${active ? 'bg-inverse text-on-inverse' : 'border border-line-strong bg-surface'}`}
-            >
-              {tag.name}
-            </button>
-          );
-        })}
-      </div>
-      <form onSubmit={create} className="mt-3 flex gap-2">
-        <label className="sr-only" htmlFor={`new-tag-${article.id}`}>
-          New tag
-        </label>
-        <input
-          id={`new-tag-${article.id}`}
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="New tag"
-          className="min-w-0 flex-1 rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm"
-        />
-        <button className="rounded-lg bg-inverse px-3 text-xs font-semibold text-on-inverse">
-          Add
-        </button>
-      </form>
-    </div>
   );
 }

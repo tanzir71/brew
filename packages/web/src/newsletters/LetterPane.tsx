@@ -480,6 +480,7 @@ export function LetterPane({
         <LetterTagsDialog
           letter={letter}
           close={() => setTagsOpen(false)}
+          onSaved={() => setResult('Tags saved.')}
           returnFocusRef={tagReturn}
         />
       )}

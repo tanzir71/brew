@@ -1,6 +1,4 @@
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ArticleDetail, TagSummary } from '@brew/core/types/api';
 import type {
   NewsletterLetter,
   NewsletterOverview,
@@ -11,7 +9,8 @@ import { ModalSheet } from '../components/Sheet';
 import { Badge } from '../components/Badge';
 import { Button, Checkbox, Input } from '../components/controls';
 import { Select } from '../components/patterns';
-import { newsletterJson } from './api';
+import { useTagEditor } from '../hooks/useTagEditor';
+import { TagFeedback } from '../components/ArticleTags';
 
 export function SenderSettingsDialog({
   sender,
@@ -238,105 +237,96 @@ export function LetterTagsDialog({
   letter,
   close,
   returnFocusRef,
+  onSaved,
 }: {
   letter: NewsletterLetter;
   close: () => void;
   returnFocusRef?: RefObject<HTMLElement>;
+  onSaved?: () => void;
 }) {
-  const client = useQueryClient();
-  const tags = useQuery({
-    queryKey: ['tags'],
-    queryFn: ({ signal }) => newsletterJson<TagSummary[]>('/api/tags', signal),
-  });
-  const [selected, setSelected] = useState(letter.tags.map((tag) => tag.id));
-  const [name, setName] = useState('');
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
-  const submit = async () => {
-    setPending(true);
-    setError('');
-    try {
-      const ids = [...selected];
-      if (name.trim()) {
-        const tag = await newsletterJson<TagSummary>('/api/tags', undefined, {
-          method: 'POST',
-          body: JSON.stringify({ name: name.trim() }),
-        });
-        if (!ids.includes(tag.id)) ids.push(tag.id);
-        setSelected(ids);
-        setName('');
-        void client.invalidateQueries({ queryKey: ['tags'] });
-      }
-      const saved = await newsletterJson<ArticleDetail>(
-        `/api/articles/${letter.id}/tags`,
-        undefined,
-        { method: 'PUT', body: JSON.stringify({ tagIds: ids }) },
-      );
-      for (const key of ['article', 'newsletter-letter'])
-        client.setQueryData<ArticleDetail>([key, letter.id], (current) =>
-          current ? { ...current, tags: saved.tags } : current,
-        );
-      void client.invalidateQueries({ queryKey: ['newsletter-overview'] });
+  const [baseline] = useState(() => letter.tags.map((tag) => tag.id));
+  const [selection, setSelection] = useState<Record<number, boolean>>({});
+  const formId = useId();
+  const editor = useTagEditor({
+    id: letter.id,
+    onCreated: (tag) => setSelection((current) => ({ ...current, [tag.id]: true })),
+    onSaved: () => {
+      onSaved?.();
       close();
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Could not save tags.');
-    } finally {
-      setPending(false);
-    }
+    },
+  });
+  const changes = {
+    add: Object.entries(selection)
+      .filter(([, checked]) => checked)
+      .map(([id]) => Number(id)),
+    remove: Object.entries(selection)
+      .filter(([, checked]) => !checked)
+      .map(([id]) => Number(id)),
   };
+  const changed = changes.add.length + changes.remove.length > 0 || Boolean(editor.name.trim());
   return (
     <ModalSheet
       open
       title="Tag this letter"
       returnFocusRef={returnFocusRef}
       onClose={() => {
-        if (!pending) close();
+        if (!editor.pending) close();
       }}
       className="letters-dialog"
       footer={
         <>
-          <Button variant="secondary" disabled={pending} onClick={close}>
+          <Button variant="secondary" disabled={editor.pending} onClick={close}>
             Cancel
           </Button>
           <Button
-            disabled={pending || tags.isPending || tags.isError}
-            onClick={() => void submit()}
+            type="submit"
+            form={formId}
+            data-brew-action="save-tags"
+            disabled={editor.pending || !editor.ready || !changed}
           >
-            {pending ? 'Saving…' : 'Save tags'}
+            {editor.pending ? 'Saving…' : 'Save tags'}
           </Button>
         </>
       }
     >
-      <div className="letters-dialog-fields">
-        {tags.isPending && <p role="status">Loading tags…</p>}
-        {tags.isError && (
-          <p role="alert">
-            Could not load tags. <button onClick={() => void tags.refetch()}>Retry tags</button>
-          </p>
+      <form
+        id={formId}
+        className="letters-dialog-fields"
+        aria-busy={editor.pending}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!changed) return;
+          void editor.save(changes, editor.name);
+        }}
+      >
+        <TagFeedback editor={editor} />
+        {editor.tags.isSuccess && editor.tags.data.length === 0 && (
+          <p>No tags yet. Add one below.</p>
         )}
-        {tags.data?.map((tag) => (
+        {editor.tags.data?.map((tag) => (
           <Checkbox
             key={tag.id}
             label={tag.name}
-            checked={selected.includes(tag.id)}
-            disabled={pending}
-            onChange={(event) =>
-              setSelected(
-                event.target.checked
-                  ? [...selected, tag.id]
-                  : selected.filter((id) => id !== tag.id),
-              )
-            }
+            className="min-h-6"
+            checked={selection[tag.id] ?? baseline.includes(tag.id)}
+            disabled={editor.pending || !editor.ready}
+            data-brew-action="set-tag"
+            data-brew-id={letter.id}
+            data-tag-id={tag.id}
+            onChange={(event) => {
+              const checked = event.target.checked;
+              setSelection((current) => ({ ...current, [tag.id]: checked }));
+              editor.setName(!checked && editor.name.trim() === tag.name ? '' : editor.name);
+            }}
           />
         ))}
         <Input
           label="New tag"
-          value={name}
-          disabled={pending}
-          onChange={(event) => setName(event.target.value)}
+          value={editor.name}
+          disabled={editor.pending}
+          onChange={(event) => editor.setName(event.target.value)}
         />
-        {error && <p role="alert">{error}</p>}
-      </div>
+      </form>
     </ModalSheet>
   );
 }

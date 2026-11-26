@@ -140,7 +140,7 @@ test('a failed automatic read keeps content open, restores unread state and supp
   });
   await page.goto('/b/1/2');
   const { card, dialog } = await openBrew(page);
-  await expect(dialog.getByRole('status')).toContainText('Could not update article. Try again.');
+  await expect(dialog.getByRole('alert')).toContainText('Could not update article. Try again.');
   await expect(dialog.getByRole('button', { name: 'Mark read', exact: true })).toBeVisible();
   expect(fixture.state().read_at).toBeNull();
   await expect(card).toHaveAttribute('data-brew-state', 'unread');

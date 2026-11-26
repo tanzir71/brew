@@ -76,7 +76,23 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
   await page.route('**/api/articles/*/tags', async (route) => {
     const parts = new URL(route.request().url()).pathname.split('/');
     const id = Number(parts.at(-2));
-    const tagIds = (route.request().postDataJSON() as { tagIds: number[] }).tagIds;
+    const input = route.request().postDataJSON() as {
+      tagIds?: number[];
+      add?: number[];
+      remove?: number[];
+    };
+    const current = states.get(id) ?? detail(id);
+    const tagIds =
+      route.request().method() === 'PATCH'
+        ? [
+            ...new Set([
+              ...current.tags
+                .map((tag) => tag.id)
+                .filter((tagId) => !input.remove?.includes(tagId)),
+              ...(input.add ?? []),
+            ]),
+          ]
+        : (input.tagIds ?? []);
     const value = {
       ...(states.get(id) ?? detail(id)),
       tags: tagIds.map((tagId) => ({

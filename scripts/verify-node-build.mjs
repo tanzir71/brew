@@ -419,6 +419,21 @@ try {
     database.sqlite.prepare('SELECT * FROM brew_configs ORDER BY id').all(),
     senderBrewsBefore,
   );
+  const tagArticleBefore = database.sqlite.prepare('SELECT * FROM articles WHERE id=?').get(letter.articleId);
+  const tagAssignmentsBefore = database.sqlite.prepare('SELECT * FROM article_tags ORDER BY article_id,tag_id').all();
+  const tagFrozenBefore = database.sqlite.prepare('SELECT id,payload_json FROM brews ORDER BY id').all();
+  const tagDefinition = (await app.inject({ method: 'POST', url: '/api/tags', payload: { name: 'Compiled triage' } })).json();
+  const tagPatch = await app.inject({ method: 'PATCH', url: `/api/articles/${letter.articleId}/tags`, payload: { add: [tagDefinition.id], remove: [] } });
+  assert.equal(tagPatch.statusCode, 200);
+  assert.equal(tagPatch.headers['cache-control'], 'private, no-store');
+  assert.ok(tagPatch.json().tags.some((tag) => tag.id === tagDefinition.id));
+  const beforeTagReplay = database.sqlite.prepare('SELECT total_changes() AS n').get();
+  assert.equal((await app.inject({ method: 'PATCH', url: `/api/articles/${letter.articleId}/tags`, payload: { add: [tagDefinition.id] } })).statusCode, 200);
+  assert.deepEqual(database.sqlite.prepare('SELECT total_changes() AS n').get(), beforeTagReplay);
+  assert.equal((await app.inject({ method: 'PATCH', url: `/api/articles/${letter.articleId}/tags`, payload: { remove: [tagDefinition.id] } })).statusCode, 200);
+  assert.deepEqual(database.sqlite.prepare('SELECT * FROM article_tags ORDER BY article_id,tag_id').all(), tagAssignmentsBefore);
+  assert.deepEqual(database.sqlite.prepare('SELECT * FROM articles WHERE id=?').get(letter.articleId), tagArticleBefore);
+  assert.deepEqual(database.sqlite.prepare('SELECT id,payload_json FROM brews ORDER BY id').all(), tagFrozenBefore);
   const readRowsBefore = database.sqlite
     .prepare('SELECT id,read_at,starred_at FROM articles ORDER BY id')
     .all();

@@ -99,6 +99,41 @@ release only after the last native dialog closes, including during navigation.
 Reader shortcuts run inside the article and respect input/select editing and
 native Enter/Space activation. Tag opening waits for content instead of a timer.
 
+A twenty-first role/label-only journey creates a tag in Reader, checks its actual
+state in Newsletters, cancels a draft without writes, and submits the native
+letter tag form by Enter. It verifies assignments and an unchanged frozen Brew.
+Five additional browser cases cover failed tag reads, whitespace validation,
+lost creation and assignment acknowledgements, retained drafts, idempotent
+retries inside More, light/dark axe/captures, independent tag/star edits, native
+form cancellation, and closing during creation without a later assignment.
+
+Reader and newsletter tag editors share one acknowledged save flow. Library
+reads have loading, error and retry states. Names remain until assignment is
+acknowledged; a successful creation followed by an uncertain assignment says so
+and reuses that definition on retry. Newsletter checkboxes remain a draft until
+Save tags; native form submission supports Enter. Closing the article while
+creation is pending prevents a subsequent assignment request. A request already
+sent may complete; its result updates only that item's cached tags.
+
+`PATCH /api/articles/:id/tags` accepts `{add:[id],remove:[id]}`. At least one of
+the fields is required; empty arrays explicitly request a no-op. IDs are positive
+safe integers, deduplicated and bounded to 500 per field; overlapping add/remove
+sets are rejected. Node validates additions and applies only those membership
+changes in one immediate SQLite transaction. Unrelated assignments, article
+fields and frozen issues remain intact. Replaying the same membership change
+does not write again. Responses and errors are private/no-store, no-index and
+nosniff. Legacy replace-all `PUT` and name-unique creation `POST /api/tags` keep
+their original contracts. New definitions remain in the library if assignment
+cannot be confirmed; repeating creation reuses the same trimmed name.
+
+The client serializes tag writes per item, cancels obsolete detail reads and
+patches only tags in article/newsletter caches. It refreshes dependent previews
+after acknowledgement without replacing newer read/star/body/sender metadata.
+Native tag actions identify the item with `data-brew-id` and the chosen tag with
+`data-tag-id`. Action feedback appears in the active article or More surface.
+Read/star results wait for acknowledgement, retain independent field failures
+and retry their explicit desired state through the existing queued state writer.
+
 ESLint restricts that file's UI selectors to `getByRole` and `getByLabel`, rejecting
 CSS/test-ID/text/placeholder/title selectors and injected DOM evaluation. Browser
 setup, navigation, response inspection and SQL assertions remain available to
@@ -113,7 +148,7 @@ metadata and geometry directly; they do not substitute for this agent journey.
 | Native controls | Reader scope/folder/feed and saved-search bookmarks, saved-rule selection/logs and attribution, feed audit views, newsletter sender/letter/page navigation and legacy shell toolbar navigation use real hrefs. Feed-library names and hidden-page navigation also use native links. Feed/folder renames and retention now use native labelled dialogs. Article actions and bulk confirmation use real controls. | Audit all remaining navigation, icon-only labels and toggles. |
 | Stable hooks | Article rows/panes share `data-brew-id`, kind and read/unread/starred/highlighted state. Reader/search rows also declare their actual density. Newsletter rows/panes and frozen Brew letters identify as letters; rules expose identity/enablement/actions; Compose already identifies sections. | Audit the rest of each screen's actions, settings and result rows. |
 | Accessible alternatives | Article and letter actions are available directly and in native More sheets. Saved-search deletion, feed-library/folder, feed health, hidden and sender rows have labelled More controls and native sheets. Sender-row More appears on hover, keyboard focus or selection. General/Reading settings and setup guides use native dialogs and links. Article overlays and phone panes use native modals; desktop panes dock beside usable rows. Initial/nested/return focus, unread row removal and native media controls are tested. Existing Compose drag controls retain button/keyboard alternatives. | Finish the remaining controls and older-shell focus/selection audit. |
-| Polite results | Existing Compose/Brew status plus explicit Reader bulk, saved-search and owner-action result live regions with real Undo. Rule partial failures, mutation errors, browser storage failures, refresh failures and action-history recovery failures have visible feedback. Article loading offers explicit retry; clipboard failures and cancelled extraction are handled. | Audit success/error announcements for remaining mutations, especially tag loading/creation/assignment and nested More action results. |
+| Polite results | Existing Compose/Brew status plus explicit Reader bulk, saved-search and owner-action result live regions with real Undo. Rule partial failures, mutation errors, browser storage failures, refresh failures and action-history recovery failures have visible feedback. Article/tag loading and mutation failures have retry; tag drafts survive partial creation/assignment, and read/star results and field retries stay in the active More surface. Clipboard failures and cancelled extraction are handled. | Audit success/error announcements for the remaining older-shell mutations and list reads. |
 | Totals and pagination | Newsletter, Reader, search and feed-library/audit views announce showing ranges/totals. Counts remain available to assistive technology in Calm mode. Newsletter/Reader/search/hidden articles offer native Previous/Next links with URL page state; hidden counts exceed the legacy 500-item cap. Normal Reader/search retain virtual/infinite lists. | Remaining list announcements and agent-mode pagination without virtualization/motion/scroll marking. |
 | Confirmation and undo | Reader bulk click/Shift+A and frozen Brew section/edition reads, rule apply/delete, feed/folder deletion, library/Compose OPML import, risky sender settings and browser saved-search deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs, folder assignments, sender retention and Brew routing. OPML Undo protects later uses of imported records. Browser bookmarks have separate local Undo with reload recovery. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
 | Text twins | All currently implemented data views have private twins: frozen Brews/articles; Reader/search; saved Compose/rules/logs; feed library/health/hidden articles; Newsletters lists; instance settings; Reader welcome and empty Brew/library states. Selection/filter parameters survive in alternate links. Explicitly opened content overrides its underlying page; subscription links remain separate. | Continue coverage when later milestones add views. Draft forms export explicitly labelled saved state; unsaved previews stay separate. The full DOM checkbox remains open for the other rows. |

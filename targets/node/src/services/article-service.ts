@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { parseHTML } from 'linkedom';
 import { Readability } from '@mozilla/readability';
 import { randomUUID } from 'node:crypto';
@@ -7,6 +7,8 @@ import type { BrewDatabase } from '../db/database.js';
 import { articleTags, articles, tags } from '../db/schema.js';
 import { sanitizeArticleHtml } from './html-sanitizer.js';
 import { readerNewsletterVisibility } from '../ports/newsletter-visibility.js';
+import { parseTagChanges } from '@brew/core/tag-changes.js';
+import type { TagChanges } from '@brew/core/types/api.js';
 
 type Fetch = typeof globalThis.fetch;
 interface UndoEntry { articleIds: number[]; expiresAt: number }
@@ -84,6 +86,20 @@ export class ArticleService {
       if (uniqueIds.length) this.database.db.insert(articleTags).values(uniqueIds.map((tagId) => ({ articleId: id, tagId }))).run();
     })();
     return this.get(id);
+  }
+
+  changeTags(id: number, input: TagChanges): ArticleDetail | null {
+    const { add, remove } = parseTagChanges(input);
+    return this.database.sqlite.transaction(() => {
+      if (!this.database.db.select({ id: articles.id }).from(articles).where(eq(articles.id, id)).get()) return null;
+      if (add.length) {
+        const existing = this.database.db.select({ id: tags.id }).from(tags).where(inArray(tags.id, add)).all();
+        if (existing.length !== add.length) throw new Error('One or more tags do not exist');
+      }
+      if (remove.length) this.database.db.delete(articleTags).where(and(eq(articleTags.articleId, id), inArray(articleTags.tagId, remove))).run();
+      if (add.length) this.database.db.insert(articleTags).values(add.map((tagId) => ({ articleId: id, tagId }))).onConflictDoNothing().run();
+      return this.get(id);
+    }).immediate();
   }
 
   markAllRead(scope: MarkAllScope): { updated: number; undoToken: string; expiresAt: string } {

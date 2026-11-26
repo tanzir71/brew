@@ -9,6 +9,50 @@ import { articles } from '../../targets/node/src/db/schema';
 import { composeFixture } from './compose-fixture';
 import { BrewService } from '../../targets/node/src/services/brew-service';
 
+test('an agent creates an article tag, cancels a letter tag draft and submits the native form by keyboard', async ({ page }) => {
+  const f = await newslettersFixture(page);
+  try {
+    f.brews.updateComposition(f.morning.id, { ...f.morning, sections: [{ ...newBrewSection('letters'), sources: [{ kind: 'newsletters' }] }] });
+    await f.brews.generateComposition(f.morning.id);
+    const frozen = f.database.sqlite.prepare('SELECT payload_json FROM brews ORDER BY id').all();
+    expect(JSON.stringify(frozen)).toContain('Forms should declare their tools');
+    await page.goto('/a/1');
+    const reader = page.getByRole('dialog', { name: 'Article reader', exact: true });
+    await expect(reader.getByRole('article', { name: 'Forms should declare their tools', exact: true })).toBeFocused();
+    await page.keyboard.press('t');
+    const input = reader.getByLabel('New tag', { exact: true });
+    await input.fill('Agent tag');
+    await expect(reader.getByRole('button', { name: 'Add', exact: true })).toBeEnabled();
+    await input.press('Enter');
+    await expect(reader.getByRole('status', { name: 'Tag result', exact: true })).toHaveText('Tags saved.');
+    await expect(reader.getByRole('button', { name: 'Agent tag', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('Escape');
+    await page.goto('/letters/1/1');
+    const letter = page.getByRole('article', { name: 'Letter from Interface Letters', exact: true });
+    const trigger = letter.getByRole('button', { name: 'Tag', exact: true });
+    await trigger.click();
+    const dialog = page.getByRole('dialog', { name: 'Tag this letter', exact: true });
+    await expect(dialog.getByRole('checkbox', { name: 'Agent tag', exact: true })).toBeChecked();
+    const beforeCancel = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    await dialog.getByRole('checkbox', { name: 'Agent tag', exact: true }).uncheck();
+    await dialog.getByLabel('New tag', { exact: true }).fill('Cancelled tag');
+    await page.keyboard.press('Escape');
+    await expect(trigger).toBeFocused();
+    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(beforeCancel);
+    await page.keyboard.press('Enter');
+    await dialog.getByRole('checkbox', { name: 'Agent tag', exact: true }).uncheck();
+    await dialog.getByLabel('New tag', { exact: true }).fill('Letter tag');
+    await dialog.getByLabel('New tag', { exact: true }).press('Enter');
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await expect(letter.getByLabel('Letter tags', { exact: true })).toHaveText('Letter tag');
+    await expect(letter.getByRole('status', { name: 'Letter result', exact: true })).toHaveText('Tags saved.');
+    expect(f.database.sqlite.prepare('SELECT t.name FROM article_tags a JOIN tags t ON t.id=a.tag_id WHERE article_id=1').all()).toEqual([{ name: 'Letter tag' }]);
+    expect(f.database.sqlite.prepare('SELECT name FROM tags WHERE name=?').all('Cancelled tag')).toEqual([]);
+    expect(f.database.sqlite.prepare('SELECT payload_json FROM brews ORDER BY id').all()).toEqual(frozen);
+  } finally { await f.close(); }
+});
+
 test('an agent opens unread articles with native focus, returns to the next row and closes a one-item search at its heading', async ({ page }) => {
   const f = await newslettersFixture(page);
   try {

@@ -250,6 +250,12 @@ disappears, focus moves to a visible neighbouring row or the list heading.
 Desktop panes sit beside the list; on small screens they use the same modal
 behavior while retaining the saved pane preference. More actions form a separate
 native dialog, and article-load failures offer Retry article.
+Tag changes wait for acknowledgement. Failed creation or assignment keeps the
+name available for retry, including from More; a tag already created is reused.
+Newsletter tag edits stay in a native form until Save tags, and Cancel leaves
+assignments unchanged. Saving preserves tags added independently and keeps read,
+starred and article content state intact. Read/star failures also offer their own
+retry inside the active article surface.
 See [agent DOM implementation](docs/agent-dom.md) for the current role/label-only
 journey and the remaining M12 checklist work.
 

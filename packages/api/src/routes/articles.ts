@@ -2,6 +2,7 @@ import type { Hono } from 'hono';
 import type { ApiServices, MarkAllScope } from '../ports.js';
 import { body, errorMessage, json } from '../http.js';
 import { pageNumber, PageInputError } from '../../../core/src/app-pages.js';
+import { parseTagChanges } from '../../../core/src/tag-changes.js';
 
 export function registerArticleRoutes(app: Hono, { articles: service, data }: ApiServices): void {
   app.get('/api/articles-hidden', async (c) => {
@@ -83,6 +84,20 @@ export function registerArticleRoutes(app: Hono, { articles: service, data }: Ap
       if (!Array.isArray(input?.tagIds) || !input.tagIds.every((id) => Number.isInteger(id)))
         throw new Error('tagIds must be an array of integers');
       const article = await service.setTags(Number(c.req.param('id')), input.tagIds as number[]);
+      return article ? json(c, article) : json(c, { error: 'Article not found' }, 404);
+    } catch (error) {
+      return json(c, { error: errorMessage(error, 'Could not update tags') }, 400);
+    }
+  });
+  app.patch('/api/articles/:id/tags', async (c) => {
+    c.header('Cache-Control', 'private, no-store');
+    c.header('X-Robots-Tag', 'noindex');
+    c.header('X-Content-Type-Options', 'nosniff');
+    try {
+      const changes = parseTagChanges(await body(c));
+      const id = Number(c.req.param('id'));
+      if (!Number.isSafeInteger(id) || id < 1) throw new Error('Choose a valid article.');
+      const article = await service.changeTags(id, changes);
       return article ? json(c, article) : json(c, { error: 'Article not found' }, 404);
     } catch (error) {
       return json(c, { error: errorMessage(error, 'Could not update tags') }, 400);

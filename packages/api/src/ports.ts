@@ -14,6 +14,7 @@ import type {
   MarkAllReadResult,
   ReaderNavigation,
   TagSummary,
+  TagChanges,
 } from '../../core/src/types/api.js';
 import type { BrewService } from '../../core/src/brew-service.js';
 import type { RulesService } from '../../core/src/rules-service.js';
@@ -77,6 +78,7 @@ export interface ArticleApiPort {
   listTags(): MaybePromise<TagSummary[]>;
   createTag(name: string, color?: string): MaybePromise<TagSummary>;
   setTags(id: number, tagIds: number[]): MaybePromise<ArticleDetail | null>;
+  changeTags(id: number, changes: TagChanges): MaybePromise<ArticleDetail | null>;
   markAllRead(scope: MarkAllScope): MaybePromise<MarkAllReadResult>;
   undoMarkAll(token: string): MaybePromise<number | null>;
 }

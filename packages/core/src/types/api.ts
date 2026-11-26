@@ -68,5 +68,6 @@ export interface ArticleDetail extends ArticleSummary {
   tags: TagSummary[];
 }
 export interface TagSummary { id: number; name: string; color: string }
+export interface TagChanges { add: number[]; remove: number[] }
 export interface MarkAllReadResult { updated: number; undoToken: string; expiresAt: string }
 export interface SearchPage { items: ArticleSummary[]; nextOffset: number | null; durationMs: number; total?: number }
