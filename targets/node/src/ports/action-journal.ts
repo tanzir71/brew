@@ -120,6 +120,7 @@ export class ActionJournal {
     }
     const articleChild = sql.prepare('SELECT 1 FROM articles WHERE feed_id=? LIMIT 1');
     const feedChild = sql.prepare('SELECT 1 FROM feeds WHERE folder_id=? LIMIT 1');
+    const ruleHistory = sql.prepare('SELECT 1 FROM rule_logs WHERE rule_id=? LIMIT 1');
     for (const change of changes) {
       if (!tables.includes(change.table_name as (typeof tables)[number]))
         throw new ActionError(409, 'This action cannot be restored.');
@@ -143,6 +144,11 @@ export class ActionJournal {
           'These items changed after the action. Undo could not restore them.',
         );
       if (!before) {
+        if (change.table_name === 'rules' && ruleHistory.get(key.id))
+          throw new ActionError(
+            409,
+            'The copied rule has execution history. Undo could not remove it.',
+          );
         if (
           (change.table_name === 'feeds' &&
             (articleChild.get(key.id) || referenced.feeds.has(Number(key.id)))) ||

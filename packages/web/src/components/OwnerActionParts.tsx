@@ -23,6 +23,7 @@ export function OwnerActionConfirmation({
   const importing = intent?.request.kind === 'import_opml';
   const sender = intent?.request.kind === 'update_sender';
   const reading = intent?.request.kind === 'mark_read';
+  const copying = intent?.request.kind === 'copy_rule';
   const days = intent?.request.kind === 'apply_rule' ? (intent.request.days ?? 30) : 30;
   const cancel = useRef<HTMLButtonElement>(null);
   const title = reading
@@ -32,7 +33,7 @@ export function OwnerActionConfirmation({
       : sender
         ? `Update ${intent.label}?`
         : intent
-          ? `${applying ? 'Apply' : 'Delete'} ${intent.label}?`
+          ? `${copying ? 'Copy' : applying ? 'Apply' : 'Delete'} ${intent.label}?`
           : 'Confirm action';
   return (
     <ModalSheet
@@ -49,13 +50,15 @@ export function OwnerActionConfirmation({
             ? 'Existing subscriptions are kept. New feeds and folders can be undone for 30 seconds if they remain unused and unchanged.'
             : sender
               ? 'Review these sender changes. Undo can restore their local changes for 30 seconds while the affected data remains unchanged.'
-              : applying
-                ? `Apply this saved rule to articles from the last ${days} days?`
-                : intent?.request.kind === 'delete_feed'
-                  ? 'This removes the feed and its articles.'
-                  : intent?.request.kind === 'delete_folder'
-                    ? 'Feeds in this folder will become unfiled.'
-                    : 'This removes the rule and its execution history.'}
+              : copying
+                ? 'Creates a disabled copy of the saved rule. Existing articles and the source rule stay unchanged.'
+                : applying
+                  ? `Apply this saved rule to articles from the last ${days} days?`
+                  : intent?.request.kind === 'delete_feed'
+                    ? 'This removes the feed and its articles.'
+                    : intent?.request.kind === 'delete_folder'
+                      ? 'Feeds in this folder will become unfiled.'
+                      : 'This removes the rule and its execution history.'}
         {!importing && !sender && !reading && ' Undo is available for 30 seconds.'}
       </p>
       {(importing || sender || reading) && children}
@@ -103,7 +106,9 @@ export function OwnerActionConfirmation({
                     ? 'Save sender'
                     : applying
                       ? 'Apply rule'
-                      : 'Delete'}
+                      : copying
+                        ? 'Copy rule'
+                        : 'Delete'}
         </Button>
       </div>
     </ModalSheet>

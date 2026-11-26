@@ -231,9 +231,9 @@ actual Briefs guide; the current Compose control uses `#setup-briefs` and retain
 the agent flag.
 
 This completes the shared-target defect identified in M12.16, rather than the
-entire DOM criterion. The remaining Rules audit includes its More actions and
-acknowledged feedback for Copy failures, duplicate-filter saves and browser
-notification permission outcomes. The first global DOM checkbox stays open.
+entire DOM criterion. M12.18 adds native Rules More actions and acknowledged feedback for Copy,
+duplicate-filter saves and browser notification permission outcomes, described
+below. The first global DOM checkbox stays open pending the final checklist audit.
 
 The client serializes tag writes per item, cancels obsolete detail reads and
 patches only tags in article/newsletter caches. It refreshes dependent previews
@@ -261,7 +261,7 @@ metadata and geometry directly; they do not substitute for this agent journey.
 | Totals and pagination | Newsletter, Reader, search and feed-library/audit views announce showing ranges/totals. Counts remain available to assistive technology in Calm mode. Newsletter/Reader/search/hidden articles offer native Previous/Next links with URL page state; hidden counts exceed the legacy 500-item cap. Normal Reader/search retain virtual/infinite lists; agent mode instead renders one complete 50-item DOM page with numbered links, exact totals and retained URL filters. | Maintain announcements as later views are added. Agent-mode paging, motion suppression and scroll-marking suppression are verified. |
 | Confirmation and undo | Reader bulk click/Shift+A and frozen Brew section/edition reads, rule apply/delete, feed/folder deletion, library/Compose OPML import, risky sender settings and browser saved-search deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs, folder assignments, sender retention and Brew routing. OPML Undo protects later uses of imported records. Browser bookmarks have separate local Undo with reload recovery. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
 | Text twins | All currently implemented data views have private twins: frozen Brews/articles; Reader/search; saved Compose/rules/logs; feed library/health/hidden articles; Newsletters lists; instance settings; Reader welcome and empty Brew/library states. Selection/filter parameters survive in alternate links. Explicitly opened content overrides its underlying page; subscription links remain separate. | Continue coverage when later milestones add views. Draft forms export explicitly labelled saved state; unsaved previews stay separate. The full DOM checkbox remains open for the other rows. |
-| Visible state and targets | Read/star/tag changes update real controls and stable state; article Open and reading-toolbar targets are at least 24px; More/confirmation reuse existing controls. Newsletter navigation declares current selection, has visible keyboard focus and focuses an explicitly opened reading pane. | Native controls are measured in 14 core states with real edge activation in both themes and unchanged Figma visuals. Continue the conditional-control and legacy Rules action/result audit. |
+| Visible state and targets | Read/star/tag changes update real controls and stable state; article Open and reading-toolbar targets are at least 24px; More/confirmation reuse existing controls. Newsletter navigation declares current selection, has visible keyboard focus and focuses an explicitly opened reading pane. | Native controls are measured in 14 core states with real edge activation in both themes and unchanged Figma visuals. Rules More, Copy/recovery/Undo, saved filter acknowledgement and notification results are now covered. Reconcile the remaining list-total and landmark/hook audit before checking the global criterion. |
 
 ## Browser saved-search bookmarks
 
@@ -633,3 +633,67 @@ keeps imported feeds unselected; its accessible inline result stays inside the
 source sheet. Undo prunes removed draft selections, while saved source references
 protect the records. Additional role/label-only journeys verify both flows;
 light/dark browser checks cover preview retry, paging, phone layout and axe.
+
+
+## Saved rule actions and settings feedback
+
+Each saved row retains its direct Edit, Copy, Delete, Logs and Apply controls and
+adds a labelled native More button. The shared modal provides real Edit/log hrefs
+with selection and temporary agent-mode parameters, contains keyboard focus,
+closes on Escape and restores its opener through nested confirmation. Copy,
+Apply and Delete remain visible and disabled with setup guidance when durable
+owner actions are unavailable. Preview and log rows expose stable identities.
+The editor waits for the initial saved-definition read before accepting input;
+subsequent refreshes retain unsaved edits. A Save acknowledged while typing binds
+the new saved ID without replacing the newer draft, so its next save updates the
+same rule. Save still uses the existing REST contract; an unconfirmed Save asks
+the user to refresh and inspect saved rules before creating another.
+
+Copy sends `{kind:"copy_rule",id,definition,confirm:true,requestId}` to private
+`POST /api/actions`. The definition is the canonical saved snapshot, excluding
+volatile execution counters. Node hashes it for the private audit, so copying
+works on plain-HTTP installations without browser Web Crypto digest support.
+Changed definitions fail before writes.
+The SQLite transaction appends a disabled copy and journals only that insertion;
+it does not run actions, fetch webhooks, send notifications or modify the source,
+articles, execution logs or frozen issues. Audit arguments contain only source ID
+and SHA-256 revision, while private journal bodies follow the existing 30-second pruning.
+Request identity replay precedes source lookup, including after Undo or source
+deletion. Browser **Check result** reuses that identity after a lost response.
+Reload recovers the receipt and real Undo. Undo removes the inserted rule only
+while unchanged and without later execution history; conflicts are atomic.
+A late Copy result does not replace a newer draft or navigate a changed editor.
+
+Rules, feed/folder choices, execution logs and debounced previews use independent
+abortable query identities, explicit pending/error states and native read retries.
+Failures do not claim an empty library, zero matches or no execution history.
+Previously loaded rules survive refresh failures. Refresh rules does not reset a
+draft. These changes retain the existing legacy page; they do not claim the full
+Figma Rules frame has been rebuilt. Fresh frame 13:1737 informs the saved-rule
+vocabulary, while the unspecified More surface reuses the native Sheet/Button/
+Icon primitives. Phone grid containment keeps the editor within its column.
+
+The duplicate-filter checkbox retains its last acknowledged value during PUT,
+serializes writes, and disables competing choices until completion. A failed or
+lost acknowledgement offers an explicit retry of the same boolean setting; it
+cannot create a duplicate record. Initial reads have a separate retry. The
+setting applies to future ingestion through the existing backend contract.
+Notification requests run only from the native button, catch browser failures and
+report granted, denied, dismissed or unsupported outcomes in a named polite
+region. Denied permission includes browser-settings guidance.
+
+Four backend regressions verify exact copied definitions/no execution, canonical
+revisions, stale input/no writes, replay on a new SQLite connection, actual Undo,
+conflicting later edits/logs, rollback, expiry, private HTTP validation and request
+identity collisions. Fourteen browser cases cover native light/dark and phone
+surfaces, axe, focus, stale sources, capability gating, lost acknowledgement/reload
+Undo, late Copy/Save drafts, a missing saved rule, filter recovery, independent reads and five permission
+outcomes. A twenty-fifth role/label-only journey exercises More, Copy recovery,
+reload Undo and the saved filter against actual Node/SQLite state. Compiled smoke
+checks Copy/replay/Undo outside the repository working directory.
+
+The nine-row coverage table remains a live audit, not a claim that the whole DOM
+criterion is finished. Next reconcile saved-rule/execution-list totals and the
+remaining older-shell landmarks/action hooks with the current tests, then mark
+only requirements supported by that audit. OpenAPI, MCP, WebMCP, scoped tokens,
+the full action-log/settings view and llms.txt remain separate M12 criteria.

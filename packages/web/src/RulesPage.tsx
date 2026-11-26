@@ -1,6 +1,12 @@
-import { Checkbox } from './components/controls';
+import { Checkbox, Button, IconButton } from './components/controls';
 import { agentPageHref } from './agentLocation';
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ruleCopySource } from '@brew/core/rule-copy';
+import type { ActionKind } from '@brew/core/actions';
+import { ModalSheet } from './components/Sheet';
+import { Badge } from './components/Badge';
+import { RulesSettings } from './rules/RulesSettings';
 import { useOwnerActions } from './hooks/useOwnerActions';
 import { OwnerActionUi } from './components/OwnerActionUi';
 import { rulePageHref, rulePageLocation } from '@brew/core/app-pages';
@@ -17,6 +23,13 @@ import type {
   RuleRecord,
 } from '@brew/core/types/rules';
 
+const ruleKinds: readonly ActionKind[] = ['copy_rule', 'delete_rule', 'apply_rule'];
+const rulesKey = ['saved-rules'];
+const emptyNavigation: ReaderNavigation = {
+  counts: { all: 0, today: 0, starred: 0 },
+  folders: [],
+  unfiled: [],
+};
 const fields: RuleField[] = ['title', 'content', 'author', 'url', 'feed', 'folder'];
 const operators: RuleOperator[] = [
   'contains',
@@ -62,9 +75,14 @@ const blankDraft = (): RuleDraft => ({
 const inputClass =
   'rounded-lg border border-line-strong bg-surface px-2.5 py-2 text-sm outline-none focus:border-ink';
 const savedDraft = (rule: RuleRecord): RuleDraft => ({
-  name: rule.name, enabled: rule.enabled, matchType: rule.matchType,
-  scope: structuredClone(rule.scope), conditions: structuredClone(rule.conditions),
-  actions: structuredClone(rule.actions), stopProcessing: rule.stopProcessing, position: rule.position,
+  name: rule.name,
+  enabled: rule.enabled,
+  matchType: rule.matchType,
+  scope: structuredClone(rule.scope),
+  conditions: structuredClone(rule.conditions),
+  actions: structuredClone(rule.actions),
+  stopProcessing: rule.stopProcessing,
+  position: rule.position,
 });
 function writeRuleLocation(id: number | null, tab: 'preview' | 'log') {
   const href = agentPageHref(rulePageHref(id, tab));
@@ -86,106 +104,131 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export function RulesPage() {
-  const [rules, setRules] = useState<RuleRecord[]>([]);
-  const [navigation, setNavigation] = useState<ReaderNavigation>({
-    counts: { all: 0, today: 0, starred: 0 },
-    folders: [],
-    unfiled: [],
+  const client = useQueryClient();
+  const ruleList = useQuery({
+    queryKey: rulesKey,
+    queryFn: ({ signal }) => json<RuleRecord[]>('/api/rules', { signal }),
+    retry: false,
   });
-  const [selectedId, setSelectedId] = useState<number | null>(() => rulePageLocation(new URL(location.href)).id);
+  const navigationQuery = useQuery({
+    queryKey: ['rules-navigation'],
+    queryFn: ({ signal }) => json<ReaderNavigation>('/api/reader/navigation', { signal }),
+    retry: false,
+  });
+  const rules = ruleList.data ?? [];
+  const navigation = navigationQuery.data ?? emptyNavigation;
+  const [selectedId, setSelectedId] = useState<number | null>(
+    () => rulePageLocation(new URL(location.href)).id,
+  );
   const [tab, setTab] = useState(() => rulePageLocation(new URL(location.href)).tab);
   usePageAlternates(rulePageHref(selectedId, selectedId === null ? 'preview' : tab), 'Saved rules');
-  const [draft, setDraft] = useState<RuleDraft>(blankDraft);
-  const [preview, setPreview] = useState<RulePreviewItem[]>([]);
-  const [previewError, setPreviewError] = useState('');
-  const [message, setMessage] = useState('');
-  const [logs, setLogs] = useState<RuleLogRecord[]>([]);
-  const [duplicateFilter, setDuplicateFilter] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
-    typeof Notification === 'undefined' ? 'denied' : Notification.permission,
+  const [newDraft] = useState(blankDraft);
+  const [draftState, updateDraft] = useState<RuleDraft | null>(null);
+  const selectedRule = rules.find((rule) => rule.id === selectedId);
+  const loadedDraft = useMemo(
+    () => (selectedRule ? savedDraft(selectedRule) : newDraft),
+    [selectedRule, newDraft],
   );
-  const refresh = useCallback(async () => {
-    const [nextRules, nextNavigation, filter] = await Promise.all([
-      json<RuleRecord[]>('/api/rules'),
-      json<ReaderNavigation>('/api/reader/navigation'),
-      json<{ enabled: boolean }>('/api/rules/duplicate-filter'),
-    ]);
-    setRules(nextRules);
-    setNavigation(nextNavigation);
-    setDuplicateFilter(filter.enabled);
-  }, []);
+  const draft = draftState ?? loadedDraft;
+  const setDraft = (next: RuleDraft | ((current: RuleDraft) => RuleDraft)) =>
+    updateDraft((current) => (typeof next === 'function' ? next(current ?? loadedDraft) : next));
+  const [message, setMessage] = useState('');
+  const editorMessage =
+    message ||
+    (!ruleList.isPending && !ruleList.isError && selectedId !== null && !selectedRule
+      ? 'Rule not found. Choose New or another saved rule.'
+      : '');
+  const [moreId, setMoreId] = useState<number | null>(null);
+  const more = rules.find((rule) => rule.id === moreId);
+  const [saving, setSaving] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const saveLock = useRef(false);
+  const copyLock = useRef(false);
+  const alive = useRef(true);
+  const editorEpoch = useRef(0);
+  const actionReturn = useRef<HTMLElement>(null);
+  const editor = useRef({ draft, selectedId, href: location.pathname + location.search, epoch: 0 });
+  useLayoutEffect(() => {
+    editor.current = {
+      draft,
+      selectedId,
+      href: location.pathname + location.search,
+      epoch: editorEpoch.current,
+    };
+  });
   useEffect(() => {
-    const controller = new AbortController();
-    void Promise.all([
-      json<RuleRecord[]>('/api/rules', { signal: controller.signal }),
-      json<ReaderNavigation>('/api/reader/navigation', { signal: controller.signal }),
-      json<{ enabled: boolean }>('/api/rules/duplicate-filter', { signal: controller.signal }),
-    ])
-      .then(([nextRules, nextNavigation, filter]) => {
-        if (controller.signal.aborted) return;
-        setRules(nextRules);
-        setNavigation(nextNavigation);
-        setDuplicateFilter(filter.enabled);
-        const route = rulePageLocation(new URL(location.href));
-        if (route.id !== null) {
-          const selected = nextRules.find((rule) => rule.id === route.id);
-          if (selected) setDraft(savedDraft(selected));
-          else setMessage('Rule not found.');
-          if (selected && route.tab === 'log') void json<RuleLogRecord[]>(`/api/rules/${selected.id}/logs`).then((items) => { const current = rulePageLocation(new URL(location.href)); if (current.id === selected.id && current.tab === 'log') setLogs(items); }).catch((error: Error) => { if (rulePageLocation(new URL(location.href)).id === selected.id) setMessage(error.message); });
-        }
-      })
-      .catch((error: Error) => { if (!controller.signal.aborted) setMessage(error.message); })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => controller.abort();
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
   }, []);
   useEffect(() => {
     const restore = () => {
+      editorEpoch.current++;
       const route = rulePageLocation(new URL(location.href));
-      setSelectedId(route.id); setTab(route.tab);
-      const selected = rules.find((rule) => rule.id === route.id);
-      setDraft(selected ? savedDraft(selected) : blankDraft());
-      setMessage(route.id !== null && !selected ? 'Rule not found.' : '');
-      setLogs([]);
-      if (selected && route.tab === 'log') void json<RuleLogRecord[]>(`/api/rules/${selected.id}/logs`).then((items) => { const current = rulePageLocation(new URL(location.href)); if (current.id === selected.id && current.tab === 'log') setLogs(items); }).catch((error: Error) => { if (rulePageLocation(new URL(location.href)).id === selected.id) setMessage(error.message); });
+      setSelectedId(route.id);
+      setTab(route.tab);
+      setMoreId(null);
+      const selected = ruleList.data?.find((rule) => rule.id === route.id);
+      updateDraft(selected ? savedDraft(selected) : blankDraft());
+      setMessage(route.id !== null && ruleList.data && !selected ? 'Rule not found.' : '');
     };
     window.addEventListener('popstate', restore);
     return () => window.removeEventListener('popstate', restore);
-  }, [rules]);
+  }, [ruleList.data]);
+  const [previewInput, setPreviewInput] = useState(() => ({
+    scope: draft.scope,
+    matchType: draft.matchType,
+    conditions: draft.conditions,
+  }));
+  const previewBody = useMemo(
+    () => ({ scope: draft.scope, matchType: draft.matchType, conditions: draft.conditions }),
+    [draft.scope, draft.matchType, draft.conditions],
+  );
   useEffect(() => {
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => {
-      void json<{ items: RulePreviewItem[] }>('/api/rules/preview', {
+    const timer = window.setTimeout(() => setPreviewInput(previewBody), 250);
+    return () => window.clearTimeout(timer);
+  }, [previewBody]);
+  const previewQuery = useQuery({
+    queryKey: ['rule-preview', previewInput],
+    queryFn: ({ signal }) =>
+      json<{ items: RulePreviewItem[] }>('/api/rules/preview', {
         method: 'POST',
-        signal: controller.signal,
-        body: JSON.stringify({
-          scope: draft.scope,
-          matchType: draft.matchType,
-          conditions: draft.conditions,
-        }),
-      })
-        .then((result) => {
-          setPreview(result.items);
-          setPreviewError('');
-        })
-        .catch((error: Error) => {
-          if (controller.signal.aborted) return;
-          setPreview([]);
-          setPreviewError(error.message);
-        });
-    }, 250);
-    return () => {
-      window.clearTimeout(timeout);
-      controller.abort();
-    };
-  }, [draft.conditions, draft.matchType, draft.scope]);
-  const owner = useOwnerActions(async (receipt) => {
-    await refresh();
-    if (receipt.kind === 'delete_rule' && !receipt.undoneAt && selectedId === receipt.targetId) {
-      setSelectedId(null); setDraft(blankDraft()); setTab('preview'); writeRuleLocation(null, 'preview');
-    }
-    if (receipt.kind === 'apply_rule' && rulePageLocation(new URL(location.href)).id === receipt.targetId) { const items = await json<RuleLogRecord[]>(`/api/rules/${receipt.targetId}/logs`); if (rulePageLocation(new URL(location.href)).id === receipt.targetId) setLogs(items); }
+        signal,
+        body: JSON.stringify(previewInput),
+      }),
+    retry: false,
   });
+  const previewPending = previewBody !== previewInput || previewQuery.isFetching;
+  const preview = previewQuery.data?.items ?? [];
+  const logQuery = useQuery({
+    queryKey: ['rule-logs', selectedId],
+    enabled: selectedId !== null && tab === 'log',
+    queryFn: ({ signal }) => json<RuleLogRecord[]>(`/api/rules/${selectedId}/logs`, { signal }),
+    retry: false,
+  });
+  const logs = logQuery.data ?? [];
+  const owner = useOwnerActions(async (receipt) => {
+    const before = client
+      .getQueryData<RuleRecord[]>(rulesKey)
+      ?.find((rule) => rule.id === receipt.targetId);
+    if (!alive.current) return;
+    if (
+      ((receipt.kind === 'delete_rule' && !receipt.undoneAt) ||
+        (receipt.kind === 'copy_rule' && receipt.undoneAt)) &&
+      editor.current.selectedId === receipt.targetId
+    ) {
+      setSelectedId(null);
+      setTab('preview');
+      writeRuleLocation(null, 'preview');
+      if (!before || JSON.stringify(editor.current.draft) === JSON.stringify(savedDraft(before)))
+        setDraft(blankDraft());
+      else setMessage('The saved rule was removed. Your unsaved draft is kept.');
+    }
+    await ruleList.refetch({ throwOnError: true });
+    if (receipt.kind === 'apply_rule')
+      await client.invalidateQueries({ queryKey: ['rule-logs', receipt.targetId] });
+  }, ruleKinds);
   const scopeMode = draft.scope.feedIds?.length
     ? 'feed'
     : draft.scope.folderIds?.length
@@ -196,58 +239,117 @@ export function RulesPage() {
     [navigation],
   );
   const selectRule = (rule: RuleRecord, nextTab: 'preview' | 'log' = 'preview') => {
+    editorEpoch.current++;
     setSelectedId(rule.id);
-    setDraft(savedDraft(rule)); setTab(nextTab); setLogs([]);
+    setDraft(savedDraft(rule));
+    setTab(nextTab);
     writeRuleLocation(rule.id, nextTab);
     setMessage('');
   };
   const newRule = (next = blankDraft()) => {
-    setSelectedId(null); setDraft(next); setTab('preview'); setLogs([]);
+    editorEpoch.current++;
+    setSelectedId(null);
+    setDraft(next);
+    setTab('preview');
+    setMessage('');
     writeRuleLocation(null, 'preview');
   };
+  const sameEditor = (context: typeof editor.current) =>
+    alive.current &&
+    editorEpoch.current === context.epoch &&
+    editor.current.draft === context.draft &&
+    editor.current.selectedId === context.selectedId &&
+    location.pathname + location.search === context.href;
   const save = async (event: FormEvent) => {
     event.preventDefault();
+    if (saveLock.current) return;
+    saveLock.current = true;
+    setSaving(true);
+    const context = editor.current;
     try {
       const saved = await json<RuleRecord>(
-        selectedId === null ? '/api/rules' : `/api/rules/${selectedId}`,
-        { method: selectedId === null ? 'POST' : 'PUT', body: JSON.stringify(draft) },
+        context.selectedId === null ? '/api/rules' : `/api/rules/${context.selectedId}`,
+        {
+          method: context.selectedId === null ? 'POST' : 'PUT',
+          body: JSON.stringify(context.draft),
+        },
       );
-      selectRule(saved);
-      setMessage('Rule saved.');
-      await refresh();
+      if (sameEditor(context)) {
+        selectRule(saved);
+        setMessage('Rule saved.');
+      } else if (
+        alive.current &&
+        editorEpoch.current === context.epoch &&
+        editor.current.selectedId === context.selectedId &&
+        location.pathname + location.search === context.href
+      ) {
+        setSelectedId(saved.id);
+        writeRuleLocation(saved.id, 'preview');
+        setMessage('Rule saved. Your newer edits are not saved.');
+      }
+      await ruleList.refetch();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not save rule');
+      if (
+        alive.current &&
+        editorEpoch.current === context.epoch &&
+        editor.current.selectedId === context.selectedId &&
+        location.pathname + location.search === context.href
+      )
+        setMessage(
+          `Save result was not confirmed. ${(error as Error).message} Refresh rules before creating another rule.`,
+        );
+    } finally {
+      saveLock.current = false;
+      if (alive.current) setSaving(false);
     }
   };
-  const remove = (rule: RuleRecord) => {
+  const rememberTrigger = (element?: HTMLElement) => {
+    if (element) (actionReturn as { current: HTMLElement | null }).current = element;
+  };
+  const remove = (rule: RuleRecord, element?: HTMLElement) => {
+    rememberTrigger(element);
+    setMoreId(null);
     setMessage('');
-    owner.ask({ kind: 'delete_rule', id: rule.id }, rule.name);
+    void owner.ask({ kind: 'delete_rule', id: rule.id }, rule.name);
   };
-  const duplicate = async (rule: RuleRecord) => {
-    const copy: RuleDraft = {
-      name: `${rule.name} copy`,
-      enabled: false,
-      matchType: rule.matchType,
-      scope: rule.scope,
-      conditions: rule.conditions,
-      actions: rule.actions,
-      stopProcessing: rule.stopProcessing,
-    };
-    const created = await json<RuleRecord>('/api/rules', {
-      method: 'POST',
-      body: JSON.stringify(copy),
-    });
-    await refresh();
-    selectRule(created);
+  const duplicate = async (rule: RuleRecord, element?: HTMLElement) => {
+    if (copyLock.current || !owner.capable || owner.busy || owner.intent) return;
+    rememberTrigger(element);
+    setMoreId(null);
+    copyLock.current = true;
+    setCopying(true);
+    const context = editor.current;
+    try {
+      const receipt = await owner.perform(
+        { kind: 'copy_rule', id: rule.id, definition: ruleCopySource(rule) },
+        rule.name,
+      );
+      if (receipt && sameEditor(context)) {
+        const created = client
+          .getQueryData<RuleRecord[]>(rulesKey)
+          ?.find((item) => item.id === receipt.targetId);
+        if (created) selectRule(created);
+      }
+    } catch (error) {
+      if (sameEditor(context)) setMessage(`Could not copy rule. ${(error as Error).message}`);
+    } finally {
+      copyLock.current = false;
+      if (alive.current) setCopying(false);
+    }
   };
-  const showLogs = async (rule: RuleRecord) => {
+  const showLogs = (rule: RuleRecord) => {
+    setMoreId(null);
     selectRule(rule, 'log');
-    try { const items = await json<RuleLogRecord[]>(`/api/rules/${rule.id}/logs`); const current = rulePageLocation(new URL(location.href)); if (current.id === rule.id && current.tab === 'log') setLogs(items); }
-    catch (error) { setMessage((error as Error).message); }
   };
-  const applyExisting = (rule: RuleRecord) => {
+  const applyExisting = (rule: RuleRecord, element?: HTMLElement) => {
+    rememberTrigger(element);
+    setMoreId(null);
     setMessage('');
-    owner.ask({ kind: 'apply_rule', id: rule.id, days: 30 }, rule.name, rule.actions.some((action) => ['webhook', 'notify'].includes(action.type)));
+    owner.ask(
+      { kind: 'apply_rule', id: rule.id, days: 30 },
+      rule.name,
+      rule.actions.some((action) => ['webhook', 'notify'].includes(action.type)),
+    );
   };
   const setCondition = (index: number, values: Partial<RuleCondition>) =>
     setDraft((current) => ({
@@ -262,16 +364,15 @@ export function RulesPage() {
       actions: current.actions.map((value, item) => (item === index ? action : value)),
     }));
 
-  if (loading) return <p role="status" className="p-12 text-center text-sm text-soft">Loading rules…</p>;
   return (
-    <div className="mx-auto grid max-w-7xl gap-8 px-7 py-8 lg:grid-cols-[18rem_minmax(0,1fr)_20rem]">
+    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-7 py-8 lg:grid-cols-[18rem_minmax(0,1fr)_20rem]">
       <aside>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-soft">
-              Automations
-            </p>
-            <h1 className="mt-1 text-2xl font-semibold">Rules</h1>
+            <p className="text-xs font-semibold uppercase tracking-wider text-soft">Automations</p>
+            <h1 tabIndex={-1} className="mt-1 text-2xl font-semibold">
+              Rules
+            </h1>
           </div>
           <button
             onClick={() => {
@@ -282,37 +383,98 @@ export function RulesPage() {
             New
           </button>
         </div>
-        <button
-          type="button"
-          disabled={typeof Notification === 'undefined' || notificationPermission === 'granted'}
-          onClick={() => {
-            if (typeof Notification !== 'undefined')
-              void Notification.requestPermission().then(setNotificationPermission);
-          }}
-          className="mt-3 rounded-lg border border-line-strong px-3 py-2 text-xs font-medium text-soft disabled:opacity-60"
-        >
-          {notificationPermission === 'granted'
-            ? 'Notifications enabled'
-            : 'Enable notifications'}
-        </button>
-        <Checkbox className="mt-3" label="Hide near-duplicate titles (3 days)"
-            checked={duplicateFilter}
-            onChange={(event) => {
-              const enabled = event.target.checked;
-              setDuplicateFilter(enabled);
-              void json('/api/rules/duplicate-filter', { method: 'PUT', body: JSON.stringify({ enabled }) });
-            }}
-        />
+        <RulesSettings />
         <div className="mt-5 rounded-xl bg-subtle p-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-soft">Templates</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <button type="button" onClick={()=>{newRule({...blankDraft(),name:'Mute a keyword',conditions:[{field:'title',operator:'contains',value:'keyword'}],actions:[{type:'hide'}]})}} className="brew-compact-control text-xs text-soft">Mute keyword</button>
-            <button type="button" onClick={()=>{newRule({...blankDraft(),name:'Highlight an author',conditions:[{field:'author',operator:'equals',value:'Author name'}],actions:[{type:'highlight',color:'#f59e0b'}]})}} className="brew-compact-control text-xs text-soft">Highlight author</button>
-            <button type="button" onClick={()=>{newRule({...blankDraft(),name:'Feature a folder',scope:{folderIds:navigation.folders[0]?[navigation.folders[0].id]:[]},conditions:[],actions:[{type:'feature_in_brew'}]})}} className="brew-compact-control text-xs text-soft">Feature folder</button>
+            <button
+              type="button"
+              onClick={() => {
+                newRule({
+                  ...blankDraft(),
+                  name: 'Mute a keyword',
+                  conditions: [{ field: 'title', operator: 'contains', value: 'keyword' }],
+                  actions: [{ type: 'hide' }],
+                });
+              }}
+              className="brew-compact-control text-xs text-soft"
+            >
+              Mute keyword
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                newRule({
+                  ...blankDraft(),
+                  name: 'Highlight an author',
+                  conditions: [{ field: 'author', operator: 'equals', value: 'Author name' }],
+                  actions: [{ type: 'highlight', color: '#f59e0b' }],
+                });
+              }}
+              className="brew-compact-control text-xs text-soft"
+            >
+              Highlight author
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                newRule({
+                  ...blankDraft(),
+                  name: 'Feature a folder',
+                  scope: { folderIds: navigation.folders[0] ? [navigation.folders[0].id] : [] },
+                  conditions: [],
+                  actions: [{ type: 'feature_in_brew' }],
+                });
+              }}
+              className="brew-compact-control text-xs text-soft"
+            >
+              Feature folder
+            </button>
           </div>
         </div>
         <div className="mt-5 space-y-2">
-          {rules.length === 0 && (
+          <button
+            type="button"
+            disabled={ruleList.isFetching}
+            className="brew-compact-control text-xs text-soft"
+            data-brew-action="refresh-rules"
+            onClick={() => void ruleList.refetch()}
+          >
+            Refresh rules
+          </button>
+          {ruleList.isError && (
+            <div role="alert" className="text-sm text-danger">
+              Could not refresh rules.{' '}
+              {ruleList.data
+                ? 'Previously loaded rules are shown.'
+                : 'Saved rules are unavailable.'}
+              <button
+                type="button"
+                className="brew-compact-control block text-accent"
+                onClick={() => void ruleList.refetch()}
+              >
+                Retry rules
+              </button>
+            </div>
+          )}
+          {navigationQuery.isError && (
+            <div role="alert" className="text-sm text-danger">
+              Could not load feed and folder choices.
+              <button
+                type="button"
+                className="brew-compact-control block text-accent"
+                onClick={() => void navigationQuery.refetch()}
+              >
+                Retry scope choices
+              </button>
+            </div>
+          )}
+          {ruleList.isPending && (
+            <p role="status" aria-label="Rules loading">
+              Loading rules…
+            </p>
+          )}
+          {!ruleList.isPending && !ruleList.isError && rules.length === 0 && (
             <p className="rounded-xl border border-dashed border-line-strong p-5 text-sm text-soft">
               No rules yet.
             </p>
@@ -326,7 +488,24 @@ export function RulesPage() {
               data-brew-state={rule.enabled ? 'enabled' : 'disabled'}
               className={`rounded-xl border p-3 ${selectedId === rule.id ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}`}
             >
-              <a data-brew-action="edit-rule" aria-label={rule.name} href={agentPageHref(rulePageHref(rule.id))} onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); selectRule(rule); }} className="block w-full text-left">
+              <a
+                data-brew-action="edit-rule"
+                aria-label={rule.name}
+                href={agentPageHref(rulePageHref(rule.id))}
+                onClick={(event) => {
+                  if (
+                    event.button !== 0 ||
+                    event.metaKey ||
+                    event.ctrlKey ||
+                    event.shiftKey ||
+                    event.altKey
+                  )
+                    return;
+                  event.preventDefault();
+                  selectRule(rule);
+                }}
+                className="block w-full text-left"
+              >
                 <span className="flex items-center justify-between gap-2">
                   <strong className="truncate text-sm">{rule.name}</strong>
                   <span
@@ -342,292 +521,495 @@ export function RulesPage() {
                 </span>
               </a>
               <div className="mt-2 flex gap-2">
-                <button data-brew-action="copy-rule" onClick={() => duplicate(rule)} className="brew-compact-control text-xs text-soft">
+                <button
+                  data-brew-action="copy-rule"
+                  disabled={!owner.capable || owner.busy || copying || Boolean(owner.intent)}
+                  onClick={(event) => void duplicate(rule, event.currentTarget)}
+                  className="brew-compact-control text-xs text-soft"
+                >
                   Copy
                 </button>
-                <button data-brew-action="delete-rule" disabled={!owner.capable || owner.busy} onClick={() => remove(rule)} className="brew-compact-control text-xs text-danger">
+                <button
+                  data-brew-action="delete-rule"
+                  disabled={!owner.capable || owner.busy || copying || Boolean(owner.intent)}
+                  onClick={(event) => remove(rule, event.currentTarget)}
+                  className="brew-compact-control text-xs text-danger"
+                >
                   Delete
                 </button>
-                <a data-brew-action="rule-log" href={agentPageHref(rulePageHref(rule.id, 'log'))} onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); void showLogs(rule); }} className="brew-compact-control text-xs text-soft">
+                <a
+                  data-brew-action="rule-log"
+                  href={agentPageHref(rulePageHref(rule.id, 'log'))}
+                  onClick={(event) => {
+                    if (
+                      event.button !== 0 ||
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey
+                    )
+                      return;
+                    event.preventDefault();
+                    void showLogs(rule);
+                  }}
+                  className="brew-compact-control text-xs text-soft"
+                >
                   Logs
                 </a>
-                <button data-brew-action="apply-rule" disabled={!owner.capable || owner.busy} onClick={() => applyExisting(rule)} className="brew-compact-control text-xs text-accent">
+                <button
+                  data-brew-action="apply-rule"
+                  disabled={!owner.capable || owner.busy || copying || Boolean(owner.intent)}
+                  onClick={(event) => applyExisting(rule, event.currentTarget)}
+                  className="brew-compact-control text-xs text-accent"
+                >
                   Apply 30d
                 </button>
+                <IconButton
+                  icon="more"
+                  label={`More actions for rule ${rule.name}`}
+                  data-brew-action="rule-more"
+                  onClick={(event) => {
+                    rememberTrigger(event.currentTarget);
+                    setMoreId(rule.id);
+                  }}
+                />
               </div>
             </article>
           ))}
         </div>
       </aside>
-      <form onSubmit={save} className="rounded-3xl border border-line bg-surface p-7 shadow-raised">
-        <div className="flex items-center gap-3">
-          <input
-            aria-label="Rule name"
-            value={draft.name}
-            onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
-            className="min-w-0 flex-1 border-0 bg-transparent text-2xl font-semibold outline-none"
-          />
-          <Checkbox label="Enabled"
+      <form
+        onSubmit={save}
+        className="min-w-0 rounded-3xl border border-line bg-surface p-7 shadow-raised"
+      >
+        <fieldset
+          className="contents"
+          disabled={
+            ruleList.isPending || (draftState === null && selectedId !== null && !selectedRule)
+          }
+        >
+          <div className="flex items-center gap-3">
+            <input
+              aria-label="Rule name"
+              value={draft.name}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, name: event.target.value }))
+              }
+              className="min-w-0 flex-1 border-0 bg-transparent text-2xl font-semibold outline-none"
+            />
+            <Checkbox
+              label="Enabled"
               checked={draft.enabled}
               onChange={(event) =>
                 setDraft((current) => ({ ...current, enabled: event.target.checked }))
               }
-          />
-        </div>
-        <div className="mt-8 text-[17px] leading-[2.7] text-soft">
-          When an article in{' '}
-          <select
-            aria-label="Rule scope"
-            value={scopeMode}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (value === 'all') setDraft((current) => ({ ...current, scope: {} }));
-              if (value === 'feed')
-                setDraft((current) => ({
-                  ...current,
-                  scope: { feedIds: allFeeds[0] ? [allFeeds[0].id] : [] },
-                }));
-              if (value === 'folder')
-                setDraft((current) => ({
-                  ...current,
-                  scope: { folderIds: navigation.folders[0] ? [navigation.folders[0].id] : [] },
-                }));
-            }}
-            className={inputClass}
-          >
-            <option value="all">all feeds</option>
-            <option value="feed">a feed</option>
-            <option value="folder">a folder</option>
-          </select>
-          {scopeMode === 'feed' && (
+            />
+          </div>
+          <div className="mt-8 text-[17px] leading-[2.7] text-soft">
+            When an article in{' '}
             <select
-              aria-label="Scope feed"
-              value={draft.scope.feedIds?.[0] ?? ''}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  scope: { feedIds: [Number(event.target.value)] },
-                }))
-              }
-              className={`ml-2 ${inputClass}`}
+              aria-label="Rule scope"
+              value={scopeMode}
+              onChange={(event) => {
+                const value = event.target.value;
+                if (value === 'all') setDraft((current) => ({ ...current, scope: {} }));
+                if (value === 'feed')
+                  setDraft((current) => ({
+                    ...current,
+                    scope: { feedIds: allFeeds[0] ? [allFeeds[0].id] : [] },
+                  }));
+                if (value === 'folder')
+                  setDraft((current) => ({
+                    ...current,
+                    scope: { folderIds: navigation.folders[0] ? [navigation.folders[0].id] : [] },
+                  }));
+              }}
+              className={inputClass}
             >
-              {allFeeds.map((feed) => (
-                <option key={feed.id} value={feed.id}>
-                  {feed.title}
-                </option>
-              ))}
+              <option value="all">all feeds</option>
+              <option value="feed" disabled={!allFeeds.length}>
+                a feed
+              </option>
+              <option value="folder" disabled={!navigation.folders.length}>
+                a folder
+              </option>
             </select>
-          )}
-          {scopeMode === 'folder' && (
-            <select
-              aria-label="Scope folder"
-              value={draft.scope.folderIds?.[0] ?? ''}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  scope: { folderIds: [Number(event.target.value)] },
-                }))
-              }
-              className={`ml-2 ${inputClass}`}
-            >
-              {navigation.folders.map((folder) => (
-                <option key={folder.id} value={folder.id}>
-                  {folder.title}
-                </option>
-              ))}
-            </select>
-          )}{' '}
-          matches{' '}
-          <select
-            aria-label="Match type"
-            value={draft.matchType}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                matchType: event.target.value as 'all' | 'any',
-              }))
-            }
-            className={inputClass}
-          >
-            <option value="all">all</option>
-            <option value="any">any</option>
-          </select>{' '}
-          of:
-        </div>
-        <div className="mt-3 space-y-3">
-          {draft.conditions.map((condition, index) => (
-            <div
-              key={index}
-              className="flex flex-wrap items-center gap-2 rounded-xl bg-canvas p-3"
-            >
+            {scopeMode === 'feed' && (
               <select
-                aria-label={`Condition ${index + 1} field`}
-                value={condition.field}
+                aria-label="Scope feed"
+                value={draft.scope.feedIds?.[0] ?? ''}
                 onChange={(event) =>
-                  setCondition(index, { field: event.target.value as RuleField })
+                  setDraft((current) => ({
+                    ...current,
+                    scope: { feedIds: [Number(event.target.value)] },
+                  }))
                 }
-                className={inputClass}
+                className={`ml-2 ${inputClass}`}
               >
-                {fields.map((field) => (
-                  <option key={field}>{field}</option>
-                ))}
-              </select>
-              <select
-                aria-label={`Condition ${index + 1} operator`}
-                value={condition.operator}
-                onChange={(event) =>
-                  setCondition(index, { operator: event.target.value as RuleOperator })
-                }
-                className={inputClass}
-              >
-                {operators.map((operator) => (
-                  <option key={operator} value={operator}>
-                    {operator.replaceAll('_', ' ')}
+                {allFeeds.map((feed) => (
+                  <option key={feed.id} value={feed.id}>
+                    {feed.title}
                   </option>
                 ))}
               </select>
-              <input
-                aria-label={`Condition ${index + 1} value`}
-                value={condition.value}
-                onChange={(event) => setCondition(index, { value: event.target.value })}
-                placeholder="value"
-                className={`min-w-48 flex-1 ${inputClass}`}
-              />
-              <button
-                type="button"
-                aria-label={`Remove condition ${index + 1}`}
-                disabled={draft.conditions.length === 1}
-                onClick={() =>
+            )}
+            {scopeMode === 'folder' && (
+              <select
+                aria-label="Scope folder"
+                value={draft.scope.folderIds?.[0] ?? ''}
+                onChange={(event) =>
                   setDraft((current) => ({
                     ...current,
-                    conditions: current.conditions.filter((_, item) => item !== index),
+                    scope: { folderIds: [Number(event.target.value)] },
                   }))
                 }
-                className="brew-compact-control px-2 text-muted disabled:opacity-30"
+                className={`ml-2 ${inputClass}`}
               >
-                ×
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            disabled={draft.conditions.length >= 10}
-            onClick={() =>
-              setDraft((current) => ({
-                ...current,
-                conditions: [
-                  ...current.conditions,
-                  { field: 'title', operator: 'contains', value: '' },
-                ],
-              }))
-            }
-            className="brew-compact-control text-xs font-semibold text-accent"
-          >
-            + Add condition
-          </button>
-        </div>
-        <div className="mt-8 text-[17px] text-soft">Then:</div>
-        <div className="mt-3 space-y-3">
-          {draft.actions.map((action, index) => (
-            <div
-              key={index}
-              className="flex flex-wrap items-center gap-2 rounded-xl bg-canvas p-3"
-            >
-              <select
-                aria-label={`Action ${index + 1}`}
-                value={action.type}
-                onChange={(event) =>
-                  setAction(index, defaultAction(event.target.value as RuleAction['type']))
-                }
-                className={inputClass}
-              >
-                {actionTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {actionLabels[type]}
+                {navigation.folders.map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.title}
                   </option>
                 ))}
               </select>
-              <ActionValue action={action} onChange={(next) => setAction(index, next)} />
-              <button
-                type="button"
-                aria-label={`Remove action ${index + 1}`}
-                disabled={draft.actions.length === 1}
-                onClick={() =>
-                  setDraft((current) => ({
-                    ...current,
-                    actions: current.actions.filter((_, item) => item !== index),
-                  }))
-                }
-                className="brew-compact-control px-2 text-muted disabled:opacity-30"
+            )}{' '}
+            matches{' '}
+            <select
+              aria-label="Match type"
+              value={draft.matchType}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  matchType: event.target.value as 'all' | 'any',
+                }))
+              }
+              className={inputClass}
+            >
+              <option value="all">all</option>
+              <option value="any">any</option>
+            </select>{' '}
+            of:
+          </div>
+          <div className="mt-3 space-y-3">
+            {draft.conditions.map((condition, index) => (
+              <div
+                key={index}
+                className="flex flex-wrap items-center gap-2 rounded-xl bg-canvas p-3"
               >
-                ×
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() =>
-              setDraft((current) => ({
-                ...current,
-                actions: [...current.actions, { type: 'star' }],
-              }))
-            }
-            className="brew-compact-control text-xs font-semibold text-accent"
-          >
-            + Add action
-          </button>
-        </div>
-        <Checkbox className="mt-7" label="Stop processing later rules when this matches"
+                <select
+                  aria-label={`Condition ${index + 1} field`}
+                  value={condition.field}
+                  onChange={(event) =>
+                    setCondition(index, { field: event.target.value as RuleField })
+                  }
+                  className={inputClass}
+                >
+                  {fields.map((field) => (
+                    <option key={field}>{field}</option>
+                  ))}
+                </select>
+                <select
+                  aria-label={`Condition ${index + 1} operator`}
+                  value={condition.operator}
+                  onChange={(event) =>
+                    setCondition(index, { operator: event.target.value as RuleOperator })
+                  }
+                  className={inputClass}
+                >
+                  {operators.map((operator) => (
+                    <option key={operator} value={operator}>
+                      {operator.replaceAll('_', ' ')}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  aria-label={`Condition ${index + 1} value`}
+                  value={condition.value}
+                  onChange={(event) => setCondition(index, { value: event.target.value })}
+                  placeholder="value"
+                  className={`min-w-48 flex-1 ${inputClass}`}
+                />
+                <button
+                  type="button"
+                  aria-label={`Remove condition ${index + 1}`}
+                  disabled={draft.conditions.length === 1}
+                  onClick={() =>
+                    setDraft((current) => ({
+                      ...current,
+                      conditions: current.conditions.filter((_, item) => item !== index),
+                    }))
+                  }
+                  className="brew-compact-control px-2 text-muted disabled:opacity-30"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              disabled={draft.conditions.length >= 10}
+              onClick={() =>
+                setDraft((current) => ({
+                  ...current,
+                  conditions: [
+                    ...current.conditions,
+                    { field: 'title', operator: 'contains', value: '' },
+                  ],
+                }))
+              }
+              className="brew-compact-control text-xs font-semibold text-accent"
+            >
+              + Add condition
+            </button>
+          </div>
+          <div className="mt-8 text-[17px] text-soft">Then:</div>
+          <div className="mt-3 space-y-3">
+            {draft.actions.map((action, index) => (
+              <div
+                key={index}
+                className="flex flex-wrap items-center gap-2 rounded-xl bg-canvas p-3"
+              >
+                <select
+                  aria-label={`Action ${index + 1}`}
+                  value={action.type}
+                  onChange={(event) =>
+                    setAction(index, defaultAction(event.target.value as RuleAction['type']))
+                  }
+                  className={inputClass}
+                >
+                  {actionTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {actionLabels[type]}
+                    </option>
+                  ))}
+                </select>
+                <ActionValue action={action} onChange={(next) => setAction(index, next)} />
+                <button
+                  type="button"
+                  aria-label={`Remove action ${index + 1}`}
+                  disabled={draft.actions.length === 1}
+                  onClick={() =>
+                    setDraft((current) => ({
+                      ...current,
+                      actions: current.actions.filter((_, item) => item !== index),
+                    }))
+                  }
+                  className="brew-compact-control px-2 text-muted disabled:opacity-30"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() =>
+                setDraft((current) => ({
+                  ...current,
+                  actions: [...current.actions, { type: 'star' }],
+                }))
+              }
+              className="brew-compact-control text-xs font-semibold text-accent"
+            >
+              + Add action
+            </button>
+          </div>
+          <Checkbox
+            className="mt-7"
+            label="Stop processing later rules when this matches"
             checked={draft.stopProcessing}
             onChange={(event) =>
               setDraft((current) => ({ ...current, stopProcessing: event.target.checked }))
             }
-        />
-        {(message || previewError) && (
-          <p role="status" className="mt-4 text-sm text-soft">
-            {message || previewError}
-          </p>
-        )}
-        <button className="mt-7 rounded-full bg-inverse px-5 py-2.5 text-sm font-semibold text-on-inverse">
-          Save rule
-        </button>
+          />
+          {editorMessage && (
+            <p role="status" aria-label="Rule editor result" className="mt-4 text-sm text-soft">
+              {editorMessage}
+            </p>
+          )}
+          <button
+            disabled={saving}
+            data-brew-action="save-rule"
+            className="mt-7 rounded-full bg-inverse px-5 py-2.5 text-sm font-semibold text-on-inverse"
+          >
+            {saving ? 'Saving rule…' : 'Save rule'}
+          </button>
+        </fieldset>
       </form>
       <aside className="rounded-3xl border border-line bg-surface p-5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-soft">
-          Live preview
-        </p>
-        <h2 className="mt-1 text-lg font-semibold">Would match {preview.length}</h2>
+        <p className="text-xs font-semibold uppercase tracking-wider text-soft">Live preview</p>
+        <h2 className="mt-1 text-lg font-semibold">
+          {previewPending
+            ? 'Updating preview…'
+            : previewQuery.isError
+              ? 'Preview unavailable'
+              : `Would match ${preview.length}`}
+        </h2>
         <p className="mt-1 text-xs text-soft">
           Most recent matching articles, without running actions.
         </p>
         <div className="mt-4 space-y-2">
-          {preview.slice(0, 50).map((article) => (
-            <article key={article.id} className="border-b border-line pb-2">
-              <h3 className="text-sm font-medium leading-snug">{article.title}</h3>
-              <p className="mt-1 text-xs text-soft">{article.feedTitle}</p>
-            </article>
-          ))}
-          {preview.length === 0 && (
+          {!previewPending &&
+            !previewQuery.isError &&
+            preview.slice(0, 50).map((article) => (
+              <article
+                key={article.id}
+                data-brew-id={article.id}
+                data-brew-kind="article"
+                data-brew-state="preview"
+                className="border-b border-line pb-2"
+              >
+                <h3 className="text-sm font-medium leading-snug">{article.title}</h3>
+                <p className="mt-1 text-xs text-soft">{article.feedTitle}</p>
+              </article>
+            ))}
+          {previewQuery.isError && !previewPending && (
+            <div role="alert" className="text-sm text-danger">
+              {previewQuery.error.message}
+              <button
+                type="button"
+                className="brew-compact-control block text-accent"
+                onClick={() => void previewQuery.refetch()}
+              >
+                Retry preview
+              </button>
+            </div>
+          )}
+          {!previewPending && !previewQuery.isError && preview.length === 0 && (
             <p className="py-8 text-center text-sm text-muted">No matches yet.</p>
           )}
         </div>
         {(logs.length > 0 || tab === 'log') && (
           <section className="mt-7 border-t border-line pt-5" aria-label="Rule execution log">
             <h2 className="text-sm font-semibold">Recent executions</h2>
-            {logs.length === 0 && <p className="mt-3 text-xs text-soft">No executions yet.</p>}
+            {logQuery.isFetching && (
+              <p role="status" aria-label="Rule log loading">
+                Loading executions…
+              </p>
+            )}
+            {logQuery.isError && (
+              <div role="alert" className="text-xs text-danger">
+                Could not load executions.
+                <button
+                  type="button"
+                  className="brew-compact-control block text-accent"
+                  onClick={() => void logQuery.refetch()}
+                >
+                  Retry executions
+                </button>
+              </div>
+            )}
+            {!logQuery.isFetching && !logQuery.isError && logs.length === 0 && (
+              <p className="mt-3 text-xs text-soft">No executions yet.</p>
+            )}
             <div className="mt-3 max-h-72 space-y-3 overflow-auto">
               {logs.map((log) => (
-                <article key={log.id} className="text-xs">
+                <article
+                  key={log.id}
+                  data-brew-id={log.id}
+                  data-brew-kind="rule-log"
+                  data-brew-state="executed"
+                  className="text-xs"
+                >
                   <p className="font-medium">{log.articleTitle}</p>
                   <p className="text-muted">{new Date(log.executedAt).toLocaleString()}</p>
-                  <p className="text-soft">{log.actions.map((action) => `${action.type}: ${action.ok ? 'ok' : action.error}`).join(', ')}</p>
+                  <p className="text-soft">
+                    {log.actions
+                      .map((action) => `${action.type}: ${action.ok ? 'ok' : action.error}`)
+                      .join(', ')}
+                  </p>
                 </article>
               ))}
             </div>
           </section>
         )}
       </aside>
-      <OwnerActionUi action={owner} />
+      <ModalSheet
+        open={Boolean(more)}
+        title="Rule actions"
+        description={more?.name}
+        returnFocusRef={actionReturn}
+        onClose={() => setMoreId(null)}
+      >
+        {more && (
+          <div className="flex flex-col items-start gap-3">
+            <a
+              className="brew-compact-control text-sm text-accent"
+              href={agentPageHref(rulePageHref(more.id))}
+              onClick={(event) => {
+                if (
+                  event.button !== 0 ||
+                  event.metaKey ||
+                  event.ctrlKey ||
+                  event.shiftKey ||
+                  event.altKey
+                )
+                  return;
+                event.preventDefault();
+                setMoreId(null);
+                selectRule(more);
+              }}
+            >
+              Edit rule
+            </a>
+            <a
+              className="brew-compact-control text-sm text-accent"
+              href={agentPageHref(rulePageHref(more.id, 'log'))}
+              onClick={(event) => {
+                if (
+                  event.button !== 0 ||
+                  event.metaKey ||
+                  event.ctrlKey ||
+                  event.shiftKey ||
+                  event.altKey
+                )
+                  return;
+                event.preventDefault();
+                showLogs(more);
+              }}
+            >
+              Execution logs
+            </a>
+            <Button
+              disabled={!owner.capable || owner.busy || copying || Boolean(owner.intent)}
+              onClick={() => void duplicate(more)}
+            >
+              Copy
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={!owner.capable || owner.busy || copying || Boolean(owner.intent)}
+              onClick={() => applyExisting(more)}
+            >
+              Apply 30d
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={!owner.capable || owner.busy || copying || Boolean(owner.intent)}
+              onClick={() => remove(more)}
+            >
+              Delete
+            </Button>
+            {!owner.capable && (
+              <p className="text-sm text-soft">
+                <Badge tone="warning">Rule actions need setup</Badge>{' '}
+                <a
+                  className="brew-compact-control text-accent"
+                  href={agentPageHref('/settings/runs#setup-agents')}
+                >
+                  Set up agent access
+                </a>
+              </p>
+            )}
+          </div>
+        )}
+      </ModalSheet>
+      <OwnerActionUi action={owner} returnFocusRef={actionReturn} />
+      {copying && (
+        <p role="status" aria-label="Rule copy progress" className="text-sm text-soft">
+          {owner.intent?.submitted
+            ? 'Copy result is unconfirmed. Check result to recover the same request.'
+            : 'Copying saved rule…'}
+        </p>
+      )}
     </div>
   );
 }

@@ -51,8 +51,8 @@ test('a late preview preserves the rule save confirmation', async ({ page }) => 
   await page.getByLabel('Condition 1 value').fill('spam');
   await started;
   await page.getByRole('button', { name: 'Save rule' }).click();
-  await expect(page.getByRole('status')).toHaveText('Rule saved.');
+  await expect(page.getByRole('status', { name: 'Rule editor result' })).toHaveText('Rule saved.');
   releasePreview();
   await expect(page.getByRole('heading', { name: 'Late preview result' })).toBeVisible();
-  await expect(page.getByRole('status')).toHaveText('Rule saved.');
+  await expect(page.getByRole('status', { name: 'Rule editor result' })).toHaveText('Rule saved.');
 });

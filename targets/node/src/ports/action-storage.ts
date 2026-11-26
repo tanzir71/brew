@@ -15,6 +15,7 @@ import { OpmlService } from '../services/opml-service.js';
 import { NewsletterLibrary } from '../services/newsletter-library.js';
 import { ReadActions } from '../services/read-actions.js';
 import type { ReadActionTarget } from '../../../../packages/core/src/read-actions.js';
+import { copiedRuleDraft, ruleCopySource } from '../../../../packages/core/src/rule-copy.js';
 
 const undoMs = 30_000;
 interface Stored {
@@ -33,6 +34,11 @@ export class NodeActionStorage implements ActionStoragePort {
     { signature: string; task: Promise<ActionReceipt> }
   >();
   private args(request: ActionRequest) {
+    if (request.kind === 'copy_rule')
+      return JSON.stringify({
+        id: request.id,
+        revision: createHash('sha256').update(request.definition).digest('hex'),
+      });
     if (request.kind === 'mark_read')
       return JSON.stringify({
         revision: request.revision,
@@ -148,6 +154,43 @@ export class NodeActionStorage implements ActionStoragePort {
           throw new ActionError(409, 'This request was already used for another action.');
         return this.metadata(prior.id);
       }
+    }
+    if (request.kind === 'copy_rule') {
+      return this.database.sqlite.transaction(() => {
+        const storage = new NodeRuleStorage(this.database);
+        const source = storage.definitions().find((rule) => rule.id === request.id);
+        if (!source) throw new ActionError(404, 'Rule not found.');
+        if (ruleCopySource(source) !== request.definition)
+          throw new ActionError(
+            409,
+            'The saved rule changed. Close this result, refresh rules and choose Copy again.',
+          );
+        const id = this.create(request, `Copying ${source.name}…`, false);
+        let copied;
+        try {
+          const rules = new RulesService(
+            storage,
+            nodeRegex,
+            { fetch: this.fetcher },
+            { notify: this.notify },
+            { now: () => this.clock.now(), monotonic: nodeClock.monotonic },
+          );
+          copied = this.write(id, () => rules.create(copiedRuleDraft(source)));
+        } catch {
+          throw new ActionError(400, 'Could not copy this saved rule. Check its definition.');
+        }
+        this.database.sqlite.prepare('UPDATE agent_actions SET result_json=? WHERE id=?').run(
+          JSON.stringify({
+            kind: request.kind,
+            targetId: copied.id,
+            summary: `Copied “${source.name}” as a disabled rule.`,
+            status: 'complete',
+            externalEffects: false,
+          }),
+          id,
+        );
+        return this.metadata(id);
+      })();
     }
     if (request.kind === 'mark_read') {
       return this.database.sqlite.transaction(() => {

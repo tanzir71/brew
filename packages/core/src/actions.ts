@@ -3,12 +3,14 @@ import { newsletterSettingsPatch } from './newsletter-settings.js';
 import type { NewsletterSettingsPatch } from './types/newsletters.js';
 import { readActionTarget, type ReadActionTarget, type ReadActionPreview } from './read-actions.js';
 export type ItemActionKind = 'delete_feed' | 'delete_folder' | 'delete_rule' | 'apply_rule';
-export type ActionKind = ItemActionKind | 'import_opml' | 'update_sender' | 'mark_read';
+export type ActionKind =
+  ItemActionKind | 'import_opml' | 'update_sender' | 'mark_read' | 'copy_rule';
 export type ActionInput =
   | { kind: ItemActionKind; id: number; days?: number }
   | { kind: 'import_opml'; opml: string }
   | { kind: 'update_sender'; id: number; patch: NewsletterSettingsPatch; revision: string }
-  | { kind: 'mark_read'; target: ReadActionTarget; revision: string };
+  | { kind: 'mark_read'; target: ReadActionTarget; revision: string }
+  | { kind: 'copy_rule'; id: number; definition: string };
 export type ActionIntentRequest = ActionInput & { requestId?: string };
 export type ActionRequest = ActionIntentRequest & { confirm: true };
 export interface ActionReceipt {
@@ -78,12 +80,30 @@ export class ActionsService {
         'import_opml',
         'update_sender',
         'mark_read',
+        'copy_rule',
       ].includes(String(input.kind)) ||
       (!['import_opml', 'mark_read'].includes(String(input.kind)) && !validId(input.id))
     )
       throw new ActionError(400, 'Choose a valid action and item.');
     if (input.confirm !== true) throw new ActionError(428, 'Confirm this action first.');
     const identity = input.requestId === undefined ? {} : { requestId: input.requestId as string };
+    if (input.kind === 'copy_rule') {
+      if (typeof input.definition !== 'string' || input.definition.length > 1_000_000)
+        throw new ActionError(400, 'Choose the saved rule to copy.');
+      try {
+        if (JSON.parse(input.definition)?.id !== input.id)
+          throw new Error('Invalid saved definition');
+      } catch {
+        throw new ActionError(400, 'Choose the saved rule to copy.');
+      }
+      return this.storage.run({
+        ...identity,
+        kind: 'copy_rule',
+        id: input.id as number,
+        definition: input.definition,
+        confirm: true,
+      });
+    }
     if (input.kind === 'mark_read') {
       if (typeof input.revision !== 'string' || !/^[a-f\d]{64}$/.test(input.revision))
         throw new ActionError(400, 'Review the current unread articles first.');

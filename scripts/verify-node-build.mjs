@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
+import { ruleCopySource } from '../dist/packages/core/src/rule-copy.js';
 import { log } from 'node:console';
 import { tmpdir } from 'node:os';
 import { URL } from 'node:url';
@@ -194,6 +195,58 @@ try {
     /id="root"/,
   );
   assert.equal((await app.inject('/rules.json')).json().kind, 'rules');
+  const copySource = (
+    await app.inject({
+      method: 'POST',
+      url: '/api/rules',
+      payload: {
+        name: 'Compiled copy source',
+        enabled: false,
+        matchType: 'all',
+        scope: {},
+        conditions: [{ field: 'title', operator: 'contains', value: 'compiled' }],
+        actions: [{ type: 'star' }],
+        stopProcessing: false,
+      },
+    })
+  ).json();
+  const copyRequest = {
+    kind: 'copy_rule',
+    id: copySource.id,
+    definition: ruleCopySource(copySource),
+    confirm: true,
+    requestId: 'compiled-rule-copy-01',
+  };
+  const copied = await app.inject({ method: 'POST', url: '/api/actions', payload: copyRequest });
+  assert.equal(copied.statusCode, 200);
+  assert.equal(copied.headers['cache-control'], 'private, no-store');
+  assert.equal(copied.json().canUndo, true);
+  assert.equal(
+    (await app.inject('/api/rules')).json().find((rule) => rule.id === copied.json().targetId).enabled,
+    false,
+  );
+  assert.equal(
+    (await app.inject({ method: 'POST', url: '/api/actions', payload: copyRequest })).json().id,
+    copied.json().id,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: 'POST',
+        url: `/api/actions/${copied.json().id}/undo`,
+        payload: {},
+      })
+    ).json().status,
+    'undone',
+  );
+  assert.equal(
+    (await app.inject('/api/rules')).json().some((rule) => rule.id === copied.json().targetId),
+    false,
+  );
+  assert.equal(
+    (await app.inject('/api/rules')).json().find((rule) => rule.id === copySource.id).name,
+    copySource.name,
+  );
   assert.equal((await app.inject('/feeds.json?section=hidden')).json().kind, 'hidden-articles');
   assert.equal((await app.inject('/feeds.json?section=hidden&page=2')).json().state.page, 2);
   assert.equal(

@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { ruleCopySource } from '../../packages/core/src/rule-copy.js';
+import { NodeRuleStorage } from './src/ports/rule-storage.js';
 import { eq } from 'drizzle-orm';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
@@ -97,6 +99,188 @@ function setup() {
   };
 }
 describe('confirmed owner actions and durable undo', () => {
+  const copyRequest = (f: ReturnType<typeof setup>) =>
+    ({
+      kind: 'copy_rule',
+      id: f.rule.id,
+      confirm: true,
+      requestId: 'copy-saved-rule-001',
+      definition: ruleCopySource(new NodeRuleStorage(f.database).definitions()[0]!),
+    }) as const;
+  it('copies exactly the saved definition as disabled, journals only the new row and replays before source lookup', async () => {
+    const f = setup();
+    f.database.db
+      .update(rules)
+      .set({
+        scopeJson: JSON.stringify({ feedIds: [f.feed.id] }),
+        actionsJson: JSON.stringify([
+          { type: 'webhook', url: 'https://private.test/secret' },
+          { type: 'notify' },
+        ]),
+      })
+      .where(eq(rules.id, f.rule.id))
+      .run();
+    const before = f.snapshot();
+    let calls = 0;
+    const service = new ActionsService(
+      new NodeActionStorage(
+        f.database,
+        f.clock,
+        async () => {
+          calls++;
+          return new Response();
+        },
+        () => {
+          calls++;
+        },
+      ),
+    );
+    const request = copyRequest(f);
+    const [receipt, replay] = await Promise.all([service.run(request), service.run(request)]);
+    expect(replay).toEqual(receipt);
+    expect(receipt).toMatchObject({
+      kind: 'copy_rule',
+      status: 'complete',
+      canUndo: true,
+      externalEffects: false,
+    });
+    expect(receipt.targetId).not.toBe(f.rule.id);
+    const definitions = new NodeRuleStorage(f.database).definitions();
+    const copy = definitions.find((rule) => rule.id === receipt.targetId)!;
+    expect(copy).toEqual({
+      ...definitions[0],
+      id: copy.id,
+      name: `${f.rule.name} copy`,
+      enabled: false,
+      position: definitions[0]!.position + 1,
+    });
+    for (const [table, rows] of Object.entries(before))
+      if (table !== 'rules') expect(f.snapshot()[table]).toEqual(rows);
+    expect(calls).toBe(0);
+    const audit = f.database.sqlite.prepare('SELECT args_json FROM agent_actions').get();
+    expect(JSON.stringify(audit)).not.toContain('private.test');
+    expect(f.database.sqlite.prepare('SELECT table_name FROM agent_action_changes').all()).toEqual([
+      { table_name: 'rules' },
+    ]);
+    const sqlite = new Database(f.database.sqlite.serialize());
+    sqlite.pragma('foreign_keys=ON');
+    closes.push(() => sqlite.close());
+    const reopened = new ActionsService(
+      new NodeActionStorage(
+        { sqlite, db: drizzle(sqlite, { schema }), close: () => sqlite.close() },
+        f.clock,
+      ),
+    );
+    expect(await reopened.run(request)).toMatchObject({ id: receipt.id, canUndo: true });
+    reopened.undo(receipt.id);
+    for (const [table, rows] of Object.entries(before))
+      expect(sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()).toEqual(rows);
+    service.undo(receipt.id);
+    expect(f.snapshot()).toEqual(before);
+    expect(await service.run(request)).toMatchObject({
+      id: receipt.id,
+      undoneAt: expect.any(String),
+    });
+    f.database.db.delete(rules).where(eq(rules.id, f.rule.id)).run();
+    expect(
+      await new ActionsService(new NodeActionStorage(f.database, f.clock)).run(request),
+    ).toMatchObject({ id: receipt.id, undoneAt: expect.any(String) });
+    expect(new NodeRuleStorage(f.database).definitions()).toHaveLength(0);
+  });
+  it('rejects stale copies without writes and ignores execution counters and object-key order in revisions', async () => {
+    const f = setup();
+    const request = copyRequest(f);
+    const source = new NodeRuleStorage(f.database).definitions()[0]!;
+    expect(ruleCopySource({ ...source, scope: {}, hits24h: 99, hits30d: 100 })).toBe(
+      ruleCopySource(source),
+    );
+    expect(ruleCopySource({ ...source, scope: { feedIds: [1, 2], folderIds: [3] } })).toBe(
+      ruleCopySource({ ...source, scope: { folderIds: [3], feedIds: [1, 2] } }),
+    );
+    expect(ruleCopySource({ ...source, scope: { feedIds: [1, 2] } })).not.toBe(
+      ruleCopySource({ ...source, scope: { feedIds: [2, 1] } }),
+    );
+    f.database.db
+      .update(rules)
+      .set({ name: 'Changed independently' })
+      .where(eq(rules.id, f.rule.id))
+      .run();
+    const before = f.snapshot();
+    const changes = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    await expect(f.service.run(request)).rejects.toThrow('saved rule changed');
+    expect(f.snapshot()).toEqual(before);
+    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(changes);
+    expect(f.service.recent()).toEqual([]);
+  });
+  it('refuses copy Undo after a saved edit or later execution without deleting any later work', async () => {
+    const f = setup();
+    const receipt = await f.service.run(copyRequest(f));
+    f.database.db
+      .update(rules)
+      .set({ name: 'My changed copy' })
+      .where(eq(rules.id, receipt.targetId!))
+      .run();
+    expect(() => f.service.undo(receipt.id)).toThrow('changed after');
+    f.database.db
+      .update(rules)
+      .set({ name: `${f.rule.name} copy` })
+      .where(eq(rules.id, receipt.targetId!))
+      .run();
+    f.database.db
+      .insert(ruleLogs)
+      .values({ ruleId: receipt.targetId!, articleId: f.article.id, actionsTakenJson: '[]' })
+      .run();
+    const before = f.snapshot();
+    expect(() => f.service.undo(receipt.id)).toThrow('execution history');
+    expect(f.snapshot()).toEqual(before);
+  });
+  it('rolls back a failed rule insertion and validates private HTTP copy requests and replay identity', async () => {
+    const f = setup();
+    const app = await createApp({ database: f.database, clock: f.clock });
+    closes.push(() => app.close());
+    const request = copyRequest(f);
+    for (const [patch, status] of [
+      [{ confirm: false }, 428],
+      [{ definition: 'bad' }, 400],
+      [{ id: -1 }, 400],
+    ] as const) {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/actions',
+        payload: { ...request, ...patch },
+      });
+      expect(response.statusCode).toBe(status);
+      expect(response.headers['cache-control']).toBe('private, no-store');
+    }
+    f.database.sqlite.exec(
+      "CREATE TRIGGER fail_copy BEFORE INSERT ON rules BEGIN SELECT RAISE(ABORT,'forced failure'); END;",
+    );
+    const before = f.snapshot();
+    await expect(f.service.run(request)).rejects.toThrow('Could not copy');
+    expect(f.snapshot()).toEqual(before);
+    expect(f.service.recent()).toEqual([]);
+    f.database.sqlite.exec('DROP TRIGGER fail_copy');
+    const response = await app.inject({ method: 'POST', url: '/api/actions', payload: request });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ kind: 'copy_rule', canUndo: true });
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/actions',
+          payload: {
+            ...request,
+            definition: JSON.stringify({
+              ...JSON.parse(request.definition),
+              name: 'Another source version',
+            }),
+          },
+        })
+      ).statusCode,
+    ).toBe(409);
+    f.advance(31_000);
+    expect(() => f.service.undo(response.json().id)).toThrow('expired');
+  });
   const opml =
     '<opml version="2.0"><body><outline text="New folder"><outline text="First new" xmlUrl="https://private-user:secret@import.test/a?token=private-token"/><outline text="Duplicate" xmlUrl="https://private-user:secret@import.test/a?token=private-token"/></outline><outline text="Design"><outline text="Keep existing" xmlUrl="https://journal.test/feed"/><outline text="Second new" xmlUrl="https://import.test/b"/></outline></body></opml>';
   it('previews exact import/duplicate/folder counts without writes or fetches and validates confirmed input', async () => {

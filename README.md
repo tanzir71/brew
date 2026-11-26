@@ -284,6 +284,15 @@ and verify that clicks along the enlarged edges activate the intended control.
 See [agent DOM implementation](docs/agent-dom.md) for the current role/label-only
 journey and the remaining M12 checklist work.
 
+Saved rules keep direct actions and a labelled **More** button. **Copy** creates
+one disabled copy of the saved definition through the owner action journal.
+**Check result** recovers a lost response without creating another copy; reload
+recovers its 30-second Undo. Undo refuses to remove a copy with later saved edits
+or execution history. Unsaved editor changes survive action and list refreshes.
+Rule, preview, scope-choice and execution-log read errors have separate retries.
+Duplicate-filter changes wait for the saved response and can retry the same value.
+Notification permission requests report blocked, dismissed and failed outcomes.
+
 Reader saved searches are browser-local bookmarks. **Save search** opens a labelled
 dialog and remembers the query, scope and current filters, starting on page one.
 Saved entries use native links in Reader and the app sidebar; older query-only

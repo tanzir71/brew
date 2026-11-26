@@ -10,6 +10,73 @@ import { composeFixture } from './compose-fixture';
 import { BrewService } from '../../targets/node/src/services/brew-service';
 import { agentModeFixture } from './agent-mode-fixture';
 
+test('an agent recovers a copied rule through More, reloads Undo and saves the duplicate filter using native controls', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page);
+  try {
+    const service = new RulesService(f.database);
+    const rule = service.create({
+      name: 'Agent copy source',
+      enabled: false,
+      matchType: 'all',
+      scope: {},
+      conditions: [{ field: 'title', operator: 'contains', value: 'Forms' }],
+      actions: [{ type: 'star' }],
+      stopProcessing: false,
+    });
+    const beforeArticles = f.database.sqlite.prepare('SELECT * FROM articles ORDER BY id').all();
+    let lost = true;
+    const identities: string[] = [];
+    await page.route('**/api/actions', async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      const payload = route.request().postDataJSON();
+      identities.push(payload.requestId);
+      const response = await f.app.inject({ method: 'POST', url: '/api/actions', payload });
+      if (lost) {
+        lost = false;
+        return route.abort('failed');
+      }
+      return route.fulfill({ status: response.statusCode, json: response.json() });
+    });
+    await page.goto(`/rules/${rule.id}?agent=1`);
+    await page
+      .getByRole('button', { name: 'More actions for rule Agent copy source', exact: true })
+      .click();
+    const more = page.getByRole('dialog', { name: 'Rule actions', exact: true });
+    await more.getByRole('button', { name: 'Copy', exact: true }).click();
+    const recovery = page.getByRole('dialog', { name: 'Copy Agent copy source?', exact: true });
+    await recovery.getByRole('button', { name: 'Check result', exact: true }).click();
+    await expect(
+      page.getByRole('article', { name: 'Agent copy source copy', exact: true }),
+    ).toHaveAttribute('data-brew-state', 'disabled');
+    expect(service.list()).toHaveLength(2);
+    expect(new Set(identities).size).toBe(1);
+    expect(f.database.sqlite.prepare('SELECT * FROM articles ORDER BY id').all()).toEqual(
+      beforeArticles,
+    );
+    await page.reload();
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(
+      page.getByRole('article', { name: 'Agent copy source copy', exact: true }),
+    ).toHaveCount(0);
+    expect(service.list()).toHaveLength(1);
+    expect(new URL(page.url()).searchParams.get('agent')).toBe('1');
+    const filter = page.getByLabel('Hide near-duplicate titles (3 days)', { exact: true });
+    await expect(filter).toBeEnabled();
+    await filter.click();
+    await expect(
+      page.getByRole('status', { name: 'Duplicate filter result', exact: true }),
+    ).toHaveText('Duplicate filter enabled.');
+    expect((await f.app.inject('/api/rules/duplicate-filter')).json()).toEqual({ enabled: true });
+    await page.reload();
+    await expect(filter).toBeChecked();
+  } finally {
+    await f.close();
+  }
+});
+
+
 test('an agent uses compact rule targets, edits native draft controls and cancels deletion without writes', async ({ page }) => {
   const f = await newslettersFixture(page);
   try {
@@ -18,6 +85,7 @@ test('an agent uses compact rule targets, edits native draft controls and cancel
     await page.goto('/rules');
     const original = page.getByRole('article', { name: 'Target rule', exact: true });
     const copy = original.getByRole('button', { name: 'Copy', exact: true });
+    await expect(copy).toBeEnabled();
     const box = (await copy.boundingBox())!;
     expect(box.width).toBeGreaterThanOrEqual(24);
     expect(box.height).toBeGreaterThanOrEqual(24);
