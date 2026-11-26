@@ -11,6 +11,11 @@
 @import './styles/newsletters.css';
 .reader-article-open { font: inherit; color: inherit; text-align: left; min-height: 24px; cursor: pointer; }
 .reader-article-open:focus-visible { outline: 2px solid var(--brew-text-primary); outline-offset: 2px; }
+.saved-search-row { display: flex; align-items: center; min-width: 0; }
+.saved-search-more.brew-icon-button { flex-shrink: 0; width: 28px; height: 28px; min-width: 28px; min-height: 28px; padding: 5px; }
+.saved-search-row > a:focus-visible { outline: 2px solid var(--brew-text-primary); outline-offset: -2px; }
+.saved-search-result { max-width: calc(100vw - 32px); }
+.saved-search-result button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 @source './';
 @source '../test';
 :root {

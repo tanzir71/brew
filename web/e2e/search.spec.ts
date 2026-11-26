@@ -54,7 +54,7 @@ test('searches with virtualized all, current-folder, and starred scopes', async 
     .first()
     .click();
   await page.keyboard.press('/');
-  const search = page.getByLabel('Search');
+  const search = page.getByLabel('Search', { exact: true });
   await expect(search).toBeFocused();
   await search.fill('needle');
   const allRequest = page.waitForRequest(
@@ -92,13 +92,29 @@ test('searches with virtualized all, current-folder, and starred scopes', async 
   await starredRequest;
   await expect(page.getByText('Starred needle')).toBeVisible();
   await expect(page.getByText('2.4 ms')).toBeVisible();
-  page.once('dialog',(dialog)=>dialog.accept('Needles'));
-  await page.getByRole('button',{name:'Save search'}).click();
+  await page.getByRole('button', { name: 'Save search' }).click();
+  const save = page.getByRole('dialog', { name: 'Save search', exact: true });
+  await save.getByLabel('Saved search name', { exact: true }).fill('Needles');
+  await save.getByRole('button', { name: 'Save search', exact: true }).click();
+  await expect(save).not.toBeVisible();
   await page.getByRole('button', { name: 'Close search' }).click();
   await expect(page.getByRole('heading', { name: 'Design' })).toBeVisible();
-  await page.getByRole('button',{name:'⌕ Needles'}).click();
-  await expect(page.getByRole('heading',{name:/needle/})).toBeVisible();
-  await page.getByRole('button',{name:'Delete saved search Needles'}).click();
+  await page.getByRole('link', { name: '⌕ Needles' }).click();
+  await expect(page.getByRole('heading', { name: '“needle”', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Starred', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await page.getByRole('button', { name: 'More actions for saved search Needles' }).click();
+  await page
+    .getByRole('dialog', { name: 'Saved search “Needles”', exact: true })
+    .getByRole('button', { name: 'Delete saved search', exact: true })
+    .click();
+  await page
+    .getByRole('dialog', { name: 'Delete saved search “Needles”?', exact: true })
+    .getByRole('button', { name: 'Delete saved search', exact: true })
+    .click();
+  await expect(page.getByRole('link', { name: '⌕ Needles' })).toHaveCount(0);
 });
 
 function article(id: number, title: string, starred = false) {

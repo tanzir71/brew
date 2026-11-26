@@ -171,7 +171,6 @@ function AppContent() {
       ) : (
         <Suspense fallback={<div role="status" className="p-8">Loading library…</div>}><Reader
           searchQuery={searchQuery}
-          onSearch={(query)=>navigateReader(searchHref(query))}
           onClearSearch={() => navigateReader(closeSearchHref())}
         /></Suspense>
       )}

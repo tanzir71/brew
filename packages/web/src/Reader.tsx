@@ -8,6 +8,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { readerPageHref, readerPageSize, type ReaderPageState } from '@brew/core/reader-pages';
 import { navigateReader, readerState } from './readerLocation';
 import { ReaderPageFooter } from './components/ReaderPageFooter';
+import { SavedSearchList, SaveSearchDialog } from './components/SavedSearches';
+import { useSavedSearches } from './hooks/useSavedSearches';
 import { useTextAlternates } from './hooks/useTextAlternates';
 import { usePageAlternates } from './hooks/usePageAlternates';
 import { readerWelcomeCopy } from '@brew/core/app-pages';
@@ -47,7 +49,7 @@ async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
 }
 const isEditableTarget = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement &&
-  (target.matches('input, textarea, select') || target.isContentEditable);
+  (target.matches('input, textarea, select') || target.isContentEditable || Boolean(target.closest('dialog[open]')));
 const imageSource = (value: string) => localStorage.getItem('brew:direct-images') === 'true' && value.startsWith('/api/img?src=') ? decodeURIComponent(value.slice(13)) : localStorage.getItem('brew:direct-images') === 'true' ? value : value.startsWith('/api/img?') ? value : `/api/img?src=${encodeURIComponent(value)}`;
 
 function selectionHref(value: Selection): string {
@@ -68,11 +70,9 @@ function selectionFromUrl(): Selection {
 
 export function Reader({
   searchQuery,
-  onSearch,
   onClearSearch,
 }: {
   searchQuery: string;
-  onSearch:(query:string)=>void;
   onClearSearch: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -82,8 +82,8 @@ export function Reader({
   const [showShortcuts, setShowShortcuts] = useState(false);
   const pendingGo = useRef(false);
   const pendingGoTimer = useRef<number | null>(null);
-  const [savedSearches,setSavedSearches]=useState<Array<{id:string;name:string;query:string}>>(()=>{try{return JSON.parse(localStorage.getItem('brew:saved-searches')??'[]') as Array<{id:string;name:string;query:string}>}catch{return[]}});
-  const persistSearches=(next:Array<{id:string;name:string;query:string}>)=>{setSavedSearches(next);localStorage.setItem('brew:saved-searches',JSON.stringify(next))};
+  const savedSearches = useSavedSearches();
+  const [saveSearchOpen, setSaveSearchOpen] = useState(false);
   useEffect(() => {
     const refresh = () => {
       void getJson<ReaderNavigation>('/api/reader/navigation')
@@ -223,7 +223,7 @@ export function Reader({
             </a>
           </nav>
           <div className="my-5 h-px bg-line" />
-          {savedSearches.length>0&&<section className="mb-5"><p className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted">Saved searches</p>{savedSearches.map((saved)=><div key={saved.id} className="group flex items-center"><button className={`${itemClass(searchQuery===saved.query)} min-w-0 flex-1`} onClick={()=>onSearch(saved.query)}><span className="truncate">⌕ {saved.name}</span></button><button aria-label={`Delete saved search ${saved.name}`} onClick={()=>persistSearches(savedSearches.filter((item)=>item.id!==saved.id))} className="px-1 text-xs text-muted opacity-0 group-hover:opacity-100">×</button></div>)}</section>}
+          <SavedSearchList action={savedSearches} />
           <div className="space-y-4">
             {navigation.folders.map((folder) => (
               <section key={folder.id}>
@@ -286,7 +286,7 @@ export function Reader({
                     : undefined
               }
               onClear={onClearSearch}
-              onSave={()=>{const name=window.prompt('Saved search name',searchQuery)?.trim();if(name)persistSearches([...savedSearches,{id:crypto.randomUUID(),name,query:searchQuery}])}}
+              onSave={() => { savedSearches.clearError(); setSaveSearchOpen(true); }}
             />
           ) : error ? (
             <p role="alert" className="m-10 rounded-xl bg-danger-soft p-4 text-sm text-danger">
@@ -311,6 +311,7 @@ export function Reader({
         </section>
       </div>
       {showShortcuts && <ShortcutSheet onClose={() => setShowShortcuts(false)} />}
+      {saveSearchOpen && <SaveSearchDialog action={savedSearches} query={searchQuery} onClose={() => setSaveSearchOpen(false)} />}
     </>
   );
 }
@@ -491,6 +492,7 @@ function SearchView({
   useLayoutEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target) || selectedArticle !== null || !items.length) return;
+      if ((event.target as HTMLElement | null)?.closest('button,a[href]')) return;
       const key = event.key.toLowerCase();
       if (key === 'j' || key === 'k') {
         event.preventDefault();

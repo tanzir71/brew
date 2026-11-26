@@ -53,7 +53,7 @@ test('supports the complete Reader keyboard map and cheat sheet', async ({ page 
   await page.keyboard.press('?'); await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeVisible();
   await expect(page.getByText('Next / previous article')).toBeVisible();
   await page.keyboard.press('Escape');
-  await page.keyboard.press('/'); await expect(page.getByLabel('Search')).toBeFocused();
+  await page.keyboard.press('/'); await expect(page.getByLabel('Search', { exact: true })).toBeFocused();
   await page.keyboard.press('Escape');
 
   await page.locator('body').click({ position: { x: 500, y: 500 } });

@@ -230,6 +230,15 @@ Markdown/JSON discovery until it closes, then the selected Brew's links return.
 See [agent DOM implementation](docs/agent-dom.md) for the current role/label-only
 journey and the remaining M12 checklist work.
 
+Reader saved searches are browser-local bookmarks. **Save search** opens a labelled
+dialog and remembers the query, scope and current filters, starting on page one.
+Saved entries use native links in Reader and the app sidebar; older query-only
+bookmarks remain supported. Reader's visible **More** control offers deletion with
+confirmation and Undo for the latest deletion for up to 30 seconds in the same tab,
+including after reload. Storage failures keep the form or bookmark and offer a
+retry. Changes refresh other open tabs. Removing a bookmark keeps any Compose
+source definition previously saved from that query.
+
 `BREW_PUBLIC_URL=https://brew.your-domain.example` pins the canonical origin for
 absolute twin/feed links behind a TLS-terminating reverse proxy. Without it,
 Node uses the request’s actual protocol and Host. Only HTTP(S) origins without

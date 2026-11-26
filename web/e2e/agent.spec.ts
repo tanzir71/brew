@@ -6,6 +6,109 @@ import { RulesService } from '../../targets/node/src/services/rules-service';
 import { isReaderPageOutputPath } from '../../packages/core/src/reader-pages';
 import { articles } from '../../targets/node/src/db/schema';
 
+test('an agent saves scoped search bookmarks by keyboard, cancels deletion, then recovers local Undo after reload', async ({
+  page,
+}, testInfo) => {
+  const f = await newslettersFixture(page);
+  try {
+    const folder = f.database.sqlite
+      .prepare("SELECT id FROM folders WHERE title='Design'")
+      .get() as { id: number };
+    const href = `/search?q=Design&scope=folder&folderId=${folder.id}&unread=true&sort=oldest`;
+    const changes = () =>
+      (f.database.sqlite.prepare('SELECT total_changes() AS n').get() as { n: number }).n;
+    const before = changes();
+    await page.goto(href);
+    await expect(page.getByRole('heading', { name: '“Design”', exact: true })).toBeVisible();
+    const saveButton = page.getByRole('button', { name: 'Save search', exact: true });
+    await saveButton.focus();
+    await page.keyboard.press('Enter');
+    let dialog = page.getByRole('dialog', { name: 'Save search', exact: true });
+    await expect(dialog.getByLabel('Saved search name', { exact: true })).toBeFocused();
+    await dialog.screenshot({ path: testInfo.outputPath('save-search-light.png') });
+    await dialog.getByLabel('Saved search name', { exact: true }).fill('Cancelled bookmark');
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    await expect(dialog).not.toBeVisible();
+    await expect(saveButton).toBeFocused();
+    await expect(page.getByRole('link', { name: '⌕ Cancelled bookmark', exact: true })).toHaveCount(
+      0,
+    );
+    await page.keyboard.press('Enter');
+    dialog = page.getByRole('dialog', { name: 'Save search', exact: true });
+    await dialog.getByLabel('Saved search name', { exact: true }).fill('   ');
+    await expect(dialog.getByRole('button', { name: 'Save search', exact: true })).toBeDisabled();
+    await dialog.getByLabel('Saved search name', { exact: true }).fill('Design picks');
+    await page.keyboard.press('Enter');
+    await expect(dialog).not.toBeVisible();
+    await expect(saveButton).toBeFocused();
+    const bookmark = page.getByRole('link', { name: '⌕ Design picks', exact: true });
+    await expect(bookmark).toHaveAttribute('href', href);
+    await expect(
+      page.getByRole('region', { name: 'Saved search result', exact: true }),
+    ).toContainText('Saved search “Design picks”.');
+    await page.getByRole('button', { name: 'Close search', exact: true }).click();
+    await bookmark.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(href);
+    await expect(page.getByRole('button', { name: 'Current folder', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await page.reload();
+    await expect(bookmark).toHaveAttribute('aria-current', 'page');
+    const more = page.getByRole('button', {
+      name: 'More actions for saved search Design picks',
+      exact: true,
+    });
+    await more.focus();
+    await page.keyboard.press('Enter');
+    let menu = page.getByRole('dialog', { name: 'Saved search “Design picks”', exact: true });
+    await menu.getByRole('button', { name: 'Delete saved search', exact: true }).click();
+    let confirmation = page.getByRole('dialog', {
+      name: 'Delete saved search “Design picks”?',
+      exact: true,
+    });
+    await expect(confirmation.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
+    await confirmation.screenshot({ path: testInfo.outputPath('delete-search-light.png') });
+    await page.keyboard.press('Enter');
+    await expect(confirmation).not.toBeVisible();
+    await expect(more).toBeFocused();
+    await expect(bookmark).toBeVisible();
+    await page.keyboard.press('Enter');
+    menu = page.getByRole('dialog', { name: 'Saved search “Design picks”', exact: true });
+    await menu.getByRole('button', { name: 'Delete saved search', exact: true }).click();
+    confirmation = page.getByRole('dialog', {
+      name: 'Delete saved search “Design picks”?',
+      exact: true,
+    });
+    await confirmation.getByRole('button', { name: 'Delete saved search', exact: true }).click();
+    await expect(bookmark).toHaveCount(0);
+    const result = page.getByRole('region', { name: 'Saved search result', exact: true });
+    await expect(result).toHaveAttribute('aria-live', 'polite');
+    const undo = result.getByRole('button', {
+      name: 'Undo deletion of “Design picks”',
+      exact: true,
+    });
+    await expect(undo).toBeFocused();
+    await page.reload();
+    await expect(bookmark).toHaveCount(0);
+    await undo.focus();
+    await page.keyboard.press('Enter');
+    await expect(bookmark).toBeFocused();
+    await expect(result).toContainText('Restored saved search “Design picks”.');
+    await result.getByRole('button', { name: 'Dismiss saved search result', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    await expect(result).toBeEmpty();
+    await expect(bookmark).toBeFocused();
+    await page.reload();
+    await expect(bookmark).toBeVisible();
+    expect(changes()).toBe(before);
+  } finally {
+    await f.close();
+  }
+});
+
 test('an agent follows Brew rule attribution and retained rule query bookmarks to the saved definition', async ({
   page,
 }) => {

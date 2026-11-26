@@ -37,6 +37,13 @@ legacy rule-query bookmarks, then use native sender/letter links, keyboard openi
 reload and history. The latter verifies that a mismatched sender/letter URL never
 opens or marks the unrelated letter read, including after that letter is cached.
 
+An eighth role/label-only journey saves a scoped browser search by keyboard,
+cancels saving and deletion, follows its native link with retained filters, and
+deletes then restores it through actual browser storage after reload. It verifies
+focus, polite feedback and zero server writes. Separate browser tests exercise
+live updates in another tab, storage failures/retry, malformed data, minimum More
+target size and light/dark save/confirmation dialogs with axe checks.
+
 ESLint restricts that file's UI selectors to `getByRole` and `getByLabel`, rejecting
 CSS/test-ID/text/placeholder/title selectors and injected DOM evaluation. Browser
 setup, navigation, response inspection and SQL assertions remain available to
@@ -48,14 +55,45 @@ metadata and geometry directly; they do not substitute for this agent journey.
 | Requirement | Implemented evidence | Remaining work before the criterion is complete |
 | --- | --- | --- |
 | Landmarks | Existing Brew Library/main/In this Brew; named Reader Library navigation; real article landmarks inside Reader dialogs and newsletter panes; Compose now has a named main landmark. | Finish the view/dialog audit, including settings and older shell variants. |
-| Native controls | Reader scope/folder/feed, saved-rule selection/logs and attribution, feed audit views, newsletter sender/letter/page navigation and legacy shell toolbar navigation use real hrefs. Rows offer real Open buttons; pointer convenience preserves normal card clicks. Article actions and bulk confirmation use real controls. | Audit all remaining navigation, icon-only labels and toggles. |
+| Native controls | Reader scope/folder/feed and saved-search bookmarks, saved-rule selection/logs and attribution, feed audit views, newsletter sender/letter/page navigation and legacy shell toolbar navigation use real hrefs. Rows offer real Open buttons; pointer convenience preserves normal card clicks. Article actions and bulk confirmation use real controls. | Audit all remaining navigation, icon-only labels and toggles. |
 | Stable hooks | Article rows/panes share `data-brew-id`, kind and read/unread/starred/highlighted state. Reader/search rows also declare their actual density. Newsletter rows/panes and frozen Brew letters identify as letters; rules expose identity/enablement/actions; Compose already identifies sections. | Audit the rest of each screen's actions, settings and result rows. |
-| Accessible alternatives | Article actions are available directly and in a native More sheet. Existing Compose drag controls retain button/keyboard alternatives. | Add/audit More equivalents and focus/selection behavior on remaining rows and screens. |
-| Polite results | Existing Compose/Brew status plus explicit Reader bulk result and owner-action result live regions with real Undo. Rule partial failures, mutation errors, refresh failures and action-history recovery failures have visible feedback. | Audit success/error announcements for remaining mutations and error/retry paths. |
+| Accessible alternatives | Article actions are available directly and in a native More sheet. Saved-search deletion is available through a visible, labelled More control and native sheets. Existing Compose drag controls retain button/keyboard alternatives. | Add/audit More equivalents and focus/selection behavior on remaining rows and screens. |
+| Polite results | Existing Compose/Brew status plus explicit Reader bulk, saved-search and owner-action result live regions with real Undo. Rule partial failures, mutation errors, browser storage failures, refresh failures and action-history recovery failures have visible feedback. | Audit success/error announcements for remaining mutations and error/retry paths. |
 | Totals and pagination | Newsletter, Reader and search announce exact showing ranges/totals. Newsletter announcements stay available to assistive technology in Calm mode. Newsletter/Reader/search offer native Previous/Next links with URL page state; normal Reader/search retain virtual/infinite lists. | Remaining list announcements and agent-mode pagination without virtualization/motion/scroll marking. |
-| Confirmation and undo | Reader bulk click/Shift+A, rule apply/delete and feed/folder deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs and folder assignments. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
+| Confirmation and undo | Reader bulk click/Shift+A, rule apply/delete, feed/folder deletion and browser saved-search deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs and folder assignments. Browser bookmarks have separate local Undo with reload recovery. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
 | Text twins | All currently implemented data views have private twins: frozen Brews/articles; Reader/search; saved Compose/rules/logs; feed library/health/hidden articles; Newsletters lists; instance settings; Reader welcome and empty Brew/library states. Selection/filter parameters survive in alternate links. Explicitly opened content overrides its underlying page; subscription links remain separate. | Continue coverage when later milestones add views. Draft forms export explicitly labelled saved state; unsaved previews stay separate. The full DOM checkbox remains open for the other rows. |
 | Visible state and targets | Read/star/tag changes update real controls and stable state; new article Open target is at least 24px; More/confirmation reuse existing controls. Newsletter navigation declares current selection, has visible keyboard focus and focuses an explicitly opened reading pane. | Full target-size/focus/overlay and post-action visibility audit across every implemented screen. |
+
+## Browser saved-search bookmarks
+
+Reader saves named queries through the existing native sheet and labelled input,
+with keyboard submission, blank-name validation, Cancel and focus restoration.
+New bookmarks retain canonical local search URLs with scope, folder/feed context,
+density, unread and sort; reopening starts on page one. Legacy `{id,name,query}`
+entries keep working. Stored URLs can only select the matching local search;
+external, malformed or mismatched URLs fall back to the query. Reader/sidebar
+subscriptions update after writes, browser storage events and retries. Compose
+imports explicitly project the bookmark's name/query/client ID and keep their
+existing stored source behavior.
+
+Reader rows expose native navigation and an always-visible 28px More button,
+with current-selection semantics and keyboard focus. More offers Open and Delete.
+Deletion opens a second native confirmation with initial focus on Cancel. Confirm
+persists a tab-local Undo receipt before removing the actual bookmark. Failed
+storage or malformed data never produces optimistic removal or overwrites unreadable
+data; errors keep the form/confirmation available for retry. Undo restores the
+original position while reading current storage, keeps unrelated additions and
+rejects a conflicting newer definition. It is safe to retry an already-restored
+bookmark. The latest deletion can be undone for up to 30 seconds, including after
+reload in that tab; expired recovery is discarded. Recovery belongs to that tab's session.
+
+Results announce through a named polite live region. Delete moves focus to Undo;
+Undo restores focus to the native bookmark link. Save/restore feedback can be
+dismissed; the deletion receipt expires. Reader/search shortcuts respect
+native dialogs and controls, so Enter activates the focused action or link.
+These bookmarks and their recovery remain in browser storage; deleting one does
+not remove a server-saved Compose search source. The Node action journal below
+continues to govern server mutations. The broader DOM audit remains open.
 
 ## Article twins
 

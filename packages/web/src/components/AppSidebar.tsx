@@ -9,6 +9,8 @@ import { Kbd, NavItem, Wordmark } from './controls';
 import { runAssets } from './figmaAssets';
 import { Badge } from './Badge';
 import { capabilityRows } from '../settings/capabilityRows';
+import { useSavedSearches } from '../hooks/useSavedSearches';
+import { savedSearchHref } from '../savedSearches';
 
 async function getJson<T>(url: string, signal: AbortSignal): Promise<T> {
   const response = await fetch(url, { signal });
@@ -56,18 +58,7 @@ export function AppSidebar({
     queryKey: ['newsletter-overview'],
     queryFn: ({ signal }) => getJson<NewsletterOverview>('/api/newsletters/overview', signal),
   });
-  const [saved] = useState<Array<{ id: string; name: string; query: string }>>(() => {
-    try {
-      const value: unknown = JSON.parse(localStorage.getItem('brew:saved-searches') ?? '[]');
-      return Array.isArray(value)
-        ? value.filter(
-            (entry) => typeof entry?.name === 'string' && typeof entry?.query === 'string',
-          )
-        : [];
-    } catch {
-      return [];
-    }
-  });
+  const saved = useSavedSearches();
   const [calm] = useState(() => localStorage.getItem('brew:calm') === 'true');
   const count = (value?: number) =>
     !calm && value !== undefined && value > 0 ? (
@@ -185,15 +176,23 @@ export function AppSidebar({
             </a>
           )}
         </div>
-        {saved.length > 0 && (
+        {saved.searches.length > 0 && (
           <div className="runs-nav-group">
             <p className="runs-overline">Saved searches</p>
-            {saved.map((item, index) => (
-              <a key={item.id ?? index} href={`/?view=reader&q=${encodeURIComponent(item.query)}`}>
+            {saved.searches.map((item) => (
+              <a key={item.id} href={savedSearchHref(item)}>
                 <img src={runAssets.savedSearch} alt="" />
                 {item.name}
               </a>
             ))}
+          </div>
+        )}
+        {saved.loadError && (
+          <div role="alert">
+            <p>{saved.loadError}</p>
+            <button type="button" onClick={saved.refresh}>
+              Retry saved searches
+            </button>
           </div>
         )}
         <div className="runs-nav-bottom">

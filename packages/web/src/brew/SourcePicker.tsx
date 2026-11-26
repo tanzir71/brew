@@ -24,23 +24,17 @@ import { ModalSheet } from '../components/Sheet';
 import { useCapabilities } from '../hooks/useCapabilities';
 import { composeJson } from './useComposeDraft';
 import { NewsletterSources } from './NewsletterSources';
+import { readSavedSearches } from '../savedSearches';
 
 const key = (source: BrewSourceRef) => `${source.kind}:${source.id ?? ''}`;
 type LocalSearch = { clientId: string; name: string; query: string };
 function localSearches(): LocalSearch[] {
   try {
-    const value: unknown = JSON.parse(localStorage.getItem('brew:saved-searches') ?? '[]');
-    return Array.isArray(value)
-      ? value
-          .filter(
-            (item): item is { id: string; name: string; query: string } =>
-              !!item &&
-              typeof item.id === 'string' &&
-              typeof item.name === 'string' &&
-              typeof item.query === 'string',
-          )
-          .map(({ id, ...item }) => ({ ...item, clientId: id }))
-      : [];
+    return readSavedSearches(localStorage).map(({ id, name, query }) => ({
+      clientId: id,
+      name,
+      query,
+    }));
   } catch {
     return [];
   }
