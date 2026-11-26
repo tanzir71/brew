@@ -10,6 +10,7 @@ type SheetProps = {
   children: ReactNode;
   footer?: ReactNode;
   initialFocusRef?: RefObject<HTMLElement>;
+  returnFocusRef?: RefObject<HTMLElement>;
 };
 function SheetBody({
   side,
@@ -20,12 +21,13 @@ function SheetBody({
   children,
   footer,
   initialFocusRef,
+  returnFocusRef,
 }: Omit<SheetProps, 'open'> & { side: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
   const id = useId();
   useLayoutEffect(() => {
     const dialog = ref.current!;
-    const previous = document.activeElement as HTMLElement | null;
+    const previous = returnFocusRef?.current ?? (document.activeElement as HTMLElement | null);
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     dialog.showModal();
@@ -35,7 +37,7 @@ function SheetBody({
       document.body.style.overflow = overflow;
       if (previous?.isConnected) previous.focus();
     };
-  }, [initialFocusRef]);
+  }, [initialFocusRef, returnFocusRef]);
   return (
     <dialog
       ref={ref}

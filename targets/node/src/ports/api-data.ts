@@ -1,6 +1,9 @@
 import type { ApiDataPort } from '../../../../packages/api/src/ports.js';
 import type { BrewDatabase } from '../db/database.js';
-import type { HiddenArticlePage } from '../../../../packages/core/src/types/api.js';
+import type {
+  HiddenArticlePage,
+  HiddenArticleSummary,
+} from '../../../../packages/core/src/types/api.js';
 import { hiddenArticlePageSize } from '../../../../packages/core/src/app-pages.js';
 
 export class NodeApiData implements ApiDataPort {
@@ -23,13 +26,26 @@ export class NodeApiData implements ApiDataPort {
       ).n;
       const items = this.database.sqlite
         .prepare(
-          'SELECT a.id,a.title,f.title AS feedTitle,a.published_at AS publishedAt FROM articles a JOIN feeds f ON f.id=a.feed_id WHERE a.hidden=1 ORDER BY a.published_at DESC,a.id DESC LIMIT ? OFFSET ?',
+          "SELECT a.id,a.title,f.title AS feedTitle,a.published_at AS publishedAt,CASE WHEN f.kind='newsletter' THEN 'letter' ELSE 'article' END AS kind,a.read_at AS readAt,a.starred_at AS starredAt,a.highlight_color AS highlightColor FROM articles a JOIN feeds f ON f.id=a.feed_id WHERE a.hidden=1 ORDER BY a.published_at DESC,a.id DESC LIMIT ? OFFSET ?",
         )
-        .all(
-          hiddenArticlePageSize,
-          (page - 1) * hiddenArticlePageSize,
-        ) as HiddenArticlePage['items'];
-      return { items, total, page, pageSize: hiddenArticlePageSize };
+        .all(hiddenArticlePageSize, (page - 1) * hiddenArticlePageSize) as Array<
+        HiddenArticleSummary & {
+          kind: 'article' | 'letter';
+          readAt: number | null;
+          starredAt: number | null;
+          highlightColor: string | null;
+        }
+      >;
+      return {
+        items: items.map((item) => ({
+          ...item,
+          readAt: item.readAt === null ? null : new Date(item.readAt).toISOString(),
+          starredAt: item.starredAt === null ? null : new Date(item.starredAt).toISOString(),
+        })),
+        total,
+        page,
+        pageSize: hiddenArticlePageSize,
+      };
     })();
   }
   unhideArticle(id: number): boolean {

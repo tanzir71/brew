@@ -19,8 +19,14 @@ export interface FeedSummary {
 export interface FolderSummary { id: number; title: string; position: number }
 
 export interface HiddenArticleSummary { id: number; title: string; feedTitle: string; publishedAt: number }
+export interface HiddenArticleItem extends HiddenArticleSummary {
+  kind: 'article' | 'letter';
+  readAt: string | null;
+  starredAt: string | null;
+  highlightColor: string | null;
+}
 export interface HiddenArticlePage {
-  items: HiddenArticleSummary[];
+  items: HiddenArticleItem[];
   total: number;
   page: number;
   pageSize: number;

@@ -219,6 +219,50 @@ describe('Reader URLs, exact totals and private page twins', () => {
     expect((await f.get('/search.json?q=Needle&scope=folder')).statusCode).toBe(400);
     expect((await f.get('/search.json?q=Needle&scope=folder&folderId=999')).statusCode).toBe(404);
   });
+  it('identifies hidden letters and actual reading state without changing the legacy DTO or writing on reads', async () => {
+    const f = await setup();
+    const letter = f.database.sqlite
+      .prepare(
+        "SELECT a.id FROM articles a JOIN feeds f ON f.id=a.feed_id WHERE f.kind='newsletter'",
+      )
+      .get() as { id: number };
+    const story = f.database.sqlite
+      .prepare("SELECT id FROM articles WHERE title='Needle 0'")
+      .get() as { id: number };
+    f.database.sqlite.prepare('UPDATE articles SET hidden=0').run();
+    f.database.sqlite
+      .prepare("UPDATE articles SET hidden=1,highlight_color='#a0471d' WHERE id=?")
+      .run(story.id);
+    f.database.sqlite
+      .prepare('UPDATE articles SET hidden=1,read_at=NULL,starred_at=NULL WHERE id=?')
+      .run(letter.id);
+    const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    const legacy = (await f.get('/api/articles-hidden')).json();
+    expect(legacy).toHaveLength(2);
+    expect(Object.keys(legacy[0])).toEqual(['id', 'title', 'feedTitle', 'publishedAt']);
+    const page = (await f.get('/api/articles-hidden?includeTotal=true')).json();
+    expect(page.items.find((item: { id: number }) => item.id === story.id)).toMatchObject({
+      kind: 'article',
+      readAt: '2026-11-26T01:00:00.000Z',
+      starredAt: '2026-11-26T01:00:00.000Z',
+      highlightColor: '#a0471d',
+    });
+    expect(page.items.find((item: { id: number }) => item.id === letter.id)).toMatchObject({
+      kind: 'letter',
+      readAt: null,
+      starredAt: null,
+      highlightColor: null,
+    });
+    const twin = await f.get('/feeds.json?section=hidden');
+    expect(
+      twin.json().sections[0].items.find((item: { id: number }) => item.id === letter.id),
+    ).toMatchObject({
+      url: `https://brew.example.test/a/${letter.id}`,
+      details: { kind: 'letter', readAt: null, starredAt: null },
+    });
+    expect(twin.body).not.toMatch(/rawHtml|private-original|contentHtml|settingsJson/);
+    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+  });
   it('paginates all hidden articles beyond the legacy cap with exact totals and private read-only twins', async () => {
     const f = await setup();
     f.database.sqlite.prepare('UPDATE articles SET hidden=1').run();

@@ -243,11 +243,15 @@ Manage feeds uses native name and retention dialogs with explicit saves, validat
 and retryable errors. Renaming a feed preserves its folder assignment. Feed and
 folder rows offer native article links and labelled More controls. Library, health
 and hidden-article views announce counts and distinguish read failures from empty
-lists. Hidden articles use 50-item pages with reloadable `?section=hidden&page=N`
+lists. Health More includes fetch, rename, retention and confirmed deletion/Undo;
+hidden rows link to their content and offer More with private formats and Unhide.
+Cancel restores the opener, and Unhide keeps keyboard position on the same page.
+Hidden articles use 50-item pages with reloadable `?section=hidden&page=N`
 URLs and matching private Markdown/JSON twins, including totals beyond 500 items.
 The legacy `/api/articles-hidden` response remains a capped array; opt in to the
 complete paged projection with `?includeTotal=true&page=N` (`items`, `total`,
-`page`, `pageSize`). Reading either format never changes article visibility.
+`page`, `pageSize`). Paged rows identify letters/articles and actual read, starred
+and highlight state. Reading either format never changes article visibility.
 
 `BREW_PUBLIC_URL=https://brew.your-domain.example` pins the canonical origin for
 absolute twin/feed links behind a TLS-terminating reverse proxy. Without it,

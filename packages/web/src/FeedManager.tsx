@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type RefObject,
+} from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   FeedCandidate,
@@ -13,6 +21,9 @@ import { OwnerActionUi } from './components/OwnerActionUi';
 import { ModalSheet } from './components/Sheet';
 import { Button, IconButton, Input } from './components/controls';
 import { Icon } from './components/Icon';
+import { articleDom } from './articleDom';
+import { Badge } from './components/Badge';
+import { useCapabilities } from './hooks/useCapabilities';
 import { useOpmlImport } from './hooks/useOpmlImport';
 import { OpmlImportPicker, OpmlImportFeedback, OpmlImportReview } from './components/OpmlImport';
 
@@ -30,17 +41,23 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 type Edit =
   | { kind: 'rename-feed' | 'retention'; feed: FeedSummary }
   | { kind: 'rename-folder'; folder: FolderSummary };
-type Menu = { kind: 'feed'; feed: FeedSummary } | { kind: 'folder'; folder: FolderSummary };
+type HiddenItem = HiddenArticlePage['items'][number];
+type Menu =
+  | { kind: 'feed'; feed: FeedSummary }
+  | { kind: 'folder'; folder: FolderSummary }
+  | { kind: 'hidden'; article: HiddenItem };
 const currentLocation = () => feedLibraryLocation(new URL(location.href));
 
 function LibraryEditor({
   edit,
   save,
   close,
+  returnFocusRef,
 }: {
   edit: Edit;
   save: (value: string) => Promise<void>;
   close: () => void;
+  returnFocusRef: RefObject<HTMLElement>;
 }) {
   const retention = edit.kind === 'retention';
   const [value, setValue] = useState(
@@ -81,6 +98,7 @@ function LibraryEditor({
       open
       title={title}
       initialFocusRef={input}
+      returnFocusRef={returnFocusRef}
       onClose={() => {
         if (!busy) close();
       }}
@@ -140,6 +158,7 @@ function LibraryEditor({
 
 export function FeedManager() {
   const client = useQueryClient();
+  const capabilities = useCapabilities();
   const [route, setRoute] = useState(currentLocation);
   const { section } = route;
   const [url, setUrl] = useState('');
@@ -151,15 +170,24 @@ export function FeedManager() {
   const [error, setError] = useState('');
   const [edit, setEdit] = useState<Edit | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
+  const dialogReturn = useRef<HTMLElement | null>(null);
+  const hiddenList = useRef<HTMLDivElement>(null);
+  const hiddenHeading = useRef<HTMLHeadingElement>(null);
+  const focusFrame = useRef(0);
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
+      cancelAnimationFrame(focusFrame.current);
     };
   }, []);
   useEffect(() => {
-    const restore = () => setRoute(currentLocation());
+    const restore = () => {
+      setMenu(null);
+      setEdit(null);
+      setRoute(currentLocation());
+    };
     window.addEventListener('popstate', restore);
     return () => window.removeEventListener('popstate', restore);
   }, []);
@@ -210,6 +238,39 @@ export function FeedManager() {
   const owner = useOwnerActions(refresh);
   const opml = useOpmlImport(owner);
   const busy = working || owner.busy || opml.preparing;
+  const hadIntent = useRef(false);
+  useLayoutEffect(() => {
+    if (owner.intent && owner.intent.request.kind !== 'import_opml') hadIntent.current = true;
+    else if (!owner.intent && !owner.busy && hadIntent.current) {
+      hadIntent.current = false;
+      if (dialogReturn.current?.isConnected) dialogReturn.current.focus();
+      else document.querySelector<HTMLButtonElement>('[data-brew-action="undo"]')?.focus();
+    }
+  }, [owner.intent, owner.busy]);
+  const priorReceipt = useRef(owner.receipt);
+  useLayoutEffect(() => {
+    if (owner.busy) return;
+    const receipt = owner.receipt;
+    if (
+      receipt?.status === 'undone' &&
+      priorReceipt.current?.id === receipt.id &&
+      priorReceipt.current.status !== 'undone'
+    ) {
+      const kind =
+        receipt.kind === 'delete_feed'
+          ? 'feed'
+          : receipt.kind === 'delete_folder'
+            ? 'folder'
+            : null;
+      if (kind)
+        document
+          .querySelector<HTMLButtonElement>(
+            `[data-brew-kind="${kind}"][data-brew-id="${receipt.targetId}"] [data-brew-action="more"]`,
+          )
+          ?.focus();
+    }
+    priorReceipt.current = receipt;
+  }, [owner.receipt, owner.busy]);
   const run = async (work: () => Promise<string>) => {
     if (busy) return;
     setBusy(true);
@@ -262,31 +323,98 @@ export function FeedManager() {
     changed();
   };
   const removeFeed = (feed: FeedSummary) => {
+    if (!menu) dialogReturn.current = document.activeElement as HTMLElement;
     setMenu(null);
     setMessage('');
     owner.ask({ kind: 'delete_feed', id: feed.id }, feed.title);
   };
   const removeFolder = (folder: FolderSummary) => {
+    if (!menu) dialogReturn.current = document.activeElement as HTMLElement;
     setMenu(null);
     setMessage('');
     owner.ask({ kind: 'delete_folder', id: folder.id }, folder.title);
   };
   const startEdit = (next: Edit) => {
+    if (!menu) dialogReturn.current = document.activeElement as HTMLElement;
     setMenu(null);
     setError('');
     setEdit(next);
   };
-  const retryFeed = (feed: FeedSummary) =>
-    run(async () => {
-      const result = await api<{ outcome: string; newItems: number; error?: string }>(
-        `/api/feeds/${feed.id}/fetch`,
-        { method: 'POST' },
-      );
-      await refresh();
-      if (result.outcome === 'error')
-        throw new Error(`Fetch failed: ${result.error ?? 'Could not fetch this feed.'}`);
-      return `Fetched ${feed.title}; ${result.newItems} new.`;
+  const retryFeed = (feed: FeedSummary) => {
+    const trigger = menu ? dialogReturn.current : (document.activeElement as HTMLElement | null);
+    return run(async () => {
+      try {
+        const result = await api<{ outcome: string; newItems: number; error?: string }>(
+          `/api/feeds/${feed.id}/fetch`,
+          { method: 'POST' },
+        );
+        try {
+          await refresh();
+        } catch {
+          throw new Error('The fetch finished, but the library could not refresh. Retry library.');
+        }
+        if (result.outcome === 'error')
+          throw new Error(`Fetch failed: ${result.error ?? 'Could not fetch this feed.'}`);
+        return `Fetched ${feed.title}; ${result.newItems} new.`;
+      } finally {
+        cancelAnimationFrame(focusFrame.current);
+        focusFrame.current = requestAnimationFrame(() => {
+          if (alive.current && trigger?.isConnected) trigger.focus();
+        });
+      }
     });
+  };
+  const openMenu = (next: Menu, trigger: HTMLElement) => {
+    dialogReturn.current = trigger;
+    setMenu(next);
+  };
+  const unhide = (article: HiddenItem) => {
+    const index = Math.max(0, hidden.data?.items.findIndex((item) => item.id === article.id) ?? 0);
+    setMenu(null);
+    void run(async () => {
+      let removed = false;
+      try {
+        await api(`/api/articles/${article.id}/unhide`, { method: 'POST' });
+        removed = true;
+        await client.cancelQueries({ queryKey: ['hidden-articles', route.page] });
+        client.setQueryData<HiddenArticlePage>(['hidden-articles', route.page], (current) =>
+          current
+            ? {
+                ...current,
+                items: current.items.filter((item) => item.id !== article.id),
+                total: Math.max(
+                  0,
+                  current.total - (current.items.some((item) => item.id === article.id) ? 1 : 0),
+                ),
+              }
+            : current,
+        );
+        changed();
+        try {
+          await hidden.refetch({ throwOnError: true });
+        } catch {
+          throw new Error(
+            'The article was unhidden, but the list could not refresh. Retry hidden articles.',
+          );
+        }
+        return `Unhid “${article.title}”.`;
+      } finally {
+        cancelAnimationFrame(focusFrame.current);
+        focusFrame.current = requestAnimationFrame(() => {
+          if (!alive.current) return;
+          const rows = hiddenList.current?.querySelectorAll<HTMLElement>(
+            '[data-brew-action="open-article"]',
+          );
+          const target = removed
+            ? rows?.[Math.min(index, rows.length - 1)]
+            : hiddenList.current?.querySelector<HTMLElement>(
+                `[data-brew-id="${article.id}"] [data-brew-action="unhide"]`,
+              );
+          (target ?? hiddenHeading.current)?.focus({ preventScroll: true });
+        });
+      }
+    });
+  };
   const results = (
     <>
       <p
@@ -332,11 +460,160 @@ export function FeedManager() {
       className={calm ? 'sr-only' : 'mt-3 text-xs text-soft'}
     >{`Showing ${count ? `1–${count}` : '0'} of ${count} ${noun}`}</p>
   );
+  const overlays = (
+    <>
+      <ModalSheet
+        open={menu !== null}
+        title={
+          menu?.kind === 'hidden'
+            ? 'Hidden article actions'
+            : menu?.kind === 'folder'
+              ? 'Folder actions'
+              : 'Feed actions'
+        }
+        onClose={() => setMenu(null)}
+        returnFocusRef={dialogReturn}
+      >
+        {menu && (
+          <>
+            <p className="mb-4 break-words">
+              {menu.kind === 'hidden'
+                ? menu.article.title
+                : menu.kind === 'feed'
+                  ? menu.feed.title
+                  : menu.folder.title}
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {menu.kind === 'hidden' ? (
+                <>
+                  <a
+                    className="brew-button brew-button--secondary brew-button--md"
+                    data-brew-action="open-article"
+                    href={`/a/${menu.article.id}`}
+                  >
+                    Open {menu.article.kind === 'letter' ? 'letter' : 'article'}
+                  </a>
+                  {(['md', 'json'] as const).map((format) =>
+                    capabilities.data?.outputs?.twins ? (
+                      <a
+                        key={format}
+                        className="brew-button brew-button--secondary brew-button--md"
+                        data-brew-action="export"
+                        href={`/a/${menu.article.id}.${format}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {format === 'md' ? 'Markdown' : 'JSON'}
+                      </a>
+                    ) : (
+                      <Button key={format} variant="secondary" disabled>
+                        {format === 'md' ? 'Markdown' : 'JSON'}{' '}
+                        <Badge tone="warning">Twins need setup</Badge>
+                      </Button>
+                    ),
+                  )}
+                  {!capabilities.data?.outputs?.twins && (
+                    <a href="/settings/runs#setup-outputs">Set up article outputs</a>
+                  )}
+                  <Button
+                    variant="secondary"
+                    disabled={busy}
+                    data-brew-action="unhide"
+                    onClick={() => unhide(menu.article)}
+                  >
+                    Unhide
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <a
+                    className="brew-button brew-button--secondary brew-button--md"
+                    href={menu.kind === 'feed' ? `/feed/${menu.feed.id}` : `/f/${menu.folder.id}`}
+                  >
+                    Open articles
+                  </a>
+                  <Button
+                    variant="secondary"
+                    onClick={() =>
+                      startEdit(
+                        menu.kind === 'feed'
+                          ? { kind: 'rename-feed', feed: menu.feed }
+                          : { kind: 'rename-folder', folder: menu.folder },
+                      )
+                    }
+                  >
+                    Rename
+                  </Button>
+                  {menu.kind === 'feed' && (
+                    <>
+                      <Button
+                        variant="secondary"
+                        onClick={() => startEdit({ kind: 'retention', feed: menu.feed })}
+                      >
+                        Retention
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        disabled={busy}
+                        data-brew-action="fetch-feed"
+                        onClick={() => {
+                          setMenu(null);
+                          void retryFeed(menu.feed);
+                        }}
+                      >
+                        Fetch now
+                      </Button>
+                    </>
+                  )}
+                  <Button
+                    variant="secondary"
+                    disabled={!owner.capable || busy}
+                    data-brew-action={menu.kind === 'feed' ? 'delete-feed' : 'delete-folder'}
+                    onClick={() =>
+                      menu.kind === 'feed' ? removeFeed(menu.feed) : removeFolder(menu.folder)
+                    }
+                  >
+                    Delete
+                  </Button>
+                  {!owner.capable && (
+                    <>
+                      <Badge tone="warning">Undo needs setup</Badge>
+                      <a href="/settings/runs">Set up actions</a>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </ModalSheet>
+      {edit && (
+        <LibraryEditor
+          edit={edit}
+          save={saveEdit}
+          close={() => setEdit(null)}
+          returnFocusRef={dialogReturn}
+        />
+      )}
+      <OwnerActionUi
+        action={owner}
+        returnFocusRef={owner.intent?.request.kind === 'import_opml' ? undefined : dialogReturn}
+      >
+        {opml.preview && <OpmlImportReview name={opml.preview.name} data={opml.preview.data} />}
+      </OwnerActionUi>
+    </>
+  );
   if (section === 'hidden')
     return (
       <section className="mx-auto max-w-4xl px-8 py-12" aria-label="Hidden articles">
         <div className="flex items-end justify-between">
-          <h1 className="text-3xl font-semibold">Hidden articles</h1>
+          <h1
+            ref={hiddenHeading}
+            tabIndex={-1}
+            className="rounded-sm text-3xl font-semibold focus-visible:outline"
+          >
+            Hidden articles
+          </h1>
           <a href="/feeds" className="rounded-lg border px-4 py-2 text-sm">
             Manage feeds
           </a>
@@ -366,52 +643,49 @@ export function FeedManager() {
               aria-atomic="true"
               className={calm ? 'sr-only' : 'mt-3 text-xs text-soft'}
             >{`Showing ${hidden.data.items.length ? `${(route.page - 1) * hidden.data.pageSize + 1}–${(route.page - 1) * hidden.data.pageSize + hidden.data.items.length}` : '0'} of ${hidden.data.total} hidden articles`}</p>
-            <div className="mt-8 divide-y rounded-2xl border bg-surface">
+            <div ref={hiddenList} className="mt-8 divide-y rounded-2xl border bg-surface">
               {hidden.data.items.length ? (
                 hidden.data.items.map((article) => (
                   <article
                     key={article.id}
                     aria-label={article.title}
-                    data-brew-id={article.id}
-                    data-brew-kind="article"
+                    {...articleDom(article, article.kind)}
+                    data-brew-hidden="true"
                     className="flex flex-wrap items-center justify-between gap-3 p-4"
                   >
-                    <div>
-                      <h2 className="font-medium">{article.title}</h2>
+                    <div className="min-w-0 max-w-full">
+                      <h2 className="font-medium">
+                        <a
+                          href={`/a/${article.id}`}
+                          data-brew-action="open-article"
+                          className="inline-flex min-h-6 items-center rounded-sm break-words focus-visible:outline"
+                        >
+                          {article.title}
+                        </a>
+                      </h2>
                       <p className="text-xs text-soft">{article.feedTitle}</p>
                     </div>
-                    <Button
-                      variant="secondary"
-                      disabled={busy}
-                      data-brew-action="unhide"
-                      onClick={() =>
-                        void run(async () => {
-                          await api(`/api/articles/${article.id}/unhide`, { method: 'POST' });
-                          client.setQueryData<HiddenArticlePage>(
-                            ['hidden-articles', route.page],
-                            (current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    items: current.items.filter((item) => item.id !== article.id),
-                                    total: current.total - 1,
-                                  }
-                                : current,
-                          );
-                          changed();
-                          try {
-                            await hidden.refetch({ throwOnError: true });
-                          } catch {
-                            throw new Error(
-                              'The article was unhidden, but the list could not refresh. Retry hidden articles.',
-                            );
-                          }
-                          return `Unhid “${article.title}”.`;
-                        })
-                      }
-                    >
-                      Unhide
-                    </Button>
+                    <span className="flex items-center gap-2">
+                      <Button
+                        variant="secondary"
+                        disabled={busy}
+                        data-brew-action="unhide"
+                        onClick={() => unhide(article)}
+                      >
+                        Unhide
+                      </Button>
+                      <IconButton
+                        icon="more"
+                        label={`More actions for hidden ${article.kind} ${article.title}`}
+                        data-brew-action="more"
+                        className="min-h-7 min-w-7"
+                        aria-haspopup="dialog"
+                        disabled={busy}
+                        onClick={(event) =>
+                          openMenu({ kind: 'hidden', article }, event.currentTarget)
+                        }
+                      />
+                    </span>
                   </article>
                 ))
               ) : (
@@ -473,6 +747,7 @@ export function FeedManager() {
             </nav>
           </>
         )}
+        {overlays}
       </section>
     );
   if (section === 'health')
@@ -514,7 +789,14 @@ export function FeedManager() {
                 className="grid items-center gap-3 border-b border-line px-5 py-4 last:border-0 md:grid-cols-[minmax(0,1fr)_8rem_7rem_7rem_auto]"
               >
                 <div className="min-w-0">
-                  <h2 className="truncate text-sm font-medium">{feed.title}</h2>
+                  <h2 className="truncate text-sm font-medium">
+                    <a
+                      href={`/feed/${feed.id}`}
+                      className="inline-flex min-h-6 items-center rounded-sm focus-visible:outline"
+                    >
+                      {feed.title}
+                    </a>
+                  </h2>
                   {feed.healthWarning && (
                     <span className="mt-1 inline-flex rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-semibold text-danger">
                       Failing over 7 days
@@ -522,6 +804,7 @@ export function FeedManager() {
                   )}
                 </div>
                 <span className="text-xs text-soft">
+                  <span className="sr-only">Last attempt: </span>
                   {feed.lastFetchedAt
                     ? new Intl.DateTimeFormat(undefined, {
                         month: 'short',
@@ -534,21 +817,37 @@ export function FeedManager() {
                 <span
                   className={`w-fit rounded-full px-2 py-1 text-xs font-semibold ${feed.lastStatus && feed.lastStatus >= 200 && feed.lastStatus < 400 ? 'bg-positive-soft text-positive' : feed.lastStatus ? 'bg-danger-soft text-danger' : 'bg-subtle text-soft'}`}
                 >
-                  {feed.lastStatus ?? '—'}
+                  <span className="sr-only">Fetch status: </span>
+                  <span>{feed.lastStatus ?? 'Not fetched'}</span>
                 </span>
-                <span className="text-xs text-soft">{feed.consecutiveFailures || 'None'}</span>
-                <Button
-                  variant="secondary"
-                  disabled={busy}
-                  data-brew-action="fetch-feed"
-                  onClick={() => void retryFeed(feed)}
-                >
-                  Fetch now
-                </Button>
+                <span className="text-xs text-soft">
+                  <span className="sr-only">Consecutive failures: </span>
+                  {feed.consecutiveFailures || 'None'}
+                </span>
+                <span className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    disabled={busy}
+                    data-brew-action="fetch-feed"
+                    onClick={() => void retryFeed(feed)}
+                  >
+                    Fetch now
+                  </Button>
+                  <IconButton
+                    icon="more"
+                    label={`More actions for feed ${feed.title}`}
+                    data-brew-action="more"
+                    className="min-h-7 min-w-7"
+                    aria-haspopup="dialog"
+                    disabled={busy}
+                    onClick={(event) => openMenu({ kind: 'feed', feed }, event.currentTarget)}
+                  />
+                </span>
               </article>
             ))
           )}
         </div>
+        {overlays}
       </section>
     );
   return (
@@ -714,7 +1013,8 @@ export function FeedManager() {
                     label={`More actions for feed ${feed.title}`}
                     aria-haspopup="dialog"
                     disabled={busy}
-                    onClick={() => setMenu({ kind: 'feed', feed })}
+                    data-brew-action="more"
+                    onClick={(event) => openMenu({ kind: 'feed', feed }, event.currentTarget)}
                   />
                 </div>
               </article>
@@ -798,67 +1098,15 @@ export function FeedManager() {
                   label={`More actions for folder ${folder.title}`}
                   aria-haspopup="dialog"
                   disabled={busy}
-                  onClick={() => setMenu({ kind: 'folder', folder })}
+                  data-brew-action="more"
+                  onClick={(event) => openMenu({ kind: 'folder', folder }, event.currentTarget)}
                 />
               </span>
             </div>
           ))}
         </div>
       </aside>
-      <ModalSheet
-        open={menu !== null}
-        title={menu?.kind === 'folder' ? 'Folder actions' : 'Feed actions'}
-        onClose={() => setMenu(null)}
-      >
-        {menu && (
-          <>
-            <p className="mb-4 break-words">
-              {menu.kind === 'feed' ? menu.feed.title : menu.folder.title}
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <a
-                className="brew-button brew-button--secondary brew-button--md"
-                href={menu.kind === 'feed' ? `/feed/${menu.feed.id}` : `/f/${menu.folder.id}`}
-              >
-                Open articles
-              </a>
-              <Button
-                variant="secondary"
-                onClick={() =>
-                  startEdit(
-                    menu.kind === 'feed'
-                      ? { kind: 'rename-feed', feed: menu.feed }
-                      : { kind: 'rename-folder', folder: menu.folder },
-                  )
-                }
-              >
-                Rename
-              </Button>
-              {menu.kind === 'feed' && (
-                <Button
-                  variant="secondary"
-                  onClick={() => startEdit({ kind: 'retention', feed: menu.feed })}
-                >
-                  Retention
-                </Button>
-              )}
-              <Button
-                variant="secondary"
-                disabled={!owner.capable || owner.busy}
-                onClick={() =>
-                  menu.kind === 'feed' ? removeFeed(menu.feed) : removeFolder(menu.folder)
-                }
-              >
-                Delete
-              </Button>
-            </div>
-          </>
-        )}
-      </ModalSheet>
-      {edit && <LibraryEditor edit={edit} save={saveEdit} close={() => setEdit(null)} />}
-      <OwnerActionUi action={owner}>
-        {opml.preview && <OpmlImportReview name={opml.preview.name} data={opml.preview.data} />}
-      </OwnerActionUi>
+      {overlays}
     </div>
   );
 }

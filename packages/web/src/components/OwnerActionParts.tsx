@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react';
+import { useRef, type ReactNode, type RefObject } from 'react';
 import { ModalSheet } from './Sheet';
 import { Button } from './controls';
 import { Badge } from './Badge';
@@ -8,9 +8,11 @@ type OwnerAction = ReturnType<typeof useOwnerActions>;
 export function OwnerActionConfirmation({
   action,
   children,
+  returnFocusRef,
 }: {
   action: OwnerAction;
   children?: ReactNode;
+  returnFocusRef?: RefObject<HTMLElement>;
 }) {
   const intent = action.intent;
   const applying = intent?.request.kind === 'apply_rule';
@@ -28,6 +30,7 @@ export function OwnerActionConfirmation({
       title={title}
       onClose={action.close}
       initialFocusRef={cancel}
+      returnFocusRef={returnFocusRef}
     >
       <p>
         {importing

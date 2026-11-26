@@ -252,7 +252,14 @@ async function document(services: ApiServices, url: URL, caps: Capabilities) {
             id: item.id,
             title: item.title,
             url: `/a/${item.id}`,
-            details: { feedTitle: item.feedTitle, publishedAt: item.publishedAt },
+            details: {
+              kind: item.kind,
+              feedTitle: item.feedTitle,
+              publishedAt: item.publishedAt,
+              readAt: item.readAt,
+              starredAt: item.starredAt,
+              highlightColor: item.highlightColor,
+            },
           })),
         },
         {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { log } from 'node:console';
 import { tmpdir } from 'node:os';
+import { URL } from 'node:url';
 import process from 'node:process';
 import { createApp } from '../dist/targets/node/src/app.js';
 import { openDatabase } from '../dist/targets/node/src/db/database.js';
@@ -365,6 +366,27 @@ try {
   } finally {
     await smtpApp.close();
   }
+  const hiddenBefore = database.sqlite
+    .prepare('SELECT hidden FROM articles WHERE id=?')
+    .get(letter.articleId);
+  database.sqlite.prepare('UPDATE articles SET hidden=1 WHERE id=?').run(letter.articleId);
+  const beforeHiddenReads = database.sqlite.prepare('SELECT total_changes() AS n').get();
+  const hiddenLetter = (await app.inject('/api/articles-hidden?includeTotal=true'))
+    .json()
+    .items.find((item) => item.id === letter.articleId);
+  assert.equal(hiddenLetter.kind, 'letter');
+  assert.ok(Object.hasOwn(hiddenLetter, 'readAt'));
+  assert.ok(Object.hasOwn(hiddenLetter, 'starredAt'));
+  assert.ok(Object.hasOwn(hiddenLetter, 'highlightColor'));
+  const hiddenTwin = (await app.inject('/feeds.json?section=hidden'))
+    .json()
+    .sections[0].items.find((item) => item.id === letter.articleId);
+  assert.equal(hiddenTwin.details.kind, 'letter');
+  assert.equal(new URL(hiddenTwin.url).pathname, `/a/${letter.articleId}`);
+  assert.deepEqual(database.sqlite.prepare('SELECT total_changes() AS n').get(), beforeHiddenReads);
+  database.sqlite
+    .prepare('UPDATE articles SET hidden=? WHERE id=?')
+    .run(hiddenBefore.hidden, letter.articleId);
   const subscriptions = (await app.inject('/api/feeds')).json();
   const opml =
     '<opml><body><outline text="Compiled import" xmlUrl="https://compiled-import.test/rss"/></body></opml>';

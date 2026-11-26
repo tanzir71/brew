@@ -6,6 +6,187 @@ import { RulesService } from '../../targets/node/src/services/rules-service';
 import { isReaderPageOutputPath } from '../../packages/core/src/reader-pages';
 import { articles } from '../../targets/node/src/db/schema';
 
+test('an agent manages feed health through native More controls, retries fetches and restores a confirmed deletion with focus', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page, {
+    fetcher: async () =>
+      new Response(
+        '<rss version="2.0"><channel><title>Design journal</title><link>https://rss.fixture.test/</link><description>Fixture</description><item><guid>health-new</guid><title>Fetched health story</title><link>https://rss.fixture.test/new</link><pubDate>Tue, 24 Nov 2026 23:00:00 GMT</pubDate><description>New from fetch.</description></item></channel></rss>',
+        { headers: { 'content-type': 'application/rss+xml' } },
+      ),
+  });
+  try {
+    const feed = f.database.sqlite
+      .prepare("SELECT id FROM feeds WHERE title='Design journal'")
+      .get() as { id: number };
+    const changes = () =>
+      (f.database.sqlite.prepare('SELECT total_changes() AS n').get() as { n: number }).n;
+    const before = changes();
+    await page.goto('/feeds?section=health');
+    const row = page.getByRole('article', { name: 'Design journal', exact: true });
+    const more = row.getByRole('button', {
+      name: 'More actions for feed Design journal',
+      exact: true,
+    });
+    await expect(row.getByRole('link', { name: 'Design journal', exact: true })).toHaveAttribute(
+      'href',
+      `/feed/${feed.id}`,
+    );
+    await more.focus();
+    await page.keyboard.press('Enter');
+    const menu = page.getByRole('dialog', { name: 'Feed actions', exact: true });
+    await expect(menu.getByRole('link', { name: 'Open articles', exact: true })).toHaveAttribute(
+      'href',
+      `/feed/${feed.id}`,
+    );
+    await menu.getByRole('button', { name: 'Rename', exact: true }).click();
+    const editor = page.getByRole('dialog', { name: 'Rename feed', exact: true });
+    await editor.getByLabel('Feed name', { exact: true }).fill('Discarded health edit');
+    await page.keyboard.press('Escape');
+    await expect(more).toBeFocused();
+    await page.keyboard.press('Enter');
+    await menu.getByRole('button', { name: 'Delete', exact: true }).click();
+    const confirmation = page.getByRole('dialog', { name: 'Delete Design journal?', exact: true });
+    await expect(confirmation.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(more).toBeFocused();
+    expect(changes()).toBe(before);
+    await page.keyboard.press('Enter');
+    f.failNext('POST', `/api/feeds/${feed.id}/fetch`);
+    await menu.getByRole('button', { name: 'Fetch now', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('Temporary fixture failure');
+    await expect(more).toBeFocused();
+    await page.keyboard.press('Enter');
+    await menu.getByRole('button', { name: 'Fetch now', exact: true }).click();
+    await expect(page.getByRole('status', { name: 'Library result', exact: true })).toContainText(
+      'Fetched Design journal; 1 new.',
+    );
+    await expect(more).toBeFocused();
+    const snapshot = () => ({
+      feed: f.database.sqlite.prepare('SELECT * FROM feeds WHERE id=?').get(feed.id),
+      articles: f.database.sqlite
+        .prepare('SELECT * FROM articles WHERE feed_id=? ORDER BY id')
+        .all(feed.id),
+    });
+    const fetched = snapshot();
+    await page.keyboard.press('Enter');
+    await menu.getByRole('button', { name: 'Delete', exact: true }).click();
+    await confirmation.getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(row).toHaveCount(0);
+    const result = page.getByRole('region', { name: 'Action result', exact: true });
+    await expect(result.getByRole('button', { name: 'Undo', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(more).toBeFocused();
+    expect(snapshot()).toEqual(fetched);
+    await page.reload();
+    await expect(page).toHaveURL('/feeds?section=health');
+    await expect(row).toContainText('Fetch status: 200');
+  } finally {
+    await f.close();
+  }
+});
+
+test('an agent opens hidden content twins, distinguishes letters and unhides a numbered page without losing keyboard position', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page);
+  try {
+    const story = f.database.sqlite
+      .prepare("SELECT id,feed_id AS feedId FROM articles WHERE title='Design story'")
+      .get() as { id: number; feedId: number };
+    const letter = f.database.sqlite
+      .prepare("SELECT id,title FROM articles WHERE title='Forms should declare their tools'")
+      .get() as { id: number; title: string };
+    f.database.sqlite
+      .prepare(
+        "UPDATE articles SET hidden=1,read_at=?,starred_at=?,highlight_color='#a0471d' WHERE id=?",
+      )
+      .run(Date.parse('2026-11-25T08:00:00Z'), Date.parse('2026-11-25T08:00:00Z'), story.id);
+    f.database.sqlite.prepare('UPDATE articles SET hidden=1 WHERE id=?').run(letter.id);
+    const insert = f.database.sqlite.prepare(
+      'INSERT INTO articles(feed_id,guid,hash,title,url,published_at,hidden) VALUES(?,?,?,?,?,?,1)',
+    );
+    f.database.sqlite.transaction(() => {
+      for (let i = 0; i < 50; i++)
+        insert.run(
+          story.feedId,
+          `hidden-more-${i}`,
+          `hidden-more-${i}`,
+          `Hidden newer ${i}`,
+          `https://hidden.test/${i}`,
+          Date.parse('2026-11-25T08:00:00Z') + i + 1,
+        );
+    })();
+    await page.context().route('**/a/*', async (route) => {
+      const url = new URL(route.request().url());
+      if (!isArticleOutputPath(url.pathname)) return route.fallback();
+      const response = await f.app.inject({ method: 'GET', url: url.pathname });
+      return route.fulfill({
+        status: response.statusCode,
+        body: response.rawPayload,
+        headers: { 'content-type': String(response.headers['content-type']) },
+      });
+    });
+    const changes = () =>
+      (f.database.sqlite.prepare('SELECT total_changes() AS n').get() as { n: number }).n;
+    const before = changes();
+    await page.goto('/feeds?section=hidden&page=2');
+    const view = page.getByRole('region', { name: 'Hidden articles', exact: true });
+    await expect(view).toContainText('Showing 51–52 of 52 hidden articles');
+    const storyRow = view.getByRole('article', { name: 'Design story', exact: true });
+    const letterRow = view.getByRole('article', { name: letter.title, exact: true });
+    await expect(storyRow).toHaveAttribute('data-brew-state', 'read starred highlighted');
+    await expect(letterRow).toHaveAttribute('data-brew-kind', 'letter');
+    const letterMore = letterRow.getByRole('button', {
+      name: `More actions for hidden letter ${letter.title}`,
+      exact: true,
+    });
+    await letterMore.focus();
+    await page.keyboard.press('Enter');
+    const menu = page.getByRole('dialog', { name: 'Hidden article actions', exact: true });
+    await expect(menu.getByRole('link', { name: 'Open letter', exact: true })).toHaveAttribute(
+      'href',
+      `/a/${letter.id}`,
+    );
+    const [popup, response] = await Promise.all([
+      page.waitForEvent('popup'),
+      page
+        .context()
+        .waitForEvent('response', {
+          predicate: (response) => new URL(response.url()).pathname === `/a/${letter.id}.json`,
+        }),
+      menu.getByRole('link', { name: 'JSON', exact: true }).click(),
+    ]);
+    expect((await response.json()).title).toBe(letter.title);
+    await expect(popup).toHaveURL(`/a/${letter.id}.json`);
+    await popup.close();
+    await page.keyboard.press('Escape');
+    await expect(letterMore).toBeFocused();
+    expect(changes()).toBe(before);
+    await storyRow
+      .getByRole('button', { name: 'More actions for hidden article Design story', exact: true })
+      .click();
+    f.failNext('POST', `/api/articles/${story.id}/unhide`);
+    await menu.getByRole('button', { name: 'Unhide', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('Temporary fixture failure');
+    await expect(storyRow.getByRole('button', { name: 'Unhide', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(storyRow).toHaveCount(0);
+    await expect(letterRow.getByRole('link', { name: letter.title, exact: true })).toBeFocused();
+    await expect(page).toHaveURL('/feeds?section=hidden&page=2');
+    await letterMore.click();
+    await menu.getByRole('button', { name: 'Unhide', exact: true }).click();
+    await expect(view.getByRole('heading', { name: 'Hidden articles', exact: true })).toBeFocused();
+    await expect(view).toContainText('Showing 0 of 50 hidden articles');
+    await view.getByRole('link', { name: 'First page', exact: true }).click();
+    await expect(view).toContainText('Showing 1–50 of 50 hidden articles');
+    await expect(view.getByRole('article')).toHaveCount(50);
+  } finally {
+    await f.close();
+  }
+});
+
 test('an agent previews and cancels bulk OPML, recovers a lost import acknowledgement and undoes the actual records after reload', async ({
   page,
 }) => {

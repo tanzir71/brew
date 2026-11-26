@@ -65,7 +65,7 @@ metadata and geometry directly; they do not substitute for this agent journey.
 | Landmarks | Existing Brew Library/main/In this Brew; named Reader Library navigation; real article landmarks inside Reader dialogs and newsletter panes; Compose now has a named main landmark. | Finish the view/dialog audit, including settings and older shell variants. |
 | Native controls | Reader scope/folder/feed and saved-search bookmarks, saved-rule selection/logs and attribution, feed audit views, newsletter sender/letter/page navigation and legacy shell toolbar navigation use real hrefs. Feed-library names and hidden-page navigation also use native links. Feed/folder renames and retention now use native labelled dialogs. Article actions and bulk confirmation use real controls. | Audit all remaining navigation, icon-only labels and toggles. |
 | Stable hooks | Article rows/panes share `data-brew-id`, kind and read/unread/starred/highlighted state. Reader/search rows also declare their actual density. Newsletter rows/panes and frozen Brew letters identify as letters; rules expose identity/enablement/actions; Compose already identifies sections. | Audit the rest of each screen's actions, settings and result rows. |
-| Accessible alternatives | Article actions are available directly and in a native More sheet. Saved-search deletion and feed-library/folder actions have visible, labelled More controls and native sheets. Existing Compose drag controls retain button/keyboard alternatives. | Add/audit More equivalents and focus/selection behavior on remaining rows and screens, including health/hidden rows. |
+| Accessible alternatives | Article actions are available directly and in a native More sheet. Saved-search deletion, feed-library/folder, feed health and hidden rows have visible, labelled More controls and native sheets. Existing Compose drag controls retain button/keyboard alternatives. | Add/audit More equivalents and focus/selection behavior on remaining sender/settings rows and screens. |
 | Polite results | Existing Compose/Brew status plus explicit Reader bulk, saved-search and owner-action result live regions with real Undo. Rule partial failures, mutation errors, browser storage failures, refresh failures and action-history recovery failures have visible feedback. | Audit success/error announcements for remaining mutations and error/retry paths. |
 | Totals and pagination | Newsletter, Reader, search and feed-library/audit views announce showing ranges/totals. Counts remain available to assistive technology in Calm mode. Newsletter/Reader/search/hidden articles offer native Previous/Next links with URL page state; hidden counts exceed the legacy 500-item cap. Normal Reader/search retain virtual/infinite lists. | Remaining list announcements and agent-mode pagination without virtualization/motion/scroll marking. |
 | Confirmation and undo | Reader bulk click/Shift+A, rule apply/delete, feed/folder deletion, library/Compose OPML import and browser saved-search deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs and folder assignments. OPML Undo protects later uses of imported records. Browser bookmarks have separate local Undo with reload recovery. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
@@ -114,6 +114,33 @@ folder assignments or retention. Library rows have native `/feed/:id` and `/f/:i
 links, stable feed/folder identity hooks and 28px More controls. Existing confirmed
 server delete/Undo behavior stays available directly and through More.
 
+Health and hidden views render the same shared action surfaces. Health feed names
+link to `/feed/:id`; More exposes Open articles, Rename, Retention, Fetch now and
+the existing confirmed Delete/Undo. Native modal transitions retain the original
+row trigger, including editor/confirmation Cancel. A completed deletion focuses
+Undo and actual restoration focuses the restored row's More control when that row
+is present in the current view. Fetch failures
+remain retryable; a completed fetch followed by a failed library read explicitly
+states that distinction and retries only the read. Mobile status values include
+accessible Last attempt, Fetch status and Consecutive failures labels.
+
+Hidden names link to `/a/:id`; their 28px More opens native content links, private
+Markdown/JSON and Unhide. Unsupported formats/deletion remain disabled with setup
+badges/links inside the active dialog. Paged rows identify RSS articles and letters,
+share actual read/star/highlight hooks and declare `data-brew-hidden="true"`.
+Legacy hidden DTOs retain their four fields; only the opt-in paged DTO adds kind,
+ISO reading-state dates and highlight color. Hidden page twins project that metadata
+without bodies/originals or source addresses. Opening a content link follows the
+existing explicit Reader behavior; GET metadata/twin reads remain read-only.
+
+Unhide still waits for acknowledgement and preserves the numbered page. A failed
+write restores the actionable row's focus. Successful removal focuses the next
+content link (or the last remaining row); an empty/error page focuses its heading
+and retains the explicit First page/read-retry path. Cancel stale list reads before
+updating cached totals, then refill the exact page. Clear ephemeral row menus/editors
+on browser history navigation. No extra confirmation is added for the single-item,
+non-destructive Unhide operation; destructive deletion keeps confirmation and Undo.
+
 Shared source query keys keep Compose's library consistent; reads receive abort
 signals, while acknowledged changes invalidate Reader/newsletter metadata. Native
 library, health and hidden-article views show loading and retryable read errors
@@ -132,8 +159,7 @@ skipped; a failed refresh states that Unhide finished and offers read retry.
 Reads never unhide, extract, execute rules or write to the database. Exports omit
 article bodies, originals and source addresses/configuration.
 
-Health/hidden row More coverage and the remaining
-sender/settings/control/focus audit are still pending. These changes do not
+The remaining sender/settings/data/bulk/control/focus audit is still pending. These changes do not
 complete the global DOM criterion or enable agent mode.
 
 ## Article twins
