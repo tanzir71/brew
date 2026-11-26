@@ -1,0 +1,161 @@
+Weekend & reading
+
+Wednesday, 25 November 2026 · No. 7
+
+From your newsletters
+
+table digest
+https://brew.example.test/a/100
+
+Fixture Journal · 3 min
+
+Field notes Keep this story.
+
+inline CSS pixel
+https://brew.example.test/a/101
+
+Fixture Journal · 3 min
+
+Keep this story.
+
+hidden pixel
+https://brew.example.test/a/102
+
+Fixture Journal · 3 min
+
+Keep this story.
+
+known open endpoint
+https://brew.example.test/a/103
+
+Fixture Journal · 3 min
+
+Keep this story.
+
+UTM editorial link
+https://brew.example.test/a/104
+
+Fixture Journal · 3 min
+
+Keep this story (https://journal.test/story?chapter=2).
+
+opaque Mailchimp link
+https://brew.example.test/a/105
+
+Fixture Journal · 3 min
+
+Keep this story.
+
+Read more
+
+direct target in Sendgrid link
+https://brew.example.test/a/106
+
+Fixture Journal · 3 min
+
+Keep this story.
+
+Read more (https://journal.test/story)
+
+Mandrill redirect
+https://brew.example.test/a/107
+
+Fixture Journal · 3 min
+
+Keep this story.
+
+Read more
+
+Substack redirect
+https://brew.example.test/a/108
+
+Fixture Journal · 3 min
+
+Keep this story.
+
+Read more
+
+Beehiiv redirect
+https://brew.example.test/a/109
+
+Fixture Journal · 3 min
+
+Keep this story.
+
+Read more
+
+sponsor disclosure
+https://brew.example.test/a/110
+
+Fixture Journal · 3 min
+
+Keep this story.
+
+paid promotion
+https://brew.example.test/a/111
+
+Fixture Journal · 3 min
+
+Keep this story.
+
+semantic ad slot
+https://brew.example.test/a/112
+
+Fixture Journal · 3 min
+
+Keep this story.
+
+nested advertisement
+https://brew.example.test/a/113
+
+Fixture Journal · 3 min
+
+Keep this story.
+
+footer address
+https://brew.example.test/a/114
+
+Fixture Journal · 3 min
+
+Keep this story.
+
+preferences row
+https://brew.example.test/a/115
+
+Fixture Journal · 3 min
+
+Keep this story.
+
+preview text and active HTML
+https://brew.example.test/a/116
+
+Fixture Journal · 3 min
+
+Keep this story.
+
+publisher hero photo
+https://brew.example.test/a/117
+
+Fixture Journal · 3 min
+
+Keep this story.
+
+Forest
+
+editorial sponsor mention
+https://brew.example.test/a/118
+
+Fixture Journal · 3 min
+
+What sponsors mean
+
+Keep this story. Our sponsor model supports public archives.
+
+Essay (https://journal.substack.com/p/sponsors)
+
+per-sender slots
+https://brew.example.test/a/119
+
+Fixture Journal · 3 min
+
+Keep this story.

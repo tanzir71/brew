@@ -20,7 +20,11 @@ export async function composeFixture(
   process.env.NODE_ENV = 'test';
   const database = openDatabase(':memory:');
   const { previewAt, ...options } = runtime;
-  const app = await createApp({ database, fetcher, ...options });
+  // Keep Today counts and browser-relative dates tied to the fixture articles,
+  // including when a test run crosses UTC midnight. Explicit test clocks win.
+  const clock = options.clock ?? { now: () => new Date('2026-11-25T01:00:00Z') };
+  if (!options.clock) await page.clock.setFixedTime(clock.now());
+  const app = await createApp({ database, fetcher, ...options, clock });
   const design = database.db.insert(folders).values({ title: 'Design' }).returning().get();
   const independent = database.db
     .insert(folders)

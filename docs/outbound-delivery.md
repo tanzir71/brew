@@ -59,3 +59,7 @@ and Node shutdown waits for active scheduled work before closing storage.
 Email and webhook outcomes are independent; a failure in one does not cancel
 the other. Atom/JSON subscription toggles and per-issue text twins are independent
 of these outbound channels. Static public-copy publishing remains separate.
+
+See [output fixture review](output-validation.md) for HTML/plain-text goldens,
+actual multipart SMTP coverage, light/dark phone renders and independent Atom
+validation evidence.

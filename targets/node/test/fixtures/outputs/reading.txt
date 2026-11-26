@@ -1,0 +1,63 @@
+Weekend & reading
+
+Thursday, 26 November 2026 · No. 8
+
+Design & craft
+
+A slower web & the tools we keep
+https://journal.test/story?chapter=2
+
+Quiet Systems · 3 min
+
+Read slowly, with context (https://brew.example.test/a/81). বাংলা · 日本語 · 😌
+
+- Keep the useful parts.
+
+  - Leave room to think.
+- Make the next step clear.
+
+> A little less, a little better.
+
+if (ready) {
+  read();
+}
+
+Tool | Purpose
+Notebook | Remember
+
+Small tools
+
+A notebook for small discoveries
+https://journal.test/story?chapter=2
+
+Quiet Systems · 3 min
+
+Small, durable tools make room for a quieter day.
+
+From your newsletters
+
+Three ideas for the weekend
+https://brew.example.test/a/83
+
+Quiet Systems · 3 min
+
+Engineering
+
+Brief needs a configured AI provider. Source articles:
+
+The quiet work of keeping things running
+https://journal.test/story?chapter=2
+
+Quiet Systems · 3 min
+
+A note
+
+One section at a time. Browse the archive (https://brew.example.test/b/17).
+
+---
+
+Until next time
+
+Saved for later
+
+No matching stories for this issue.

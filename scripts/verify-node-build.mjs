@@ -8,6 +8,7 @@ import { openDatabase } from '../dist/targets/node/src/db/database.js';
 import { NewsletterService } from '../dist/targets/node/src/services/newsletter-service.js';
 import { newBrewSection, sectionWithSources } from '../dist/packages/core/src/composition-model.js';
 import { smtpConfigFromEnv } from '../dist/targets/node/src/outbound-config.js';
+import { renderBrewJson, renderBrewMarkdown } from '../dist/packages/core/src/brew-outputs.js';
 import { inboundConfigFromEnv } from '../dist/targets/node/src/inbound-config.js';
 
 // A built install must find migrations and the SPA outside the repository cwd.
@@ -275,6 +276,11 @@ try {
   });
   assert.equal(generatedOutput.statusCode, 200);
   const outputIssue = generatedOutput.json();
+  const outputCache = database.sqlite
+    .prepare('SELECT rendered_md,rendered_json FROM brews WHERE id=?')
+    .get(outputIssue.id);
+  assert.equal(outputCache.rendered_md, renderBrewMarkdown(outputIssue));
+  assert.equal(outputCache.rendered_json, renderBrewJson(outputIssue));
   const outputPath = `/b/${configId}/${outputIssue.id}`;
   const markdownOutput = await app.inject(`${outputPath}.md`);
   assert.equal(markdownOutput.statusCode, 200);

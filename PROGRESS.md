@@ -125,7 +125,7 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 
 ## v2
 
-### Current milestone: M11
+### Current milestone: M12
 
 ### Checklist state
 
@@ -158,12 +158,12 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - [x] Brew source `newsletters` (all senders or chosen senders/tags), Grid layout default for letters.
 - [x] Exit review: 20 real-world-shaped newsletters render inert and clean; a Brew letters section matches `8:2`.
 
-### M11 — Outputs and delivery
+### M11 — Outputs and delivery — DONE
 - [x] Renderers in core: web HTML, email HTML (table-safe, inline CSS, 600px, dark-mode-safe), Markdown, JSON, Atom/JSON Feed of issues.
 - [x] Routes of §7 for `.md`/`.json`/`.atom`. Rail "Open this Brew as" links work.
 - [x] Email delivery via OutboundMailPort (Node SMTP first), with test send and per-issue `sent_json`. Webhook delivery POSTs JSON with 5 s timeout and one retry.
 - [x] Channel toggles in the Schedule & delivery sheet persist to `delivery_json`.
-- [ ] Exit review: email render fixtures (HTML snapshot and plain-text part); the Atom feed validates.
+- [x] Exit review: email render fixtures (HTML snapshot and plain-text part); the Atom feed validates.
 
 ### M12 — Agent layer
 - [ ] DOM checklist (§9) implemented and enforced by a Playwright test that completes core tasks using only `getByRole`/`getByLabel`.
@@ -210,6 +210,9 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - [ ] Phone layout per `17:2314`: compact top bar, masthead, progress, tab bar (Brews, Letters, Today, Library, Search), safe areas.
 
 ### Decisions
+
+- 2026-11-26: Populate v2 rendered_md/rendered_json with origin-neutral content twins in the same SQLite transaction as the final issue identity/number. Keep them frozen through later config, reading-state and delivery writes. HTTP outputs still resolve links for the current request/canonical origin without GET/HEAD writes or legacy backfills, preserving instance portability.
+- 2026-11-26: Close the M11 email/Atom exit review with complete HTML/plain-text fixtures, actual local TLS SMTP MIME round trips, four desktop/phone light/dark browser goldens and independent W3C validation of full empty/populated Atom feeds. Retain the actual validator responses and submitted-byte hashes; ordinary tests remain offline. This verifies browser/MIME behavior, not proprietary mail clients. No new package is required.
 
 - 2026-11-26: Treat Schedule & delivery Save as a transaction: flush earlier section edits, keep the candidate local to the sheet until server acknowledgement, then merge only accepted settings into the current draft and shared composition cache. Failed Save followed by Cancel must not let a later autosave persist discarded channel destinations. Capability changes preserve saved preferences until the owner explicitly removes them.
 
@@ -572,3 +575,15 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - Discoveries: optimistically updating explicit-save settings shares them with the normal debounced autosave even after the sheet is cancelled. Keep settings out of the draft until the PUT succeeds; merge only settings after acknowledgement so later section edits cannot be overwritten by an older full draft. A named callback lets the queue drain after an in-flight transaction while satisfying the React hooks immutability rule.
 - Dependency justification: no packages added. Reuse React/Query, native promises/structuredClone, the existing Node test fixture and SQLite persistence.
 - Next unchecked criterion: M11 exit review — fixture email HTML snapshot with its plain-text alternative, plus Atom validation. M11 remains in progress; M12–M20 remain pending and the overall v2 goal is not complete.
+
+### Iteration M11.5 — DONE (2026-11-26)
+
+- Completed: M11 exit review. Three shared synthetic frozen-issue fixtures cover four layouts/every depth, unavailable Briefs, images/absolute and local links, Unicode, nested lists, quotations, code, content tables, notes/divider/empty sections, an empty issue and the existing twenty-letter cleaning corpus. Lock down complete HTML/plain-text output and empty/populated Atom in readable repository artifacts. Send all three email pairs through the real Node TLS SMTP adapter and decode the captured MIME to verify both complete alternatives, Unicode subjects and no attachments.
+- Completed: four reviewed email browser goldens at 760px and 390px in light/dark, verifying the 600px desktop table, phone reflow, loaded native artwork, normal typography, correct theme colors, absolute links, no horizontal overflow and no serious/critical axe violations. Image requests use the existing native letter artwork through local fixture responses; no publisher is contacted. All existing Figma goldens and thresholds remain unchanged.
+- Completed: independent W3C Feed Validator SOAP checks on both complete Atom golden files. Both returned validity=true and zero errors; each returned one SelfDoesntMatchLocation warning because pasted direct input has no hosted document location and the fixture self link uses its reserved test origin. Retain actual SOAP responses and SHA-256 hashes in docs/output-validation.md and the fixture directory. Offline checks independently parse strict XML and enforce the relevant RFC 4287 namespace, metadata/cardinality, author inheritance, date, identity/link and escaped-HTML requirements. No feed or private content was published.
+- Completed: populate the existing v2 rendered_md/rendered_json columns atomically with the frozen payload and final issue number. Keep portable local URLs and content-only output; roll back the issue/number if rendering fails. Tests prove later config/scroll changes leave the cached output/payload untouched, and old nullable cache rows/legacy payloads stay unchanged. Compiled-target smoke verifies both cache values outside the repository cwd. HTTP exports keep their current-origin rendering and read-only behavior.
+- Files changed: shared core output fixture; Node storage adapter, output-cache/exit tests, SMTP fixture round-trip test and compiled build verifier; HTML/plain-text/Atom goldens and two actual W3C SOAP responses; email browser test and four new goldens; shared Compose fixture clock; LF attributes/formatter exclusion for exact output fixtures; output-validation guide, outbound-delivery cross-link and this checklist. No migration, runtime artwork or package change.
+- Verified: npm run typecheck; npm run lint (no warnings, normal typography across 287 authored source files); npm test (397 passed in 42 files, captured v1 REST contracts, portable bundles, full MIME pairs, cache rollback/frozen identity, all prior rendering/output/delivery coverage); npm run test:e2e -- --workers=2 (119 passed, all light/dark visual, keyboard, accessibility, performance, newsletter, output and delivery journeys); npm run build (compiled cache values, existing migrations, MIME/ingress, SMTP/results, twins/feeds, API/SPA/assets/fonts and fallback outside repository cwd). Focused output/cache tests (7), four existing Compose/source Figma checks and the four new email cases also pass. No timeout, snapshot tolerance or performance budget changed.
+- Discoveries: the full browser run crossed UTC midnight and four pre-existing Compose/source goldens lost their Today count as their fixed article dates moved outside the Reader's twenty-four-hour window. Pin the fixture's default server and browser clocks to its article/preview time, while preserving explicitly supplied clocks; all four original baselines then pass. SMTP decoding can normalize transport line endings/trailing newline, so compare the complete decoded content with only that transport normalization. Exact fixture bytes need LF checkout attributes and a formatter exclusion; keep direct-input validator warnings visible in the evidence.
+- Dependency justification: no packages added. Reuse existing renderer/sanitizer/cleaner, React-free core fixture types, SQLite, Nodemailer/Postal Mime, rss-parser/LinkeDOM and Playwright/axe. The external W3C validation was an explicit one-time review of synthetic fixtures; the normal gates use no validator network service.
+- Next unchecked criterion: M12 DOM checklist and a role/label-only Playwright core-task journey. M7–M11 are DONE; M12–M20 remain pending and the overall v2 goal is not complete. Public static publishing, private-newsletter exclusion in static targets and other target adapters remain in their later milestones.

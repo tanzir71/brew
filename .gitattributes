@@ -1,0 +1,2 @@
+# Keep reviewed output bytes and their validator evidence stable across checkouts.
+targets/node/test/fixtures/outputs/* text eol=lf

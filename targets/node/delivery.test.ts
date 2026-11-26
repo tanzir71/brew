@@ -9,6 +9,8 @@ import { SmtpMail } from './src/ports/smtp-mail.js';
 import { smtpConfigFromEnv } from './src/outbound-config.js';
 import { createApp } from './src/app.js';
 import { smtpServer } from './test/smtp-server.js';
+import { outputFixtures, outputOrigin } from '../../packages/core/test/output-fixtures.js';
+import { renderBrewEmail } from '../../packages/core/src/brew-outputs.js';
 import {
   defaultDelivery,
   newBrewSection,
@@ -76,6 +78,23 @@ async function listen(server: Server) {
 }
 
 describe('actual SMTP and frozen issue delivery', () => {
+  it('preserves every exit fixture HTML/plain-text pair through actual SMTP MIME encoding', async () => {
+    const { server, mail } = await localSmtp('tls');
+    const normalize = (value: string | undefined) => value?.replace(/\r\n/g, '\n').trimEnd();
+    for (const fixture of outputFixtures) {
+      const issue = fixture.make();
+      const rendered = renderBrewEmail(issue, { baseUrl: outputOrigin });
+      const subject = `${issue.configName} · No. ${issue.issueNumber}`;
+      await mail.send({ to: 'reader@example.test', subject, ...rendered });
+      const captured = await new PostalMime().parse(server.messages.at(-1)!);
+      expect(captured.subject).toBe(subject);
+      expect(normalize(captured.html)).toBe(normalize(rendered.html));
+      expect(normalize(captured.text)).toBe(normalize(rendered.text));
+      expect(captured.attachments).toEqual([]);
+    }
+    expect(server.messages).toHaveLength(outputFixtures.length);
+  });
+
   it.each(['tls', 'starttls'] as const)(
     'sends authenticated multipart HTML/plain text over %s with one recipient and a stable message ID',
     async (security) => {

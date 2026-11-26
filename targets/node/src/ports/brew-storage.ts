@@ -1,4 +1,5 @@
 import { compileFtsQuery } from '../../../../packages/core/src/search-service.js';
+import { renderBrewJson, renderBrewMarkdown } from '../../../../packages/core/src/brew-outputs.js';
 import { articleText } from './article-text.js';
 import { desc, eq } from 'drizzle-orm';
 import type {
@@ -142,7 +143,7 @@ export class NodeBrewStorage implements BrewStoragePort {
       const issueNumber = this.nextIssueNumber(configId);
       const value = 'version' in payload ? { ...payload, issueNumber } : payload;
       this.setSetting(`brew_issue_number_${configId}`, String(issueNumber));
-      return this.database.db
+      const row = this.database.db
         .insert(brews)
         .values({
           brewConfigId: configId,
@@ -151,7 +152,23 @@ export class NodeBrewStorage implements BrewStoragePort {
           ...('version' in payload ? { generatedAt: new Date(payload.generatedAt) } : {}),
         })
         .returning()
-        .get().id;
+        .get();
+      if ('version' in value) {
+        const snapshot: ModernSnapshot = {
+          ...value,
+          id: row.id,
+          brewConfigId: configId,
+          scrollPosition: 0,
+        };
+        // Origin-neutral frozen twins travel with the issue. HTTP delivery renders
+        // with the current instance origin; a read never backfills old snapshots.
+        this.database.db
+          .update(brews)
+          .set({ renderedMd: renderBrewMarkdown(snapshot), renderedJson: renderBrewJson(snapshot) })
+          .where(eq(brews.id, row.id))
+          .run();
+      }
+      return row.id;
     })();
   }
 
