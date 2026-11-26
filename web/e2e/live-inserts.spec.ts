@@ -11,7 +11,7 @@ test('refreshes the active list when article:new arrives over SSE', async ({ pag
   });
   await page.goto('/');
   await page.getByRole('link', { name: /^All articles/ }).click();
-  await page.getByRole('complementary', { name: 'Reader navigation' }).getByRole('button', { name: /^All/ }).click();
+  await page.getByRole('complementary', { name: 'Reader navigation' }).getByRole('link', { name: /^All/ }).click();
   await expect(page.getByText('Already here')).toBeVisible();
   await expect(page.getByText('Arrived live')).toBeVisible();
   expect(articleRequests).toBeGreaterThan(1);

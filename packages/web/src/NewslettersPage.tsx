@@ -14,6 +14,7 @@ import { Avatar, Button, IconButton, SegmentedControl } from './components/contr
 import { Badge } from './components/Badge';
 import { Icon } from './components/Icon';
 import { useCapabilities } from './hooks/useCapabilities';
+import { articleDom } from './articleDom';
 import { GmailForwardingDialog, SenderSettingsDialog } from './newsletters/Dialogs';
 import { LetterPane } from './newsletters/LetterPane';
 import { letterDate, senderInitial } from './newsletters/dates';
@@ -405,6 +406,8 @@ export function NewslettersPage() {
                 query.data.items.map((item) => (
                   <button
                     className="letters-row"
+                    {...articleDom(item, 'letter')}
+                    data-brew-action="open"
                     data-unread={!item.readAt}
                     key={item.id}
                     aria-pressed={selectedId === item.id}

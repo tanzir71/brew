@@ -31,7 +31,7 @@ test('supports the complete Reader keyboard map and cheat sheet', async ({ page 
   await page.keyboard.press('1'); await expect(page.getByRole('button', { name: 'title view' })).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('2'); await expect(page.getByRole('button', { name: 'magazine view' })).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('3'); await expect(page.getByRole('button', { name: 'cards view' })).toHaveAttribute('aria-pressed', 'true');
-  await page.keyboard.press('Shift+A'); await expect(page.getByRole('status')).toContainText('Marked 2 read.');
+  await page.keyboard.press('Shift+A'); await page.getByRole('dialog', { name: 'Mark all articles read?' }).getByRole('button', { name: 'Mark all read', exact: true }).click(); await expect(page.getByRole('status')).toContainText('Marked 2 read.');
   await page.getByRole('button', { name: 'Undo' }).click();
 
   await page.keyboard.press('o');

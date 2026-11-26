@@ -234,7 +234,7 @@ test('mobile keyboard navigation keeps local URL state and shares read state wit
   await row.focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/letters\/1$/);
-  const pane = page.getByRole('region', { name: 'Letter from Interface Letters', exact: true });
+  const pane = page.getByRole('article', { name: 'Letter from Interface Letters', exact: true });
   await expect(pane.getByRole('heading', { name: newsletterTitle, exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mark letter unread', exact: true })).toBeEnabled();
   await pane.focus();

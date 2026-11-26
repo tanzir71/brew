@@ -82,8 +82,7 @@ for (const theme of ['light', 'dark']) {
     await expectNormalText(page);
     await page.goto('/?view=reader&scope=all');
     await page
-      .getByRole('button')
-      .filter({ has: page.getByRole('heading', { name: article.title }) })
+      .getByRole('button', { name: `Open article · ${article.title}`, exact: true })
       .click();
     await expect(page.locator('.article-content em')).toHaveText('Emphasis');
     await expect(page.locator('.article-content em')).toHaveCSS('font-style', 'normal');

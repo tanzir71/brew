@@ -50,7 +50,7 @@ test('searches with virtualized all, current-folder, and starred scopes', async 
   await page.getByRole('link', { name: /^All articles/ }).click();
   await page
     .getByRole('complementary', { name: 'Reader navigation' })
-    .getByRole('button', { name: /Design/ })
+    .getByRole('link', { name: /Design/ })
     .first()
     .click();
   await page.keyboard.press('/');

@@ -566,7 +566,7 @@ function ReadItem({
       className={`brew-read-item brew-read-item--${layout}${newsletter ? ' brew-letter-card' : ''}`}
       aria-label={item.title}
       data-brew-id={item.id}
-      data-brew-kind="article"
+      data-brew-kind={item.newsletter ? 'letter' : 'article'}
       data-brew-state={[
         state.readAt ? 'read' : 'unread',
         state.starredAt ? 'starred' : '',

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTextAlternates } from '../hooks/useTextAlternates';
 import { useQuery } from '@tanstack/react-query';
 import { brewIssuePath } from '@brew/core/brew-output-paths';
 import type { BrewConfig, BrewIssue } from '@brew/core/types/brew';
@@ -32,14 +33,9 @@ export function BrewFormats({ snapshot }: { snapshot: BrewIssue }) {
             ? 'Checking feed'
             : 'Feed is off';
   const path = brewIssuePath(snapshot);
+  useTextAlternates(twins ? path : null);
   useEffect(() => {
     const links = [
-      ...(twins
-        ? [
-            [`${path}.md`, 'text/markdown'],
-            [`${path}.json`, 'application/json'],
-          ]
-        : []),
       ...(feed
         ? [
             [`/b/${snapshot.brewConfigId}.atom`, 'application/atom+xml'],
@@ -55,7 +51,7 @@ export function BrewFormats({ snapshot }: { snapshot: BrewIssue }) {
       return link;
     });
     return () => links.forEach((link) => link.remove());
-  }, [path, snapshot.brewConfigId, twins, feed]);
+  }, [snapshot.brewConfigId, feed]);
   return (
     <div className="brew-format-links">
       <h2>Open this Brew as</h2>

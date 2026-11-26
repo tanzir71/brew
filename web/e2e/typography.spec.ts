@@ -165,10 +165,9 @@ test('Brew, Reader, Rules and settings keep fonts local and preserve reading pre
     'Newsreader, Georgia, serif',
   );
   await page.getByRole('link', { name: /^All articles/ }).click();
-  await page.getByRole('complementary', { name: 'Reader navigation' }).getByRole('button', { name: /^All/ }).click();
+  await page.getByRole('complementary', { name: 'Reader navigation' }).getByRole('link', { name: /^All/ }).click();
   await page
-    .getByRole('button')
-    .filter({ has: page.getByRole('heading', { name: article.title }) })
+    .getByRole('button', { name: `Open article · ${article.title}`, exact: true })
     .click();
   await expect(page.locator('.article-content')).toHaveCSS(
     'font-family',
@@ -191,8 +190,7 @@ test('Brew, Reader, Rules and settings keep fonts local and preserve reading pre
   );
   await page.goto('/?view=reader&scope=all');
   await page
-    .getByRole('button')
-    .filter({ has: page.getByRole('heading', { name: article.title }) })
+    .getByRole('button', { name: `Open article · ${article.title}`, exact: true })
     .click();
   await expect(page.getByLabel('Reader font')).toHaveValue('sans');
   await page.getByRole('button', { name: 'Close article' }).click();

@@ -158,6 +158,13 @@ try {
   assert.equal(article.contentHtml, '<p>A compiled story.</p>');
   assert.equal(article.url, `/a/${letter.articleId}`);
   assert.equal(article.rawHtml, undefined);
+  const articleTwin = await app.inject(`/a/${letter.articleId}.json`);
+  assert.equal(articleTwin.statusCode, 200);
+  assert.equal(articleTwin.json().id, letter.articleId);
+  assert.equal(articleTwin.json().contentHtml, '<p>A compiled story.</p>');
+  assert.match(articleTwin.headers['cache-control'], /private, no-store/);
+  assert.equal((await app.inject({ method: 'HEAD', url: `/a/${letter.articleId}.md` })).body, '');
+  assert.match((await app.inject(`/a/${letter.articleId}`)).body, /id="root"/);
   const letterDetail = (await app.inject(`/api/newsletters/letters/${letter.articleId}`)).json();
   assert.equal(letterDetail.originalAvailable, true);
   assert.equal(letterDetail.cleaning.trackers, 1);

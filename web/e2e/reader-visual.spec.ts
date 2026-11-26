@@ -9,7 +9,7 @@ for (const theme of ['light', 'dark'] as const) {
       await page.goto('/');
       await page.getByRole('link', { name: /^All articles/ }).click();
       await page.getByLabel('Theme').selectOption(theme);
-      await page.getByRole('complementary', { name: 'Reader navigation' }).getByRole('button', { name: /^All/ }).click();
+      await page.getByRole('complementary', { name: 'Reader navigation' }).getByRole('link', { name: /^All/ }).click();
       await page.getByRole('button', { name: `${density} view` }).click();
       await expect(page.getByText('Designing a calmer feed')).toBeVisible();
       await page.evaluate(async () => { await document.fonts.ready; for (const animation of document.getAnimations()) if (animation.effect?.getTiming().iterations !== Infinity) animation.finish(); });
@@ -22,11 +22,11 @@ test('Reader view navigation paints within 100ms', async ({ page }) => {
   await mockReader(page);
   await page.goto('/');
   await page.getByRole('link', { name: /^All articles/ }).click();
-  await page.getByRole('complementary', { name: 'Reader navigation' }).getByRole('button', { name: /^Today/ }).click();
+  await page.getByRole('complementary', { name: 'Reader navigation' }).getByRole('link', { name: /^Today/ }).click();
   await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible();
   const duration = await page.evaluate(async () => {
-    const button = [...document.querySelectorAll('button')].find((element) => element.textContent?.includes('All'));
-    if (!(button instanceof HTMLButtonElement)) throw new Error('All button not found');
+    const button = [...document.querySelectorAll('nav[aria-label="Library"] a')].find((element) => element.textContent?.includes('All'));
+    if (!(button instanceof HTMLAnchorElement)) throw new Error('All link not found');
     const start = performance.now(); button.click();
     while (![...document.querySelectorAll('h1')].some((heading) => heading.textContent === 'All articles')) await new Promise(requestAnimationFrame);
     return performance.now() - start;

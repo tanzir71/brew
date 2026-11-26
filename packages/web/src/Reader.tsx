@@ -7,6 +7,11 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ModeChip } from './components/ModeChip';
 import { articleRouteId } from './articleRoute';
+import { articleDom } from './articleDom';
+import { useArticleAlternates } from './hooks/useArticleAlternates';
+import { useCapabilities } from './hooks/useCapabilities';
+import { ModalSheet } from './components/Sheet';
+import { Badge } from './components/Badge';
 import { cachedArticleState, patchArticleStates, refreshArticleStates, updateArticleState } from './articleState';
 import type {
   ArticleDetail,
@@ -39,6 +44,27 @@ const isEditableTarget = (target: EventTarget | null): boolean =>
   (target.matches('input, textarea, select') || target.isContentEditable);
 const imageSource = (value: string) => localStorage.getItem('brew:direct-images') === 'true' && value.startsWith('/api/img?src=') ? decodeURIComponent(value.slice(13)) : localStorage.getItem('brew:direct-images') === 'true' ? value : value.startsWith('/api/img?') ? value : `/api/img?src=${encodeURIComponent(value)}`;
 
+function selectionHref(value: Selection): string {
+  if (value.kind === 'brew') return '/?view=reader&scope=brew';
+  const params = new URLSearchParams({ view: 'reader' });
+  if (value.kind === 'feed' || value.kind === 'folder') {
+    params.set(value.kind, String(value.id));
+    params.set('name', value.title);
+  } else params.set('scope', value.kind);
+  return `/?${params}`;
+}
+function selectionFromUrl(): Selection {
+    if (articleRouteId(location.pathname) !== null) return { kind: 'all', title: 'All articles' };
+    const params = new URLSearchParams(location.search);
+    for (const kind of ['feed', 'folder'] as const) {
+      const id = Number(params.get(kind));
+      if (Number.isInteger(id) && id > 0) return { kind, id, title: params.get('name') || (kind === 'feed' ? 'Feed' : 'Folder') };
+    }
+    const scope = params.get('scope');
+    return scope === 'all' || scope === 'today' || scope === 'starred' ? { kind: scope, title: { all: 'All articles', today: 'Today', starred: 'Starred' }[scope] } : { kind: 'brew', title: 'The Brew' };
+
+}
+
 export function Reader({
   searchQuery,
   onSearch,
@@ -50,16 +76,7 @@ export function Reader({
 }) {
   const queryClient = useQueryClient();
   const [navigation, setNavigation] = useState(emptyNavigation);
-  const [selection, setSelection] = useState<Selection>(() => {
-    if (articleRouteId(location.pathname) !== null) return { kind: 'all', title: 'All articles' };
-    const params = new URLSearchParams(location.search);
-    for (const kind of ['feed', 'folder'] as const) {
-      const id = Number(params.get(kind));
-      if (Number.isInteger(id) && id > 0) return { kind, id, title: params.get('name') || (kind === 'feed' ? 'Feed' : 'Folder') };
-    }
-    const scope = params.get('scope');
-    return scope === 'all' || scope === 'today' || scope === 'starred' ? { kind: scope, title: { all: 'All articles', today: 'Today', starred: 'Starred' }[scope] } : { kind: 'brew', title: 'The Brew' };
-  });
+  const [selection, setSelection] = useState<Selection>(selectionFromUrl);
   const [error, setError] = useState('');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const pendingGo = useRef(false);
@@ -98,6 +115,7 @@ export function Reader({
     };
   }, [queryClient]);
   const choose = useCallback((next: Selection) => {
+    history.pushState(null, '', selectionHref(next));
     setError('');
     setSelection(next);
   }, []);
@@ -156,6 +174,11 @@ export function Reader({
       if (pendingGoTimer.current !== null) window.clearTimeout(pendingGoTimer.current);
     };
   }, [choose, queryClient, showShortcuts]);
+  useEffect(() => {
+    const restore = () => setSelection(selectionFromUrl());
+    window.addEventListener('popstate', restore);
+    return () => window.removeEventListener('popstate', restore);
+  }, []);
   const itemClass = (active: boolean) =>
     `flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${active ? 'bg-subtle font-semibold text-ink' : 'text-soft hover:bg-subtle hover:text-ink'}`;
   return (
@@ -165,57 +188,63 @@ export function Reader({
           aria-label="Reader navigation"
           className="flex flex-col border-r border-line bg-canvas px-4 py-6"
         >
-          <nav className="space-y-1">
-            <button
+          <nav aria-label="Library" className="space-y-1">
+            <a
               className={itemClass(selection.kind === 'brew')}
-              onClick={() => choose({ kind: 'brew', title: 'The Brew' })}
+              href={selectionHref({ kind: 'brew', title: 'The Brew' })}
+              onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); choose({ kind: 'brew', title: 'The Brew' }); }}
             >
               <span>☕ The Brew</span>
-            </button>
-            <button
+            </a>
+            <a
               className={itemClass(selection.kind === 'today')}
-              onClick={() => choose({ kind: 'today', title: 'Today' })}
+              href={selectionHref({ kind: 'today', title: 'Today' })}
+              onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); choose({ kind: 'today', title: 'Today' }); }}
             >
               <span>Today</span>
               <Count value={navigation.counts.today} />
-            </button>
-            <button
+            </a>
+            <a
               className={itemClass(selection.kind === 'all')}
-              onClick={() => choose({ kind: 'all', title: 'All articles' })}
+              href={selectionHref({ kind: 'all', title: 'All articles' })}
+              onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); choose({ kind: 'all', title: 'All articles' }); }}
             >
               <span>All</span>
               <Count value={navigation.counts.all} />
-            </button>
-            <button
+            </a>
+            <a
               className={itemClass(selection.kind === 'starred')}
-              onClick={() => choose({ kind: 'starred', title: 'Starred' })}
+              href={selectionHref({ kind: 'starred', title: 'Starred' })}
+              onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); choose({ kind: 'starred', title: 'Starred' }); }}
             >
               <span>Starred</span>
               <Count value={navigation.counts.starred} />
-            </button>
+            </a>
           </nav>
           <div className="my-5 h-px bg-line" />
           {savedSearches.length>0&&<section className="mb-5"><p className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted">Saved searches</p>{savedSearches.map((saved)=><div key={saved.id} className="group flex items-center"><button className={`${itemClass(searchQuery===saved.query)} min-w-0 flex-1`} onClick={()=>onSearch(saved.query)}><span className="truncate">⌕ {saved.name}</span></button><button aria-label={`Delete saved search ${saved.name}`} onClick={()=>persistSearches(savedSearches.filter((item)=>item.id!==saved.id))} className="px-1 text-xs text-muted opacity-0 group-hover:opacity-100">×</button></div>)}</section>}
           <div className="space-y-4">
             {navigation.folders.map((folder) => (
               <section key={folder.id}>
-                <button
-                  onClick={() => choose({ kind: 'folder', id: folder.id, title: folder.title })}
+                <a
+                  href={selectionHref({ kind: 'folder', id: folder.id, title: folder.title })}
+              onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); choose({ kind: 'folder', id: folder.id, title: folder.title }); }}
                   className="flex w-full items-center justify-between px-3 py-1 text-xs font-semibold uppercase tracking-wider text-soft"
                 >
                   <span>{folder.title}</span>
                   <Count value={folder.unreadCount} />
-                </button>
+                </a>
                 <div className="mt-1 space-y-0.5">
                   {folder.feeds.map((feed) => (
-                    <button
+                    <a
                       key={feed.id}
                       className={itemClass(selection.kind === 'feed' && selection.id === feed.id)}
-                      onClick={() => choose({ kind: 'feed', id: feed.id, title: feed.title })}
+                      href={selectionHref({ kind: 'feed', id: feed.id, title: feed.title })}
+              onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); choose({ kind: 'feed', id: feed.id, title: feed.title }); }}
                     >
                       <span className="flex min-w-0 items-center gap-2"><FeedIcon id={feed.id} title={feed.title}/><span className="truncate">{feed.title}</span></span>
                       <Count value={feed.unreadCount} />
-                    </button>
+                    </a>
                   ))}
                 </div>
               </section>
@@ -226,14 +255,15 @@ export function Reader({
                   Unfiled
                 </p>
                 {navigation.unfiled.map((feed) => (
-                  <button
+                  <a
                     key={feed.id}
                     className={itemClass(selection.kind === 'feed' && selection.id === feed.id)}
-                    onClick={() => choose({ kind: 'feed', id: feed.id, title: feed.title })}
+                    href={selectionHref({ kind: 'feed', id: feed.id, title: feed.title })}
+              onClick={(event) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); choose({ kind: 'feed', id: feed.id, title: feed.title }); }}
                   >
                     <span className="flex min-w-0 items-center gap-2"><FeedIcon id={feed.id} title={feed.title}/><span className="truncate">{feed.title}</span></span>
                     <Count value={feed.unreadCount} />
-                  </button>
+                  </a>
                 ))}
               </section>
             )}
@@ -645,6 +675,7 @@ function ArticleList({ selection }: { selection: Selection }) {
   const [failedScroll, setFailedScroll] = useState<number[]>([]);
   const [readError, setReadError] = useState('');
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [confirmBulk, setConfirmBulk] = useState(false);
   const markScrolled = useCallback(async (ids: number[]) => {
     const results = await Promise.allSettled(ids.map((id) => updateArticleState(client, id, { read: true })));
     const failed = ids.filter((_, index) => results[index]!.status === 'rejected');
@@ -743,6 +774,7 @@ function ArticleList({ selection }: { selection: Selection }) {
     const keydown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return;
       const key = event.key.toLowerCase();
+      if ((event.target as HTMLElement | null)?.closest('dialog')) return;
       const dialog = document.querySelector<HTMLElement>('[aria-label="Article reader"]');
       if (dialog) {
         if (key === 'm') {
@@ -763,9 +795,10 @@ function ArticleList({ selection }: { selection: Selection }) {
         }
         return;
       }
+      if ((event.target as HTMLElement | null)?.closest('button,a[href]')) return;
       if (event.shiftKey && key === 'a') {
         event.preventDefault();
-        void markAll();
+        setConfirmBulk(true);
         return;
       }
       if (key === '1' || key === '2' || key === '3') {
@@ -837,12 +870,14 @@ function ArticleList({ selection }: { selection: Selection }) {
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-lg bg-subtle p-1" aria-label="Article filter">
             <button
+              aria-pressed={!unreadOnly}
               onClick={() => setUnreadOnly(false)}
               className={`rounded-md px-3 py-1.5 text-xs font-medium ${!unreadOnly ? 'bg-surface shadow-raised' : 'text-soft'}`}
             >
               All
             </button>
             <button
+              aria-pressed={unreadOnly}
               onClick={() => setUnreadOnly(true)}
               className={`rounded-md px-3 py-1.5 text-xs font-medium ${unreadOnly ? 'bg-surface shadow-raised' : 'text-soft'}`}
             >
@@ -850,7 +885,8 @@ function ArticleList({ selection }: { selection: Selection }) {
             </button>
           </div>
           <button
-            onClick={markAll}
+            data-brew-action="mark-all-read"
+            onClick={() => setConfirmBulk(true)}
             disabled={bulkBusy}
             className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs font-semibold"
           >
@@ -969,6 +1005,7 @@ function ArticleList({ selection }: { selection: Selection }) {
       {undo && (
         <div
           role="status"
+          aria-live="polite"
           className="brew-undo-toast fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-full bg-inverse px-5 py-3 text-sm text-on-inverse shadow-overlay"
         >
           <span>Marked {undo.updated} read.</span>
@@ -977,6 +1014,13 @@ function ArticleList({ selection }: { selection: Selection }) {
           </button>
         </div>
       )}
+      <ModalSheet open={confirmBulk} title="Mark all articles read?" onClose={() => setConfirmBulk(false)}>
+        <p>Mark every unread article in {selection.title} read? You can undo this for five seconds.</p>
+        <div className="mt-4 flex gap-3">
+          <button type="button" className="brew-button brew-button--secondary" onClick={() => setConfirmBulk(false)}>Cancel</button>
+          <button type="button" className="brew-button brew-button--primary" data-brew-action="confirm-mark-all-read" disabled={bulkBusy} onClick={() => { setConfirmBulk(false); void markAll(); }}>Mark all read</button>
+        </div>
+      </ModalSheet>
       {selectedArticle !== null && (
         <ArticleReader
           id={selectedArticle}
@@ -1018,24 +1062,18 @@ function ArticleRow({
       )}
     </div>
   );
-  const activate = (event: React.KeyboardEvent<HTMLElement>) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      onOpen();
-    }
-  };
+  const openButton = <button type="button" className="reader-article-open" aria-label={`Open article · ${article.title}`} data-brew-action="open" onClick={onOpen}>{article.title}</button>;
   if (density === 'title')
     return (
       <article
         style={highlightStyle}
-        role="button"
-        tabIndex={0}
+        aria-label={article.title}
+        {...articleDom(article)}
         data-focused={focused}
-        onClick={onOpen}
-        onKeyDown={activate}
+        onClick={(event) => { if (!(event.target as HTMLElement).closest('a,button,input,select,textarea')) onOpen(); }}
         className={`brew-list-item flex min-h-14 cursor-pointer items-center justify-between border-b border-line bg-surface py-3 outline-none focus-visible:ring-2 focus-visible:ring-ink ${focused ? 'ring-2 ring-inset ring-ink' : ''} ${article.readAt ? 'opacity-50' : ''}`}
       >
-        <h3 className="truncate pr-4 text-sm font-semibold">{article.title}</h3>
+        <h3 aria-label={article.title} className="truncate pr-4 text-sm font-semibold">{openButton}</h3>
         {meta}
       </article>
     );
@@ -1043,11 +1081,10 @@ function ArticleRow({
     return (
       <article
         style={highlightStyle}
-        role="button"
-        tabIndex={0}
+        aria-label={article.title}
+        {...articleDom(article)}
         data-focused={focused}
-        onClick={onOpen}
-        onKeyDown={activate}
+        onClick={(event) => { if (!(event.target as HTMLElement).closest('a,button,input,select,textarea')) onOpen(); }}
         className={`h-[258px] cursor-pointer overflow-hidden rounded-2xl border border-line bg-surface shadow-raised outline-none focus-visible:ring-2 focus-visible:ring-ink ${focused ? 'ring-2 ring-ink' : ''} ${article.readAt ? 'opacity-55' : ''}`}
       >
         {article.imageUrl ? (
@@ -1057,8 +1094,8 @@ function ArticleRow({
         )}
         <div className="p-4">
           {meta}
-          <h3 className="mt-2 line-clamp-2 text-lg font-semibold leading-snug tracking-tight">
-            {article.title}
+          <h3 aria-label={article.title} className="mt-2 line-clamp-2 text-lg font-semibold leading-snug tracking-tight">
+            {openButton}
           </h3>
           {article.summaryHtml && (
             <div
@@ -1072,16 +1109,15 @@ function ArticleRow({
   return (
     <article
       style={highlightStyle}
-      role="button"
-      tabIndex={0}
+        aria-label={article.title}
+        {...articleDom(article)}
       data-focused={focused}
-      onClick={onOpen}
-      onKeyDown={activate}
+        onClick={(event) => { if (!(event.target as HTMLElement).closest('a,button,input,select,textarea')) onOpen(); }}
       className={`flex min-h-[116px] cursor-pointer gap-5 border-b border-line bg-surface py-4 outline-none focus-visible:ring-2 focus-visible:ring-ink ${focused ? 'ring-2 ring-inset ring-ink' : ''} ${article.readAt ? 'opacity-55' : ''}`}
     >
       <div className="min-w-0 flex-1">
         {meta}
-        <h3 className="mt-1 text-lg font-semibold tracking-tight">{article.title}</h3>
+        <h3 aria-label={article.title} className="mt-1 text-lg font-semibold tracking-tight">{openButton}</h3>
         {article.summaryHtml && (
           <div
             className="mt-1 line-clamp-2 text-sm text-soft"
@@ -1120,11 +1156,14 @@ export function ArticleReader({
   const [extracting, setExtracting] = useState(false);
   const [message, setMessage] = useState('');
   const [showTags, setShowTags] = useState(false);
+  const [more, setMore] = useState(false);
+  const formats = useCapabilities();
+  useArticleAlternates(detail.data?.id ?? null);
   const [readingPrefs,setReadingPrefs]=useState(()=>{try{return JSON.parse(localStorage.getItem('brew:reading-prefs')??'{}') as {font?:'sans'|'serif';width?:'narrow'|'wide';lineHeight?:'compact'|'relaxed'}}catch{return{}}});
   const updatePrefs=(values:Partial<typeof readingPrefs>)=>setReadingPrefs((current)=>{const next={...current,...values};localStorage.setItem('brew:reading-prefs',JSON.stringify(next));return next});
   useEffect(() => {
     const close = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape' && !document.querySelector('dialog[open]')) onClose();
     };
     window.addEventListener('keydown', close);
     return () => window.removeEventListener('keydown', close);
@@ -1173,7 +1212,7 @@ export function ArticleReader({
         if (mode === 'overlay' && event.target === event.currentTarget) onClose();
       }}
     >
-      <article
+      <section
         role="dialog"
         aria-modal={mode === 'overlay'}
         aria-label="Article reader"
@@ -1207,7 +1246,7 @@ export function ArticleReader({
               </>
             )}
           </div>
-          <div className="flex gap-1" aria-label="Reading preferences"><select aria-label="Reader font" value={readingPrefs.font??'serif'} onChange={(event)=>updatePrefs({font:event.target.value as 'sans'|'serif'})} className="rounded border px-2 py-1 text-xs"><option value="sans">Sans</option><option value="serif">Serif</option></select><select aria-label="Reader width" value={readingPrefs.width??'narrow'} onChange={(event)=>updatePrefs({width:event.target.value as 'narrow'|'wide'})} className="rounded border px-2 py-1 text-xs"><option value="narrow">Narrow</option><option value="wide">Wide</option></select><select aria-label="Reader line height" value={readingPrefs.lineHeight??'relaxed'} onChange={(event)=>updatePrefs({lineHeight:event.target.value as 'compact'|'relaxed'})} className="rounded border px-2 py-1 text-xs"><option value="compact">Compact</option><option value="relaxed">Relaxed</option></select></div>
+          <div className="flex gap-1" aria-label="Reading preferences"><select aria-label="Reader font" value={readingPrefs.font??'serif'} onChange={(event)=>updatePrefs({font:event.target.value as 'sans'|'serif'})} className="rounded border px-2 py-1 text-xs"><option value="sans">Sans</option><option value="serif">Serif</option></select><select aria-label="Reader width" value={readingPrefs.width??'narrow'} onChange={(event)=>updatePrefs({width:event.target.value as 'narrow'|'wide'})} className="rounded border px-2 py-1 text-xs"><option value="narrow">Narrow</option><option value="wide">Wide</option></select><select aria-label="Reader line height" value={readingPrefs.lineHeight??'relaxed'} onChange={(event)=>updatePrefs({lineHeight:event.target.value as 'compact'|'relaxed'})} className="rounded border px-2 py-1 text-xs"><option value="compact">Compact</option><option value="relaxed">Relaxed</option></select><button type="button" aria-label="More article actions" data-brew-action="more" onClick={() => setMore(true)} className="rounded border px-2 py-1 text-xs">More</button></div>
         </div>
         {detail.isLoading ? (
           <p className="p-12 text-center text-sm text-soft">Opening article…</p>
@@ -1216,7 +1255,7 @@ export function ArticleReader({
             Could not open this article.
           </p>
         ) : (
-          <div className={`mx-auto px-7 py-12 ${readingPrefs.width==='wide'?'max-w-[880px]':'max-w-[680px]'}`}>
+          <article aria-label={detail.data.title} {...articleDom(detail.data)} className={`mx-auto px-7 py-12 ${readingPrefs.width==='wide'?'max-w-[880px]':'max-w-[680px]'}`}>
             <p className="text-xs font-semibold uppercase tracking-wider text-soft">
               {detail.data.feedTitle}
             </p>
@@ -1235,6 +1274,7 @@ export function ArticleReader({
             <div className="mt-6 flex flex-wrap gap-2">
               <button
                 data-shortcut="m"
+                data-brew-action="mark-read"
                 onClick={() => updateState({ read: !detail.data.readAt })}
                 className="rounded-full border border-line-strong px-4 py-2 text-sm font-semibold"
               >
@@ -1242,6 +1282,7 @@ export function ArticleReader({
               </button>
               <button
                 data-shortcut="s"
+                data-brew-action="star"
                 onClick={() => updateState({ starred: !detail.data.starredAt })}
                 aria-pressed={Boolean(detail.data.starredAt)}
                 className={`rounded-full border px-4 py-2 text-sm font-semibold ${detail.data.starredAt ? 'starred-burst border-line-strong bg-subtle text-soft' : 'border-line-strong'}`}
@@ -1250,6 +1291,7 @@ export function ArticleReader({
               </button>
               <button
                 data-shortcut="t"
+                data-brew-action="tag"
                 onClick={() => setShowTags((value) => !value)}
                 className="rounded-full border border-line-strong px-4 py-2 text-sm font-semibold"
               >
@@ -1272,7 +1314,7 @@ export function ArticleReader({
               </button>
             )}
             {message && (
-              <p role="status" className="mt-3 text-sm text-soft">
+              <p role="status" aria-live="polite" className="mt-3 text-sm text-soft">
                 {message}
               </p>
             )}
@@ -1297,9 +1339,21 @@ export function ArticleReader({
                   '<p>No article content was provided.</p>',
               }}
             />
-          </div>
+          </article>
         )}
-      </article>
+      </section>
+      <ModalSheet open={more} onClose={() => setMore(false)} title="Article actions">
+        {detail.data && <div className="grid gap-3">
+          <button type="button" className="brew-button brew-button--secondary brew-button--sm" data-brew-action="mark-read" onClick={() => void updateState({ read: !detail.data.readAt })}>{detail.data.readAt ? 'Mark unread' : 'Mark read'}</button>
+          <button type="button" className="brew-button brew-button--secondary brew-button--sm" data-brew-action="star" aria-pressed={Boolean(detail.data.starredAt)} onClick={() => void updateState({ starred: !detail.data.starredAt })}>{detail.data.starredAt ? 'Unstar' : 'Star'}</button>
+          <button type="button" className="brew-button brew-button--secondary brew-button--sm" data-brew-action="tag" onClick={() => { setMore(false); setShowTags(true); }}>Tag</button>
+          {(['md', 'json'] as const).map((format) => formats.data?.outputs?.twins
+            ? <a key={format} className="brew-button brew-button--secondary brew-button--sm" data-brew-action="export" href={`/a/${id}.${format}`} target="_blank" rel="noreferrer">{format === 'md' ? 'Markdown' : 'JSON'}</a>
+            : <button key={format} type="button" disabled data-brew-action="export" className="brew-button brew-button--secondary brew-button--sm" aria-label={`${format === 'md' ? 'Markdown' : 'JSON'} · ${formats.isError ? 'Formats unavailable' : 'Needs setup'}`}>{format === 'md' ? 'Markdown' : 'JSON'}<Badge tone="warning">{formats.isError ? 'Formats unavailable' : 'Needs setup'}</Badge></button>)}
+          {!formats.data?.outputs?.twins && <a href="/settings/runs">Set up article outputs</a>}
+          <a href={detail.data.url} target="_blank" rel="noreferrer">View original</a>
+        </div>}
+      </ModalSheet>
     </div>
   );
 }
@@ -1311,6 +1365,7 @@ function TagEditor({
   article: ArticleDetail;
   onChange: (article: ArticleDetail) => void;
 }) {
+  const client = useQueryClient();
   const tags = useQuery({ queryKey: ['tags'], queryFn: () => getJson<TagSummary[]>('/api/tags') });
   const [name, setName] = useState('');
   const save = async (selected: TagSummary[]) => {
@@ -1334,6 +1389,7 @@ function TagEditor({
     });
     if (!response.ok) return;
     const tag = (await response.json()) as TagSummary;
+    client.setQueryData<TagSummary[]>(['tags'], (current) => [...(current ?? []).filter((item) => item.id !== tag.id), tag].sort((a, b) => a.name.localeCompare(b.name)));
     setName('');
     await save([...article.tags, tag]);
   };

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { articleDom } from '../articleDom';
+import { useArticleAlternates } from '../hooks/useArticleAlternates';
 import type {
   NewsletterLetter,
   NewsletterOverview,
@@ -61,6 +63,7 @@ export function LetterPane({
     staleTime: 0,
     gcTime: 0,
   });
+  useArticleAlternates(letter.id);
   const sender = letter.sender;
   const originalHref = /^https?:\/\//i.test(letter.url)
     ? letter.url
@@ -86,8 +89,9 @@ export function LetterPane({
     void saveSender(patch).catch(() => undefined);
   };
   return (
-    <section
+    <article
       className="letters-letter"
+      {...articleDom(letter, 'letter')}
       aria-label={`Letter from ${sender.title}`}
       tabIndex={0}
       aria-keyshortcuts="m"
@@ -302,6 +306,6 @@ export function LetterPane({
         )}
       </div>
       {tagsOpen && <LetterTagsDialog letter={letter} close={() => setTagsOpen(false)} />}
-    </section>
+    </article>
   );
 }

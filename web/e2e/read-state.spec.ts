@@ -36,7 +36,7 @@ async function setup(page: Page) {
   return result;
 }
 async function openBrew(page: Page) {
-  const card = page.getByRole('article', { name: title, exact: true });
+  const card = page.getByRole('region', { name: 'Design & craft', exact: true }).getByRole('article', { name: title, exact: true });
   await card.getByRole('button', { name: title, exact: true }).click();
   await card.getByRole('button', { name: 'Open', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Article reader', exact: true });
@@ -166,9 +166,11 @@ test('Reader bulk read and Undo recover from failures and keep Brew state and fr
   await page.goto('/?view=reader&scope=all');
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Mark all read', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Mark all articles read?' }).getByRole('button', { name: 'Mark all read', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Could not mark articles read.');
   expect(fixture.readCount()).toBe(0);
   await page.getByRole('button', { name: 'Mark all read', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Mark all articles read?' }).getByRole('button', { name: 'Mark all read', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Marked 5 read.' })).toBeVisible();
   expect(fixture.readCount()).toBe(5);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();

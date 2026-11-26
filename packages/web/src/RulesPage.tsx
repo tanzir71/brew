@@ -288,9 +288,13 @@ export function RulesPage() {
           {rules.map((rule) => (
             <article
               key={rule.id}
+              aria-label={rule.name}
+              data-brew-id={rule.id}
+              data-brew-kind="rule"
+              data-brew-state={rule.enabled ? 'enabled' : 'disabled'}
               className={`rounded-xl border p-3 ${selectedId === rule.id ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}`}
             >
-              <button onClick={() => selectRule(rule)} className="w-full text-left">
+              <button data-brew-action="edit-rule" onClick={() => selectRule(rule)} className="w-full text-left">
                 <span className="flex items-center justify-between gap-2">
                   <strong className="truncate text-sm">{rule.name}</strong>
                   <span
@@ -306,16 +310,16 @@ export function RulesPage() {
                 </span>
               </button>
               <div className="mt-2 flex gap-2">
-                <button onClick={() => duplicate(rule)} className="text-xs text-soft">
+                <button data-brew-action="copy-rule" onClick={() => duplicate(rule)} className="text-xs text-soft">
                   Copy
                 </button>
-                <button onClick={() => remove(rule.id)} className="text-xs text-danger">
+                <button data-brew-action="delete-rule" onClick={() => remove(rule.id)} className="text-xs text-danger">
                   Delete
                 </button>
-                <button onClick={() => void showLogs(rule.id)} className="text-xs text-soft">
+                <button data-brew-action="rule-log" onClick={() => void showLogs(rule.id)} className="text-xs text-soft">
                   Logs
                 </button>
-                <button onClick={() => void applyExisting(rule.id)} className="text-xs text-accent">
+                <button data-brew-action="apply-rule" onClick={() => void applyExisting(rule.id)} className="text-xs text-accent">
                   Apply 30d
                 </button>
               </div>

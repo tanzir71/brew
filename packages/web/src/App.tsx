@@ -63,9 +63,9 @@ function AppContent() {
   return (
     <main className="min-h-screen bg-canvas text-ink">
       <header className="flex h-16 items-center justify-between border-b border-line px-8">
-        <div className="flex items-center gap-3"><button onClick={() => setMode('brew')} className="font-semibold tracking-tight">
+        <div className="flex items-center gap-3"><a href="/" aria-label="Brew home" className="font-semibold tracking-tight">
           Brew
-        </button><a href="/settings/runs" className="legacy-settings-link" aria-label="Settings · Where Brew runs"><img src={runAssets.settings} alt="" /></a></div>
+        </a><a href="/settings/runs" className="legacy-settings-link" aria-label="Settings · Where Brew runs"><img src={runAssets.settings} alt="" /></a></div>
         <div className="flex items-center gap-3">
           <label className="sr-only" htmlFor="global-search">
             Search

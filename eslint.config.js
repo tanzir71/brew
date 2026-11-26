@@ -25,5 +25,11 @@ export default tseslint.config(
         ]
       }]
     }
+  },
+  {
+    files: ['web/e2e/agent.spec.ts'],
+    rules: {
+      'no-restricted-properties': ['error', ...['locator', 'getByText', 'getByTestId', 'getByAltText', 'getByPlaceholder', 'getByTitle', 'evaluate', 'evaluateHandle', '$', '$$'].map((property) => ({ property, message: 'Agent journeys select the UI only with getByRole/getByLabel.' }))],
+    },
   }
 );

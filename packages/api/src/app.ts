@@ -5,6 +5,7 @@ import { json } from './http.js';
 import { registerSourceRoutes } from './routes/sources.js';
 import { registerFeedRoutes } from './routes/feeds.js';
 import { registerArticleRoutes } from './routes/articles.js';
+import { registerArticleOutputRoutes } from './routes/article-outputs.js';
 import { registerReaderRoutes } from './routes/reader.js';
 import { registerRulesRoutes } from './routes/rules.js';
 import { registerBrewOutputRoutes } from './routes/brew-outputs.js';
@@ -42,6 +43,7 @@ export function createApi(
   registerFeedRoutes(app, services);
   registerSourceRoutes(app, services);
   registerArticleRoutes(app, services);
+  registerArticleOutputRoutes(app, services);
   registerReaderRoutes(app, services);
   registerRulesRoutes(app, services);
   registerBrewRoutes(app, services);

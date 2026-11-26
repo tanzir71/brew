@@ -206,6 +206,13 @@ explicit media types, `private, no-store` caching, no-index and nosniff headers.
 Read emits alternate Markdown/JSON links in its document head, plus Atom/JSON
 Feed discovery when enabled. Twins include HTTP alternate links too.
 
+Articles and cleaned newsletter letters have private content twins at
+`/a/<article id>.md` and `.json`, available from the reading pane's More sheet.
+GET/HEAD does not mark an item read or extract content. The open article owns
+Markdown/JSON discovery until it closes, then the selected Brew's links return.
+See [agent DOM implementation](docs/agent-dom.md) for the current role/label-only
+journey and the remaining M12 checklist work.
+
 `BREW_PUBLIC_URL=https://brew.your-domain.example` pins the canonical origin for
 absolute twin/feed links behind a TLS-terminating reverse proxy. Without it,
 Node uses the request’s actual protocol and Host. Only HTTP(S) origins without
