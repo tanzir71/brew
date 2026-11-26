@@ -292,11 +292,16 @@ export function Select({
   className = '',
   ...props
 }: SelectHTMLAttributes<HTMLSelectElement> & { label: string; hideLabel?: boolean }) {
+  const labelId = useId();
   return (
     <label className={`brew-select-label ${className}`}>
-      <span className={hideLabel ? 'sr-only' : ''}>{label}</span>
+      <span id={labelId} className={hideLabel ? 'sr-only' : ''}>
+        {label}
+      </span>
       <span className="brew-select">
-        <select {...props}>{children}</select>
+        <select aria-labelledby={props['aria-label'] ? undefined : labelId} {...props}>
+          {children}
+        </select>
         <Icon name="chevron-down" size={14} />
       </span>
     </label>

@@ -37,6 +37,7 @@ function SheetBody({
       document.body.style.overflow = overflow;
       if (
         previous?.isConnected &&
+        previous !== document.body &&
         previous.getClientRects().length &&
         !previous.matches(':disabled')
       )

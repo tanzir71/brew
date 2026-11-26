@@ -25,7 +25,15 @@ describe('Hono preserves captured v1 REST contracts', () => {
       const response = await app.inject(request);
       const expected = baseline.find((item) => item.name === name);
       expect(expected, `Missing captured v1 response: ${name}`).toBeDefined();
-      expect({ name, ...responseContract(response) }).toEqual(expected);
+      // V2 makes subscription downloads explicitly private. Keep the captured
+      // body, status and every other header contract unchanged.
+      const current =
+        name === 'OPML export'
+          ? { ...expected, headers: { ...expected!.headers, 'cache-control': 'private, no-store' } }
+          : expected;
+      expect({ name, ...responseContract(response) }).toEqual(current);
+      if (name === 'OPML export')
+        expect(response.headers['x-robots-tag']).toBe('noindex, nofollow');
       if (response.headers['content-type']?.includes('application/json') && response.body) {
         const value = response.json();
         if (value.undoToken)

@@ -441,6 +441,11 @@ try {
     .prepare('UPDATE articles SET hidden=? WHERE id=?')
     .run(hiddenBefore.hidden, letter.articleId);
   const subscriptions = (await app.inject('/api/feeds')).json();
+  const exportedSubscriptions = await app.inject('/api/opml/export');
+  assert.equal(exportedSubscriptions.statusCode, 200);
+  assert.equal(exportedSubscriptions.headers['cache-control'], 'private, no-store');
+  assert.equal(exportedSubscriptions.headers['x-robots-tag'], 'noindex, nofollow');
+  assert.doesNotMatch(exportedSubscriptions.body, /mailto:/);
   const opml =
     '<opml><body><outline text="Compiled import" xmlUrl="https://compiled-import.test/rss"/></body></opml>';
   const opmlPreview = await app.inject({

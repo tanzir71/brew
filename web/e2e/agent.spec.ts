@@ -1,10 +1,88 @@
 import { expect, test, type Route } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 import { newslettersFixture } from './newsletters-fixture';
 import { newBrewSection } from '../../packages/core/src/composition-model';
 import { isArticleOutputPath } from '../../packages/core/src/article-outputs';
 import { RulesService } from '../../targets/node/src/services/rules-service';
 import { isReaderPageOutputPath } from '../../packages/core/src/reader-pages';
 import { articles } from '../../targets/node/src/db/schema';
+
+test('an agent changes browser settings through native links, reloads reading choices and exports actual OPML without server writes', async ({
+  page,
+}) => {
+  const f = await newslettersFixture(page);
+  try {
+    const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    await page.goto('/settings/runs');
+    const nav = page.getByRole('navigation', { name: 'Settings', exact: true });
+    const generalLink = nav.getByRole('link', { name: 'General', exact: true });
+    await generalLink.focus();
+    await page.keyboard.press('Enter');
+    const general = page.getByRole('dialog', { name: 'General settings', exact: true });
+    await expect(page).toHaveURL('/settings/runs#preferences-general');
+    await general.getByLabel('Theme', { exact: true }).selectOption('dark');
+    await general.getByLabel('Image privacy', { exact: true }).selectOption('direct');
+    await general.getByLabel('Default landing page', { exact: true }).selectOption('reader');
+    await expect(
+      general.getByRole('region', { name: 'Preferences result', exact: true }),
+    ).toHaveText('Default landing page saved in this browser.');
+    await page.keyboard.press('Escape');
+    await expect(generalLink).toBeFocused();
+    await expect(page).toHaveURL('/settings/runs');
+    const readingLink = nav.getByRole('link', { name: 'Reading', exact: true });
+    await readingLink.click();
+    const reading = page.getByRole('dialog', { name: 'Reading settings', exact: true });
+    await reading.getByLabel('Open articles', { exact: true }).selectOption('pane');
+    await reading.getByLabel('Read on scroll', { exact: true }).check();
+    await reading.getByLabel('Read on scroll', { exact: true }).uncheck();
+    await reading.getByLabel('Reader font', { exact: true }).selectOption('sans');
+    await reading.getByLabel('Reader width', { exact: true }).selectOption('wide');
+    await reading.getByLabel('Reader line height', { exact: true }).selectOption('compact');
+    await page.reload();
+    await expect(reading.getByLabel('Reader font', { exact: true })).toHaveValue('sans');
+    await expect(reading.getByLabel('Reader width', { exact: true })).toHaveValue('wide');
+    await expect(reading.getByLabel('Reader line height', { exact: true })).toHaveValue('compact');
+    await page.goBack();
+    await expect(reading).toHaveCount(0);
+    await page.goForward();
+    await expect(reading.getByLabel('Open articles', { exact: true })).toHaveValue('pane');
+    await reading.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Where Brew runs', exact: true })).toBeFocused();
+    await nav.getByRole('link', { name: 'Data & backup', exact: true }).click();
+    const data = page.getByRole('dialog', { name: 'Data & backup', exact: true });
+    expect((await f.app.inject('/api/opml/export')).body).toContain('https://rss.fixture.test/0');
+    const downloaded = page.waitForEvent('download');
+    await data.getByRole('link', { name: 'Export OPML', exact: true }).click();
+    const download = await downloaded;
+    expect(download.suggestedFilename()).toBe('brew-subscriptions.opml');
+    expect(await readFile((await download.path())!, 'utf8')).toContain('<opml version="2.0">');
+    await data.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(nav.getByRole('link', { name: 'Data & backup', exact: true })).toBeFocused();
+    await page.getByRole('button', { name: 'Refresh capabilities', exact: true }).click();
+    await expect(page.getByRole('status', { name: 'Capabilities result', exact: true })).toHaveText(
+      'Capabilities checked.',
+    );
+    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+    await page
+      .getByRole('navigation', { name: 'Library', exact: true })
+      .getByRole('link', { name: /^All articles/ })
+      .click();
+    await expect(page.getByLabel('Open articles', { exact: true })).toHaveValue('pane');
+    await expect(page.getByLabel('Read on scroll', { exact: true })).not.toBeChecked();
+    await page.getByRole('button', { name: 'Open article · Design story', exact: true }).click();
+    const article = page.getByRole('dialog', { name: 'Article reader', exact: true });
+    await expect(article.getByLabel('Reader font', { exact: true })).toHaveValue('sans');
+    await expect(article.getByLabel('Reader width', { exact: true })).toHaveValue('wide');
+    await expect(article.getByLabel('Reader line height', { exact: true })).toHaveValue('compact');
+    await article.getByRole('button', { name: 'Close article', exact: true }).click();
+    await page.goto('/');
+    await expect(
+      page.getByRole('complementary', { name: 'Reader navigation', exact: true }),
+    ).toBeVisible();
+  } finally {
+    await f.close();
+  }
+});
 
 test('an agent reviews sender blocking, recovers a lost acknowledgement and undoes the actual setting after reload', async ({
   page,

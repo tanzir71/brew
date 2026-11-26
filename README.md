@@ -48,6 +48,14 @@ capability table, and setup guides. Unavailable connections stay visible. Comple
 `.brew` transfer is disabled until the cross-target archive support arrives;
 the data guide offers the existing OPML export and Node backup command.
 
+Settings → **General** and **Reading** open native dialogs at
+`/settings/runs#preferences-general` and `#preferences-reading`. Changes save in
+this browser immediately: theme, image privacy, default landing page, article
+opening mode, read on scroll and typography. Brew options and Reader controls
+share those values, including across open tabs. Failed storage writes keep the
+saved choice and show an error; unavailable reads have a retry. Changing the
+default landing page takes effect the next time you open the root URL.
+
 ## Getting started (from zero)
 
 ### Prerequisites
@@ -393,7 +401,13 @@ keep setup visible. Browser and static email-to-feed ingestion remain for M15/M1
 
 ## Data ownership
 
-Your entire state is `data/brew.db`. To back up manually, **stop Brew first** so the SQLite database and WAL stay consistent, then copy the file. Automated backup and OPML export commands arrive in later milestones (see `CODEX_HANDOFF.md`).
+Your server data is in `data/brew.db`. Run `npm run backup` for a consistent SQLite
+snapshot in `backups/` (override paths with `BREW_DB_PATH` and `BREW_BACKUP_DIR`).
+To copy the database manually, stop Brew first so its database and WAL stay
+consistent. Settings → Data & backup offers a private OPML download of RSS
+subscriptions and folders. Newsletter addresses and letters are not OPML feeds;
+keep the database backup for those. Browser preferences stay in browser storage.
+Complete `.brew` transfer remains a later milestone.
 
 ## Troubleshooting
 

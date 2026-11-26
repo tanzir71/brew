@@ -4,6 +4,8 @@ const Reader = lazy(() => import('./Reader').then((module) => ({ default: module
 import { RulesPage } from './RulesPage';
 import { BrewPage } from './BrewPage';
 import { runAssets } from './components/figmaAssets';
+import { initialBrowserPreferences, useBrowserPreferences } from './hooks/useBrowserPreferences';
+import { GeneralPreferences, PreferenceFeedback } from './settings/BrowserPreferences';
 import { articleRouteId } from './articleRoute';
 import { closeSearchHref, isReaderLocation, navigateReader, searchHref } from './readerLocation';
 const WhereBrewRuns = lazy(() => import('./settings/WhereBrewRuns').then((module) => ({ default: module.WhereBrewRuns })));
@@ -20,7 +22,7 @@ function AppContent() {
     if (articleRouteId(location.pathname) !== null || isReaderLocation()) return 'reader';
     if (location.pathname.startsWith('/b/')) return 'brew';
     const view = new URLSearchParams(location.search).get('view');
-    return view === 'brew' || view === 'reader' || view === 'feeds' || view === 'rules' ? view : localStorage.getItem('brew:landing')==='reader'?'reader':'brew';
+    return view === 'brew' || view === 'reader' || view === 'feeds' || view === 'rules' ? view : initialBrowserPreferences().landing;
   });
   const [searchDraft, setSearchDraft] = useState(() => new URLSearchParams(location.search).get('q') ?? '');
   const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(location.search).get('q')?.trim() ?? '');
@@ -41,11 +43,8 @@ function AppContent() {
   }, []);
   const isRuns = location.pathname === '/settings/runs';
   const isLetters = /^\/letters(?:\/|$)/.test(location.pathname);
-  const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('brew:theme');
-    return saved === 'light' || saved === 'dark' ? saved : 'system';
-  });
-  const [directImages,setDirectImages]=useState(()=>localStorage.getItem('brew:direct-images')==='true');
+  const preferences = useBrowserPreferences();
+  const { theme, images, landing } = preferences.values;
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const apply = () => {
@@ -60,11 +59,7 @@ function AppContent() {
   useEffect(() => { document.title = `${isLetters ? 'Newsletters' : isRuns ? 'Where Brew runs' : mode === 'brew' ? 'The Brew' : mode === 'reader' ? 'Reader' : mode === 'rules' ? 'Rules' : 'Feeds'} · Brew`; }, [mode, isRuns, isLetters]);
   if (isLetters) return <Suspense fallback={<main role="status" className="p-8">Loading newsletters…</main>}><NewslettersPage /></Suspense>;
   if (isRuns) return <Suspense fallback={<main role="status" className="p-8">Loading settings…</main>}><WhereBrewRuns /></Suspense>;
-  if (mode === 'brew') return <BrewPage preferences={<>
-    <label>Theme<select aria-label="Theme" value={theme} onChange={(event)=>{const value=event.target.value as 'system'|'light'|'dark';setTheme(value);localStorage.setItem('brew:theme',value)}}><option value="system">System theme</option><option value="light">Light theme</option><option value="dark">Dark theme</option></select></label>
-    <label>Image privacy<select value={directImages?'direct':'proxy'} onChange={(event)=>{const value=event.target.value==='direct';setDirectImages(value);localStorage.setItem('brew:direct-images',String(value))}}><option value="proxy">Private images</option><option value="direct">Load images directly</option></select></label>
-    <label>Default landing page<select value={localStorage.getItem('brew:landing')??'brew'} onChange={(event)=>{localStorage.setItem('brew:landing',event.target.value);if(event.target.value==='reader')setMode('reader')}}><option value="brew">Start at Brew</option><option value="reader">Start at Reader</option></select></label>
-  </>} />;
+  if (mode === 'brew') return <BrewPage preferences={<GeneralPreferences />} />;
   return (
     <main className="min-h-screen bg-canvas text-ink">
       <header className="flex h-16 items-center justify-between border-b border-line px-8">
@@ -115,11 +110,10 @@ function AppContent() {
           </label>
           <select
             id="theme-picker"
+            data-brew-action="set-theme"
             value={theme}
             onChange={(event) => {
-              const next = event.target.value as 'system' | 'light' | 'dark';
-              setTheme(next);
-              localStorage.setItem('brew:theme', next);
+              preferences.save('theme', event.target.value, 'Theme');
             }}
             className="rounded-full border border-line-strong bg-surface px-3 py-2 text-xs font-medium"
           >
@@ -128,10 +122,10 @@ function AppContent() {
             <option value="dark">Dark theme</option>
           </select>
           <label className="sr-only" htmlFor="image-privacy">Image privacy</label>
-          <select id="image-privacy" value={directImages?'direct':'proxy'} onChange={(event)=>{const direct=event.target.value==='direct';setDirectImages(direct);localStorage.setItem('brew:direct-images',String(direct))}} className="rounded-full border border-line-strong bg-surface px-3 py-2 text-xs font-medium">
+          <select id="image-privacy" data-brew-action="set-image-privacy" value={images} onChange={(event)=>preferences.save('images', event.target.value, 'Image privacy')} className="rounded-full border border-line-strong bg-surface px-3 py-2 text-xs font-medium">
             <option value="proxy">Private images</option><option value="direct">Load images directly</option>
           </select>
-          <label className="sr-only" htmlFor="landing-picker">Default landing page</label><select id="landing-picker" aria-label="Default landing page" value={localStorage.getItem('brew:landing')??'brew'} onChange={(event)=>{localStorage.setItem('brew:landing',event.target.value);setMode(event.target.value as 'brew'|'reader')}} className="rounded-full border border-line-strong bg-surface px-3 py-2 text-xs font-medium"><option value="brew">Start at Brew</option><option value="reader">Start at Reader</option></select>
+          <label className="sr-only" htmlFor="landing-picker">Default landing page</label><select id="landing-picker" data-brew-action="set-landing" aria-label="Default landing page" value={landing} onChange={(event)=>preferences.save('landing', event.target.value, 'Default landing page')} className="rounded-full border border-line-strong bg-surface px-3 py-2 text-xs font-medium"><option value="brew">Start at Brew</option><option value="reader">Start at Reader</option></select>
           <a
             href={mode === 'rules' ? '/' : '/?view=rules'}
             className="rounded-full border border-line-strong px-4 py-2 text-sm font-medium hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
@@ -146,6 +140,7 @@ function AppContent() {
           </a>
         </div>
       </header>
+      <PreferenceFeedback preferences={preferences} name="General preferences result" />
       {mode === 'feeds' ? (
         <FeedManager />
       ) : mode === 'rules' ? (

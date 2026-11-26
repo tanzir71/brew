@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import type { SetupTopic } from './capabilityRows';
 import type { Capabilities } from '@brew/core/types/capabilities';
 import { Badge } from '../components/Badge';
@@ -103,10 +103,16 @@ export function SetupDialog({
             : 'Webhook delivery needs setup on this instance.',
         ]
       : guide.steps;
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialog = ref.current!;
+    const previous = document.activeElement as HTMLElement | null;
     dialog.showModal();
-    return () => dialog.close();
+    return () => {
+      dialog.close();
+      if (previous?.isConnected && previous !== document.body && previous.getClientRects().length)
+        previous.focus();
+      else document.querySelector<HTMLElement>('main h1[tabindex]')?.focus({ preventScroll: true });
+    };
   }, []);
   const close = () => {
     history.replaceState(null, '', location.pathname + location.search);
@@ -135,7 +141,7 @@ export function SetupDialog({
         ))}
       </ol>
       {topic === 'data' && capabilities?.readState === 'server' && (
-        <a className="runs-button" href="/api/opml/export" download>
+        <a className="runs-button" href="/api/opml/export" download data-brew-action="export-opml">
           Export OPML
         </a>
       )}

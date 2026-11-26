@@ -60,6 +60,13 @@ draft and an unrelated later preference, and restore actual pruned originals and
 Brew routing. Separate sender checks cover stale reviews, capability gating,
 cancelled/obsolete previews, missing Brews, light/dark axe and phone layouts.
 
+A seventeenth role/label-only journey opens General and Reading through native
+settings links, saves browser preferences, reloads and follows history, downloads
+OPML from Data & backup, refreshes capabilities and verifies zero server writes
+before opening Reader. It then verifies the actual saved article controls. Separate
+checks cover shared values across tabs, failed writes/read retry, light/dark axe,
+desktop/phone captures and fresh deep-link focus recovery.
+
 ESLint restricts that file's UI selectors to `getByRole` and `getByLabel`, rejecting
 CSS/test-ID/text/placeholder/title selectors and injected DOM evaluation. Browser
 setup, navigation, response inspection and SQL assertions remain available to
@@ -70,10 +77,10 @@ metadata and geometry directly; they do not substitute for this agent journey.
 
 | Requirement | Implemented evidence | Remaining work before the criterion is complete |
 | --- | --- | --- |
-| Landmarks | Existing Brew Library/main/In this Brew; named Reader Library navigation; real article landmarks inside Reader dialogs and newsletter panes; Compose now has a named main landmark. | Finish the view/dialog audit, including settings and older shell variants. |
+| Landmarks | Existing Brew Library/main/In this Brew; named Reader Library navigation; real article landmarks inside Reader dialogs and newsletter panes; named Compose and instance-settings main landmarks. | Finish the remaining view/dialog and older shell audit. |
 | Native controls | Reader scope/folder/feed and saved-search bookmarks, saved-rule selection/logs and attribution, feed audit views, newsletter sender/letter/page navigation and legacy shell toolbar navigation use real hrefs. Feed-library names and hidden-page navigation also use native links. Feed/folder renames and retention now use native labelled dialogs. Article actions and bulk confirmation use real controls. | Audit all remaining navigation, icon-only labels and toggles. |
 | Stable hooks | Article rows/panes share `data-brew-id`, kind and read/unread/starred/highlighted state. Reader/search rows also declare their actual density. Newsletter rows/panes and frozen Brew letters identify as letters; rules expose identity/enablement/actions; Compose already identifies sections. | Audit the rest of each screen's actions, settings and result rows. |
-| Accessible alternatives | Article and letter actions are available directly and in native More sheets. Saved-search deletion, feed-library/folder, feed health, hidden and sender rows have labelled More controls and native sheets. Sender-row More appears on hover, keyboard focus or selection. Existing Compose drag controls retain button/keyboard alternatives. | Audit remaining settings/data controls and focus/selection behavior. |
+| Accessible alternatives | Article and letter actions are available directly and in native More sheets. Saved-search deletion, feed-library/folder, feed health, hidden and sender rows have labelled More controls and native sheets. Sender-row More appears on hover, keyboard focus or selection. General/Reading settings and setup guides use native dialogs and links. Existing Compose drag controls retain button/keyboard alternatives. | Finish remaining controls and focus/selection behavior, including bulk and older shells. |
 | Polite results | Existing Compose/Brew status plus explicit Reader bulk, saved-search and owner-action result live regions with real Undo. Rule partial failures, mutation errors, browser storage failures, refresh failures and action-history recovery failures have visible feedback. | Audit success/error announcements for remaining mutations and error/retry paths. |
 | Totals and pagination | Newsletter, Reader, search and feed-library/audit views announce showing ranges/totals. Counts remain available to assistive technology in Calm mode. Newsletter/Reader/search/hidden articles offer native Previous/Next links with URL page state; hidden counts exceed the legacy 500-item cap. Normal Reader/search retain virtual/infinite lists. | Remaining list announcements and agent-mode pagination without virtualization/motion/scroll marking. |
 | Confirmation and undo | Reader bulk click/Shift+A, rule apply/delete, feed/folder deletion, library/Compose OPML import, risky sender settings and browser saved-search deletion confirm through native sheets. Cancel causes no writes; actual server Undo restores changes, including cascaded feed articles/tags/logs, folder assignments, sender retention and Brew routing. OPML Undo protects later uses of imported records. Browser bookmarks have separate local Undo with reload recovery. Existing Brew/Compose behavior remains tested. | Audit every other bulk/destructive path. Scoped agent tokens and the complete action-log settings UI remain later M12 criteria. |
@@ -199,6 +206,35 @@ names and refuses overlapping changes atomically. No-op edits have no Undo.
 Audit arguments retain patch hashes rather than selectors or message contents.
 Undo cannot recover deliveries rejected while blocked. Legacy sender PATCH remains
 compatible; no new database migration or dependency is needed.
+
+## Browser preferences and data guides
+
+Settings links open General and Reading at `#preferences-general` and
+`#preferences-reading` on `/settings/runs`. Reload and history restore the dialog;
+Done/Escape restores a visible opener, or the heading on a fresh deep link. Shared
+Select labels reference a dedicated text span, so exact label lookup excludes
+option text without changing the Figma layout. Setup guides use the same focus
+contract; capability refresh has a named polite result.
+
+One validated browser-preference adapter reads the existing keys without writing
+defaults. General, Brew options, the legacy toolbar, Reader and article controls
+share theme/privacy/landing/opening/read-on-scroll/typography values. Same-window
+and storage events refresh mounted controls across tabs. A successful storage
+write precedes visible value changes and polite feedback; failure keeps the saved
+value and shows an error. A failed read preserves the last known values with an
+explicit retry. Typography updates merge the latest JSON fields, preserving
+unrelated preferences. Invalid stored values fall back safely without writes.
+Preference actions have stable data-brew-action hooks. Browser preferences are
+local; the instance-capability twins continue to describe server state.
+
+Data & backup keeps full `.brew` transfer disabled for its later milestone and
+offers the actual OPML export. GET/HEAD downloads are private/no-store/no-index,
+read-only and contain RSS subscriptions/folders, excluding newsletter mailto
+identities that the OPML importer cannot accept. The native download is checked
+separately from seeded API round-trip/no-write checks: Chromium downloads can
+bypass the fixture's browser request interception and reach the real dev server.
+The captured v1 export body/status/other headers remain unchanged; the contract
+test explicitly requires the new private-cache and no-index headers.
 
 ## Article twins
 

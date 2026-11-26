@@ -173,8 +173,9 @@ export async function newslettersFixture(
   }
   await page.addInitScript(
     ({ theme, calm }) => {
-      localStorage.setItem('brew:theme', theme);
-      localStorage.setItem('brew:calm', String(calm));
+      if (localStorage.getItem('brew:theme') === null) localStorage.setItem('brew:theme', theme);
+      if (localStorage.getItem('brew:calm') === null)
+        localStorage.setItem('brew:calm', String(calm));
     },
     { theme: options.theme ?? 'light', calm: options.calm ?? false },
   );

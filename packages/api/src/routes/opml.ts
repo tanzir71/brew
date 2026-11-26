@@ -31,6 +31,8 @@ export function registerOpmlRoutes(app: Hono, { opml: service }: ApiServices): v
     c.body(await service.export(), 200, {
       'Content-Type': 'text/x-opml; charset=utf-8',
       'Content-Disposition': 'attachment; filename="brew-subscriptions.opml"',
+      'Cache-Control': 'private, no-store',
+      'X-Robots-Tag': 'noindex, nofollow',
     }),
   );
 }

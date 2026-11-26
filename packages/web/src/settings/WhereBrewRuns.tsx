@@ -13,6 +13,7 @@ import {
   type SetupTopic,
 } from './capabilityRows';
 import { SetupDialog } from './SetupDialog';
+import { BrowserPreferencesDialog } from './BrowserPreferences';
 
 const topics: SetupTopic[] = [
   'newsletters',
@@ -36,8 +37,22 @@ export function WhereBrewRuns() {
   const topic = hash.startsWith('#setup-')
     ? topics.find((item) => item === hash.slice(7))
     : undefined;
+  const preferenceTopic =
+    hash === '#preferences-general'
+      ? 'general'
+      : hash === '#preferences-reading'
+        ? 'reading'
+        : undefined;
+  const [result, setResult] = useState('');
+  const closePreferences = () => {
+    history.replaceState(null, '', location.pathname + location.search);
+    window.dispatchEvent(new Event('hashchange'));
+  };
   const name = capabilities ? runtimeNames[capabilities.mode] : undefined;
-  usePageAlternates(`/settings/runs${topic ? `?setup=${topic}` : ''}`, 'Current instance capabilities');
+  usePageAlternates(
+    `/settings/runs${topic ? `?setup=${topic}` : ''}`,
+    'Current instance capabilities',
+  );
   const rows = capabilityRows(capabilities, query.isError);
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
@@ -53,15 +68,21 @@ export function WhereBrewRuns() {
       <div className="runs-panel">
         <nav aria-label="Settings" className="runs-settings-nav">
           <h2>Settings</h2>
-          <a href="/#theme-picker">
+          <a
+            href="#preferences-general"
+            aria-current={preferenceTopic === 'general' ? 'page' : undefined}
+          >
             <img src={runAssets.general} alt="" />
             General
           </a>
-          <a href="/?view=reader&scope=all">
+          <a
+            href="#preferences-reading"
+            aria-current={preferenceTopic === 'reading' ? 'page' : undefined}
+          >
             <img src={runAssets.reading} alt="" />
             Reading
           </a>
-          <a href="/settings/runs" aria-current="page">
+          <a href="/settings/runs" aria-current={preferenceTopic ? undefined : 'page'}>
             <img src={runAssets.runs} alt="" />
             Where Brew runs
           </a>
@@ -82,9 +103,9 @@ export function WhereBrewRuns() {
             Data &amp; backup
           </a>
         </nav>
-        <main className="runs-content" id="main-content">
+        <main className="runs-content" id="main-content" aria-label="Instance settings">
           <header className="runs-intro">
-            <h1>Where Brew runs</h1>
+            <h1 tabIndex={-1}>Where Brew runs</h1>
             <p>
               {name
                 ? `This copy of Brew runs on ${name.short}. What you can do depends on what this place supports, and every limit below has a way around it.`
@@ -153,11 +174,20 @@ export function WhereBrewRuns() {
               className="runs-check"
               disabled={query.isFetching}
               aria-label="Refresh capabilities"
-              onClick={() => void query.refetch()}
+              data-brew-action="refresh-capabilities"
+              onClick={() => {
+                setResult('');
+                void query.refetch().then((response) => {
+                  if (!response.isError) setResult('Capabilities checked.');
+                });
+              }}
             >
               {query.isFetching ? 'Checking…' : query.isError ? 'Check again' : checked}
             </button>
           </div>
+          <p role="status" aria-label="Capabilities result" className="sr-only">
+            {result}
+          </p>
           <section
             className="runs-capabilities"
             aria-label="Capabilities"
@@ -199,6 +229,13 @@ export function WhereBrewRuns() {
         </main>
       </div>
       {topic && <SetupDialog topic={topic} capabilities={capabilities} />}
+      {preferenceTopic && (
+        <BrowserPreferencesDialog
+          key={preferenceTopic}
+          topic={preferenceTopic}
+          close={closePreferences}
+        />
+      )}
     </div>
   );
 }

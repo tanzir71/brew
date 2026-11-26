@@ -174,7 +174,12 @@ export class OpmlService {
       .from(folders)
       .orderBy(asc(folders.position), asc(folders.title))
       .all();
-    const allFeeds = this.database.db.select().from(feeds).orderBy(asc(feeds.title)).all();
+    const allFeeds = this.database.db
+      .select()
+      .from(feeds)
+      .where(eq(feeds.kind, 'rss'))
+      .orderBy(asc(feeds.title))
+      .all();
     const renderFeed = (feed: (typeof allFeeds)[number], indent: string) =>
       `${indent}<outline type="rss" text="${escapeXml(feed.title)}" title="${escapeXml(feed.title)}" xmlUrl="${escapeXml(feed.url)}"${feed.siteUrl ? ` htmlUrl="${escapeXml(feed.siteUrl)}"` : ''}/>`;
     const lines = [

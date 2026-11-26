@@ -18,6 +18,8 @@ import { articleRouteId } from './articleRoute';
 import { articleDom } from './articleDom';
 import { useArticleAlternates } from './hooks/useArticleAlternates';
 import { useCapabilities } from './hooks/useCapabilities';
+import { useBrowserPreferences } from './hooks/useBrowserPreferences';
+import { PreferenceFeedback } from './settings/BrowserPreferences';
 import { ModalSheet } from './components/Sheet';
 import { Badge } from './components/Badge';
 import { cachedArticleState, patchArticleStates, refreshArticleStates, updateArticleState } from './articleState';
@@ -50,7 +52,7 @@ async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
 const isEditableTarget = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement &&
   (target.matches('input, textarea, select') || target.isContentEditable || Boolean(target.closest('dialog[open]')));
-const imageSource = (value: string) => localStorage.getItem('brew:direct-images') === 'true' && value.startsWith('/api/img?src=') ? decodeURIComponent(value.slice(13)) : localStorage.getItem('brew:direct-images') === 'true' ? value : value.startsWith('/api/img?') ? value : `/api/img?src=${encodeURIComponent(value)}`;
+const imageSource = (value: string, direct: boolean) => direct && value.startsWith('/api/img?src=') ? decodeURIComponent(value.slice(13)) : direct ? value : value.startsWith('/api/img?') ? value : `/api/img?src=${encodeURIComponent(value)}`;
 
 function selectionHref(value: Selection): string {
   if (value.kind === 'brew') return '/?view=reader&scope=brew';
@@ -441,6 +443,7 @@ function SearchView({
   onClear: () => void;
   onSave:()=>void;
 }) {
+  const preferences = useBrowserPreferences();
   const state = { ...readerState(), kind: 'search' as const, q: query };
   const scope = state.scope;
   const folderId = state.folderId ?? currentFolderId;
@@ -577,6 +580,7 @@ function SearchView({
                 {article ? (
                   <ArticleRow
                     article={article}
+                    directImages={preferences.values.images === 'direct'}
                     density={state.density}
                     focused={items[focusedIndex]?.id === article.id}
                     onOpen={() => {
@@ -601,7 +605,7 @@ function SearchView({
       {selectedArticle !== null && (
         <ArticleReader
           id={selectedArticle}
-          mode="overlay"
+          mode={preferences.values.openMode}
           onClose={() => setSelectedArticle(null)}
         />
       )}
@@ -620,12 +624,9 @@ function ArticleList({ selection }: { selection: Selection }) {
   const caps = useCapabilities();
 
   const [selectedArticle, setSelectedArticle] = useState<number | null>(() => articleRouteId(location.pathname));
-  const [openMode, setOpenMode] = useState<'overlay' | 'pane'>(() =>
-    localStorage.getItem('brew:article-open-mode') === 'pane' ? 'pane' : 'overlay',
-  );
-  const [markOnScroll, setMarkOnScroll] = useState(
-    () => localStorage.getItem('brew:mark-read-on-scroll') === 'true',
-  );
+  const preferences = useBrowserPreferences();
+  const openMode = preferences.values.openMode;
+  const markOnScroll = preferences.values.readOnScroll === 'true';
   const [undo, setUndo] = useState<(MarkAllReadResult & { articleIds: number[] }) | null>(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const scrolledIds = useRef(new Set<number>());
@@ -914,11 +915,12 @@ function ArticleList({ selection }: { selection: Selection }) {
             <input
               type="checkbox"
               checked={markOnScroll}
+              data-brew-action="set-read-on-scroll"
               onChange={(event) => {
-                setMarkOnScroll(event.target.checked);
-                localStorage.setItem('brew:mark-read-on-scroll', String(event.target.checked));
-                scrolledIds.current.clear();
-                setFailedScroll([]);
+                if (preferences.save('readOnScroll', String(event.target.checked), 'Read on scroll')) {
+                  scrolledIds.current.clear();
+                  setFailedScroll([]);
+                }
               }}
             />{' '}
             Read on scroll
@@ -934,11 +936,10 @@ function ArticleList({ selection }: { selection: Selection }) {
           </select>
           <select
             aria-label="Open articles"
+            data-brew-action="set-open-mode"
             value={openMode}
             onChange={(event) => {
-              const mode = event.target.value as 'overlay' | 'pane';
-              setOpenMode(mode);
-              localStorage.setItem('brew:article-open-mode', mode);
+              preferences.save('openMode', event.target.value, 'Article opening mode');
             }}
             className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs"
           >
@@ -964,6 +965,7 @@ function ArticleList({ selection }: { selection: Selection }) {
           </div>
         </div>
       </header>
+      <PreferenceFeedback preferences={preferences} name="Reader preferences result" />
       {readError && <p role="alert" className="px-8 py-2 text-sm text-danger">{readError}</p>}
       {failedScroll.length > 0 && <p role="alert" className="px-8 py-2 text-sm text-danger">
         Could not save {failedScroll.length} read updates.{' '}
@@ -997,6 +999,7 @@ function ArticleList({ selection }: { selection: Selection }) {
                   ) : (
                     <ArticleRow
                       article={row.article}
+                      directImages={preferences.values.images === 'direct'}
                       density={density}
                       focused={articles[focusedIndex]?.id === row.article.id}
                       onOpen={() => {
@@ -1053,11 +1056,13 @@ function ArticleList({ selection }: { selection: Selection }) {
 
 function ArticleRow({
   article,
+  directImages,
   density,
   focused,
   onOpen,
 }: {
   article: ArticleSummary;
+  directImages: boolean;
   density: Density;
   focused: boolean;
   onOpen: () => void;
@@ -1109,7 +1114,7 @@ function ArticleRow({
         className={`h-[258px] cursor-pointer overflow-hidden rounded-2xl border border-line bg-surface shadow-raised outline-none focus-visible:ring-2 focus-visible:ring-ink ${focused ? 'ring-2 ring-ink' : ''} ${article.readAt ? 'opacity-55' : ''}`}
       >
         {article.imageUrl ? (
-          <img src={imageSource(article.imageUrl)} alt="" loading="lazy" className="h-28 w-full object-cover" />
+          <img src={imageSource(article.imageUrl, directImages)} alt="" loading="lazy" className="h-28 w-full object-cover" />
         ) : (
           <div className="h-28 bg-gradient-to-br from-art-1 to-art-3" />
         )}
@@ -1149,7 +1154,7 @@ function ArticleRow({
       </div>
       {article.imageUrl && (
         <img
-          src={imageSource(article.imageUrl)}
+          src={imageSource(article.imageUrl, directImages)}
           alt=""
           loading="lazy"
           className="h-20 w-28 shrink-0 rounded-lg object-cover"
@@ -1181,8 +1186,8 @@ export function ArticleReader({
   const [more, setMore] = useState(false);
   const formats = useCapabilities();
   useArticleAlternates(detail.data?.id ?? null);
-  const [readingPrefs,setReadingPrefs]=useState(()=>{try{return JSON.parse(localStorage.getItem('brew:reading-prefs')??'{}') as {font?:'sans'|'serif';width?:'narrow'|'wide';lineHeight?:'compact'|'relaxed'}}catch{return{}}});
-  const updatePrefs=(values:Partial<typeof readingPrefs>)=>setReadingPrefs((current)=>{const next={...current,...values};localStorage.setItem('brew:reading-prefs',JSON.stringify(next));return next});
+  const preferences = useBrowserPreferences();
+  const readingPrefs = preferences.values;
   useEffect(() => {
     const close = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !document.querySelector('dialog[open]')) onClose();
@@ -1268,8 +1273,14 @@ export function ArticleReader({
               </>
             )}
           </div>
-          <div className="flex gap-1" aria-label="Reading preferences"><select aria-label="Reader font" value={readingPrefs.font??'serif'} onChange={(event)=>updatePrefs({font:event.target.value as 'sans'|'serif'})} className="rounded border px-2 py-1 text-xs"><option value="sans">Sans</option><option value="serif">Serif</option></select><select aria-label="Reader width" value={readingPrefs.width??'narrow'} onChange={(event)=>updatePrefs({width:event.target.value as 'narrow'|'wide'})} className="rounded border px-2 py-1 text-xs"><option value="narrow">Narrow</option><option value="wide">Wide</option></select><select aria-label="Reader line height" value={readingPrefs.lineHeight??'relaxed'} onChange={(event)=>updatePrefs({lineHeight:event.target.value as 'compact'|'relaxed'})} className="rounded border px-2 py-1 text-xs"><option value="compact">Compact</option><option value="relaxed">Relaxed</option></select><button type="button" aria-label="More article actions" data-brew-action="more" onClick={() => setMore(true)} className="rounded border px-2 py-1 text-xs">More</button></div>
+          <div className="flex gap-1" aria-label="Reading preferences">
+            <select aria-label="Reader font" data-brew-action="set-reader-font" value={readingPrefs.font} onChange={(event)=>preferences.save('font', event.target.value, 'Reader font')} className="rounded border px-2 py-1 text-xs"><option value="sans">Sans</option><option value="serif">Serif</option></select>
+            <select aria-label="Reader width" data-brew-action="set-reader-width" value={readingPrefs.width} onChange={(event)=>preferences.save('width', event.target.value, 'Reader width')} className="rounded border px-2 py-1 text-xs"><option value="narrow">Narrow</option><option value="wide">Wide</option></select>
+            <select aria-label="Reader line height" data-brew-action="set-reader-line-height" value={readingPrefs.lineHeight} onChange={(event)=>preferences.save('lineHeight', event.target.value, 'Reader line height')} className="rounded border px-2 py-1 text-xs"><option value="compact">Compact</option><option value="relaxed">Relaxed</option></select>
+            <button type="button" aria-label="More article actions" data-brew-action="more" onClick={() => setMore(true)} className="rounded border px-2 py-1 text-xs">More</button>
+          </div>
         </div>
+        <PreferenceFeedback preferences={preferences} name="Article preferences result" />
         {detail.isLoading ? (
           <p className="p-12 text-center text-sm text-soft">Opening article…</p>
         ) : detail.isError || !detail.data ? (
