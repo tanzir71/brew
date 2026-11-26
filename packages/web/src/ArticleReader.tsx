@@ -1,3 +1,4 @@
+import { useWebMcpSurface } from './webmcp/useWebMcpSurface';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ArticleDetail } from '@brew/core/types/api';
@@ -75,6 +76,8 @@ function ArticleReaderBody({
   const preferences = useBrowserPreferences();
   const readingPrefs = preferences.values;
   const tagEditor = useTagEditor({ id, enabled: showTags });
+  useWebMcpSurface(contentRef, { names: ['get_item', 'star', 'tag'], ids: [id] }, Boolean(detail.data && !detail.isError));
+  useWebMcpSurface(contentRef, { names: ['mark_read'], fixed: { target: { kind: 'items', ids: [id] } } }, Boolean(detail.data && !detail.isError));
   const actions = useArticleActions(id);
   const updateAction = actions.update;
   useEffect(() => {

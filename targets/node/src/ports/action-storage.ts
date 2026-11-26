@@ -44,6 +44,7 @@ export class NodeActionStorage implements ActionStoragePort {
         actor: undefined,
         tokenId: undefined,
         agentName: undefined,
+        signal: undefined,
         confirm: undefined,
       };
       return JSON.stringify({
@@ -166,6 +167,8 @@ export class NodeActionStorage implements ActionStoragePort {
       );
   }
   run(request: ActionRequest): Promise<ActionReceipt> {
+    if (request.signal?.aborted)
+      throw new ActionError(409, 'The tool was cancelled before writing.');
     this.authorizeToken(request.tokenId, request.kind);
     const key = this.requestKey(request);
     const signature = `${request.kind}:${this.args(request)}`;
@@ -245,6 +248,8 @@ export class NodeActionStorage implements ActionStoragePort {
           ? await feedService.prepareAdd(request.url, request.folderId)
           : null;
       return this.database.sqlite.transaction(() => {
+        if (request.signal?.aborted)
+          throw new ActionError(409, 'The tool was cancelled before writing.');
         this.authorizeToken(request.tokenId, request.kind);
         const id = this.create(request, 'Applying agent change…', false);
         const targetId = this.write(id, () => {

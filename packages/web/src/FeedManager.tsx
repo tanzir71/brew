@@ -1,3 +1,4 @@
+import { useWebMcpSurface } from './webmcp/useWebMcpSurface';
 import { agentPageHref } from './agentLocation';
 import {
   useCallback,
@@ -164,6 +165,8 @@ export function FeedManager() {
   const { section } = route;
   const [url, setUrl] = useState('');
   const [candidates, setCandidates] = useState<FeedCandidate[]>([]);
+  const feedInput = useRef<HTMLInputElement>(null);
+  useWebMcpSurface(feedInput, { names: ['add_feed'], urls: candidates.map((feed) => feed.url) }, candidates.length > 0);
   const [folderId, setFolderId] = useState<number | null>(null);
   const [folderTitle, setFolderTitle] = useState('');
   const [working, setBusy] = useState(false);
@@ -896,6 +899,7 @@ export function FeedManager() {
             Feed or website URL
           </label>
           <input
+            ref={feedInput}
             id="feed-url"
             type="url"
             required

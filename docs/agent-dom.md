@@ -6,7 +6,8 @@ are implemented and audited across current screens. Browser coverage includes
 and covered separately in [API discovery](agent-api.md).
 The [MCP server](mcp.md) provides Node stdio and HTTP. [Agent access](agent-access.md)
 provides scoped tokens, the activity log with Undo, setup snippets and private
-settings twins. WebMCP and llms.txt remain unfinished criteria. Later screens must preserve these DOM contracts.
+settings twins. Flagged [WebMCP](webmcp.md) registers the shared catalog only for
+mounted visible controls. Per-instance llms.txt remains unfinished. Later screens must preserve these DOM contracts.
 
 ## Current evidence
 

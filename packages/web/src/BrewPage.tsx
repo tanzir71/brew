@@ -1,3 +1,4 @@
+import { useWebMcpSurface } from './webmcp/useWebMcpSurface';
 import {
   lazy,
   Suspense,
@@ -30,7 +31,11 @@ const parsedId = (value: string | null | undefined) => {
 };
 function remember(id: number, issue?: number, compose = false) {
   localStorage.setItem('brew:last-brew', String(id));
-  window.history.replaceState({}, '', agentPageHref(`/b/${id}${compose ? '/compose' : issue ? `/${issue}` : ''}`));
+  window.history.replaceState(
+    {},
+    '',
+    agentPageHref(`/b/${id}${compose ? '/compose' : issue ? `/${issue}` : ''}`),
+  );
 }
 export function BrewPage({ preferences }: { preferences: ReactNode }) {
   const capabilities = useCapabilities();
@@ -68,6 +73,21 @@ export function BrewPage({ preferences }: { preferences: ReactNode }) {
   });
   const issue = history.data?.find((value) => value.id === issueId) ?? history.data?.[0] ?? null;
   const state = useBrewReadState(!editing ? issue?.id : undefined);
+  const brewControls = useRef<HTMLDivElement>(null);
+  useWebMcpSurface(
+    brewControls,
+    { names: ['list_brews', 'preview_brew'], ids: selected ? [selected] : undefined },
+    Boolean(selected && !configs.isPending && !configs.isError),
+  );
+  useWebMcpSurface(
+    brewControls,
+    {
+      names: ['get_brew'],
+      ids: selected ? [selected] : [],
+      fixed: issue ? { issue_id: issue.id } : {},
+    },
+    Boolean(selected && !editing && !configs.isError && !history.isPending && !history.isError),
+  );
   const config = configs.data?.find((value) => value.id === selected);
   usePageAlternates(
     !editing &&
@@ -191,7 +211,7 @@ export function BrewPage({ preferences }: { preferences: ReactNode }) {
   return (
     <div className={`runs-app brew-read-app ${editing ? 'brew-compose-app' : ''}`}>
       <AppSidebar activeHref={`/?view=brew&brew=${selected}`} />
-      <div className="brew-read-main">
+      <div ref={brewControls} className="brew-read-main">
         {editing && selected !== null ? (
           <Suspense
             fallback={

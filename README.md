@@ -276,7 +276,8 @@ The setting saves in this browser and updates other open tabs. The URL flag does
 not save a preference; native app navigation retains it. In Agent access, **Use
 saved preference** removes the temporary override. Page links retain filters and
 history, and Markdown/JSON links describe the selected page and active mode.
-MCP and scoped tokens are available in Node; WebMCP remains separate M12 work.
+MCP and scoped tokens are available in Node. Experimental [WebMCP](docs/webmcp.md)
+requires `BREW_WEBMCP=1` and a separate browser opt-in in Agent access.
 
 Shared switches and checkboxes provide 24px activation areas while keeping their
 existing visual sizes. Compact rule actions, Compose fields, setup links and
@@ -317,7 +318,14 @@ an expiring token from Settings → Agent access; tokens are read-only by defaul
 Write tokens can mark, star, tag and add feeds, never delete or save rules. The
 [Agent access guide](docs/agent-access.md) covers one-time secrets, revocation, the
 action log with Undo, client setup and the owner deployment boundary. Set
-`BREW_MCP_TOKEN` to apply the same scope to local stdio. WebMCP remains unfinished.
+`BREW_MCP_TOKEN` to apply the same scope to local stdio.
+
+Experimental [in-page tools (WebMCP)](docs/webmcp.md) use the same catalog and owner
+browser access. Set `BREW_WEBMCP=1`, restart Node, then enable the switch in Agent
+access on HTTPS or localhost. Both defaults are off. Tools follow mounted visible
+controls, confirmed writes require a native review, and changes appear in the
+private activity log with Undo. Native document/navigator APIs take precedence;
+the official polyfill supplies a JavaScript interface where native support is absent.
 
 Reader saved searches are browser-local bookmarks. **Save search** opens a labelled
 dialog and remembers the query, scope and current filters, starting on page one.

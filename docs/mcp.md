@@ -3,7 +3,8 @@
 Brew exposes one catalog through Node CLI stdio and streamable HTTP at `/mcp`.
 Node advertises `mcp: "stdio+http"` in `/api/capabilities`. Other adapters return
 501 until they provide MCP. Settings → Agent access provides scoped tokens, a
-private activity log with Undo, and client setup. WebMCP remains separate M12 work.
+private activity log with Undo, and client setup. Experimental [WebMCP](webmcp.md)
+reuses this catalog, schemas, validation and handlers for mounted browser controls.
 
 ## Connect
 

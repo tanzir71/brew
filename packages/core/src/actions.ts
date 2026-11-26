@@ -16,7 +16,8 @@ export type ActionInput =
 export type ActionIntentRequest = ActionInput & { requestId?: string };
 export type ActionRequest = ActionIntentRequest & {
   confirm: true;
-  actor?: 'mcp';
+  actor?: 'mcp' | 'webmcp';
+  signal?: AbortSignal;
   tokenId?: number;
   agentName?: string;
 };
@@ -70,7 +71,7 @@ export class ActionsService {
   }
   run(
     value: unknown,
-    context?: { agent: 'mcp'; tokenId?: number; name?: string },
+    context?: { agent: 'mcp' | 'webmcp'; tokenId?: number; name?: string; signal?: AbortSignal },
   ): Promise<ActionReceipt> {
     if (!value || typeof value !== 'object' || Array.isArray(value))
       throw new ActionError(400, 'Choose an action.');
@@ -103,7 +104,7 @@ export class ActionsService {
     if (input.confirm !== true) throw new ActionError(428, 'Confirm this action first.');
     const identity = {
       ...(input.requestId === undefined ? {} : { requestId: input.requestId as string }),
-      ...(context?.agent === 'mcp' ? { actor: 'mcp' as const } : {}),
+      ...(context ? { actor: context.agent, agentName: context.name, signal: context.signal } : {}),
       ...(context?.tokenId === undefined
         ? {}
         : { tokenId: context.tokenId, agentName: context.name }),
@@ -112,6 +113,7 @@ export class ActionsService {
       const parsed = agentWrite(input);
       if (parsed) return this.storage.run({ ...parsed, ...identity, confirm: true });
     } catch (error) {
+      if (error instanceof ActionError) throw error;
       throw new ActionError(400, error instanceof Error ? error.message : 'Invalid action.');
     }
     if (input.kind === 'copy_rule') {

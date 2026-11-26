@@ -341,6 +341,13 @@ async function document(services: ApiServices, url: URL, caps: Capabilities) {
     const access = services.agentAccess;
     return make('agent-access', 'Agent access', '/settings/agents', {}, [
       {
+        title: 'In-page tools (WebMCP)',
+        text: caps.webmcp
+          ? 'Available on this instance. Enable it in this browser to expose only the mounted controls; writes require review and offer Undo.'
+          : 'Experimental. Enable BREW_WEBMCP=1 on a supported instance, then opt in from a secure browser context.',
+        data: { available: caps.webmcp, experimental: true },
+      },
+      {
         title: 'MCP server',
         text: access
           ? 'Connect with a scoped bearer token at /mcp. Read-only by default. Write tokens can mark, star, tag and add feeds; never delete or save rules.'
@@ -349,34 +356,30 @@ async function document(services: ApiServices, url: URL, caps: Capabilities) {
       {
         title: 'Tokens',
         items:
-          access
-            ?.list()
-            .map((token) => ({
-              id: token.id,
-              title: token.name,
-              details: {
-                scopes: token.scopes,
-                expiresAt: token.expiresAt,
-                lastUsedAt: token.lastUsedAt,
-              },
-            })) ?? [],
+          access?.list().map((token) => ({
+            id: token.id,
+            title: token.name,
+            details: {
+              scopes: token.scopes,
+              expiresAt: token.expiresAt,
+              lastUsedAt: token.lastUsedAt,
+            },
+          })) ?? [],
       },
       {
         title: 'Recent agent actions',
         items:
-          access
-            ?.activity()
-            .items.map((action) => ({
-              id: action.id,
-              title: action.summary,
-              details: {
-                agent: action.agent,
-                tool: action.tool,
-                createdAt: action.createdAt,
-                canUndo: action.receipt?.canUndo ?? false,
-                status: action.receipt?.status ?? 'complete',
-              },
-            })) ?? [],
+          access?.activity().items.map((action) => ({
+            id: action.id,
+            title: action.summary,
+            details: {
+              agent: action.agent,
+              tool: action.tool,
+              createdAt: action.createdAt,
+              canUndo: action.receipt?.canUndo ?? false,
+              status: action.receipt?.status ?? 'complete',
+            },
+          })) ?? [],
       },
     ]);
   }

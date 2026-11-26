@@ -65,7 +65,10 @@ The ChatGPT tab stays visible and explains **Needs OAuth**: ChatGPT custom
 connections cannot send a custom API key, and this instance does not provide an
 OAuth authorization server. Use a compatible bearer-header client. See the
 [ChatGPT authentication requirements](https://developers.openai.com/plugins/build/auth).
-WebMCP remains a visible, disabled experimental control for the next criterion.
+The experimental [WebMCP switch](webmcp.md) requires `BREW_WEBMCP=1` on Node,
+a restart, and a separate saved browser opt-in on HTTPS or localhost. It stays
+visible with a setup link where unavailable. In-page tools act through owner
+browser access and share the activity log and durable Undo.
 
 For local stdio, use the same absolute `BREW_DB_PATH` and set `BREW_MCP_TOKEN` to
 the token. This shares its replay namespace with HTTP, including across restarts.

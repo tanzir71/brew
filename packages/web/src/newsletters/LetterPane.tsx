@@ -1,3 +1,4 @@
+import { useWebMcpSurface } from '../webmcp/useWebMcpSurface';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { articleDom } from '../articleDom';
@@ -44,6 +45,8 @@ export function LetterPane({
   }, [explicitOpen, letter.id]);
   const client = useQueryClient();
   const opened = useRef(false);
+  useWebMcpSurface(pane, { names: ['get_item', 'star', 'tag'], ids: [letter.id] });
+  useWebMcpSurface(pane, { names: ['mark_read'], fixed: { target: { kind: 'items', ids: [letter.id] } } });
   const [tagsOpen, setTagsOpen] = useState(false);
   const [more, setMore] = useState(false);
   const moreTrigger = useRef<HTMLButtonElement>(null);

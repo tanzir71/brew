@@ -23,6 +23,7 @@ import { documented, response, registerOpenApi } from './openapi.js';
 import { ref, str } from './openapi-schemas.js';
 import { registerMcpRoutes, type McpHttpPort } from './routes/mcp.js';
 import { registerAgentAccessRoutes } from './routes/agent-access.js';
+import { registerWebMcpRoutes } from './routes/webmcp.js';
 
 export const securityHeaders = {
   'Content-Security-Policy':
@@ -56,6 +57,7 @@ export function createApi(
     return next();
   });
   registerAgentAccessRoutes(app, services);
+  registerWebMcpRoutes(app, services);
   registerFeedRoutes(app, services);
   registerSourceRoutes(app, services);
   registerArticleRoutes(app, services);

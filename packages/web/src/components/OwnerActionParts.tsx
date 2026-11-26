@@ -1,3 +1,4 @@
+import { useWebMcpSurface } from '../webmcp/useWebMcpSurface';
 import {
   useCallback,
   useEffect,
@@ -140,6 +141,11 @@ export function OwnerActionResult({
 }) {
   const result = useRef<HTMLElement>(null);
   const undoButton = useRef<HTMLButtonElement | null>(null);
+  useWebMcpSurface(
+    result,
+    { names: ['undo'], ids: action.receipt ? [action.receipt.id] : [] },
+    Boolean(action.receipt?.canUndo && action.capable && !action.intent && !action.busy),
+  );
   const ownsFocus = useRef(false);
   const restore = useRef(false);
   useEffect(() => {

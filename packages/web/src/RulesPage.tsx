@@ -1,3 +1,4 @@
+import { useWebMcpSurface } from './webmcp/useWebMcpSurface';
 import { Checkbox, Button, IconButton } from './components/controls';
 import { agentPageHref } from './agentLocation';
 import { type FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -134,6 +135,8 @@ export function RulesPage() {
     [selectedRule, newDraft],
   );
   const draft = draftState ?? loadedDraft;
+  const ruleForm = useRef<HTMLFormElement>(null);
+  useWebMcpSurface(ruleForm, { names: ['create_rule'], fixed: { draft: { name: draft.name, enabled: draft.enabled, matchType: draft.matchType, scope: draft.scope, conditions: draft.conditions, actions: draft.actions, stopProcessing: draft.stopProcessing } } }, selectedId === null && !ruleList.isPending && !ruleList.isError);
   const setDraft = (next: RuleDraft | ((current: RuleDraft) => RuleDraft)) =>
     updateDraft((current) => (typeof next === 'function' ? next(current ?? loadedDraft) : next));
   const [message, setMessage] = useState('');
@@ -601,6 +604,7 @@ export function RulesPage() {
         </div>
       </aside>
       <form
+        ref={ruleForm}
         aria-label="Rule editor"
         onSubmit={save}
         className="min-w-0 rounded-3xl border border-line bg-surface p-7 shadow-raised"

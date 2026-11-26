@@ -32,6 +32,7 @@ export function nodeApiServices(
     clock?: ClockPort;
     inboundEmail?: InboundEmailPort;
     inboundMail?: Capabilities['inboundMail'];
+    webmcp?: boolean;
   } = {},
 ): ApiServices {
   const clock = options.clock;
@@ -47,6 +48,7 @@ export function nodeApiServices(
     newsletters: new NewsletterLibrary(database, options.clock),
     capabilities: () => ({
       ...nodeCapabilities(),
+      webmcp: options.webmcp === true,
       emailDelivery: options.outboundMail?.kind ?? null,
       inboundMail: options.inboundMail ?? null,
     }),

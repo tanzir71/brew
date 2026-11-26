@@ -1,3 +1,4 @@
+import { useWebMcpSurface } from '../webmcp/useWebMcpSurface';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FeedSummary, FolderSummary, TagSummary } from '@brew/core/types/api';
@@ -74,6 +75,7 @@ export function SourcePicker({
   const [copied, setCopied] = useState(false);
   const [browserSearches] = useState(localSearches);
   const urlRef = useRef<HTMLInputElement>(null);
+  useWebMcpSurface(urlRef, { names: ['add_feed'], urls: candidates.map((feed) => feed.url) }, tab === 'Feeds' && candidates.length > 0);
   const initialSourceKeys = useRef(new Set(section.sources.map(key)));
   const alive = useRef(true);
   useEffect(() => {

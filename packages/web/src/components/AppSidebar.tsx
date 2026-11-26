@@ -1,3 +1,4 @@
+import { useWebMcpSurface } from '../webmcp/useWebMcpSurface';
 import { agentPageHref } from '../agentLocation';
 import { useQuery } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState } from 'react';
@@ -62,6 +63,7 @@ export function AppSidebar({
     queryKey: ['newsletter-overview'],
     queryFn: ({ signal }) => getJson<NewsletterOverview>('/api/newsletters/overview', signal),
   });
+  useWebMcpSurface(search, { names: ['search_items', ...(!configs.isPending && !configs.isError ? ['list_brews'] : [])] });
   const saved = useSavedSearches();
   const [calm] = useState(() => localStorage.getItem('brew:calm') === 'true');
   const count = (value?: number) =>

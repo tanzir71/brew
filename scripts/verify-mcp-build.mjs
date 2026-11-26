@@ -31,7 +31,7 @@ export async function verifyMcpBuild() {
         "INSERT INTO articles(feed_id,guid,hash,url,title,published_at,content_html) VALUES(1,'compiled-mcp','compiled-mcp','https://compiled.example.test/story','Compiled MCP story',?,'<p>Compiled content.</p>')",
       )
       .run(Date.now());
-    app = await createApp({ database, logger: false });
+    app = await createApp({ database, logger: false, webmcp: true });
     const base = await app.listen({ host: '127.0.0.1', port: 0 });
     const token = nodeServices(app).agentAccess.create({
       name: 'Compiled client',
@@ -44,6 +44,30 @@ export async function verifyMcpBuild() {
       }),
     );
     assert.equal((await client.listTools()).tools.length, 12);
+    const catalog = await globalThis.fetch(new URL('/api/webmcp/tools', base));
+    assert.equal(catalog.headers.get('cache-control'), 'private, no-store');
+    assert.deepEqual(
+      (await catalog.json()).map((tool) => tool.name).sort(),
+      (await client.listTools()).tools.map((tool) => tool.name).sort(),
+    );
+    const webCall = async (name, args) => {
+      const response = await globalThis.fetch(new URL('/api/webmcp/call', base), {
+        method: 'POST',
+        headers: { Origin: base, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, arguments: args }),
+      });
+      assert.equal(response.status, 200);
+      return data(await response.json());
+    };
+    const webReceipt = await webCall('star', {
+      id: 1,
+      starred: true,
+      confirm: true,
+      request_id: 'compiled-webmcp-star-01',
+    });
+    assert.equal(typeof data(await call('get_item', { id: 1 })).starred_at, 'string');
+    await webCall('undo', { undo_id: webReceipt.undo_id, confirm: true });
+    assert.equal(data(await call('get_item', { id: 1 })).starred_at, null);
     assert.equal(data(await call('list_unread')).total, 1);
     assert.match(data(await call('get_item', { id: 1 })).markdown, /Compiled content/);
     const target = { kind: 'items', ids: [1] };

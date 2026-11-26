@@ -1,3 +1,4 @@
+import { useWebMcpSurface } from './webmcp/useWebMcpSurface';
 import { agentPageHref } from './agentLocation';
 import {
   useInfiniteQuery,
@@ -619,6 +620,35 @@ function ArticleList({ selection }: { selection: Selection }) {
   }, [articles, selection.kind]);
   const parent = useRef<HTMLDivElement>(null);
   const listHeading = useRef<HTMLHeadingElement>(null);
+  const webView =
+    selection.kind === 'today' || selection.kind === 'starred' ? selection.kind : 'all';
+  useWebMcpSurface(
+    listHeading,
+    {
+      names: ['list_unread'],
+      fixed: {
+        view: webView,
+        ...(selection.kind === 'feed' ? { feed_id: selection.id } : {}),
+        ...(selection.kind === 'folder' ? { folder_id: selection.id } : {}),
+      },
+    },
+    Boolean(query.data && !query.isError),
+  );
+  useWebMcpSurface(
+    bulkTrigger,
+    {
+      names: ['mark_read'],
+      fixed: {
+        target: {
+          kind: 'reader',
+          view: webView,
+          ...(selection.kind === 'feed' ? { feedId: selection.id } : {}),
+          ...(selection.kind === 'folder' ? { folderId: selection.id } : {}),
+        },
+      },
+    },
+    Boolean(query.data && !query.isError && caps.data?.actions?.undo),
+  );
   const { prepareArticle, articleReturnTarget } = useArticleFocusReturn(parent, articles, listHeading);
   const openArticle = useCallback((id: number, tags = false) => {
     prepareArticle(id);
@@ -930,6 +960,8 @@ function ArticleRow({
   onOpen: () => void;
   headingLevel?: 2 | 3;
 }) {
+  const openControl = useRef<HTMLButtonElement>(null);
+  useWebMcpSurface(openControl, { names: ['get_item'], ids: [article.id] });
   const Heading = headingLevel === 3 ? 'h3' : 'h2';
   const highlightStyle = article.highlightColor
     ? { borderLeftColor: article.highlightColor, borderLeftWidth: 4 }
@@ -950,7 +982,7 @@ function ArticleRow({
       )}
     </div>
   );
-  const openButton = <button type="button" className="reader-article-open" aria-label={`Open article · ${article.title}`} data-brew-action="open" onClick={onOpen}>{article.title}</button>;
+  const openButton = <button ref={openControl} type="button" className="reader-article-open" aria-label={`Open article · ${article.title}`} data-brew-action="open" onClick={onOpen}>{article.title}</button>;
   if (density === 'title')
     return (
       <article

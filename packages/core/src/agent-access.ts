@@ -2,6 +2,7 @@ import type { ActionReceipt } from './actions.js';
 
 export interface AgentConnection {
   write: boolean;
+  agent?: 'mcp' | 'webmcp';
   tokenId?: number;
   name?: string;
 }

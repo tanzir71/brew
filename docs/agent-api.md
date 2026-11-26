@@ -8,8 +8,8 @@ curl http://127.0.0.1:4400/api/openapi.json
 
 The document uses OpenAPI `3.1.0` and a relative `/` server URL. It describes the
 actual registered Hono handlers, including REST, private Markdown/JSON exports,
-Atom/JSON issue feeds, SSE, inbound webhooks and MCP. At M12.22 it covers 119 operations
-on 101 paths with 55 reusable data schemas. It excludes HTML application routes,
+Atom/JSON issue feeds, SSE, inbound webhooks, MCP and flagged WebMCP. At M12.23 it covers 121 operations
+on 103 paths with 55 reusable data schemas. It excludes HTML application routes,
 static assets and unimplemented endpoints.
 
 GET and HEAD return `application/json`, `Cache-Control: private, no-store` and
@@ -37,7 +37,9 @@ headers, as described on the inbound operations. No credential values appear in
 the document.
 
 The Node [MCP server](mcp.md) serves `/mcp` and CLI stdio, sharing the existing
-services and durable action journal.
+services and durable action journal. Experimental [WebMCP](webmcp.md) uses
+`/api/webmcp/tools` and `/api/webmcp/call`, gated by the instance flag and owner
+origin checks. These endpoints do not accept scoped bearer tokens.
 
 For article lists, `includeTotal=true` adds the exact total; `nextCursor` drives
 cursor navigation. Search returns `nextOffset`. Rules history uses

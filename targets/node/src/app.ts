@@ -46,6 +46,7 @@ export async function createApp(
     inbound?: NodeInboundConfig | null;
     imapClientFactory?: ImapClientFactory;
     logger?: false;
+    webmcp?: boolean;
   } = {},
 ): Promise<FastifyInstance> {
   const publicUrl = outputBaseUrl(options.publicUrl);
@@ -55,7 +56,11 @@ export async function createApp(
   const outboundMail = options.outboundMail ?? smtp;
   const app = Fastify({ logger: options.logger ?? process.env.NODE_ENV !== 'test' });
   app.addHook('onSend', async (request, reply, payload) => {
-    if (request.url.split('?')[0] === '/mcp' || request.url.startsWith('/api/agent-access/')) {
+    if (
+      request.url.split('?')[0] === '/mcp' ||
+      request.url.startsWith('/api/agent-access/') ||
+      request.url.startsWith('/api/webmcp/')
+    ) {
       reply.header('Cache-Control', 'private, no-store');
       reply.header('X-Robots-Tag', 'noindex, nofollow');
     }
@@ -121,6 +126,7 @@ export async function createApp(
   );
   const services = nodeApiServices(database, poller, broker, options.fetcher, {
     ...options,
+    webmcp: options.webmcp ?? process.env.BREW_WEBMCP === '1',
     publicUrl,
     outboundMail,
     inboundEmail,

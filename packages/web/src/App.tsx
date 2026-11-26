@@ -1,8 +1,10 @@
+import { useWebMcpSurface } from './webmcp/useWebMcpSurface';
 import { agentPageHref } from './agentLocation';
 import { ReaderHelp } from './components/ReaderHelp';
 import { AgentMode } from './components/AgentMode';
+import { WebMcpProvider } from './webmcp/WebMcpProvider';
 import { FeedManager } from './FeedManager';
-import { Component, type ReactNode, lazy, Suspense, useEffect, useState } from 'react';
+import { Component, type ReactNode, lazy, Suspense, useEffect, useRef, useState } from 'react';
 const Reader = lazy(() => import('./Reader').then((module) => ({ default: module.Reader })));
 import { RulesPage } from './RulesPage';
 import { BrewPage } from './BrewPage';
@@ -16,7 +18,7 @@ const AgentAccess = lazy(() => import('./settings/AgentAccess').then((module) =>
 const NewslettersPage = lazy(() => import('./NewslettersPage').then((module) => ({ default: module.NewslettersPage })));
 
 export function App() {
-  return <ErrorBoundary><AgentMode><AppContent /></AgentMode></ErrorBoundary>;
+  return <ErrorBoundary><AgentMode><WebMcpProvider><AppContent /></WebMcpProvider></AgentMode></ErrorBoundary>;
 }
 function AppContent() {
   const [mode, setMode] = useState<'brew' | 'reader' | 'feeds' | 'rules'>(()=>{
@@ -48,6 +50,8 @@ function AppContent() {
   const isAgents = location.pathname === '/settings/agents';
   const isRuns = location.pathname === '/settings/runs' || isAgents;
   const isLetters = /^\/letters(?:\/|$)/.test(location.pathname);
+  const globalSearch = useRef<HTMLInputElement>(null);
+  useWebMcpSurface(globalSearch, { names: ['search_items'] }, !isRuns && !isLetters && mode !== 'brew');
   const preferences = useBrowserPreferences();
   const { theme, images, landing } = preferences.values;
   useEffect(() => {
@@ -77,6 +81,7 @@ function AppContent() {
             Search
           </label>
           <input
+            ref={globalSearch}
             id="global-search"
             data-brew-action="search-library"
             type="search"

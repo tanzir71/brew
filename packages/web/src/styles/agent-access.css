@@ -1,4 +1,24 @@
 /* Agent access, Figma 15:2295. Native controls compose the shared design system. */
+.webmcp-result {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  background: var(--brew-bg-inverse);
+  color: var(--brew-text-inverse);
+  font: 400 13px/19px var(--brew-font-ui);
+}
+.webmcp-result .brew-button {
+  color: inherit;
+}
 .agent-content {
   gap: 24px;
   padding-bottom: 48px;

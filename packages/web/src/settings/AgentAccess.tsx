@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { AppSidebar } from '../components/AppSidebar';
 import { Badge } from '../components/Badge';
-import { Toggle } from '../components/controls';
 import { useCapabilities } from '../hooks/useCapabilities';
 import { usePageAlternates } from '../hooks/usePageAlternates';
 import { SettingsNav } from './SettingsNav';
@@ -9,7 +8,7 @@ import { AgentPreferences } from './AgentPreferences';
 import { AgentTokens } from './AgentTokens';
 import { AgentActivity } from './AgentActivity';
 import { AgentSetup } from './AgentSetup';
-import { agentPageHref } from '../agentLocation';
+import { WebMcpPreferences } from './WebMcpPreferences';
 
 const tools = [
   'search_items',
@@ -102,28 +101,7 @@ export function AgentAccess() {
           </section>
           <AgentTokens available={available} />
           <div className="agent-mode-grid">
-            <section className="agent-card" aria-labelledby="webmcp-title">
-              <div className="agent-card-heading">
-                <div>
-                  <h2 id="webmcp-title">In-page tools (WebMCP)</h2>
-                  <p>
-                    Registers the same tools on this page so browser agents act with your session.
-                    Off where the browser doesn’t support it.
-                  </p>
-                </div>
-                <Toggle
-                  label="In-page tools (WebMCP)"
-                  hideLabel
-                  checked={false}
-                  disabled
-                  onCheckedChange={() => undefined}
-                />
-              </div>
-              <p>
-                <Badge tone="accent">Experimental</Badge>{' '}
-                <a href={agentPageHref('/settings/runs#setup-agents')}>Needs setup</a>
-              </p>
-            </section>
+            <WebMcpPreferences />
             <div>
               <AgentPreferences compact />
             </div>

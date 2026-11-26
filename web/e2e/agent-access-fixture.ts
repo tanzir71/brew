@@ -4,11 +4,17 @@ import { openDatabase } from '../../targets/node/src/db/database';
 import { defaultDelivery, newBrewSection } from '../../packages/core/src/composition-model';
 
 export const agentNow = new Date('2026-11-25T09:14:00Z');
-export async function agentAccessFixture(page: Page, theme = 'light', populated = false) {
+export async function agentAccessFixture(
+  page: Page,
+  theme = 'light',
+  populated = false,
+  webmcp = false,
+) {
   const database = openDatabase(':memory:');
   const app = await createApp({
     database,
     logger: false,
+    webmcp,
     publicUrl: 'http://127.0.0.1:4401',
     clock: { now: () => new Date(agentNow), monotonic: () => 0 },
     fetcher: async () =>

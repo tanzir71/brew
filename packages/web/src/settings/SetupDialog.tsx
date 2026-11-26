@@ -50,6 +50,7 @@ const guides: Record<SetupTopic, { title: string; description: string; steps: st
       'Use an instance with an MCP server.',
       'Create a read-only token first; add write access only when you need it.',
       'Connect your agent to /mcp. Review changes in the action log and use Undo when needed.',
+      'For in-page tools, set BREW_WEBMCP=1 and restart your Node instance, then enable In-page tools in Agent access. Use HTTPS or localhost.',
     ],
   },
   briefs: {

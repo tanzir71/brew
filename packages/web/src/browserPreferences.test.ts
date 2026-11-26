@@ -17,6 +17,13 @@ function storage(seed: Record<string, string> = {}) {
   };
 }
 describe('browser preference persistence', () => {
+  it('keeps in-page tools off unless explicitly saved, independently of agent mode', () => {
+    const s = storage({ 'brew:agent-mode': 'true', 'brew:webmcp': 'unknown' });
+    expect(readBrowserPreferences(s).webmcp).toBe('false');
+    saveBrowserPreference(s, 'webmcp', 'true');
+    expect(readBrowserPreferences(s).webmcp).toBe('true');
+    expect(readBrowserPreferences(s).agentMode).toBe('true');
+  });
   it('keeps URL agent mode temporary and saves it without changing reading preferences', () => {
     const s = storage({ 'brew:mark-read-on-scroll': 'true' });
     expect(agentModeEnabled('?agent=1', readBrowserPreferences(s).agentMode)).toBe(true);
@@ -50,6 +57,7 @@ describe('browser preference persistence', () => {
       openMode: 'pane',
       readOnScroll: 'true',
       agentMode: 'false',
+      webmcp: 'false',
       font: 'sans',
       width: 'wide',
       lineHeight: 'compact',

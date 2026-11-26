@@ -5,6 +5,7 @@ export const preferenceOptions = {
   openMode: ['overlay', 'pane'],
   readOnScroll: ['false', 'true'],
   agentMode: ['false', 'true'],
+  webmcp: ['false', 'true'],
   font: ['serif', 'sans'],
   width: ['narrow', 'wide'],
   lineHeight: ['relaxed', 'compact'],
@@ -18,6 +19,7 @@ export const preferenceDefaults: BrowserPreferences = {
   openMode: 'overlay',
   readOnScroll: 'false',
   agentMode: 'false',
+  webmcp: 'false',
   font: 'serif',
   width: 'narrow',
   lineHeight: 'relaxed',
@@ -29,6 +31,7 @@ const keys = {
   openMode: 'brew:article-open-mode',
   readOnScroll: 'brew:mark-read-on-scroll',
   agentMode: 'brew:agent-mode',
+  webmcp: 'brew:webmcp',
 } as const;
 export const preferenceKeys: readonly string[] = [...Object.values(keys), 'brew:reading-prefs'];
 
