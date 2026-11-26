@@ -19,6 +19,8 @@ import { registerPollerRoutes } from './routes/poller.js';
 import { registerMediaRoutes } from './routes/media.js';
 import { registerInboundRoutes } from './inbound.js';
 import { registerNewsletterRoutes } from './newsletters.js';
+import { documented, response, registerOpenApi } from './openapi.js';
+import { ref, str } from './openapi-schemas.js';
 
 export const securityHeaders = {
   'Content-Security-Policy':
@@ -60,11 +62,32 @@ export function createApi(
   registerMediaRoutes(app, services);
   registerInboundRoutes(app, services);
   registerNewsletterRoutes(app, services);
-  app.get('/api/capabilities', async (c) => {
-    c.header('Cache-Control', 'no-store');
-    return json(c, await services.capabilities());
-  });
-  app.get('/api/health', (c) => json(c, { ok: true }));
-  app.get('/api/events', (c) => eventStream(c, services.events));
+  app.get(
+    '/api/capabilities',
+    documented('Instance', 'Read effective instance capabilities', {
+      responses: { 200: response(ref('Capabilities')) },
+    }),
+    async (c) => {
+      c.header('Cache-Control', 'no-store');
+      return json(c, await services.capabilities());
+    },
+  );
+  app.get(
+    '/api/health',
+    documented('Instance', 'Check instance health', {
+      responses: { 200: response(ref('Ok')) },
+    }),
+    (c) => json(c, { ok: true }),
+  );
+  app.get(
+    '/api/events',
+    documented('Instance', 'Subscribe to live instance events', {
+      description:
+        'Server-sent events: heartbeat every 15 seconds, article:new and notification. Disconnect to unsubscribe. HEAD checks headers without opening a stream.',
+      responses: { 200: response(str, 'Live SSE stream', 'text/event-stream') },
+    }),
+    (c) => eventStream(c, services.events),
+  );
+  registerOpenApi(app);
   return app;
 }

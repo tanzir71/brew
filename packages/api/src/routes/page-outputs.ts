@@ -1,4 +1,5 @@
 import type { Hono } from 'hono';
+import { textOutput, pageOutputParameters } from '../openapi.js';
 import type { ApiServices } from '../ports.js';
 import type { RuleCondition, RuleRecord } from '../../../core/src/types/rules.js';
 import type { Capabilities } from '../../../core/src/types/capabilities.js';
@@ -476,56 +477,60 @@ export function registerPageOutputRoutes(app: Hono, services: ApiServices) {
     .flatMap((root) => ['md', 'json'].map((format) => `${root}.${format}`))
     .concat(['/rules/:output', '/letters/:output', '/letters/:sender/:output']);
   for (const path of paths)
-    app.get(path, async (c) => {
-      const format = /\.(md|json)$/.exec(new URL(c.req.url).pathname)?.[1];
-      if (!format) return json(c, { error: 'Page not found.' }, 404);
-      c.header('Cache-Control', 'private, no-store');
-      c.header('X-Robots-Tag', 'noindex, nofollow');
-      try {
-        const caps = await services.capabilities();
-        if (!caps.outputs?.twins)
-          return json(c, { error: 'Text formats need setup on this instance.' }, 501);
-        const url = new URL(c.req.url);
-        if (/^\/letters\/[^/]+\/[^/]+\.(md|json)$/.test(url.pathname)) {
-          if (!services.newsletters)
-            throw new PageInputError('Newsletters need setup on this instance.', 501);
-          const route = newsletterLocation(url);
-          const letter =
-            (await services.newsletters.letter(route.letterId!)) ??
-            missing('Letter not found for this sender.');
-          if (letter.feedId !== route.letterSenderId)
-            throw new PageInputError('Letter not found for this sender.', 404);
+    app.get(
+      path,
+      textOutput(path, 'Export the selected saved application view', pageOutputParameters),
+      async (c) => {
+        const format = /\.(md|json)$/.exec(new URL(c.req.url).pathname)?.[1];
+        if (!format) return json(c, { error: 'Page not found.' }, 404);
+        c.header('Cache-Control', 'private, no-store');
+        c.header('X-Robots-Tag', 'noindex, nofollow');
+        try {
+          const caps = await services.capabilities();
+          if (!caps.outputs?.twins)
+            return json(c, { error: 'Text formats need setup on this instance.' }, 501);
+          const url = new URL(c.req.url);
+          if (/^\/letters\/[^/]+\/[^/]+\.(md|json)$/.test(url.pathname)) {
+            if (!services.newsletters)
+              throw new PageInputError('Newsletters need setup on this instance.', 501);
+            const route = newsletterLocation(url);
+            const letter =
+              (await services.newsletters.letter(route.letterId!)) ??
+              missing('Letter not found for this sender.');
+            if (letter.feedId !== route.letterSenderId)
+              throw new PageInputError('Letter not found for this sender.', 404);
+            c.header(
+              'Link',
+              `<${new URL(newsletterHref(route), services.outputBaseUrl ?? url.origin).href}>; rel="alternate"; type="text/html", </a/${letter.id}.md>; rel="alternate"; type="text/markdown", </a/${letter.id}.json>; rel="alternate"; type="application/json"`,
+            );
+            c.header(
+              'Content-Type',
+              format === 'md' ? 'text/markdown; charset=utf-8' : 'application/json; charset=utf-8',
+            );
+            return c.body(
+              format === 'md'
+                ? renderArticleMarkdown(letter, services.outputBaseUrl ?? url.origin)
+                : renderArticleJson(letter, services.outputBaseUrl ?? url.origin),
+            );
+          }
+          const value = await document(services, url, caps);
+          const path = url.pathname.replace(/\.(md|json)$/, '') + url.search;
           c.header(
             'Link',
-            `<${new URL(newsletterHref(route), services.outputBaseUrl ?? url.origin).href}>; rel="alternate"; type="text/html", </a/${letter.id}.md>; rel="alternate"; type="text/markdown", </a/${letter.id}.json>; rel="alternate"; type="application/json"`,
+            `<${value.url}>; rel="alternate"; type="text/html", <${textTwinHref(path, 'md')}>; rel="alternate"; type="text/markdown", <${textTwinHref(path, 'json')}>; rel="alternate"; type="application/json"`,
           );
           c.header(
             'Content-Type',
             format === 'md' ? 'text/markdown; charset=utf-8' : 'application/json; charset=utf-8',
           );
           return c.body(
-            format === 'md'
-              ? renderArticleMarkdown(letter, services.outputBaseUrl ?? url.origin)
-              : renderArticleJson(letter, services.outputBaseUrl ?? url.origin),
+            format === 'md' ? renderPageMarkdown(value) : JSON.stringify(value, null, 2) + '\n',
           );
+        } catch (error) {
+          return error instanceof PageInputError
+            ? json(c, { error: error.message }, error.status)
+            : json(c, { error: 'Could not load this page.' }, 500);
         }
-        const value = await document(services, url, caps);
-        const path = url.pathname.replace(/\.(md|json)$/, '') + url.search;
-        c.header(
-          'Link',
-          `<${value.url}>; rel="alternate"; type="text/html", <${textTwinHref(path, 'md')}>; rel="alternate"; type="text/markdown", <${textTwinHref(path, 'json')}>; rel="alternate"; type="application/json"`,
-        );
-        c.header(
-          'Content-Type',
-          format === 'md' ? 'text/markdown; charset=utf-8' : 'application/json; charset=utf-8',
-        );
-        return c.body(
-          format === 'md' ? renderPageMarkdown(value) : JSON.stringify(value, null, 2) + '\n',
-        );
-      } catch (error) {
-        return error instanceof PageInputError
-          ? json(c, { error: error.message }, error.status)
-          : json(c, { error: 'Could not load this page.' }, 500);
-      }
-    });
+      },
+    );
 }

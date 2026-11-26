@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@brew/core": "0.1.0",
-    "hono": "^4.13.22"
+    "hono": "^4.13.22",
+    "hono-openapi": "^1.6.0"
   }
 }

@@ -164,14 +164,15 @@ Bulk reads, OPML import, rule application/deletion and feed/folder deletion use 
 30-second server Undo. Recent Undo survives reload; retries recover the same
 result. Later conflicting edits prevent restoration, and notifications/webhooks
 cannot be recalled. See [owner actions and Undo](docs/agent-dom.md#confirmed-owner-actions-and-undo)
-for retention, API and capability behavior. The full M12 DOM checklist remains
-in progress.
+for retention, API and capability behavior. The nine-item M12 DOM checklist is
+implemented and audited across current screens.
 Reader uses `/all`, `/today`, `/starred`, `/f/:id`, `/feed/:id` and `/search?q=...`,
 with reloadable filters and numbered pages. Lists announce exact totals and
 offer private Markdown/JSON twins, for example `/all.md?unread=true&page=2`.
 Opening an article selects its content twins; closing restores the list's links.
 See [Reader pages](docs/agent-dom.md#reader-and-search-pages) for query and output
-behavior. Normal lists keep their virtual scrolling; agent mode is still pending.
+behavior. Normal lists keep their virtual scrolling; agent mode uses complete
+numbered pages.
 Other implemented views expose private [saved-page twins](docs/agent-dom.md#saved-page-twins),
 including Compose, Rules/logs, feed health/hidden articles, Newsletters lists,
 instance capabilities and empty states. Alternate links retain selection/filter
@@ -299,9 +300,14 @@ exports keep the selected rule and page. Paging preserves unsaved rule edits.
 The saved-rule count identifies stale data after a failed refresh. Undo restores
 usable keyboard focus after its button disappears, and delayed results preserve
 newer focus or navigation. The DOM acceptance audit is in
-[agent DOM implementation](docs/agent-dom.md); later M12 APIs and tokens remain
-separate work.
+[agent DOM implementation](docs/agent-dom.md).
 
+`GET /api/openapi.json` describes this instance's registered Hono operations as
+OpenAPI 3.1, including request/response schemas, query filters, private exports,
+webhooks and confirmed owner actions. It also supports HEAD and returns private,
+no-store headers. It contains no library records or credentials. See
+[API discovery](docs/agent-api.md) for examples and contract maintenance. Scoped
+tokens, MCP, WebMCP and the full Agent access setup remain separate M12 work.
 
 Reader saved searches are browser-local bookmarks. **Save search** opens a labelled
 dialog and remembers the query, scope and current filters, starting on page one.

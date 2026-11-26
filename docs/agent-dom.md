@@ -1,10 +1,11 @@
 # Agent DOM implementation
 
 M12 is in progress. The nine-item DOM checklist and agent-friendly-mode criteria
-are implemented and audited across current screens. The final full browser gate
-passes all 238 cases, including 26 role/label-only journeys and ten DOM audit
-cases. OpenAPI, MCP, token/log/setup, WebMCP and llms.txt remain separate unfinished
-criteria. Later screens must preserve these DOM contracts.
+are implemented and audited across current screens. Browser coverage includes
+26 role/label-only journeys and ten DOM audit cases. OpenAPI 3.1 is implemented
+and covered separately in [API discovery](agent-api.md).
+MCP, token/log/setup, WebMCP and llms.txt remain unfinished criteria. Later screens
+must preserve these DOM contracts.
 
 ## Current evidence
 
