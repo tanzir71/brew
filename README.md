@@ -284,7 +284,7 @@ existing visual sizes. Compact rule actions, Compose fields, setup links and
 newsletter controls also meet that minimum. Browser checks cover the controls
 and verify that clicks along the enlarged edges activate the intended control.
 See [agent DOM implementation](docs/agent-dom.md) for the current role/label-only
-journey and the remaining M12 checklist work.
+journeys and the DOM acceptance audit.
 
 Saved rules keep direct actions and a labelled **More** button. **Copy** creates
 one disabled copy of the saved definition through the owner action journal.
@@ -308,6 +308,11 @@ OpenAPI 3.1, including request/response schemas, query filters, private exports,
 webhooks and confirmed owner actions. It also supports HEAD and returns private,
 no-store headers. It contains no library records or credentials. See
 [API discovery](docs/agent-api.md) for examples and contract maintenance.
+
+`GET /llms.txt` is the private [instance guide](docs/agent-discovery.md): current
+capabilities, routes, authentication and names from the shared tool catalog.
+It supports HEAD, contains no library records or credentials, and uses relative
+links for this instance. The app head exposes it with `rel="describedby"`.
 
 The [MCP server](docs/mcp.md) exposes the same tools over `/mcp` and
 `node dist/targets/node/src/index.js mcp`. Search, unread lists, Markdown reading,

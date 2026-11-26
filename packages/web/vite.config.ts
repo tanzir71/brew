@@ -14,6 +14,7 @@ export default defineConfig({
     port: 4401,
     proxy: {
       '/api': { target: 'http://127.0.0.1:4400' },
+      '^/llms\\.txt(\\?|$)': { target: 'http://127.0.0.1:4400' },
       '^/mcp(\\?|$)': { target: 'http://127.0.0.1:4400' },
       '^/(index|reader|feeds|letters|rules)\\.(md|json)(\\?|$)': {
         target: 'http://127.0.0.1:4400',

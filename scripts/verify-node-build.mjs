@@ -36,6 +36,18 @@ try {
   const discoveryHead = await app.inject({ method: 'HEAD', url: '/api/openapi.json' });
   assert.equal(discoveryHead.statusCode, 200);
   assert.equal(discoveryHead.body, '');
+  const guide = await app.inject('/llms.txt');
+  assert.equal(guide.statusCode, 200);
+  assert.match(guide.headers['content-type'], /^text\/plain; charset=utf-8$/i);
+  assert.equal(guide.headers['cache-control'], 'private, no-store');
+  assert.equal(guide.headers['x-robots-tag'], 'noindex, nofollow');
+  assert.match(guide.body, /^# Brew instance guide\n/);
+  assert.match(guide.body, /Authorization: Bearer <Brew token>/);
+  assert.match(guide.body, /\[mark_read\]\(\/mcp\)/);
+  const guideHead = await app.inject({ method: 'HEAD', url: '/llms.txt' });
+  assert.equal(guideHead.statusCode, 200);
+  assert.equal(guideHead.body, '');
+  assert.equal((await app.inject({ method: 'POST', url: '/llms.txt' })).statusCode, 404);
   assert.deepEqual(database.sqlite.prepare('SELECT total_changes() AS n').get(), beforeDiscovery);
   const capabilities = await app.inject('/api/capabilities');
   assert.equal(capabilities.statusCode, 200);
@@ -44,6 +56,7 @@ try {
   const page = await app.inject('/');
   assert.equal(page.statusCode, 200);
   assert.match(page.headers['content-type'], /text\/html/);
+  assert.match(page.body, /<link rel="describedby" href="\/llms\.txt"/);
   const script = page.body.match(/src="([^"]+\.js)"/)[1];
   assert.equal((await app.inject(script)).statusCode, 200);
   const route = await app.inject('/reader');

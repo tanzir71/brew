@@ -6,6 +6,10 @@ Node advertises `mcp: "stdio+http"` in `/api/capabilities`. Other adapters retur
 private activity log with Undo, and client setup. Experimental [WebMCP](webmcp.md)
 reuses this catalog, schemas, validation and handlers for mounted browser controls.
 
+The private [instance guide](agent-discovery.md) at `/llms.txt` describes effective
+transport availability, owner/token authentication, routes and this same tool
+catalog. It contains no credentials or library data.
+
 ## Connect
 
 After `npm run build`, start stdio with:

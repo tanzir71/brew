@@ -1,13 +1,14 @@
 # Agent DOM implementation
 
-M12 is in progress. The nine-item DOM checklist and agent-friendly-mode criteria
+The M12 agent layer is complete across current screens. The nine-item DOM checklist and agent-friendly-mode criteria
 are implemented and audited across current screens. Browser coverage includes
 26 role/label-only journeys and ten DOM audit cases. OpenAPI 3.1 is implemented
 and covered separately in [API discovery](agent-api.md).
 The [MCP server](mcp.md) provides Node stdio and HTTP. [Agent access](agent-access.md)
 provides scoped tokens, the activity log with Undo, setup snippets and private
 settings twins. Flagged [WebMCP](webmcp.md) registers the shared catalog only for
-mounted visible controls. Per-instance llms.txt remains unfinished. Later screens must preserve these DOM contracts.
+mounted visible controls. The private [instance guide](agent-discovery.md) at
+/llms.txt lists current routes, auth and tool names. Later screens must preserve these DOM contracts.
 
 ## Current evidence
 

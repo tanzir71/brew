@@ -67,6 +67,7 @@ export function mountApi(server: FastifyInstance, api: ReturnType<typeof createA
   server.post('/api/actions', { bodyLimit: opmlDocumentLimit * 2 + 4096 }, handler);
   server.all('/api/*', handler);
   server.all('/mcp', handler);
+  server.all('/llms.txt', handler);
   server.all('/b/*', handler);
   server.all('/a/*', handler);
   for (const path of ['/all', '/today', '/starred', '/search'])

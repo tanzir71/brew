@@ -8,8 +8,8 @@ curl http://127.0.0.1:4400/api/openapi.json
 
 The document uses OpenAPI `3.1.0` and a relative `/` server URL. It describes the
 actual registered Hono handlers, including REST, private Markdown/JSON exports,
-Atom/JSON issue feeds, SSE, inbound webhooks, MCP and flagged WebMCP. At M12.23 it covers 121 operations
-on 103 paths with 55 reusable data schemas. It excludes HTML application routes,
+Atom/JSON issue feeds, SSE, inbound webhooks, MCP, flagged WebMCP and the instance
+agent guide. At M12.24 it covers 122 operations on 104 paths with 55 reusable data schemas. It excludes HTML application routes,
 static assets and unimplemented endpoints.
 
 GET and HEAD return `application/json`, `Cache-Control: private, no-store` and
@@ -19,6 +19,10 @@ records, samples, credentials, configured addresses or delivery settings. Reques
 Host and forwarded-host headers cannot change the documented server origin.
 
 ## Using the contract
+
+Start at [the instance guide](agent-discovery.md), `GET /llms.txt`, for effective
+transport availability, authentication, saved-view links and shared tool names.
+It is private/no-store metadata, not a library export or an authorization grant.
 
 Resolve local `#/components/schemas/...` references when interpreting bodies.
 Operations declare their actual success codes, error codes, media types, required

@@ -58,6 +58,7 @@ export async function createApp(
   app.addHook('onSend', async (request, reply, payload) => {
     if (
       request.url.split('?')[0] === '/mcp' ||
+      request.url.split('?')[0] === '/llms.txt' ||
       request.url.startsWith('/api/agent-access/') ||
       request.url.startsWith('/api/webmcp/')
     ) {
