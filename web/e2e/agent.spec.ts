@@ -9,6 +9,43 @@ import { articles } from '../../targets/node/src/db/schema';
 import { composeFixture } from './compose-fixture';
 import { BrewService } from '../../targets/node/src/services/brew-service';
 
+test('an agent opens native shortcut help and recovers changed Reader and search pages without writes', async ({ page }) => {
+  const f = await newslettersFixture(page);
+  let failing = true;
+  await page.route('**/api/articles?**', (route) => failing ? route.fulfill({ status: 503, json: {} }) : route.fallback());
+  try {
+    const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+    await page.goto('/all?page=2&density=title&unread=true&sort=oldest');
+    const retry = page.getByRole('button', { name: 'Retry articles', exact: true });
+    await expect(retry).toBeEnabled();
+    await retry.focus();
+    await page.keyboard.press('?');
+    const help = page.getByRole('dialog', { name: 'Keyboard shortcuts', exact: true });
+    await expect(help.getByRole('button', { name: 'Close Keyboard shortcuts', exact: true })).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(help.getByRole('button', { name: 'Done', exact: true })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(retry).toBeFocused();
+    failing = false;
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { name: 'All articles', exact: true })).toBeFocused();
+    const first = page.getByRole('link', { name: 'First page', exact: true });
+    await expect(first).toHaveAttribute('href', '/all?density=title&unread=true&sort=oldest');
+    await first.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/all\?density=title&unread=true&sort=oldest$/);
+    await expect(page.getByRole('button', { name: 'Open article · Design story', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Unread', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByLabel('Sort articles', { exact: true })).toHaveValue('oldest');
+    await page.goto('/search?q=story&page=2&density=title&unread=true&sort=oldest');
+    await expect(first).toHaveAttribute('href', '/search?q=story&density=title&unread=true&sort=oldest');
+    await first.click();
+    await expect(page.getByRole('button', { name: 'Open article · Design story', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Reader page', exact: true })).toContainText('Showing 1–4 of 4');
+    expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+  } finally { await f.close(); }
+});
+
 test('an agent creates an article tag, cancels a letter tag draft and submits the native form by keyboard', async ({ page }) => {
   const f = await newslettersFixture(page);
   try {

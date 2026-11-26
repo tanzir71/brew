@@ -1,5 +1,6 @@
 import {
   useInfiniteQuery,
+  useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -23,6 +24,7 @@ import { PreferenceFeedback } from './settings/BrowserPreferences';
 import { updateArticleState } from './articleState';
 import { useBulkRead } from './hooks/useBulkRead';
 import { BulkReadUi } from './components/BulkReadUi';
+import { ReaderEmptyPage, ReaderReadFeedback } from './components/ReaderReadFeedback';
 import type {
   ArticlePage,
   ArticleSummary,
@@ -75,25 +77,23 @@ export function Reader({
   onClearSearch: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [navigation, setNavigation] = useState(emptyNavigation);
+  const navigationQuery = useQuery({ queryKey: ['reader-navigation'], staleTime: 0, queryFn: ({ signal }) => getJson<ReaderNavigation>('/api/reader/navigation', signal) });
+  const navigation = navigationQuery.data ?? emptyNavigation;
+  const navigationRef = useRef<HTMLElement>(null);
   const [selection, setSelection] = useState<Selection>(selectionFromUrl);
-  const [error, setError] = useState('');
-  const [showShortcuts, setShowShortcuts] = useState(false);
   const pendingGo = useRef(false);
   const pendingGoTimer = useRef<number | null>(null);
   const savedSearches = useSavedSearches();
   const [saveSearchOpen, setSaveSearchOpen] = useState(false);
   useEffect(() => {
     const refresh = () => {
-      void getJson<ReaderNavigation>('/api/reader/navigation')
-        .then(setNavigation)
-        .catch((reason: Error) => setError(reason.message));
+      void queryClient.invalidateQueries({ queryKey: ['reader-navigation'] }, { cancelRefetch: false });
     };
-    refresh();
     const events = new EventSource('/api/events');
     events.addEventListener('article:new', () => {
-      refresh();
+      void queryClient.invalidateQueries({ queryKey: ['reader-navigation'] });
       void queryClient.invalidateQueries({ queryKey: ['articles'] });
+      void queryClient.invalidateQueries({ queryKey: ['search'] });
     });
     events.addEventListener('notification', (event) => {
       if (!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -116,21 +116,19 @@ export function Reader({
   }, [queryClient]);
   const choose = useCallback((next: Selection) => {
     navigateReader(selectionHref(next));
-    setError('');
     setSelection(next);
   }, []);
   useEffect(() => {
-    const show = () => setShowShortcuts(true);
+    const show = () => {
+      pendingGo.current = false;
+      if (pendingGoTimer.current !== null) window.clearTimeout(pendingGoTimer.current);
+      pendingGoTimer.current = null;
+    };
     const keydown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && showShortcuts) {
-        event.preventDefault();
-        setShowShortcuts(false);
-        return;
-      }
-      if (isEditableTarget(event.target)) return;
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || isEditableTarget(event.target)) return;
       if (event.key === '?') {
         event.preventDefault();
-        setShowShortcuts(true);
+        window.dispatchEvent(new Event('brew:show-shortcuts'));
         return;
       }
       if (event.key === '/') {
@@ -163,6 +161,8 @@ export function Reader({
       if (event.key.toLowerCase() === 'r') {
         event.preventDefault();
         void queryClient.invalidateQueries({ queryKey: ['articles'] });
+        void queryClient.invalidateQueries({ queryKey: ['search'] });
+        void queryClient.invalidateQueries({ queryKey: ['reader-navigation'] });
         window.dispatchEvent(new Event('brew:navigation-refresh'));
       }
     };
@@ -173,7 +173,7 @@ export function Reader({
       window.removeEventListener('brew:show-shortcuts', show);
       if (pendingGoTimer.current !== null) window.clearTimeout(pendingGoTimer.current);
     };
-  }, [choose, queryClient, showShortcuts]);
+  }, [choose, queryClient]);
   useEffect(() => {
     const restore = () => setSelection(selectionFromUrl());
     window.addEventListener('popstate', restore);
@@ -188,7 +188,7 @@ export function Reader({
           aria-label="Reader navigation"
           className="flex flex-col border-r border-line bg-canvas px-4 py-6"
         >
-          <nav aria-label="Library" className="space-y-1">
+          <nav ref={navigationRef} tabIndex={-1} aria-label="Library" className="space-y-1">
             <a
               className={itemClass(selection.kind === 'brew')}
               href={selectionHref({ kind: 'brew', title: 'The Brew' })}
@@ -221,6 +221,7 @@ export function Reader({
               <Count value={navigation.counts.starred} />
             </a>
           </nav>
+          <ReaderReadFeedback query={navigationQuery} subject="library information" retryLabel="Retry library" focusRef={navigationRef} compact announcement="Library information loaded." />
           <div className="my-5 h-px bg-line" />
           <SavedSearchList action={savedSearches} />
           <div className="space-y-4">
@@ -287,17 +288,13 @@ export function Reader({
               onClear={onClearSearch}
               onSave={() => { savedSearches.clearError(); setSaveSearchOpen(true); }}
             />
-          ) : error ? (
-            <p role="alert" className="m-10 rounded-xl bg-danger-soft p-4 text-sm text-danger">
-              {error}
-            </p>
           ) : selection.kind === 'brew' ? (
             <>
               <header className="border-b border-line px-10 py-7">
                 <p className="text-xs font-semibold uppercase tracking-[.18em] text-soft">
                   Reader
                 </p>
-                <h1 className="mt-1 text-2xl font-semibold tracking-tight">{selection.title}</h1>
+                <h1 tabIndex={-1} className="mt-1 text-2xl font-semibold tracking-tight">{selection.title}</h1>
               </header>
               <BrewWelcome />
             </>
@@ -309,7 +306,6 @@ export function Reader({
           )}
         </section>
       </div>
-      {showShortcuts && <ShortcutSheet onClose={() => setShowShortcuts(false)} />}
       {saveSearchOpen && <SaveSearchDialog action={savedSearches} query={searchQuery} onClose={() => setSaveSearchOpen(false)} />}
     </>
   );
@@ -335,97 +331,7 @@ function BrewWelcome() {
     </div>
   );
 }
-function ShortcutSheet({ onClose }: { onClose: () => void }) {
-  const groups = [
-    [
-      'Move',
-      [
-        ['j / k', 'Next / previous article'],
-        ['o / Enter', 'Open article'],
-        ['Esc', 'Close article'],
-      ],
-    ],
-    [
-      'Act',
-      [
-        ['m', 'Toggle read'],
-        ['s', 'Toggle star'],
-        ['t', 'Edit tags'],
-        ['v', 'Open original'],
-        ['Shift + A', 'Mark all read'],
-        ['r', 'Refresh'],
-      ],
-    ],
-    [
-      'Go',
-      [
-        ['g b', 'The Brew'],
-        ['g t', 'Today'],
-        ['g a', 'All articles'],
-        ['/', 'Search'],
-      ],
-    ],
-    [
-      'View',
-      [
-        ['1 / 2 / 3', 'Title / magazine / cards'],
-        ['?', 'This shortcut guide'],
-      ],
-    ],
-  ] as const;
-  return (
-    <div
-      className="fixed inset-0 z-[70] grid place-items-center bg-scrim/40 p-6"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label="Keyboard shortcuts"
-        className="w-full max-w-2xl rounded-3xl border border-line bg-surface p-7 shadow-overlay"
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-soft">
-              Keyboard first
-            </p>
-            <h2 className="mt-1 text-2xl font-semibold">Shortcuts</h2>
-          </div>
-          <button
-            onClick={onClose}
-            aria-label="Close shortcuts"
-            className="rounded-full px-3 py-2 text-soft hover:bg-subtle"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="mt-7 grid gap-7 sm:grid-cols-2">
-          {groups.map(([title, rows]) => (
-            <section key={title}>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
-                {title}
-              </h3>
-              <dl className="mt-2 space-y-2">
-                {rows.map(([keys, label]) => (
-                  <div key={keys} className="flex items-center justify-between gap-4 text-sm">
-                    <dt className="text-soft">{label}</dt>
-                    <dd>
-                      <kbd className="rounded-md border border-line-strong bg-canvas px-2 py-1 font-mono text-xs">
-                        {keys}
-                      </kbd>
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
+
 type Density = 'title' | 'magazine' | 'cards';
 type VirtualRow = { kind: 'article'; article: ArticleSummary } | { kind: 'header'; title: string };
 
@@ -452,7 +358,7 @@ function SearchView({
   const results = useInfiniteQuery({
     queryKey: ['search', query, scope, folderId, state.page, state.unread, state.sort],
     initialPageParam: (state.page - 1) * readerPageSize,
-    queryFn: ({ pageParam }) => {
+    queryFn: ({ pageParam, signal }) => {
       const params = new URLSearchParams({
         q: query,
         scope,
@@ -461,7 +367,7 @@ function SearchView({
       });
       if (scope === 'folder' && folderId !== undefined)
         params.set('folderId', String(folderId));
-      return getJson<SearchPage>(`/api/search?${params}`);
+      return getJson<SearchPage>(`/api/search?${params}`, signal);
     },
     getNextPageParam: (page) => page.nextOffset ?? undefined,
     enabled: scope !== 'folder' || folderId !== undefined,
@@ -479,7 +385,7 @@ function SearchView({
   }, [prepareArticle]);
   // eslint-disable-next-line react-hooks/incompatible-library -- Search results use the same mandated virtual list engine as the Reader.
   const virtualizer = useVirtualizer({
-    count: items.length + (results.hasNextPage ? 1 : 0),
+    count: items.length + (results.hasNextPage && !results.isError ? 1 : 0),
     getScrollElement: () => parent.current,
     estimateSize: () => state.density === 'title' ? 62 : state.density === 'cards' ? 270 : 126,
     overscan: 8,
@@ -491,6 +397,7 @@ function SearchView({
       last &&
       last.index >= items.length - 4 &&
       results.hasNextPage &&
+      !results.isError &&
       !results.isFetchingNextPage
     )
       void results.fetchNextPage();
@@ -559,12 +466,10 @@ function SearchView({
           </button>
         </div>
       </header>
-      <div className="border-b border-line px-8 py-2 text-xs text-soft">
-        {items.length} result{items.length === 1 ? '' : 's'}
-        {results.data?.pages.at(-1)
-          ? ` · ${results.data.pages.at(-1)!.durationMs.toFixed(1)} ms`
-          : ''}
+      <div aria-label="Search summary" aria-live="polite" aria-atomic="true" className="border-b border-line px-8 py-2 text-xs text-soft">
+        {results.data ? <>{items.length} result{items.length === 1 ? '' : 's'}{` · ${results.data.pages.at(-1)!.durationMs.toFixed(1)} ms`}{results.isError ? ' · Last loaded' : ''}</> : results.isPending ? 'Searching…' : 'Results unavailable'}
       </div>
+      <ReaderReadFeedback query={results} subject="search results" retryLabel="Retry search" moreLabel="Retry more results" focusRef={listHeading} />
       <div
         ref={parent}
         data-testid="virtual-search-results"
@@ -599,13 +504,9 @@ function SearchView({
             );
           })}
         </div>
-        {!results.isLoading && !items.length && (
-          <p className="px-10 py-20 text-center text-sm text-soft">
-            No matching articles. Try fewer or broader words.
-          </p>
-        )}
+        {results.isSuccess && !items.length && <ReaderEmptyPage state={state}>No matching articles. Try fewer or broader words.</ReaderEmptyPage>}
       </div>
-      {results.data?.pages[0]?.total !== undefined && <ReaderPageFooter state={state} total={results.data.pages[0].total} shown={items.length} twins={Boolean(caps.data?.outputs?.twins)} />}
+      {results.data?.pages[0]?.total !== undefined && <ReaderPageFooter state={state} total={results.data.pages[0].total} shown={items.length} stale={results.isError} twins={Boolean(caps.data?.outputs?.twins)} />}
       </div>
       {selectedArticle !== null && (
         <ArticleReader
@@ -657,7 +558,7 @@ function ArticleList({ selection }: { selection: Selection }) {
   const query = useInfiniteQuery({
     queryKey: ['articles', selection.kind, selection.id, unreadOnly, sort, state.page],
     initialPageParam: null as string | null,
-    queryFn: ({ pageParam }) => {
+    queryFn: ({ pageParam, signal }) => {
       const params = new URLSearchParams({
         view: ['today', 'starred'].includes(selection.kind) ? selection.kind : 'all',
         unread: String(unreadOnly),
@@ -667,7 +568,7 @@ function ArticleList({ selection }: { selection: Selection }) {
       if (selection.kind === 'feed' && selection.id) params.set('feedId', String(selection.id));
       if (selection.kind === 'folder' && selection.id) params.set('folderId', String(selection.id));
       if (pageParam) params.set('cursor', pageParam);
-      return getJson<ArticlePage>(`/api/articles?${params}`);
+      return getJson<ArticlePage>(`/api/articles?${params}`, signal);
     },
     getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
@@ -699,7 +600,7 @@ function ArticleList({ selection }: { selection: Selection }) {
   const lanes = density === 'cards' && selection.kind !== 'today' ? 2 : 1;
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual is the mandated list engine and intentionally manages mutable measurements.
   const virtualizer = useVirtualizer({
-    count: rows.length + (query.hasNextPage ? 1 : 0),
+    count: rows.length + (query.hasNextPage && !query.isError ? 1 : 0),
     getScrollElement: () => parent.current,
     estimateSize: () => (density === 'title' ? 62 : density === 'cards' ? 270 : 126),
     overscan: 8,
@@ -709,7 +610,7 @@ function ArticleList({ selection }: { selection: Selection }) {
   const virtualItems = virtualizer.getVirtualItems();
   useEffect(() => {
     const last = virtualItems.at(-1);
-    if (last && last.index >= rows.length - 4 && query.hasNextPage && !query.isFetchingNextPage)
+    if (last && last.index >= rows.length - 4 && query.hasNextPage && !query.isError && !query.isFetchingNextPage)
       void query.fetchNextPage();
   }, [virtualItems, rows.length, query]);
   const [failedScroll, setFailedScroll] = useState<number[]>([]);
@@ -911,6 +812,7 @@ function ArticleList({ selection }: { selection: Selection }) {
         Could not save {failedScroll.length} read updates.{' '}
         <button type="button" className="underline" onClick={() => void markScrolled(failedScroll)}>Retry read updates</button>
       </p>}
+      <ReaderReadFeedback query={query} subject="articles" retryLabel="Retry articles" moreLabel="Retry more articles" focusRef={listHeading} announcement={query.data?.pages[0]?.total === undefined ? `${articles.length} articles loaded.` : ''} />
       <div ref={parent} data-reader-scroll data-testid="virtual-article-list" className="min-h-0 flex-1 overflow-auto">
         <div
           className="relative mx-auto max-w-5xl px-8"
@@ -957,14 +859,10 @@ function ArticleList({ selection }: { selection: Selection }) {
             );
           })}
         </div>
-        {!query.isLoading && rows.length === 0 && (
-          <p className="px-10 py-20 text-center text-sm text-soft">
-            Nothing here yet. A quiet inbox is a good inbox.
-          </p>
-        )}
+        {query.isSuccess && rows.length === 0 && <ReaderEmptyPage state={state}>Nothing here yet. A quiet inbox is a good inbox.</ReaderEmptyPage>}
       </div>
       <BulkReadUi action={bulk} />
-      {query.data?.pages[0]?.total !== undefined && <ReaderPageFooter state={outputState} total={query.data.pages[0].total} shown={articles.length} twins={Boolean(caps.data?.outputs?.twins)} />}
+      {query.data?.pages[0]?.total !== undefined && <ReaderPageFooter state={outputState} total={query.data.pages[0].total} shown={articles.length} stale={query.isError} twins={Boolean(caps.data?.outputs?.twins)} />}
       </div>
       {selectedArticle !== null && (
         <ArticleReader

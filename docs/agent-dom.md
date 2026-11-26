@@ -126,6 +126,33 @@ nosniff. Legacy replace-all `PUT` and name-unique creation `POST /api/tags` keep
 their original contracts. New definitions remain in the library if assignment
 cannot be confirmed; repeating creation reuses the same trimmed name.
 
+A twenty-second role/label-only journey opens native shortcut help from a failed
+Reader read, checks Tab/Escape restoration, retries the actual read and recovers
+empty later Reader/search pages through First page links. Filters survive and
+SQLite records no writes. Ten additional browser cases exercise initial loading,
+failed retry focus, cached refresh failures, interrupted reads, explicit paging
+retry, library metadata recovery, legacy toolbar help, light/dark axe and
+desktop/phone captures. They retain the existing visual and performance budgets.
+
+Reader and search pass AbortSignals to their requests. Initial failures do not
+claim empty results or zero counts. Cached rows remain visible after refresh
+failure and ranges identify the last loaded result. Infinite loading stops on
+error, removes its loading sentinel and offers Retry more for the same cursor.
+A retry preserves its native button through failed pending transitions; success
+returns focus to the heading only when focus still belongs to that attempt.
+An empty requested page after page one offers a canonical First page link with
+the current scope, filters, density and search context. Library metadata reads
+use the shared query cache, abort obsolete requests and fail independently of
+article content. These read/recovery controls perform no mutations.
+
+Shortcut help now uses the shared native modal sheet in Reader, Feeds and Rules.
+Native focus containment, Escape/Done, backdrop clicks and trigger restoration
+replace the old custom overlay. Reader shortcuts do not run behind it; opening
+help clears a pending Go chord. Its controls meet the 24px target minimum. Shared
+sheets distinguish selection dragging from a backdrop click and suppress their
+own stale return-focus action after path/query navigation. Agent mode remains
+pending, including the checklist's nonvirtual paginated list requirement.
+
 The client serializes tag writes per item, cancels obsolete detail reads and
 patches only tags in article/newsletter caches. It refreshes dependent previews
 after acknowledgement without replacing newer read/star/body/sender metadata.

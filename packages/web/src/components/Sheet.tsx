@@ -26,16 +26,19 @@ function SheetBody({
   returnFocusRef,
 }: Omit<SheetProps, 'open'> & { side: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const backdropStart = useRef(false);
   const id = useId();
   useLayoutEffect(() => {
     const dialog = ref.current!;
     const previous = returnFocusRef?.current ?? (document.activeElement as HTMLElement | null);
+    const scope = location.pathname + location.search;
     const unlock = lockDialogScroll();
     dialog.showModal();
     initialFocusRef?.current?.focus();
     return () => {
       dialog.close();
       unlock();
+      if (scope !== location.pathname + location.search) return;
       if (
         previous?.isConnected &&
         previous !== document.body &&
@@ -61,9 +64,19 @@ function SheetBody({
       onClose={(event) => {
         if (!event.currentTarget.open) onClose();
       }}
+      onPointerDown={(event) => {
+        const r = event.currentTarget.getBoundingClientRect();
+        backdropStart.current =
+          event.target === event.currentTarget &&
+          (event.clientX < r.left ||
+            event.clientX > r.right ||
+            event.clientY < r.top ||
+            event.clientY > r.bottom);
+      }}
       onClick={(event) => {
         const r = event.currentTarget.getBoundingClientRect();
         if (
+          backdropStart.current &&
           event.target === event.currentTarget &&
           (event.clientX < r.left ||
             event.clientX > r.right ||
@@ -71,13 +84,19 @@ function SheetBody({
             event.clientY > r.bottom)
         )
           onClose();
+        backdropStart.current = false;
       }}
     >
       <header>
         <h2 id={id} className="min-w-0 break-words">
           {title}
         </h2>
-        <IconButton icon="x" label={`Close ${title}`} onClick={onClose} />
+        <IconButton
+          icon="x"
+          label={`Close ${title}`}
+          data-brew-action="close-dialog"
+          onClick={onClose}
+        />
       </header>
       {description && (
         <p id={`${id}-description`} className="brew-sheet-description">

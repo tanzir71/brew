@@ -256,6 +256,13 @@ Newsletter tag edits stay in a native form until Save tags, and Cancel leaves
 assignments unchanged. Saving preserves tags added independently and keeps read,
 starred and article content state intact. Read/star failures also offer their own
 retry inside the active article surface.
+Reader and search distinguish loading, failed reads and successful empty results.
+Refresh failures retain loaded rows and label their ranges **Last loaded**.
+Failed infinite paging stops until **Retry more**; empty later pages offer a
+native **First page** link that preserves filters. Library metadata has its own
+retry and does not block loaded articles. **Keyboard shortcuts** and `?` open
+native help with contained focus and Escape/Done restoration; the legacy Feeds
+and Rules toolbar opens the same Reader guide.
 See [agent DOM implementation](docs/agent-dom.md) for the current role/label-only
 journey and the remaining M12 checklist work.
 

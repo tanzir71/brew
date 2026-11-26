@@ -1,3 +1,4 @@
+import { ReaderHelp } from './components/ReaderHelp';
 import { FeedManager } from './FeedManager';
 import { Component, type ReactNode, lazy, Suspense, useEffect, useState } from 'react';
 const Reader = lazy(() => import('./Reader').then((module) => ({ default: module.Reader })));
@@ -99,6 +100,7 @@ function AppContent() {
           </a>
           <button
             aria-label="Keyboard shortcuts"
+            data-brew-action="show-shortcuts"
             title="Keyboard shortcuts (?)"
             onClick={() => window.dispatchEvent(new Event('brew:show-shortcuts'))}
             className="grid h-9 w-9 place-items-center rounded-full border border-line-strong text-sm font-semibold"
@@ -151,6 +153,7 @@ function AppContent() {
           onClearSearch={() => navigateReader(closeSearchHref())}
         /></Suspense>
       )}
+      <ReaderHelp reader={mode === 'reader'} />
     </main>
   );
 }

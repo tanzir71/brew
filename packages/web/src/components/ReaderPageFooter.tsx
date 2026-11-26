@@ -12,11 +12,13 @@ export function ReaderPageFooter({
   total,
   shown,
   twins,
+  stale = false,
 }: {
   state: ReaderPageState;
   total: number;
   shown: number;
   twins: boolean;
+  stale?: boolean;
 }) {
   const offset = (state.page - 1) * readerPageSize;
   const href = readerPageHref(state);
@@ -41,6 +43,7 @@ export function ReaderPageFooter({
     >
       <p aria-live="polite" aria-atomic="true">
         Showing {shown ? offset + 1 : 0}–{shown ? offset + shown : 0} of {total}
+        {stale && ' · Last loaded'}
       </p>
       <nav aria-label="Reader pages" className="flex items-center gap-2">
         {state.page > 1 ? (
