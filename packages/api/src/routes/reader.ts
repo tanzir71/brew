@@ -4,7 +4,10 @@ import type { Hono } from 'hono';
 import type { ApiServices, ReaderView } from '../ports.js';
 import { errorMessage, json } from '../http.js';
 
-export function registerReaderRoutes(app: Hono, { reader: service }: ApiServices): void {
+export function registerReaderRoutes(
+  app: Hono,
+  { reader: service }: Pick<ApiServices, 'reader'>,
+): void {
   app.get(
     '/api/reader/navigation',
     documented('Reader', 'Read folder navigation and unread counts', {

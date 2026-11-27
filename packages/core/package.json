@@ -11,6 +11,7 @@
     "./types/*": "./src/types/*.ts"
   },
   "dependencies": {
+    "@mozilla/readability": "latest",
     "@js-temporal/polyfill": "0.5.1",
     "dompurify": "latest",
     "linkedom": "latest",

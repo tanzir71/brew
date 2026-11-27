@@ -12,7 +12,6 @@
     "@brew/db": "0.1.0",
     "@fastify/static": "latest",
     "@modelcontextprotocol/server": "^2.4.0",
-    "@mozilla/readability": "latest",
     "better-sqlite3": "latest",
     "drizzle-orm": "latest",
     "fastify": "latest",

@@ -14,7 +14,10 @@ import {
   textTwinHref,
 } from '../../../core/src/reader-pages.js';
 
-export function registerReaderOutputRoutes(app: Hono, services: ApiServices) {
+export function registerReaderOutputRoutes(
+  app: Hono,
+  services: Pick<ApiServices, 'reader' | 'search' | 'feeds' | 'capabilities' | 'outputBaseUrl'>,
+) {
   const paths = ['/all', '/today', '/starred', '/search']
     .flatMap((path) => ['md', 'json'].map((format) => `${path}.${format}`))
     .concat(['/f/:output', '/feed/:output']);

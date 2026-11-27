@@ -4,7 +4,10 @@ import type { Hono } from 'hono';
 import type { ApiServices } from '../ports.js';
 import { body, errorMessage, json, requiredText } from '../http.js';
 
-export function registerFeedRoutes(app: Hono, { feeds: service, fetcher }: ApiServices): void {
+export function registerFeedRoutes(
+  app: Hono,
+  { feeds: service, fetcher }: Pick<ApiServices, 'feeds' | 'fetcher'>,
+): void {
   app.get(
     '/api/feeds',
     documented('Feeds', 'List subscriptions', { responses: { 200: response(array(ref('Feed'))) } }),

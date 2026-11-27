@@ -5,7 +5,10 @@ import type { SearchScope } from '../../../core/src/ports.js';
 import type { ApiServices } from '../ports.js';
 import { errorMessage, json } from '../http.js';
 
-export function registerSearchRoutes(app: Hono, { search: service }: ApiServices): void {
+export function registerSearchRoutes(
+  app: Hono,
+  { search: service }: Pick<ApiServices, 'search'>,
+): void {
   app.get(
     '/api/search',
     documented('Reader', 'Search articles with FTS5', {

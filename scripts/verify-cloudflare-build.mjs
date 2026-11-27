@@ -11,6 +11,10 @@ import { CloudflareNewsletterStorage } from '../dist/targets/cloudflare/src/news
 import { R2ImageCache } from '../dist/targets/cloudflare/src/image-cache.js';
 import { NewsletterPipeline } from '../dist/packages/core/src/newsletter-pipeline.js';
 import { proxyImage } from '../dist/packages/api/src/image-proxy.js';
+import {
+  cloudflareReaderServices,
+  createCloudflareReaderApi,
+} from '../dist/targets/cloudflare/src/reader-api.js';
 
 const originalDirectory = process.cwd();
 process.chdir(tmpdir());
@@ -58,8 +62,46 @@ try {
     new Uint8Array([137, 80, 78, 71]),
   );
   assert.equal(requests, 1);
+  const reader = createCloudflareReaderApi(
+    cloudflareReaderServices(
+      { DB: database, IMAGES: await runtime.getR2Bucket('IMAGES') },
+      {
+        capabilities: () => ({
+          mode: 'cloudflare',
+          fetch: 'direct',
+          backgroundFetch: { kind: 'cron' },
+          inboundMail: null,
+          emailDelivery: null,
+          readerApi: false,
+          mcp: null,
+          webmcp: false,
+          ai: { available: [], configured: false },
+          readState: 'server',
+          publicCopy: false,
+          outputs: { twins: true, feed: false, webhook: false },
+        }),
+      },
+    ),
+  );
+  const page = await reader.request('https://build.example.test/api/articles?includeTotal=true');
+  assert.equal(page.status, 200);
+  assert.equal((await page.json()).total, 1);
+  const marked = await reader.request(
+    `https://build.example.test/api/articles/${result.articleId}`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ read: true }),
+    },
+  );
+  assert.equal(marked.status, 200);
+  assert.ok((await marked.json()).readAt);
+  assert.equal(
+    (await reader.request(`https://build.example.test/a/${result.articleId}.md`)).status,
+    200,
+  );
   process.stdout.write(
-    'Built Cloudflare ports: shared D1 migrations, real MIME cleaning/storage and private R2 image caching passed outside the repository cwd. Worker handler integration remains pending.\n',
+    'Built Cloudflare ports: shared D1 migrations, real MIME cleaning/storage, private R2 images and the compiled Reader HTTP graph passed outside the repository cwd. Full Worker handler integration remains pending.\n',
   );
 } finally {
   await runtime.dispose();

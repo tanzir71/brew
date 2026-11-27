@@ -106,9 +106,9 @@ Environment knobs: `BREW_DB_PATH` points at a different SQLite file; set `NODE_E
 
 ## Project structure
 
-The [Cloudflare target](docs/cloudflare.md) is under implementation. Its D1 and
-R2 storage ports are verified locally; Worker handler integration and deployment
-remain unfinished.
+The [Cloudflare target](docs/cloudflare.md) is under implementation. Its D1 Reader
+API runs in bundled workerd tests, alongside verified D1/R2 storage ports. The
+full Worker handlers, remaining API services and deployment remain unfinished.
 
 ```
 packages/core/   portable domain services, ports and shared types

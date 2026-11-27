@@ -18,7 +18,10 @@ import { body, errorMessage, json } from '../http.js';
 import { pageNumber, PageInputError } from '../../../core/src/app-pages.js';
 import { parseTagChanges } from '../../../core/src/tag-changes.js';
 
-export function registerArticleRoutes(app: Hono, { articles: service, data }: ApiServices): void {
+export function registerArticleRoutes(
+  app: Hono,
+  { articles: service, data }: Pick<ApiServices, 'articles' | 'data'>,
+): void {
   app.get(
     '/api/articles-hidden',
     documented('Articles', 'List hidden articles', {

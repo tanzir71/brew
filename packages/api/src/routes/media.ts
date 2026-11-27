@@ -5,7 +5,10 @@ import type { ApiServices } from '../ports.js';
 import { errorMessage, json } from '../http.js';
 import { proxyImage } from '../image-proxy.js';
 
-export function registerMediaRoutes(app: Hono, { fetcher, imageCache }: ApiServices): void {
+export function registerMediaRoutes(
+  app: Hono,
+  { fetcher, imageCache }: Pick<ApiServices, 'fetcher' | 'imageCache'>,
+): void {
   app.get(
     '/api/img',
     documented('Media', 'Proxy an article image', {

@@ -1,11 +1,9 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import { parseHTML } from 'linkedom';
-import { Readability } from '@mozilla/readability';
+import { articleReadTime,extractReadableHtml } from '../../../../packages/core/src/article-reading.js';
 import { randomUUID } from 'node:crypto';
 import type { ArticleDetail } from '@brew/core/types/api.js';
 import type { BrewDatabase } from '../db/database.js';
 import { articleTags, articles, tags } from '../db/schema.js';
-import { sanitizeArticleHtml } from './html-sanitizer.js';
 import { readerNewsletterVisibility } from '../ports/newsletter-visibility.js';
 import { parseTagChanges } from '@brew/core/tag-changes.js';
 import type { TagChanges } from '@brew/core/types/api.js';
@@ -16,12 +14,7 @@ export interface MarkAllScope { view: 'all' | 'today' | 'starred'; feedId?: numb
 interface DetailRow { id: number; title: string; author: string | null; summaryHtml: string | null; contentHtml: string | null; fullTextHtml: string | null; imageUrl: string | null; highlightColor: string | null; enclosureUrl:string|null; enclosureType:string|null; url: string; publishedAt: number; readAt: number | null; starredAt: number | null; feedId: number; feedTitle: string; folderId: number | null; folderTitle: string | null }
 interface TagRow { id: number; name: string; color: string }
 
-const wordCount = (html: string | null): number => {
-  if (!html) return 0;
-  const text = parseHTML(`<!doctype html><html><body>${html}</body></html>`).document.body.textContent ?? '';
-  return text.trim() ? text.trim().split(/\s+/).length : 0;
-};
-const readTime = (html: string | null): number => Math.max(1, Math.ceil(wordCount(html) / 225));
+const readTime = articleReadTime;
 
 export class ArticleService {
   private readonly undoEntries = new Map<string, UndoEntry>();
@@ -38,22 +31,7 @@ export class ArticleService {
     const current = this.database.db.select().from(articles).where(eq(articles.id, id)).get();
     if (!current) return null;
     if (current.fullTextHtml) return this.get(id);
-    const target = new URL(current.url);
-    if (!['http:', 'https:'].includes(target.protocol)) throw new Error('Article URL is not fetchable');
-    const response = await this.fetcher(target, { headers: { Accept: 'text/html,application/xhtml+xml' }, redirect: 'follow', signal: AbortSignal.timeout(15_000) });
-    if (!response.ok) throw new Error(`Article returned HTTP ${response.status}`);
-    const html = await response.text();
-    if (html.length > 5_000_000) throw new Error('Article page is too large');
-    const { document } = parseHTML(html);
-    for (const element of document.querySelectorAll('a[href], img[src]')) {
-      const attribute = element.localName === 'a' ? 'href' : 'src';
-      const value = element.getAttribute(attribute);
-      if (value) { try { element.setAttribute(attribute, new URL(value, response.url || target).toString()); } catch { element.removeAttribute(attribute); } }
-    }
-    const parsed = new Readability(document as unknown as Document).parse();
-    if (!parsed?.content) throw new Error('Could not extract readable article content');
-    const clean = sanitizeArticleHtml(parsed.content);
-    if (!clean) throw new Error('Extracted article was empty');
+    const clean = await extractReadableHtml(current.url,this.fetcher);
     this.database.db.update(articles).set({ fullTextHtml: clean }).where(eq(articles.id, id)).run();
     return this.get(id);
   }

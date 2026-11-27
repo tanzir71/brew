@@ -4,7 +4,10 @@ import type { ApiServices } from '../ports.js';
 import { json } from '../http.js';
 import { renderArticleJson, renderArticleMarkdown } from '../../../core/src/article-outputs.js';
 
-export function registerArticleOutputRoutes(app: Hono, services: ApiServices): void {
+export function registerArticleOutputRoutes(
+  app: Hono,
+  services: Pick<ApiServices, 'articles' | 'capabilities' | 'outputBaseUrl'>,
+): void {
   app.use('/a/*', async (c, next) => {
     await next();
     c.header('Cache-Control', 'private, no-store');
