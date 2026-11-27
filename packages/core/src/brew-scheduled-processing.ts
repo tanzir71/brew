@@ -3,6 +3,7 @@ import type {
   AsyncBrewStoragePort,
   BrewStoragePort,
   BrewCandidate,
+  BrewItemQuery,
   ClockPort,
   RegexPort,
 } from './ports.js';
@@ -18,19 +19,37 @@ import { legacyBrewQuery, legacyBrewItems } from './brew-model.js';
 import {
   sectionActive,
   sectionSourceQuery,
-  finishCompositionSection,
+  renderCompositionSection,
+  compositionRank,
+  compareCompositionRanks,
+  type CompositionRank,
 } from './composition-section.js';
+import { matchingContexts } from './rule-matching.js';
 import { BrewDeliveryRunner } from './brew-delivery.js';
 
 export const SCHEDULE_LEASE_MS = 16 * 60_000;
 export type ScheduledPayload = Parameters<BrewStoragePort['save']>[1];
+export interface ScheduledSelection {
+  after: number;
+  eligible: number;
+  matching: number;
+  selected: CompositionRank[];
+  done: boolean;
+}
+export const initialScheduledSelection = (): ScheduledSelection => ({
+  after: 0,
+  eligible: 0,
+  matching: 0,
+  selected: [],
+  done: false,
+});
 export type ScheduledBrewState =
   | { phase: 'legacy'; index: number; sections: LegacySection[] }
   | {
       phase: 'composition';
       index: number;
       source: number;
-      candidates: BrewCandidate[];
+      selection: ScheduledSelection;
       sections: BrewSnapshotSection[];
     }
   | { phase: 'delivery'; issueId: number; started: boolean };
@@ -44,7 +63,13 @@ export interface ScheduledBrewJob {
 export function initialScheduledState(request: ScheduledBrewRequest): ScheduledBrewState {
   return request.kind === 'legacy'
     ? { phase: 'legacy', index: 0, sections: [] }
-    : { phase: 'composition', index: 0, source: 0, candidates: [], sections: [] };
+    : {
+        phase: 'composition',
+        index: 0,
+        source: 0,
+        selection: initialScheduledSelection(),
+        sections: [],
+      };
 }
 export class ScheduleLeaseLost extends Error {}
 export interface ScheduledBrewJobsPort {
@@ -59,6 +84,23 @@ export interface ScheduledBrewJobsPort {
     until: number,
     skipped?: boolean,
   ): void;
+  /** Capture source rows and advance its cursor in the same fenced transaction. */
+  captureSource(
+    job: ScheduledBrewJob,
+    query: BrewItemQuery | null,
+    when: number,
+    next: ScheduledBrewState,
+    now: number,
+    until: number,
+  ): void;
+  candidates(
+    job: ScheduledBrewJob,
+    after: number,
+    limit: number,
+    includeContent: boolean,
+    now: number,
+  ): BrewCandidate[];
+  selectedCandidates(job: ScheduledBrewJob, ids: number[], now: number): BrewCandidate[];
   /** Freeze, receipt and the delivery cursor commit together; null cancels a claimed minute. */
   freeze(
     job: ScheduledBrewJob,
@@ -80,6 +122,7 @@ export interface ScheduledWorkBudget {
   remaining: number;
   reserve?: (kind: 'job' | 'build' | 'delivery') => (() => void) | null;
   canDeliver?: (request: ScheduledBrewRequest) => boolean;
+  candidatePageSize?: number;
 }
 /** The same durable minute, section/source cursor and delivery policy runs on Node and Workers. */
 export class ScheduledBrewProcessor {
@@ -143,7 +186,7 @@ export class ScheduledBrewProcessor {
         throw error;
       } finally {
         try {
-          if (job) await this.jobs.release(job.id, runner);
+          if (job) await this.jobs.release(job.id, job.runner);
         } finally {
           releaseJob?.();
         }
@@ -227,7 +270,12 @@ export class ScheduledBrewProcessor {
       });
     }
     if (!sectionActive(section, when, config.timezone)) {
-      await this.save(job, { ...state, index: state.index + 1, source: 0, candidates: [] });
+      await this.save(job, {
+        ...state,
+        index: state.index + 1,
+        source: 0,
+        selection: initialScheduledSelection(),
+      });
       return false;
     }
     const source = section.kind === 'items' ? section.sources[state.source] : undefined;
@@ -236,25 +284,65 @@ export class ScheduledBrewProcessor {
         source.kind === 'saved_search'
           ? await this.storage.savedSourceSearch(source.id!)
           : undefined;
-      const rows =
+      const query =
         source.kind === 'saved_search' && !search
-          ? []
-          : await this.storage.compositionItems(sectionSourceQuery(section, source, when, search));
-      const unique = new Map(state.candidates.map((row) => [row.id, row]));
-      for (const row of rows) if (row.publishedAt <= when.getTime()) unique.set(row.id, row);
-      await this.save(job, {
-        ...state,
-        source: state.source + 1,
-        candidates: [...unique.values()],
-      });
+          ? null
+          : sectionSourceQuery(section, source, when, search);
+      const at = this.clock.now().getTime(),
+        next = { ...state, source: state.source + 1 };
+      await this.jobs.captureSource(job, query, when.getTime(), next, at, at + SCHEDULE_LEASE_MS);
+      job.state = next;
+      job.version++;
       return false;
     }
-    const completed = await finishCompositionSection(section, state.candidates, this.regex);
+    const selection = state.selection;
+    if (section.kind === 'items' && !selection.done) {
+      const limit = Math.max(1, Math.min(100, this.budget.candidatePageSize ?? 32));
+      const page = await this.jobs.candidates(
+        job,
+        selection.after,
+        limit,
+        section.filter?.conditions.some((condition) => condition.field === 'content') ?? false,
+        this.clock.now().getTime(),
+      );
+      if (page.length) {
+        const matching = await matchingContexts(page, section.filter, this.regex);
+        const selected = [
+          ...selection.selected,
+          ...matching.map((row) => compositionRank(section, row)),
+        ];
+        selected.sort((a, b) => compareCompositionRanks(section, a, b));
+        await this.save(job, {
+          ...state,
+          selection: {
+            after: page.at(-1)!.id,
+            eligible: selection.eligible + page.length,
+            matching: selection.matching + matching.length,
+            selected: selected.slice(0, section.maxItems),
+            done: page.length < limit,
+          },
+        });
+        return false;
+      }
+    }
+    const ids = selection.selected.map((value) => value.id);
+    const selected = await this.jobs.selectedCandidates(job, ids, this.clock.now().getTime());
+    const byId = new Map(selected.map((row) => [row.id, row]));
+    const completed = renderCompositionSection(
+      section,
+      ids.map((id) => {
+        const row = byId.get(id);
+        if (!row) throw new Error('A captured Brew candidate is unavailable.');
+        return row;
+      }),
+      selection.eligible,
+      selection.matching,
+    );
     await this.save(job, {
       ...state,
       index: state.index + 1,
       source: 0,
-      candidates: [],
+      selection: initialScheduledSelection(),
       sections: [...state.sections, completed.section],
     });
     return false;

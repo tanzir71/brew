@@ -501,7 +501,7 @@ prepared-statement and session/batch calls. Other cases cover a nearly spent
 allowance, rejected concurrent metadata writes, real notification/webhook results
 at the query boundary, and new polling alongside a long rule backlog.
 
-Scheduled Brews use canonical migration 0017 and the same Node-first durable
+Scheduled Brews use canonical migrations 0017–0018 and the same Node-first durable
 processor on both targets. Capture stores immutable configuration snapshots and
 receipt keys before doing source work. Its initial watermark is persisted before
 discovery; enqueue advances it atomically with the requests. A failed capture is
@@ -523,6 +523,17 @@ Expired leases recover after sixteen minutes; every checkpoint/provider receipt
 is fenced against superseded runners. Node resumes at startup and each background
 minute with at most 100 steps per recovery call.
 
+Source rows are captured directly into a database work table in the same fenced
+transaction that advances the source cursor. Overlapping sources retain the last
+captured row. Later article edits, retention and deletion cannot change these
+snapshots. Candidate selection reads at most four rows per Cloudflare step (32 by
+default on Node); the job cursor retains counts and only the best item ranks.
+Selected rows are hydrated once for rendering. Filters, tie ordering and full
+eligible/matching counts match manual previews without trimming the source library.
+Section completion and configuration deletion remove their work rows atomically.
+Migration 0018 preserves existing inline snapshots, fences older runners and
+converts jobs that an older in-flight bundle enqueues after the migration.
+
 Scheduled work has a 24-query/sixteen-step share. Cron protects eight calls for
 polling and six for pending ingestion while scheduled work runs. Admitted delivery
 reserves all attempt/result writes and provider fetch slots before it starts;
@@ -530,10 +541,15 @@ simple Brews still freeze/send before polling. Real product cron tests resume
 64 sources across fresh invocations and deliver sixteen queued Brews after their
 due minute with one captured payload/key per issue while RSS continues. The native
 counter includes the test transport's telemetry write when checking the 50-call
-product bound. Compiled installs recover queued work outside the repository cwd.
+product bound. A real cron regression drains a 600-item, 4.9 MB snapshot after
+live article deletion with pages of at most four rows; its observed result pages
+and job cursors stay below 64 KiB for that fixture. Compiled installs recover
+captured source work outside the repository cwd after the live rows are deleted.
 
-Arbitrary owner operations still need resumable admission. Large config/source
-snapshots and SQL work also remain unbounded. Local workerd does not prove the
+Arbitrary owner operations still need resumable admission. Configuration discovery,
+per-candidate bytes, accumulated rendered sections and source materialization SQL
+work remain unbounded. A row limit does not bound arbitrary article size or CPU.
+Content filters and longest ordering still inspect full captured bodies. Local workerd does not prove the
 deployed 10 ms Free CPU budget. M14 remains open until the complete runtime meets
 its resource limits. See the [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
 and [D1 limits](https://developers.cloudflare.com/d1/platform/limits/).

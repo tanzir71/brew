@@ -674,15 +674,25 @@ try {
     let time = Date.parse('2026-11-27T12:00:00Z');
     const clock = { now: () => new Date(time), monotonic: () => globalThis.performance.now() };
     const storage = new NodeBrewStorage(scheduleDatabase);
-    const id = storage.createComposition({name:'Compiled pending schedule',enabled:true,timezone:'UTC',schedule:{kind:'daily',time:'12:00'},delivery:{web:true,feed:false,publicCopy:false},sections:[{...newBrewSection('first','note'),note:'First compiled note.'},{...newBrewSection('second','note'),note:'Second compiled note.'}]});
+    scheduleDatabase.sqlite.prepare("INSERT INTO feeds(id,url,title) VALUES(1,'https://compiled.example.test/captured','Captured feed')").run();
+    const insertCaptured = scheduleDatabase.sqlite.prepare("INSERT INTO articles(feed_id,guid,hash,url,title,content_html,published_at) VALUES(1,?,?,'https://compiled.example.test/story',?,?,?)");
+    for (let index=0;index<35;index++) insertCaptured.run(String(index),String(index),`Captured ${index}`,'<p>Original compiled content.</p>',time-index*1000);
+    const id = storage.createComposition({name:'Compiled pending schedule',enabled:true,timezone:'UTC',schedule:{kind:'daily',time:'12:00'},delivery:{web:true,feed:false,publicCopy:false},sections:[{...newBrewSection('first'),onlyUnread:false,depth:'full',maxItems:2,sources:[{kind:'feed',id:1}]},{...newBrewSection('second','note'),note:'Second compiled note.'}]});
     const work = new ScheduledBrewProcessor(new NodeScheduledBrewJobs(scheduleDatabase),storage,clock,nodeRegex);
     await work.capture(); await work.drain(1);
     assert.equal(scheduleDatabase.sqlite.prepare('SELECT count(*) AS n FROM brew_schedule_jobs').get().n,1);
+    assert.equal(scheduleDatabase.sqlite.prepare('SELECT count(*) AS n FROM brew_schedule_candidates').get().n,35);
+    assert.ok(scheduleDatabase.sqlite.prepare('SELECT length(state_json) AS bytes FROM brew_schedule_jobs').get().bytes<16384);
+    scheduleDatabase.sqlite.prepare('DELETE FROM articles').run();
     time += 60_000;
     await new ScheduledNodeService(scheduleDatabase,clock).runPendingScheduled(false);
     assert.equal(scheduleDatabase.sqlite.prepare('SELECT count(*) AS n FROM brew_schedule_jobs').get().n,0);
     const issue = storage.snapshot(storage.historyIds(id)[0]);
     assert.equal(issue.generatedAt,'2026-11-27T12:00:00.000Z'); assert.equal(issue.sections.length,2);
+    assert.equal(issue.sections[0].eligibleItems,35);assert.equal(issue.sections[0].matchingItems,35);
+    assert.deepEqual(issue.sections[0].items.map(row=>row.id),[1,2]);
+    assert.ok(issue.sections[0].items[0].contentHtml.includes('Original compiled content.'));
+    assert.equal(scheduleDatabase.sqlite.prepare('SELECT count(*) AS n FROM brew_schedule_candidates').get().n,0);
     assert.equal(storage.deliveryResults(issue.id).webhook.status,'disabled');
   } finally { scheduleDatabase.close(); }
   const posted = [];

@@ -43,6 +43,7 @@ describe('database migrations', () => {
         'ingest_job_guard',
         'brew_schedule_jobs',
         'brew_schedule_guard',
+        'brew_schedule_candidates',
       ]),
     );
     first.close();
@@ -50,7 +51,7 @@ describe('database migrations', () => {
     try {
       expect(
         second.sqlite.prepare('SELECT count(*) AS count FROM __brew_migrations').get(),
-      ).toEqual({ count: 17 });
+      ).toEqual({ count: 18 });
     } finally {
       second.close();
     }

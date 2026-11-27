@@ -353,6 +353,7 @@ export const brewScheduleJobs = sqliteTable(
     runner: text('runner'),
     expiresAt: integer('expires_at').notNull().default(0),
     createdAt: integer('created_at').notNull(),
+    sourceVersion: integer('source_version').notNull().default(1),
   },
   (table) => [
     index('brew_schedule_jobs_ready').on(table.expiresAt, table.sequence),
@@ -371,7 +372,25 @@ export const brewScheduleGuard = sqliteTable(
   ],
 );
 
+export const brewScheduleCandidates = sqliteTable(
+  'brew_schedule_candidates',
+  {
+    jobId: text('job_id')
+      .notNull()
+      .references(() => brewScheduleJobs.id, { onDelete: 'cascade' }),
+    sectionIndex: integer('section_index').notNull(),
+    articleId: integer('article_id').notNull(),
+    format: integer('format').notNull().default(1),
+    snapshotJson: text('snapshot_json').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.jobId, table.sectionIndex, table.articleId] }),
+    check('brew_schedule_candidate_format', sql`${table.format} IN (0,1)`),
+  ],
+);
+
 export const schema = {
+  brewScheduleCandidates,
   brewScheduleJobs,
   brewScheduleGuard,
   ingestJobs,

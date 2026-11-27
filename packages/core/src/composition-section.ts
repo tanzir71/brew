@@ -15,6 +15,29 @@ const newsletterSummary = (content: string) => {
   const excerpt = content.replace(/\s+/g, ' ').trim();
   return `<p>${escapeOutputHtml(excerpt.length > 180 ? `${excerpt.slice(0, 177).trimEnd()}…` : excerpt)}</p>`;
 };
+export interface CompositionRank {
+  id: number;
+  publishedAt: number;
+  length: number;
+}
+export function compositionRank(section: BrewSection, row: BrewCandidate): CompositionRank {
+  return {
+    id: row.id,
+    publishedAt: row.publishedAt,
+    length: section.sort === 'longest' ? text(row.body ?? '').length : 0,
+  };
+}
+export function compareCompositionRanks(
+  section: BrewSection,
+  a: CompositionRank,
+  b: CompositionRank,
+) {
+  return section.sort === 'longest'
+    ? b.length - a.length || b.id - a.id
+    : section.sort === 'oldest'
+      ? a.publishedAt - b.publishedAt || a.id - b.id
+      : b.publishedAt - a.publishedAt || b.id - a.id;
+}
 export function sectionActive(section: BrewSection, when: Date, timezone: string) {
   return !section.days?.length || section.days.includes(weekdayAt(when, timezone));
 }
@@ -51,6 +74,24 @@ export async function finishCompositionSection(
   eligible: BrewCandidate[],
   regex: RegexPort,
 ): Promise<{ section: BrewSnapshotSection; warnings: string[] }> {
+  if (section.kind !== 'items') return renderCompositionSection(section, [], 0, 0);
+  const matching = await matchingContexts(eligible, section.filter, regex);
+  const ranked = matching.map((row) => ({ row, rank: compositionRank(section, row) }));
+  ranked.sort((a, b) => compareCompositionRanks(section, a.rank, b.rank));
+  return renderCompositionSection(
+    section,
+    ranked.slice(0, section.maxItems).map((value) => value.row),
+    eligible.length,
+    matching.length,
+  );
+}
+/** Render an already selected page without evaluating its conditions again. */
+export function renderCompositionSection(
+  section: BrewSection,
+  selected: BrewCandidate[],
+  eligibleItems: number,
+  matchingItems: number,
+): { section: BrewSnapshotSection; warnings: string[] } {
   if (section.kind !== 'items')
     return {
       section: {
@@ -67,22 +108,14 @@ export async function finishCompositionSection(
       },
       warnings: [],
     };
-  const matching = await matchingContexts(eligible, section.filter, regex);
-  matching.sort((a, b) =>
-    section.sort === 'longest'
-      ? text(b.body ?? '').length - text(a.body ?? '').length || b.id - a.id
-      : section.sort === 'oldest'
-        ? a.publishedAt - b.publishedAt || a.id - b.id
-        : b.publishedAt - a.publishedAt || b.id - a.id,
-  );
   return {
     warnings:
       section.depth === 'brief' ? [`${section.title}: Brief needs a configured AI provider.`] : [],
     section: {
       ...section,
-      eligibleItems: eligible.length,
-      matchingItems: matching.length,
-      items: matching.slice(0, section.maxItems).map((row) => ({
+      eligibleItems,
+      matchingItems,
+      items: selected.slice(0, section.maxItems).map((row) => ({
         id: row.id,
         feedId: row.feedId,
         ...(row.newsletter ? { newsletter: structuredClone(row.newsletter) } : {}),

@@ -87,12 +87,18 @@ const reviewWorker = {
           })
         : product;
     await invocation.scheduled(controller, { ...env, DB: native.database });
-    await native.database
-      .prepare(
-        "INSERT INTO settings(key,value) VALUES('review:cron:queries',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-      )
-      .bind(String(native.calls + 1))
-      .run();
+    await native.database.batch([
+      native.database
+        .prepare(
+          "INSERT INTO settings(key,value) VALUES('review:cron:queries',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        )
+        .bind(String(native.calls + 1)),
+      native.database
+        .prepare(
+          "INSERT INTO settings(key,value) VALUES('review:cron:candidate-pages',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        )
+        .bind(JSON.stringify(native.candidatePages)),
+    ]);
   },
   async fetch(request: Request, env: ProductEnv): Promise<Response> {
     const path = new URL(request.url).pathname;

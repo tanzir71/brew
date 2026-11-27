@@ -6,7 +6,14 @@ import {
   type ScheduledPayload,
 } from '../../../packages/core/src/brew-scheduled-processing.js';
 import type { ScheduledBrewRequest } from '../../../packages/core/src/brew-scheduled-request.js';
-import type { AsyncPort } from '../../../packages/core/src/ports.js';
+import type { AsyncPort, BrewItemQuery } from '../../../packages/core/src/ports.js';
+import {
+  scheduledSourceQueries,
+  scheduledCandidates,
+  scheduledCandidatePage,
+  scheduledSelectedCandidates,
+  type ScheduledCandidateRow,
+} from '../../../packages/db/src/brew-scheduled-candidates.js';
 import type { BrewDeliveryResults } from '../../../packages/core/src/types/delivery.js';
 import {
   scheduledJob,
@@ -16,6 +23,7 @@ import {
   scheduleFence,
   clearScheduleFence,
   scheduledCheckpoint,
+  scheduledRunner,
 } from '../../../packages/db/src/brew-scheduled-queries.js';
 import type { SqlQuery } from '../../../packages/db/src/reader-queries.js';
 import { CloudflareBrewStorage } from './brew-storage.js';
@@ -54,6 +62,7 @@ export class CloudflareScheduledBrewJobs implements AsyncPort<ScheduledBrewJobsP
     await this.batch(enqueueScheduledQueries(requests, now));
   }
   async claim(runner: string, now: number, until: number) {
+    runner = scheduledRunner(runner);
     const results = await this.batch([
       claimScheduledQuery(runner, now, until),
       {
@@ -72,6 +81,34 @@ export class CloudflareScheduledBrewJobs implements AsyncPort<ScheduledBrewJobsP
     skipped = false,
   ) {
     await this.batch(scheduledCheckpoint(job, state, now, until, skipped));
+  }
+  async captureSource(
+    job: ScheduledBrewJob,
+    query: BrewItemQuery | null,
+    when: number,
+    next: ScheduledBrewState,
+    now: number,
+    until: number,
+  ) {
+    await this.batch(scheduledSourceQueries(job, query, when, next, now, until));
+  }
+  async candidates(
+    job: ScheduledBrewJob,
+    after: number,
+    limit: number,
+    includeContent: boolean,
+    now: number,
+  ) {
+    const result = await this.owned(job, now, scheduledCandidatePage(job, after, limit));
+    return scheduledCandidates(
+      result.results as unknown as ScheduledCandidateRow[],
+      includeContent,
+    );
+  }
+  async selectedCandidates(job: ScheduledBrewJob, ids: number[], now: number) {
+    if (!ids.length) return [];
+    const result = await this.owned(job, now, scheduledSelectedCandidates(job, ids));
+    return scheduledCandidates(result.results as unknown as ScheduledCandidateRow[], 'newsletter');
   }
   async freeze(job: ScheduledBrewJob, payload: ScheduledPayload, now: number, until: number) {
     try {

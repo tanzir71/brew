@@ -126,10 +126,10 @@ export function compositionItemsQuery(query: BrewItemQuery): SqlQuery | null {
   };
 }
 
-export function brewCandidates(rows: BrewCandidateRow[]): BrewCandidate[] {
+export function brewCandidates(rows: BrewCandidateRow[], includeContent = true): BrewCandidate[] {
   return rows.map(({ feedKind, cleaningJson, ...row }) => ({
     ...row,
-    content: articleText(row.body),
+    content: includeContent ? articleText(row.body) : '',
     ...(feedKind === 'newsletter'
       ? {
           newsletter: {

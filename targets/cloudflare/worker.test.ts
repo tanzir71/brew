@@ -938,3 +938,109 @@ it('exposes only generic health without owner admission and cannot turn it into 
   expect((await request('/api/health', { method: 'POST' }, null)).status).toBe(405);
   expect(await env.DB.prepare('SELECT count(*) AS n FROM settings').first()).toEqual({ n: 0 });
 });
+
+it('pages a complete multi-megabyte captured source across real cron invocations after live deletion', async () => {
+  await env.DB.prepare(
+    "INSERT INTO feeds(id,url,title,last_fetched_at,fetch_interval_minutes) VALUES(1,'https://source.test/captured','Captured source',?,1440)",
+  )
+    .bind(now)
+    .run();
+  const body = `<p>${'x'.repeat(8192)}</p>`;
+  await env.DB.batch(
+    Array.from({ length: 600 }, (_, index) =>
+      env.DB.prepare(
+        'INSERT INTO articles(id,feed_id,guid,hash,url,title,content_html,published_at) VALUES(?,1,?,?,?,?,?,?)',
+      ).bind(
+        index + 1,
+        String(index),
+        String(index),
+        `https://source.test/captured/${index}`,
+        index % 2 ? 'Ignore' : `Keep ${index}`,
+        body,
+        now - index * 1000,
+      ),
+    ),
+  );
+  const sections = [
+    {
+      ...newBrewSection('captured'),
+      onlyUnread: false,
+      depth: 'title',
+      maxItems: 3,
+      sources: [{ kind: 'feed', id: 1 }],
+      filter: {
+        match: 'all',
+        conditions: [{ field: 'title', operator: 'contains', value: 'Keep' }],
+      },
+    },
+  ];
+  await env.DB.prepare(
+    `INSERT INTO brew_configs(name,enabled,composition_version,timezone,schedule_json,sections_json,delivery_json)
+    VALUES('Large captured source',1,2,'UTC','{"kind":"daily","time":"12:00"}',?,?)`,
+  )
+    .bind(JSON.stringify(sections), JSON.stringify(defaultDelivery()))
+    .run();
+  let invocations = 0,
+    reads = 0;
+  for (; invocations < 40; invocations++) {
+    await worker.scheduled({
+      cron: invocations ? 'review:advance' : '* * * * *',
+      scheduledTime: new Date(now + (invocations ? 60_000 : 0)),
+    });
+    const row = await env.DB.prepare(
+      `SELECT
+      (SELECT count(*) FROM brew_schedule_jobs) AS pending,
+      (SELECT count(*) FROM brew_schedule_jobs WHERE runner IS NOT NULL OR expires_at!=0) AS leased,
+      (SELECT max(length(CAST(state_json AS BLOB))) FROM brew_schedule_jobs) AS stateBytes,
+      (SELECT sum(length(CAST(snapshot_json AS BLOB))) FROM brew_schedule_candidates) AS sourceBytes,
+      (SELECT value FROM settings WHERE key='review:cron:queries') AS queries,
+      (SELECT value FROM settings WHERE key='review:cron:candidate-pages') AS pages`,
+    ).first<{
+      pending: number;
+      leased: number;
+      stateBytes: number | null;
+      sourceBytes: number | null;
+      queries: string;
+      pages: string;
+    }>();
+    const pages = JSON.parse(row!.pages) as { reads: number; maxRows: number; maxBytes: number };
+    reads += pages.reads;
+    expect(Number(row!.queries)).toBeLessThanOrEqual(50);
+    expect(row!.leased).toBe(0);
+    expect(row!.stateBytes ?? 0).toBeLessThan(65_536);
+    expect(pages.maxRows).toBeLessThanOrEqual(4);
+    expect(pages.maxBytes).toBeLessThan(65_536);
+    if (invocations === 0) {
+      expect(row!.sourceBytes).toBeGreaterThan(4_000_000);
+      expect(pages.reads).toBeGreaterThan(0);
+      await env.DB.prepare('DELETE FROM articles').run();
+    }
+    if (!row!.pending) break;
+  }
+  expect(invocations).toBeGreaterThan(2);
+  expect(invocations).toBeLessThan(40);
+  expect(reads).toBe(151);
+  const issues = await env.DB.prepare('SELECT payload_json,generated_at FROM brews').all<{
+    payload_json: string;
+    generated_at: number;
+  }>();
+  expect(issues.results).toHaveLength(1);
+  expect(issues.results[0]!.generated_at).toBe(now);
+  const section = JSON.parse(issues.results[0]!.payload_json).sections[0];
+  expect(section).toMatchObject({ eligibleItems: 600, matchingItems: 300 });
+  expect(
+    section.items.map((row: { id: number; title: string }) => ({ id: row.id, title: row.title })),
+  ).toEqual([
+    { id: 1, title: 'Keep 0' },
+    { id: 3, title: 'Keep 2' },
+    { id: 5, title: 'Keep 4' },
+  ]);
+  expect(
+    await env.DB.prepare('SELECT count(*) AS n FROM brew_schedule_candidates').first(),
+  ).toEqual({ n: 0 });
+  expect(
+    await env.DB.prepare(
+      "SELECT count(*) AS n FROM settings WHERE key LIKE 'brew_composed_%'",
+    ).first(),
+  ).toEqual({ n: 1 });
+}, 30_000);

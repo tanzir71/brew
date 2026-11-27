@@ -33,10 +33,12 @@ export function enqueueScheduledQueries(requests: ScheduledBrewRequest[], now: n
 export function claimScheduledQuery(runner: string, now: number, until: number): SqlQuery {
   return {
     sql: `UPDATE brew_schedule_jobs SET runner=?,expires_at=? WHERE sequence=(
-    SELECT sequence FROM brew_schedule_jobs WHERE expires_at<=? ORDER BY sequence LIMIT 1)`,
+    SELECT sequence FROM brew_schedule_jobs WHERE source_version=1 AND expires_at<=? ORDER BY sequence LIMIT 1)`,
     values: [runner, until, now],
   };
 }
+export const scheduledRunner = (runner: string) =>
+  runner.startsWith('source1:') ? runner : `source1:${runner}`;
 export function scheduledConfig(row: BrewConfigRow): ScheduledConfig {
   return row.compositionVersion === 2
     ? { kind: 'composition', config: brewComposition(row) }
@@ -62,7 +64,7 @@ export function scheduledJob(row: {
 export function scheduleFence(job: ScheduledBrewJob, now: number): SqlQuery {
   return {
     sql: `INSERT INTO brew_schedule_guard(id,valid) SELECT 1,EXISTS(SELECT 1 FROM brew_schedule_jobs
-    WHERE id=? AND runner=? AND version=? AND expires_at>?)`,
+    WHERE id=? AND runner=? AND version=? AND expires_at>? AND source_version=1)`,
     values: [job.id, job.runner, job.version, now],
   };
 }
@@ -97,6 +99,16 @@ export function scheduledCheckpoint(
         ]
       : []),
     scheduledStateWrite(job, state, until),
+    ...(job.state.phase === 'composition' &&
+    state?.phase === 'composition' &&
+    state.index !== job.state.index
+      ? [
+          {
+            sql: 'DELETE FROM brew_schedule_candidates WHERE job_id=? AND section_index=?',
+            values: [job.id, job.state.index],
+          },
+        ]
+      : []),
     clearScheduleFence,
   ];
 }

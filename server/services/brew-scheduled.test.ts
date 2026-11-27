@@ -3,7 +3,8 @@ import { createServer, type Server } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { existsSync, unlinkSync } from 'node:fs';
+import { existsSync, unlinkSync, readdirSync, readFileSync } from 'node:fs';
+import Database from 'better-sqlite3';
 import { openDatabase, type BrewDatabase } from '../../targets/node/src/db/database.js';
 import { NodeBrewStorage } from '../../targets/node/src/ports/brew-storage.js';
 import { NodeScheduledBrewJobs } from '../../targets/node/src/ports/brew-scheduled-jobs.js';
@@ -12,6 +13,7 @@ import {
   ScheduleLeaseLost,
   SCHEDULE_LEASE_MS,
   type ScheduledBrewJob,
+  type ScheduledWorkBudget,
 } from '../../packages/core/src/brew-scheduled-processing.js';
 import { defaultDelivery, newBrewSection } from '../../packages/core/src/composition-model.js';
 import { BrewService } from '../../packages/core/src/brew-service.js';
@@ -108,6 +110,7 @@ function processor(
   db: BrewDatabase,
   jobs = new NodeScheduledBrewJobs(db),
   delivery: BrewDeliveryOptions = {},
+  budget: ScheduledWorkBudget = { remaining: Infinity },
 ) {
   return new ScheduledBrewProcessor(
     jobs,
@@ -116,11 +119,374 @@ function processor(
     nodeRegex,
     { fetcher: fetch, baseUrl: 'https://brew.test', ...delivery },
     () => randomUUID(),
+    budget,
   );
 }
 function count(db: BrewDatabase, table: string) {
   return (db.sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n;
 }
+
+function scheduledIssue(db: BrewDatabase) {
+  const issue = new NodeBrewStorage(db).snapshot(
+    (db.sqlite.prepare('SELECT id FROM brews ORDER BY id DESC LIMIT 1').get() as { id: number }).id,
+  )!;
+  if (!('version' in issue)) throw new Error('Expected a composition snapshot.');
+  return issue;
+}
+
+it.each([1, 2, 31])(
+  'preserves longest ordering, ties and counts with candidate pages of %i',
+  async (size) => {
+    const db = database();
+    fixture(db, {
+      sections: [
+        {
+          ...newBrewSection('rank'),
+          onlyUnread: false,
+          sort: 'longest',
+          maxItems: 2,
+          sources: [
+            { kind: 'feed', id: 1 },
+            { kind: 'feed', id: 1 },
+          ],
+          filter: {
+            match: 'all',
+            conditions: [{ field: 'title', operator: 'contains', value: 'Rank' }],
+          },
+        },
+      ],
+    });
+    const insert = db.sqlite.prepare(
+      "INSERT INTO articles(id,feed_id,guid,hash,url,title,content_html,published_at) VALUES(?,1,?,?,'https://source.test/rank',?,?,?)",
+    );
+    for (const [id, body] of [
+      [10, '<p>&amp;</p>'],
+      [11, '<p>😀😀</p>'],
+      [12, '<p>xxxxx</p>'],
+    ] as const)
+      insert.run(id, String(id), String(id), `Rank ${id}`, body, at - 1000);
+    const jobs = new NodeScheduledBrewJobs(db);
+    const pages = vi.spyOn(jobs, 'candidates');
+    const work = processor(db, jobs, {}, { remaining: Infinity, candidatePageSize: size });
+    await work.capture();
+    await work.drain();
+    const section = scheduledIssue(db).sections[0]!;
+    expect(section).toMatchObject({ eligibleItems: 4, matchingItems: 3 });
+    expect(section.items.map((row) => row.id)).toEqual([12, 10]);
+    expect(pages.mock.results.every((result) => result.value.length <= size)).toBe(true);
+    expect(pages.mock.results.reduce((sum, result) => sum + result.value.length, 0)).toBe(4);
+    expect(count(db, 'brew_schedule_candidates')).toBe(0);
+  },
+);
+
+it('keeps a complete large source in SQL and only ranks and counts in the job cursor', async () => {
+  const db = database();
+  fixture(db, {
+    sections: [
+      {
+        ...newBrewSection('large'),
+        onlyUnread: false,
+        depth: 'title',
+        maxItems: 3,
+        sources: [{ kind: 'feed', id: 1 }],
+        filter: {
+          match: 'all',
+          conditions: [{ field: 'title', operator: 'contains', value: 'Keep' }],
+        },
+      },
+    ],
+  });
+  const insert = db.sqlite.prepare(
+    "INSERT INTO articles(feed_id,guid,hash,url,title,content_html,published_at) VALUES(1,?,?,'https://source.test/large',?,?,?)",
+  );
+  db.sqlite.transaction(() => {
+    for (let i = 0; i < 1000; i++)
+      insert.run(
+        String(i),
+        String(i),
+        i % 3 ? 'Ignore' : `Keep ${i}`,
+        `<p>${'x'.repeat(4096)}</p>`,
+        at - i * 1000,
+      );
+  })();
+  const jobs = new NodeScheduledBrewJobs(db);
+  const pages = vi.spyOn(jobs, 'candidates');
+  const work = processor(db, jobs, {}, { remaining: Infinity, candidatePageSize: 31 });
+  await work.capture();
+  await work.drain(1);
+  expect(
+    (
+      db.sqlite
+        .prepare('SELECT sum(length(snapshot_json)) AS bytes FROM brew_schedule_candidates')
+        .get() as { bytes: number }
+    ).bytes,
+  ).toBeGreaterThan(4_000_000);
+  let steps = 0,
+    largest = 0;
+  while (count(db, 'brew_schedule_jobs') && steps++ < 50) {
+    largest = Math.max(
+      largest,
+      (
+        db.sqlite.prepare('SELECT length(state_json) AS bytes FROM brew_schedule_jobs').get() as {
+          bytes: number;
+        }
+      ).bytes,
+    );
+    await work.drain(1);
+  }
+  expect(steps).toBeLessThan(50);
+  expect(largest).toBeLessThan(16_384);
+  expect(scheduledIssue(db).sections[0]).toMatchObject({ eligibleItems: 1001, matchingItems: 334 });
+  expect(scheduledIssue(db).sections[0]!.items.map((row) => row.id)).toEqual([2, 5, 8]);
+  expect(Math.max(...pages.mock.results.map((result) => result.value.length))).toBe(31);
+  expect(count(db, 'brew_schedule_candidates')).toBe(0);
+});
+
+it('captures the last overlapping source and retains its exact content after live deletion', async () => {
+  const db = database();
+  const { storage, id } = fixture(db, {
+    sections: [
+      {
+        ...newBrewSection('overlap'),
+        onlyUnread: false,
+        depth: 'full',
+        sources: [
+          { kind: 'feed', id: 1 },
+          { kind: 'feed', id: 1 },
+        ],
+      },
+    ],
+  });
+  const work = processor(db);
+  await work.capture();
+  await work.drain(1);
+  db.sqlite
+    .prepare("UPDATE articles SET title='Second capture',content_html='<p>Second body.</p>'")
+    .run();
+  await work.drain(1);
+  const expected = (
+    await new BrewService(storage, clock, nodeRegex).previewComposition(
+      storage.composition(id)!,
+      id,
+      new Date(at).toISOString(),
+    )
+  ).snapshot;
+  db.sqlite.prepare('DELETE FROM articles').run();
+  await processor(db).drain();
+  expect(scheduledIssue(db)).toEqual({ ...expected, id: scheduledIssue(db).id });
+  expect(scheduledIssue(db).sections[0]!.items[0]!.contentHtml).toContain('Second body.');
+  expect(count(db, 'brew_schedule_candidates')).toBe(0);
+});
+
+it.each(['all', 'any'] as const)(
+  'preserves decoded content filters and newsletter output with %s matching',
+  async (match) => {
+    const db = database();
+    const { storage, id } = fixture(db, {
+      sections: [
+        {
+          ...newBrewSection('content'),
+          onlyUnread: false,
+          depth: 'full',
+          sources: [{ kind: 'feed', id: 1 }, { kind: 'newsletters' }],
+          filter: {
+            match,
+            conditions: [
+              { field: 'content', operator: 'contains', value: 'Alpha & Beta' },
+              { field: 'title', operator: 'starts_with', value: 'Letter' },
+            ],
+          },
+        },
+      ],
+    });
+    db.sqlite.prepare("UPDATE articles SET content_html='<p>Alpha &amp; Beta RSS.</p>'").run();
+    db.sqlite
+      .prepare(
+        "INSERT INTO feeds(id,url,title,kind) VALUES(2,'newsletter:letter@example.test','Letter sender','newsletter')",
+      )
+      .run();
+    db.sqlite
+      .prepare(
+        "INSERT INTO articles(feed_id,guid,hash,url,title,content_html,cleaning_json,published_at) VALUES(2,'letter','letter','https://source.test/letter','Letter content','<p>Alpha &amp; Beta letter.</p>',?,?)",
+      )
+      .run(JSON.stringify({ trackers: 2, sponsorBlocks: 1, footerTrimmed: true }), at - 2000);
+    const expected = (
+      await new BrewService(storage, clock, nodeRegex).previewComposition(
+        storage.composition(id)!,
+        id,
+        new Date(at).toISOString(),
+      )
+    ).snapshot;
+    const work = processor(db, undefined, {}, { remaining: Infinity, candidatePageSize: 1 });
+    await work.capture();
+    await work.drain();
+    expect(scheduledIssue(db)).toEqual({ ...expected, id: scheduledIssue(db).id });
+    const section = scheduledIssue(db).sections[0]!;
+    expect(section.matchingItems).toBe(match === 'all' ? 1 : 2);
+    const letter = section.items.find((row) => row.feedId === 2)!;
+    expect(letter.summaryHtml).toBe('<p>Alpha &amp; Beta letter.</p>');
+    expect(letter.newsletter?.cleaning).toEqual({
+      trackers: 2,
+      sponsorBlocks: 1,
+      footerTrimmed: true,
+    });
+  },
+);
+
+it('rolls a rejected SQL source snapshot back with its cursor, and retains a committed snapshot after a lost response', async () => {
+  const db = database();
+  fixture(db);
+  const jobs = new NodeScheduledBrewJobs(db),
+    work = processor(db, jobs);
+  await work.capture();
+  db.sqlite.exec(
+    "CREATE TRIGGER reject_source BEFORE INSERT ON brew_schedule_candidates BEGIN SELECT RAISE(ABORT,'controlled source failure'); END",
+  );
+  await expect(work.drain(1)).rejects.toThrow('controlled source failure');
+  expect(count(db, 'brew_schedule_candidates')).toBe(0);
+  expect(
+    JSON.parse(
+      (
+        db.sqlite.prepare('SELECT state_json FROM brew_schedule_jobs').get() as {
+          state_json: string;
+        }
+      ).state_json,
+    ).source,
+  ).toBe(0);
+  db.sqlite.exec('DROP TRIGGER reject_source');
+  const capture = jobs.captureSource.bind(jobs);
+  vi.spyOn(jobs, 'captureSource').mockImplementationOnce((...args) => {
+    capture(...args);
+    throw new Error('lost source response');
+  });
+  await expect(work.drain(1)).rejects.toThrow('lost source response');
+  db.sqlite.prepare("UPDATE articles SET title='Changed after checkpoint'").run();
+  await processor(db).drain();
+  expect(scheduledIssue(db).sections[0]!.items[0]!.title).toBe('Scheduled story');
+});
+
+it.each(['before', 'after'])(
+  'recovers a page checkpoint response lost %s commit without duplicate counts',
+  async (timing) => {
+    const db = database();
+    fixture(db);
+    const jobs = new NodeScheduledBrewJobs(db),
+      work = processor(db, jobs);
+    await work.capture();
+    await work.drain(1);
+    const checkpoint = jobs.checkpoint.bind(jobs);
+    vi.spyOn(jobs, 'checkpoint').mockImplementationOnce((...args) => {
+      if (timing === 'after') checkpoint(...args);
+      throw new Error('lost page response');
+    });
+    await expect(work.drain(1)).rejects.toThrow('lost page response');
+    await processor(db).drain();
+    expect(scheduledIssue(db).sections[0]).toMatchObject({ eligibleItems: 1, matchingItems: 1 });
+    expect(scheduledIssue(db).sections[0]!.items.map((row) => row.id)).toEqual([1]);
+  },
+);
+
+it('migrates inline source snapshots and fences old bundles, including jobs enqueued after upgrade', async () => {
+  const donor = database();
+  const { storage } = fixture(donor);
+  await processor(donor).capture();
+  const request = (
+    donor.sqlite.prepare('SELECT request_json FROM brew_schedule_jobs').get() as {
+      request_json: string;
+    }
+  ).request_json;
+  const candidate = storage.compositionItems({
+    feedId: 1,
+    onlyUnread: false,
+    starred: false,
+    featured: false,
+    sort: 'newest',
+  })[0]!;
+  const file = join(tmpdir(), `brew-schedule-migration-${randomUUID()}.db`);
+  files.push(file);
+  const raw = new Database(file);
+  try {
+    raw.pragma('foreign_keys = ON');
+    raw.exec('CREATE TABLE __brew_migrations(name TEXT PRIMARY KEY,applied_at INTEGER NOT NULL)');
+    const directory = new URL('../../packages/db/migrations/', import.meta.url);
+    for (const name of readdirSync(directory)
+      .filter((name) => name.endsWith('.sql') && name < '0018')
+      .sort()) {
+      raw.exec(readFileSync(new URL(name, directory), 'utf8'));
+      raw.prepare('INSERT INTO __brew_migrations VALUES(?,0)').run(name);
+    }
+    raw
+      .prepare(
+        "INSERT INTO brew_configs(id,name,enabled,sections_json) VALUES(1,'Old queue',0,'[]')",
+      )
+      .run();
+    const state = JSON.stringify({
+      phase: 'composition',
+      index: 0,
+      source: 1,
+      candidates: [candidate],
+      sections: [],
+    });
+    raw
+      .prepare(
+        'INSERT INTO brew_schedule_jobs(id,config_id,request_json,state_json,runner,expires_at,created_at) VALUES(?,1,?,?,?,?,?)',
+      )
+      .run('old', request, state, 'old-runner', at + SCHEDULE_LEASE_MS, at);
+  } finally {
+    raw.close();
+  }
+  const db = database(file);
+  expect(
+    db.sqlite
+      .prepare('SELECT runner,expires_at,version,source_version FROM brew_schedule_jobs')
+      .get(),
+  ).toEqual({ runner: null, expires_at: 0, version: 1, source_version: 1 });
+  expect(
+    db.sqlite.prepare("UPDATE brew_schedule_jobs SET runner='old-bundle' WHERE id='old'").run()
+      .changes,
+  ).toBe(0);
+  expect(db.sqlite.prepare('SELECT format FROM brew_schedule_candidates').get()).toEqual({
+    format: 0,
+  });
+  await processor(db).drain();
+  expect(scheduledIssue(db).sections[0]!.items[0]!.title).toBe(candidate.title);
+  expect(count(db, 'brew_schedule_candidates')).toBe(0);
+  const lateRequest = JSON.parse(request);
+  lateRequest.receipt.value = new Date(at + 60_000).toISOString();
+  lateRequest.receipt.key = `brew_composed_1_${lateRequest.receipt.value}`;
+  db.sqlite
+    .prepare(
+      'INSERT INTO brew_schedule_jobs(id,config_id,request_json,state_json,created_at) VALUES(?,1,?,?,?)',
+    )
+    .run(
+      'late',
+      JSON.stringify(lateRequest),
+      JSON.stringify({
+        phase: 'composition',
+        index: 0,
+        source: 1,
+        candidates: [{ ...candidate, title: 'Late old capture' }],
+        sections: [],
+      }),
+      at,
+    );
+  const converted = JSON.parse(
+    (
+      db.sqlite.prepare("SELECT state_json FROM brew_schedule_jobs WHERE id='late'").get() as {
+        state_json: string;
+      }
+    ).state_json,
+  );
+  expect(converted.candidates).toBeUndefined();
+  expect(converted.selection.after).toBe(0);
+  expect(
+    db.sqlite.prepare("UPDATE brew_schedule_jobs SET runner='old-bundle' WHERE id='late'").run()
+      .changes,
+  ).toBe(0);
+  await processor(db).drain();
+  expect(scheduledIssue(db).sections[0]!.items[0]!.title).toBe('Late old capture');
+  expect(count(db, 'brews')).toBe(2);
+});
 
 it('reopens SQLite after every source/section checkpoint and preserves manual preview, original minute and configuration', async () => {
   const file = join(tmpdir(), `brew-schedule-${randomUUID()}.db`);
@@ -288,7 +654,7 @@ it('fences expired runners and recovers their queued source work', async () => {
   jobs.release(old.id, old.runner);
   expect(
     (db.sqlite.prepare('SELECT runner FROM brew_schedule_jobs').get() as { runner: string }).runner,
-  ).toBe('current');
+  ).toBe(current.runner);
   jobs.release(current.id, current.runner);
   await processor(db).drain();
   expect(count(db, 'brews')).toBe(1);
@@ -400,7 +766,13 @@ it('rechecks the delivery lease before writing an attempt or provider result', a
   fixture(db);
   const jobs = new NodeScheduledBrewJobs(db);
   await processor(db).capture();
-  await processor(db).drain(3);
+  for (let step = 0; step < 10; step++) {
+    const row = db.sqlite.prepare('SELECT state_json FROM brew_schedule_jobs').get() as {
+      state_json: string;
+    };
+    if (JSON.parse(row.state_json).phase === 'delivery') break;
+    await processor(db).drain(1);
+  }
   const old = jobs.claim('old', at, at + SCHEDULE_LEASE_MS)!;
   expect(old.state.phase).toBe('delivery');
   at += SCHEDULE_LEASE_MS + 1;

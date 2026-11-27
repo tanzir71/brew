@@ -108,6 +108,7 @@ export function cloudflarePollingServices(
       () => crypto.randomUUID(),
       {
         remaining: 16,
+        candidatePageSize: 4,
         reserve: (kind) =>
           scheduledQueries.reserve(kind === 'job' ? 2 : kind === 'delivery' ? 12 : 3),
         canDeliver: (request) =>

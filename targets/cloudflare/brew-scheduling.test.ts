@@ -52,6 +52,7 @@ beforeEach(async () => {
     [
       'DROP TRIGGER IF EXISTS history_failure',
       'DROP TRIGGER IF EXISTS freeze_failure',
+      'DROP TRIGGER IF EXISTS source_failure',
       'DELETE FROM brew_configs',
       'DELETE FROM settings',
       "DELETE FROM sqlite_sequence WHERE name IN ('brew_configs','brews')",
@@ -126,6 +127,17 @@ it('fences native old runners before source, freeze and delivery writes', async 
     ScheduleLeaseLost,
   );
   await expect(
+    jobs.captureSource(
+      old,
+      { feedId: 1, onlyUnread: false, starred: false, featured: false, sort: 'newest' },
+      later,
+      old.state,
+      later,
+      later + SCHEDULE_LEASE_MS,
+    ),
+  ).rejects.toThrow(ScheduleLeaseLost);
+  await expect(jobs.candidates(old, 0, 4, true, later)).rejects.toThrow(ScheduleLeaseLost);
+  await expect(
     jobs.freeze(old, { configName: 'Stale', sections: [] }, later, later + SCHEDULE_LEASE_MS),
   ).rejects.toThrow(ScheduleLeaseLost);
   await expect(
@@ -142,11 +154,55 @@ it('fences native old runners before source, freeze and delivery writes', async 
   ).rejects.toThrow(ScheduleLeaseLost);
   await jobs.release(old.id, old.runner);
   expect(await storage.first('SELECT runner FROM brew_schedule_jobs')).toEqual({
-    runner: 'replacement',
+    runner: replacement.runner,
   });
   await jobs.release(replacement.id, replacement.runner);
   await pendingProcessor().drain();
   expect(await storage.first('SELECT count(*) AS n FROM brews')).toEqual({ n: 1 });
+});
+
+it('rolls back native source materialization with its cursor and preserves captured rows after deletion', async () => {
+  const brew = new CloudflareBrewStorage(storage);
+  const id = await brew.createComposition({
+    ...draft('Source rollback', { kind: 'daily', time: '12:00' }),
+    sections: [
+      { ...newBrewSection('stories'), onlyUnread: false, sources: [{ kind: 'feed', id: 991 }] },
+    ],
+  });
+  await storage.run(
+    "INSERT INTO feeds(id,url,title) VALUES(991,'https://source.test/native-snapshot','Native snapshot')",
+  );
+  try {
+    await storage.run(
+      "INSERT INTO articles(feed_id,guid,hash,url,title,content_html,published_at) VALUES(991,'snapshot','snapshot','https://source.test/snapshot','Captured native story','<p>Snapshot body.</p>',?)",
+      [now.getTime() - 1000],
+    );
+    await pendingProcessor().capture();
+    await storage.run(
+      "CREATE TRIGGER source_failure BEFORE INSERT ON brew_schedule_candidates BEGIN SELECT RAISE(ABORT,'controlled native source failure'); END",
+    );
+    await expect(pendingProcessor().drain(1)).rejects.toThrow('controlled native source failure');
+    expect(await storage.first('SELECT count(*) AS n FROM brew_schedule_candidates')).toEqual({
+      n: 0,
+    });
+    expect(
+      JSON.parse(
+        (await storage.first<{ state_json: string }>('SELECT state_json FROM brew_schedule_jobs'))!
+          .state_json,
+      ).source,
+    ).toBe(0);
+    await storage.run('DROP TRIGGER source_failure');
+    await pendingProcessor().drain(1);
+    await storage.run('DELETE FROM articles WHERE feed_id=991');
+    await pendingProcessor().drain();
+    const issue = await brew.snapshot((await brew.historyIds(id))[0]!);
+    expect(issue!.sections[0]!.items[0]!.title).toBe('Captured native story');
+    expect(await storage.first('SELECT count(*) AS n FROM brew_schedule_candidates')).toEqual({
+      n: 0,
+    });
+  } finally {
+    await storage.run('DELETE FROM feeds WHERE id=991');
+  }
 });
 
 it('marks an interrupted native delivery unknown without sending its claimed issue again', async () => {

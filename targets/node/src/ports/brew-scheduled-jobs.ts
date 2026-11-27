@@ -9,6 +9,14 @@ import {
 } from '../../../../packages/core/src/brew-scheduled-processing.js';
 import type { ScheduledBrewRequest } from '../../../../packages/core/src/brew-scheduled-request.js';
 import type { BrewDeliveryResults } from '../../../../packages/core/src/types/delivery.js';
+import type { BrewItemQuery } from '../../../../packages/core/src/ports.js';
+import {
+  scheduledSourceQueries,
+  scheduledCandidates,
+  scheduledCandidatePage,
+  scheduledSelectedCandidates,
+  type ScheduledCandidateRow,
+} from '../../../../packages/db/src/brew-scheduled-candidates.js';
 import { brewConfigFromRaw } from '../../../../packages/db/src/brew-queries.js';
 import { BREW_RETENTION_DAYS } from '../../../../packages/core/src/composition-model.js';
 import {
@@ -21,6 +29,7 @@ import {
   clearScheduleFence,
   scheduledCheckpoint,
   scheduledStateWrite,
+  scheduledRunner,
 } from '../../../../packages/db/src/brew-scheduled-queries.js';
 import type { SqlQuery } from '../../../../packages/db/src/reader-queries.js';
 
@@ -54,6 +63,7 @@ export class NodeScheduledBrewJobs implements ScheduledBrewJobsPort {
     })();
   }
   claim(runner: string, now: number, until: number) {
+    runner = scheduledRunner(runner);
     return this.database.sqlite.transaction(() => {
       this.run(claimScheduledQuery(runner, now, until));
       const row = this.database.sqlite
@@ -81,6 +91,46 @@ export class NodeScheduledBrewJobs implements ScheduledBrewJobsPort {
     this.transaction(() => {
       for (const query of scheduledCheckpoint(job, state, now, until, skipped)) this.run(query);
     });
+  }
+  captureSource(
+    job: ScheduledBrewJob,
+    query: BrewItemQuery | null,
+    when: number,
+    next: ScheduledBrewState,
+    now: number,
+    until: number,
+  ) {
+    this.transaction(() => {
+      for (const statement of scheduledSourceQueries(job, query, when, next, now, until))
+        this.run(statement);
+    });
+  }
+  private readCandidates(
+    job: ScheduledBrewJob,
+    query: SqlQuery,
+    includeContent: boolean | 'newsletter',
+    now: number,
+  ) {
+    return this.owned(job, now, () =>
+      scheduledCandidates(
+        this.database.sqlite.prepare(query.sql).all(...query.values) as ScheduledCandidateRow[],
+        includeContent,
+      ),
+    );
+  }
+  candidates(
+    job: ScheduledBrewJob,
+    after: number,
+    limit: number,
+    includeContent: boolean,
+    now: number,
+  ) {
+    return this.readCandidates(job, scheduledCandidatePage(job, after, limit), includeContent, now);
+  }
+  selectedCandidates(job: ScheduledBrewJob, ids: number[], now: number) {
+    return ids.length
+      ? this.readCandidates(job, scheduledSelectedCandidates(job, ids), 'newsletter', now)
+      : [];
   }
   freeze(job: ScheduledBrewJob, payload: ScheduledPayload, now: number, until: number) {
     return this.transaction(() => {
