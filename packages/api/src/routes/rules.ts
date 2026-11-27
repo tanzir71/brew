@@ -14,7 +14,10 @@ import type { ApiServices } from '../ports.js';
 import { body, errorMessage, json } from '../http.js';
 import { pageId, pageNumber, PageInputError } from '../../../core/src/app-pages.js';
 
-export function registerRulesRoutes(app: Hono, { rules: service, data }: ApiServices): void {
+export function registerRulesRoutes(
+  app: Hono,
+  { rules: service, data }: Pick<ApiServices, 'rules' | 'data'>,
+): void {
   app.get(
     '/api/rules/duplicate-filter',
     documented('Rules', 'Read duplicate filtering', {

@@ -12,9 +12,10 @@ import { R2ImageCache } from '../dist/targets/cloudflare/src/image-cache.js';
 import { NewsletterPipeline } from '../dist/packages/core/src/newsletter-pipeline.js';
 import { proxyImage } from '../dist/packages/api/src/image-proxy.js';
 import {
-  cloudflareBrewServices,
-  createCloudflareBrewApi,
-} from '../dist/targets/cloudflare/src/brew-api.js';
+  cloudflareLibraryServices,
+  createCloudflareLibraryApi,
+} from '../dist/targets/cloudflare/src/library-api.js';
+import { cloudflareIngestion } from '../dist/targets/cloudflare/src/ingestion.js';
 import { newBrewSection } from '../dist/packages/core/src/composition-model.js';
 import { renderBrewMarkdown } from '../dist/packages/core/src/brew-outputs.js';
 
@@ -64,27 +65,26 @@ try {
     new Uint8Array([137, 80, 78, 71]),
   );
   assert.equal(requests, 1);
-  const reader = createCloudflareBrewApi(
-    cloudflareBrewServices(
-      { DB: database, IMAGES: await runtime.getR2Bucket('IMAGES') },
-      {
-        capabilities: () => ({
-          mode: 'cloudflare',
-          fetch: 'direct',
-          backgroundFetch: { kind: 'cron' },
-          inboundMail: null,
-          emailDelivery: null,
-          readerApi: false,
-          mcp: null,
-          webmcp: false,
-          ai: { available: [], configured: false },
-          readState: 'server',
-          publicCopy: false,
-          outputs: { twins: true, feed: false, webhook: false },
-        }),
-      },
-    ),
+  const services = cloudflareLibraryServices(
+    { DB: database, IMAGES: await runtime.getR2Bucket('IMAGES') },
+    {
+      capabilities: () => ({
+        mode: 'cloudflare',
+        fetch: 'direct',
+        backgroundFetch: { kind: 'cron' },
+        inboundMail: null,
+        emailDelivery: null,
+        readerApi: false,
+        mcp: null,
+        webmcp: false,
+        ai: { available: [], configured: false },
+        readState: 'server',
+        publicCopy: false,
+        outputs: { twins: true, feed: false, webhook: false },
+      }),
+    },
   );
+  const reader = createCloudflareLibraryApi(services);
   const page = await reader.request('https://build.example.test/api/articles?includeTotal=true');
   assert.equal(page.status, 200);
   assert.equal((await page.json()).total, 1);
@@ -134,8 +134,48 @@ try {
     (await reader.request(`https://build.example.test/b/${config.id}/${issue.id}.json`)).status,
     200,
   );
+  const source = await reader.request('https://build.example.test/api/sources/searches', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ clientId: 'compiled', name: 'Compiled sources', query: 'compiled' }),
+  });
+  assert.equal(source.status, 200);
+  const rule = await reader.request('https://build.example.test/api/rules', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      name: 'Compiled triage',
+      enabled: true,
+      scope: {},
+      matchType: 'all',
+      conditions: [{ field: 'title', operator: 'contains', value: 'Compiled' }],
+      actions: [{ type: 'star' }],
+      stopProcessing: false,
+    }),
+  });
+  assert.equal(rule.status, 201);
+  const imported = await cloudflareIngestion(
+    database,
+    { now: () => new Date(), monotonic: () => globalThis.performance.now() },
+    services.rules,
+  ).newsletters.ingest(
+    'From: Publisher <publisher@example.test>\r\nSubject: Compiled async letter\r\nContent-Type: text/html\r\n\r\n<p>Native Web Crypto identity and shared rule execution.</p>',
+  );
+  assert.equal(imported.outcome, 'inserted');
+  assert.ok(
+    (await storage.first('SELECT starred_at FROM articles WHERE id=?', [imported.articleId]))
+      .starred_at,
+  );
+  assert.equal(
+    (
+      await storage.first('SELECT count(*) AS n FROM rule_logs WHERE article_id=?', [
+        imported.articleId,
+      ])
+    ).n,
+    1,
+  );
   process.stdout.write(
-    'Built Cloudflare ports: shared D1 migrations, real MIME cleaning/storage, private R2 images and the compiled Reader/Brew HTTP graph with frozen caches passed outside the repository cwd. Full Worker handler integration remains pending.\n',
+    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, compiled Reader/Brew/rules/source HTTP, frozen caches and async Web Crypto ingestion with real rule execution passed outside the repository cwd. Full Worker handler integration remains pending.\n',
   );
 } finally {
   await runtime.dispose();

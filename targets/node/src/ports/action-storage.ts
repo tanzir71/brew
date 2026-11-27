@@ -454,6 +454,7 @@ export class NodeActionStorage implements ActionStoragePort {
     let failedActions = 0;
     const recorded: RuleStoragePort = {
       context: storage.context.bind(storage),
+      contexts: storage.contexts.bind(storage),
       definitions: storage.definitions.bind(storage),
       list: storage.list.bind(storage),
       create: storage.create.bind(storage),

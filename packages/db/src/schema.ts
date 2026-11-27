@@ -272,7 +272,18 @@ export const readerSessions = sqliteTable(
   (table) => [index('reader_sessions_expiry').on(table.expiresAt)],
 );
 
+export const instanceEvents = sqliteTable('instance_events', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  articleId: integer('article_id').references(() => articles.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(),
+  dataJson: text('data_json').notNull(),
+  createdAt: timestamp('created_at')
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
+});
+
 export const schema = {
+  instanceEvents,
   readerAccess,
   readerSessions,
   apiTokens,

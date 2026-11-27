@@ -58,8 +58,12 @@ journal remains separate work.
 
 Cross-isolate live updates use a D1 revision counter committed with mutations.
 Subscribers catch up when they connect, poll every five seconds and reconnect
-after a bounded one-minute stream. Cancellation clears polling and lifetime
-timers. This avoids assuming that Worker invocations share in-memory listeners.
+after a bounded one-minute stream. Migration 0013 adds a shared event journal;
+rule notifications retain at most 256 entries and cascade away when their article
+is deleted. A new subscriber starts with future `notification` events, matching
+Node's live broker, while the revision refreshes library state after disconnection.
+Cancellation clears polling and lifetime timers. Worker invocations do not need
+to share in-memory listeners.
 
 Seven integration cases use Cloudflare's official test harness to bundle the
 actual Reader factory and execute HTTP routes inside workerd with real D1/R2 and
@@ -102,6 +106,40 @@ do not establish a product scheduler, Email Routing or a Resend/Email Service
 adapter. A target interruptible regex executor is also still required. Without
 one, regex-filtered previews return the shared explicit unavailable error.
 
+## Rules, sources and native ingestion
+
+The library graph adds D1 rule CRUD, exact previews, complete paged execution
+history, hit counts and actual actions. Node retains synchronous CRUD methods;
+both targets use the shared execution service and validation. Candidate identities
+are selected once and contexts are read in batches of 40. This preserves ordering,
+scope and the 50-item sample while counting every visible match. Tag creation and
+assignment commit together on D1. The executor awaits tags, article changes,
+notifications and logs, including failures, before returning.
+
+Source discovery uses the same parser and native URL handling as Node. Saved
+searches use shared validation and SQL, retain stable client IDs, and feed real
+FTS-backed Brew previews. Mailbox lookup reports the configured active address.
+Discovery and unsaved previews do not subscribe feeds or change saved state.
+
+The shared feed/newsletter pipelines accept asynchronous hashing. The Worker uses
+Web Crypto SHA-1 and Node keeps its synchronous hash helper; normalized identities
+and stored hashes match. A bounded reader applies the shared 10 MiB MIME limit
+before accumulating an Email Routing stream. Actual workerd email events now
+exercise MIME parsing, cleaning, D1 insertion, rule execution and duplicate replay.
+The integration email wrapper still lacks the product envelope/address checks;
+it is not a production Email Routing entrypoint. The harness requires Message-ID
+for native email dispatch, so an additional bounded test ingress verifies the
+pipeline's fallback identity inside workerd.
+
+Nine library cases compare Node discovery, sources, rule definitions, previews,
+state changes and full history. They verify all actions, live cross-invocation
+notifications, bounded journal/reconnection/deletion behavior, failed asynchronous
+notification and tag writes, rule ordering during actual ingestion, and native
+MIME processing. Regex execution still requires an interruptible target executor;
+missing setup is an explicit error. A timer around synchronous regex cannot supply
+that guarantee, and local Wrangler does not enforce deployment CPU limits. See
+[Wrangler resource limits](https://developers.cloudflare.com/workers/wrangler/configuration/#limits).
+
 ## Local verification
 
 Use Node.js 22 or newer for the official Cloudflare development tools. No remote
@@ -111,6 +149,7 @@ Cloudflare account, resource or credential is used by these checks.
 npm test -- targets/cloudflare/storage.test.ts
 npm test -- targets/cloudflare/reader-api.test.ts
 npm test -- targets/cloudflare/brew-api.test.ts
+npm test -- targets/cloudflare/library-api.test.ts
 npm run typecheck
 npm run build
 ```
@@ -123,14 +162,15 @@ loads the compiled ports outside the repository working directory and verifies
 real D1 newsletter ingest, an R2-backed image cache hit and frozen Brew generation
 through the compiled HTTP graph with a matching Markdown cache.
 
-The MIME ingest pipeline's storage checks still execute in the Node harness
-against real bindings. Reader/Brew HTTP, composition, scheduling policy,
-feed discovery, extraction and sanitization
-also execute in bundled workerd tests. Inbound MIME execution inside the product
-Worker remains part of the remaining handler integration.
+The original storage checks execute in the Node harness against real bindings.
+The library cases additionally run feed and MIME ingestion, rules, sources and
+Reader/Brew HTTP inside workerd. Compiled verification also checks saved sources,
+rules and asynchronous hashing/ingestion outside the repository directory. Inbound
+MIME execution inside the product Worker remains part of the remaining handler
+integration.
 
 Still required: product Worker fetch/scheduled/email handlers, the remaining
-rules/agent/Reader-sync/newsletter/source API adapters, an interruptible regex
+agent/Reader-sync/newsletter/OPML API adapters and saved-page twins, an interruptible regex
 executor, bounded polling, Email Routing/outbound mail, owner authentication, and
 the Cloudflare installer/deploy flow. These checks do not claim a working deployed
 Worker or completion of M14.

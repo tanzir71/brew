@@ -1,4 +1,4 @@
-import type { ClockPort, HashPort, IngestStoragePort, StoredArticle } from './ports.js';
+import type { ClockPort, AsyncHashPort, IngestStoragePort, StoredArticle } from './ports.js';
 import { IngestPipeline } from './ingest-pipeline.js';
 import { cleanNewsletterHtml, newsletterTextHtml } from './newsletter-cleaner.js';
 import {
@@ -32,7 +32,7 @@ export class NewsletterPipeline {
   private readonly articles: IngestPipeline;
   constructor(
     private readonly storage: NewsletterStoragePort,
-    private readonly hash: HashPort,
+    private readonly hash: AsyncHashPort,
     private readonly clock: ClockPort,
     rules?: { evaluateArticle(id: number): Promise<number> },
   ) {
@@ -73,7 +73,7 @@ export class NewsletterPipeline {
     // Stable delivery identity, independent of title/URL. Daily letters often reuse both.
     const identity =
       message.messageId?.trim() ||
-      this.hash.sha1(JSON.stringify([address, title, message.date ?? '', rawHtml]));
+      (await this.hash.sha1(JSON.stringify([address, title, message.date ?? '', rawHtml])));
     const guid = `newsletter:${identity}`;
     const receivedAt = this.clock.now();
     const date = message.date ? new Date(message.date) : receivedAt;
@@ -85,7 +85,7 @@ export class NewsletterPipeline {
     const inserted = await this.storage.insertLetter({
       feedId: feed.id,
       guid,
-      hash: this.hash.sha1(`${address}\n${guid}`),
+      hash: await this.hash.sha1(`${address}\n${guid}`),
       url: cleaned.archiveUrl ?? '',
       title,
       author: message.from.name?.trim() || address,

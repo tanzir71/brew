@@ -12,6 +12,7 @@ export interface FetchPort {
 export interface HashPort {
   sha1(value: string): string;
 }
+export type AsyncHashPort = AsyncPort<HashPort>;
 export interface RegexResult {
   matched: boolean;
   timedOut: boolean;
@@ -26,7 +27,7 @@ export interface RegexPort {
   ): Promise<{ matches: boolean[]; timedOut: boolean; error?: string }>;
 }
 export interface NotificationPort {
-  notify(article: { id: number; title: string; url: string }): void;
+  notify(article: { id: number; title: string; url: string }): void | Promise<void>;
 }
 
 export interface ArticleContext {
@@ -55,6 +56,7 @@ export interface ActionResult {
 }
 export interface RuleStoragePort {
   context(id: number): ArticleContext | null;
+  contexts(ids: number[]): RuleCandidate[];
   definitions(): RuleRecord[];
   list(now: Date): RuleRecord[];
   create(draft: RuleDraft & { position: number }): number;
@@ -69,6 +71,10 @@ export interface RuleStoragePort {
   articleIds(options: { since?: number; visibleOnly?: boolean }): number[];
   publishedAt(articleId: number): Date;
 }
+export interface RuleCandidate extends ArticleContext {
+  publishedAt: Date;
+}
+export type AsyncRuleStoragePort = AsyncPort<RuleStoragePort>;
 export interface BrewStoragePort {
   listConfigs(): BrewConfig[];
   create(draft: BrewConfigDraft): number;

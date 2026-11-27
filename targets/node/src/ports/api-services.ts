@@ -73,8 +73,11 @@ export function nodeApiServices(
       fetcher,
       baseUrl: options.publicUrl,
     }),
-    rules: new RulesService(database, fetcher, (article) =>
-      broker.publish('notification', article),
+    rules: new RulesService(
+      database,
+      fetcher,
+      (article) => broker.publish('notification', article),
+      options.clock,
     ),
     search: new SearchService(database),
     opml: new OpmlService(database),

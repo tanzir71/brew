@@ -3,7 +3,7 @@ import { str, nullable, array, object, ref } from '../openapi-schemas.js';
 import type { Hono } from 'hono';
 import type { ApiServices } from '../ports.js';
 import { body, errorMessage, json, requiredText } from '../http.js';
-export function registerSourceRoutes(app: Hono, { sources }: ApiServices) {
+export function registerSourceRoutes(app: Hono, { sources }: Pick<ApiServices, 'sources'>) {
   app.post(
     '/api/sources/discover',
     documented('Sources', 'Discover native feeds from a source URL', {

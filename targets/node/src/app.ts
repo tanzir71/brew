@@ -101,8 +101,11 @@ export async function createApp(
     fetcher: options.fetcher ?? globalThis.fetch,
     baseUrl: publicUrl,
   });
-  const rules = new RulesService(database, options.fetcher, (article) =>
-    broker.publish('notification', article),
+  const rules = new RulesService(
+    database,
+    options.fetcher,
+    (article) => broker.publish('notification', article),
+    options.clock,
   );
   const ingest = new IngestPipeline(database, rules);
   const newsletters = new NewsletterService(database, options.clock, rules);

@@ -1,13 +1,24 @@
+import {
+  ruleRecord,
+  ruleContextQuery,
+  ruleContextsQuery,
+  ruleContext,
+  ruleCandidate,
+  ruleHitsQuery,
+  rulesWithHits,
+  ruleLogColumns,
+  ruleLog,
+  ruleArticleIdsQuery,
+  type RuleContextRow,
+  type RuleHitsRow,
+  type RuleLogRow,
+} from '../../../../packages/db/src/rule-queries.js';
 import { and, asc, eq } from 'drizzle-orm';
-import { articleText as text } from './article-text.js';
 import { ruleLogPageSize, type RuleLogPage } from '../../../../packages/core/src/types/rules.js';
 import type {
   RuleDraft,
   RuleLogRecord,
   RuleRecord,
-  RuleScope,
-  RuleCondition,
-  RuleAction,
 } from '../../../../packages/core/src/types/rules.js';
 import type {
   ActionResult,
@@ -25,88 +36,31 @@ export class NodeRuleStorage implements RuleStoragePort {
       .from(rules)
       .orderBy(asc(rules.position), asc(rules.id))
       .all()
-      .map((rule) => ({
-        id: rule.id,
-        name: rule.name,
-        enabled: rule.enabled,
-        position: rule.position,
-        matchType: rule.matchType,
-        scope: JSON.parse(rule.scopeJson) as RuleScope,
-        conditions: JSON.parse(rule.conditionsJson) as RuleCondition[],
-        actions: JSON.parse(rule.actionsJson) as RuleAction[],
-        stopProcessing: rule.stopProcessing,
-      }));
+      .map(ruleRecord);
   }
-  context(articleId: number): ArticleContext | null {
-    const row = this.database.sqlite
-      .prepare(
-        `SELECT a.id, a.title, a.author, a.url, a.summary_html, a.content_html, a.full_text_html, f.id AS feed_id, f.title AS feed, fo.id AS folder_id, coalesce(fo.title, '') AS folder FROM articles a JOIN feeds f ON f.id = a.feed_id LEFT JOIN folders fo ON fo.id = f.folder_id WHERE a.id = ?`,
-      )
-      .get(articleId) as
-      | {
-          id: number;
-          title: string;
-          author: string | null;
-          url: string;
-          summary_html: string | null;
-          content_html: string | null;
-          full_text_html: string | null;
-          feed_id: number;
-          feed: string;
-          folder_id: number | null;
-          folder: string;
-        }
-      | undefined;
-    return row
-      ? {
-          id: row.id,
-          title: row.title,
-          content: text(row.full_text_html ?? row.content_html ?? row.summary_html),
-          author: row.author ?? '',
-          url: row.url,
-          feedId: row.feed_id,
-          feed: row.feed,
-          folderId: row.folder_id,
-          folder: row.folder,
-        }
-      : null;
+  context(id: number): ArticleContext | null {
+    const built = ruleContextQuery(id);
+    const row = this.database.sqlite.prepare(built.sql).get(...built.values) as
+      RuleContextRow | undefined;
+    return row ? ruleContext(row) : null;
   }
-
+  contexts(ids: number[]) {
+    if (!ids.length) return [];
+    const built = ruleContextsQuery(ids);
+    return (this.database.sqlite.prepare(built.sql).all(...built.values) as RuleContextRow[]).map(
+      ruleCandidate,
+    );
+  }
   list(at: Date): RuleRecord[] {
-    const now = at.getTime();
-    const counts = this.database.sqlite
-      .prepare(
-        `SELECT rule_id AS ruleId,
-      sum(CASE WHEN executed_at >= ? THEN 1 ELSE 0 END) AS hits24h,
-      sum(CASE WHEN executed_at >= ? THEN 1 ELSE 0 END) AS hits30d
-      FROM rule_logs GROUP BY rule_id`,
-      )
-      .all(now - 86_400_000, now - 2_592_000_000) as Array<{
-      ruleId: number;
-      hits24h: number;
-      hits30d: number;
-    }>;
-    const byRule = new Map(counts.map((row) => [row.ruleId, row]));
-    return this.database.db
+    const built = ruleHitsQuery(at.getTime());
+    const hits = this.database.sqlite.prepare(built.sql).all(...built.values) as RuleHitsRow[];
+    const rows = this.database.db
       .select()
       .from(rules)
       .orderBy(asc(rules.position), asc(rules.id))
-      .all()
-      .map((rule) => ({
-        id: rule.id,
-        name: rule.name,
-        enabled: rule.enabled,
-        position: rule.position,
-        matchType: rule.matchType,
-        scope: JSON.parse(rule.scopeJson) as RuleScope,
-        conditions: JSON.parse(rule.conditionsJson) as RuleCondition[],
-        actions: JSON.parse(rule.actionsJson) as RuleAction[],
-        stopProcessing: rule.stopProcessing,
-        hits24h: byRule.get(rule.id)?.hits24h ?? 0,
-        hits30d: byRule.get(rule.id)?.hits30d ?? 0,
-      }));
+      .all();
+    return rulesWithHits(rows, hits);
   }
-
   create(draft: RuleDraft & { position: number }): number {
     const inserted = this.database.db
       .insert(rules)
@@ -152,27 +106,11 @@ export class NodeRuleStorage implements RuleStoragePort {
     return (
       this.database.sqlite
         .prepare(
-          `SELECT l.id, l.article_id AS articleId,
-      a.title AS articleTitle, l.executed_at AS executedAt, l.actions_taken_json AS actionsJson
-      FROM rule_logs l JOIN articles a ON a.id = l.article_id
-      WHERE l.rule_id = ? ORDER BY l.executed_at DESC LIMIT 100`,
+          `SELECT ${ruleLogColumns} FROM rule_logs l JOIN articles a ON a.id=l.article_id WHERE l.rule_id=? ORDER BY l.executed_at DESC LIMIT 100`,
         )
-        .all(ruleId) as Array<{
-        id: number;
-        articleId: number;
-        articleTitle: string;
-        executedAt: number;
-        actionsJson: string;
-      }>
-    ).map((row) => ({
-      id: row.id,
-      articleId: row.articleId,
-      articleTitle: row.articleTitle,
-      executedAt: new Date(row.executedAt).toISOString(),
-      actions: JSON.parse(row.actionsJson),
-    }));
+        .all(ruleId) as RuleLogRow[]
+    ).map(ruleLog);
   }
-
   logPage(ruleId: number, page: number): RuleLogPage {
     return this.database.sqlite.transaction(() => {
       const { total } = this.database.sqlite
@@ -182,28 +120,12 @@ export class NodeRuleStorage implements RuleStoragePort {
         .get(ruleId) as { total: number };
       const rows = this.database.sqlite
         .prepare(
-          `SELECT l.id, l.article_id AS articleId, a.title AS articleTitle, l.executed_at AS executedAt, l.actions_taken_json AS actionsJson FROM rule_logs l JOIN articles a ON a.id=l.article_id WHERE l.rule_id=? ORDER BY l.executed_at DESC,l.id DESC LIMIT ? OFFSET ?`,
+          `SELECT ${ruleLogColumns} FROM rule_logs l JOIN articles a ON a.id=l.article_id WHERE l.rule_id=? ORDER BY l.executed_at DESC,l.id DESC LIMIT ? OFFSET ?`,
         )
-        .all(ruleId, ruleLogPageSize, (page - 1) * ruleLogPageSize) as Array<{
-        id: number;
-        articleId: number;
-        articleTitle: string;
-        executedAt: number;
-        actionsJson: string;
-      }>;
-      return {
-        items: rows.map(({ executedAt, actionsJson, ...row }) => ({
-          ...row,
-          executedAt: new Date(executedAt).toISOString(),
-          actions: JSON.parse(actionsJson),
-        })),
-        total,
-        page,
-        pageSize: ruleLogPageSize,
-      };
+        .all(ruleId, ruleLogPageSize, (page - 1) * ruleLogPageSize) as RuleLogRow[];
+      return { items: rows.map(ruleLog), total, page, pageSize: ruleLogPageSize };
     })();
   }
-
   addTag(articleId: number, name: string): void {
     this.database.db
       .insert(tags)
@@ -235,20 +157,10 @@ export class NodeRuleStorage implements RuleStoragePort {
       .run();
   }
   articleIds(options: { since?: number; visibleOnly?: boolean }): number[] {
-    const clauses: string[] = [];
-    const parameters: number[] = [];
-    if (options.since !== undefined) {
-      clauses.push('published_at >= ?');
-      parameters.push(options.since);
-    }
-    if (options.visibleOnly) clauses.push('hidden = 0');
+    const built = ruleArticleIdsQuery(options);
     return (
-      this.database.sqlite
-        .prepare(
-          `SELECT id FROM articles ${clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''} ORDER BY published_at DESC`,
-        )
-        .all(...parameters) as Array<{ id: number }>
-    ).map(({ id }) => id);
+      this.database.sqlite.prepare(built.sql).all(...built.values) as Array<{ id: number }>
+    ).map((row) => row.id);
   }
   publishedAt(id: number): Date {
     return this.database.db

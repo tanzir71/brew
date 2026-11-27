@@ -2,6 +2,20 @@ import { DOMParser } from 'linkedom';
 import { parseFeedDocument, type XmlFeedParserPort } from './feed-parser.js';
 import type { SourceCandidate, SourceDiscovery } from './types/sources.js';
 
+export function sourceSearchInput(value: { clientId: string; name: string; query: string }) {
+  if (
+    !value ||
+    ![value.clientId, value.name, value.query].every(
+      (item) => typeof item === 'string' && item.trim(),
+    )
+  )
+    throw new Error('Saved search needs a name, query and stable ID.');
+  return { clientId: value.clientId, name: value.name.trim(), query: value.query.trim() };
+}
+export function sourceMailbox(address?: string) {
+  return { address: address && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address) ? address : null };
+}
+
 export function sourceUrl(input: string): URL {
   const value = input.trim().replace(/^(feed|pcast):\/\//i, 'https://');
   const url = new URL(

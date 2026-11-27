@@ -1,11 +1,13 @@
-import type { HashPort, IngestStoragePort, ClockPort } from './ports.js';
+import type { HashPort, AsyncHashPort, IngestStoragePort, ClockPort } from './ports.js';
 import type { ParsedArticle } from './feed-parser.js';
 import { normalizedArticleUrl, sanitizeArticleHtml } from './html-sanitizer.js';
 
 const normalizedTitle = (value: string): string =>
   value.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
+const articleHashInput = (url: string, title: string) =>
+  `${normalizedArticleUrl(url)}\n${normalizedTitle(title)}`;
 export const articleHash = (hash: HashPort, url: string, title: string): string =>
-  hash.sha1(`${normalizedArticleUrl(url)}\n${normalizedTitle(title)}`);
+  hash.sha1(articleHashInput(url, title));
 export function trigramSimilarity(left: string, right: string): number {
   const grams = (value: string) => {
     const text = `  ${normalizedTitle(value)} `;
@@ -24,7 +26,7 @@ export function trigramSimilarity(left: string, right: string): number {
 export class IngestPipeline {
   constructor(
     private readonly storage: IngestStoragePort,
-    private readonly hash: HashPort,
+    private readonly hash: AsyncHashPort,
     private readonly clock: ClockPort,
     private readonly rules?: { evaluateArticle(id: number): Promise<number> },
   ) {}
@@ -34,34 +36,37 @@ export class IngestPipeline {
     incoming: ParsedArticle[],
   ): Promise<number> {
     const insertedIds = await this.storage.insertBatch(
-      incoming.map((item) => {
-        const hash = articleHash(this.hash, item.url, item.title);
-        return {
-          feedId: feed.id,
-          guid: item.guid,
-          hash,
-          prepare: () => {
-            const summaryHtml = sanitizeArticleHtml(item.summaryHtml);
-            const contentHtml = sanitizeArticleHtml(item.contentHtml);
-            const source = contentHtml ?? summaryHtml;
-            const imageUrl = source?.match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i)?.[1] ?? null;
-            return {
-              feedId: feed.id,
-              guid: item.guid,
-              url: normalizedArticleUrl(item.url),
-              title: item.title.trim() || '(untitled)',
-              author: item.author?.trim() || null,
-              summaryHtml,
-              contentHtml,
-              imageUrl,
-              enclosureUrl: item.enclosureUrl ?? null,
-              enclosureType: item.enclosureType ?? null,
-              publishedAt: item.publishedAt,
-              hash,
-            };
-          },
-        };
-      }),
+      await Promise.all(
+        incoming.map(async (source) => {
+          const item = { ...source, publishedAt: new Date(source.publishedAt) };
+          const hash = await this.hash.sha1(articleHashInput(item.url, item.title));
+          return {
+            feedId: feed.id,
+            guid: item.guid,
+            hash,
+            prepare: () => {
+              const summaryHtml = sanitizeArticleHtml(item.summaryHtml);
+              const contentHtml = sanitizeArticleHtml(item.contentHtml);
+              const source = contentHtml ?? summaryHtml;
+              const imageUrl = source?.match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i)?.[1] ?? null;
+              return {
+                feedId: feed.id,
+                guid: item.guid,
+                url: normalizedArticleUrl(item.url),
+                title: item.title.trim() || '(untitled)',
+                author: item.author?.trim() || null,
+                summaryHtml,
+                contentHtml,
+                imageUrl,
+                enclosureUrl: item.enclosureUrl ?? null,
+                enclosureType: item.enclosureType ?? null,
+                publishedAt: item.publishedAt,
+                hash,
+              };
+            },
+          };
+        }),
+      ),
     );
     await this.processInserted(feed, insertedIds);
     return insertedIds.length;
