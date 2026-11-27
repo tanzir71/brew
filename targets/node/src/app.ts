@@ -171,10 +171,12 @@ export async function createApp(
           ),
   });
   mountApi(app, api);
-  const brewRuns = new Set<Promise<number>>();
+  const brewRuns = new Set<Promise<unknown>>();
   const brewTimer = options.startPoller
     ? setInterval(() => {
-        newsletters.prune();
+        const pruning = newsletters.prune();
+        brewRuns.add(pruning);
+        void pruning.catch((error) => app.log.error(error)).finally(() => brewRuns.delete(pruning));
         brewService.runScheduled();
         const pending = brewService.runCompositionScheduled();
         brewRuns.add(pending);
@@ -182,7 +184,7 @@ export async function createApp(
       }, 60_000)
     : null;
   if (options.startPoller) {
-    newsletters.prune();
+    await newsletters.prune();
     poller.start();
     imap?.start();
   }

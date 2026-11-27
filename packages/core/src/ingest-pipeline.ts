@@ -33,7 +33,7 @@ export class IngestPipeline {
     feed: { id: number; retentionDays: number },
     incoming: ParsedArticle[],
   ): Promise<number> {
-    const insertedIds = this.storage.insertBatch(
+    const insertedIds = await this.storage.insertBatch(
       incoming.map((item) => {
         const hash = articleHash(this.hash, item.url, item.title);
         return {
@@ -72,19 +72,19 @@ export class IngestPipeline {
     feed: { id: number; retentionDays: number },
     insertedIds: number[],
   ): Promise<void> {
-    if (this.storage.duplicateFilterEnabled()) {
+    if (await this.storage.duplicateFilterEnabled()) {
       const cutoff = this.clock.now().getTime() - 3 * 86_400_000;
       for (const id of insertedIds) {
-        const title = this.storage.title(id);
+        const title = await this.storage.title(id);
         if (
-          this.storage
-            .recentTitles(id, cutoff)
-            .some((candidate) => trigramSimilarity(title, candidate) >= 0.9)
+          (await this.storage.recentTitles(id, cutoff)).some(
+            (candidate) => trigramSimilarity(title, candidate) >= 0.9,
+          )
         )
-          this.storage.hide(id);
+          await this.storage.hide(id);
       }
     }
     if (this.rules) for (const id of insertedIds) await this.rules.evaluateArticle(id);
-    this.storage.prune(feed.id, this.clock.now().getTime() - feed.retentionDays * 86_400_000);
+    await this.storage.prune(feed.id, this.clock.now().getTime() - feed.retentionDays * 86_400_000);
   }
 }

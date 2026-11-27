@@ -69,7 +69,10 @@ default landing page takes effect the next time you open the root URL.
 
 | Tool        | Why        | Get it                     |
 | ----------- | ---------- | -------------------------- |
-| Node.js 20+ | Everything | <https://nodejs.org> (LTS) |
+| Node.js 22+ | Development and builds (including Cloudflare tooling) | <https://nodejs.org> (LTS) |
+
+The compiled Node server still supports Node.js 20+. Cloudflare's development
+toolchain requires Node.js 22 or newer.
 
 ### Development
 
@@ -102,6 +105,10 @@ Environment knobs: `BREW_DB_PATH` points at a different SQLite file; set `NODE_E
 | `npm run build`     | Production build                                  |
 
 ## Project structure
+
+The [Cloudflare target](docs/cloudflare.md) is under implementation. Its D1 and
+R2 storage ports are verified locally; Worker handler integration and deployment
+remain unfinished.
 
 ```
 packages/core/   portable domain services, ports and shared types

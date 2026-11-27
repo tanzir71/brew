@@ -1,0 +1,11 @@
+{
+  "name": "@brew/cloudflare",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@brew/api": "0.1.0",
+    "@brew/core": "0.1.0",
+    "@brew/db": "0.1.0"
+  }
+}

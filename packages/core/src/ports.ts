@@ -150,12 +150,12 @@ export interface IngestCandidate {
   prepare(): StoredArticle;
 }
 export interface IngestStoragePort {
-  insertBatch(items: IngestCandidate[]): number[];
-  duplicateFilterEnabled(): boolean;
-  title(id: number): string;
-  recentTitles(excludeId: number, since: number): string[];
-  hide(id: number): void;
-  prune(feedId: number, before: number): void;
+  insertBatch(items: IngestCandidate[]): number[] | Promise<number[]>;
+  duplicateFilterEnabled(): boolean | Promise<boolean>;
+  title(id: number): string | Promise<string>;
+  recentTitles(excludeId: number, since: number): string[] | Promise<string[]>;
+  hide(id: number): void | Promise<void>;
+  prune(feedId: number, before: number): void | Promise<void>;
 }
 export type SearchScope = 'all' | 'folder' | 'starred';
 export interface SearchOptions {

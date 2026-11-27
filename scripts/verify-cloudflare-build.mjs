@@ -1,0 +1,67 @@
+import assert from 'node:assert/strict';
+import { readdir, readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import process from 'node:process';
+import { URL } from 'node:url';
+import { Miniflare } from 'miniflare';
+import { unstable_splitSqlQuery } from 'wrangler';
+import { CloudflareStorage } from '../dist/targets/cloudflare/src/storage.js';
+import { CloudflareNewsletterStorage } from '../dist/targets/cloudflare/src/newsletter-storage.js';
+import { R2ImageCache } from '../dist/targets/cloudflare/src/image-cache.js';
+import { NewsletterPipeline } from '../dist/packages/core/src/newsletter-pipeline.js';
+import { proxyImage } from '../dist/packages/api/src/image-proxy.js';
+
+const originalDirectory = process.cwd();
+process.chdir(tmpdir());
+const runtime = new Miniflare({
+  modules: true,
+  script: 'export default { fetch() { return new Response("compiled port verification"); } };',
+  compatibilityDate: '2026-07-01',
+  d1Databases: ['DB'],
+  r2Buckets: ['IMAGES'],
+});
+try {
+  const database = await runtime.getD1Database('DB');
+  const directory = new URL('../dist/packages/db/migrations/', import.meta.url);
+  for (const file of (await readdir(directory)).filter((file) => file.endsWith('.sql')).sort()) {
+    const sql = await readFile(new URL(file, directory), 'utf8');
+    await database.batch(unstable_splitSqlQuery(sql).map((query) => database.prepare(query)));
+  }
+  const storage = new CloudflareStorage(database);
+  const pipeline = new NewsletterPipeline(
+    new CloudflareNewsletterStorage(storage),
+    { sha1: (value) => createHash('sha1').update(value).digest('hex') },
+    { now: () => new Date(), monotonic: () => globalThis.performance.now() },
+  );
+  const result = await pipeline.ingest(
+    'From: Publisher <publisher@example.test>\r\nSubject: Compiled D1 letter\r\nMessage-ID: <compiled-d1@example.test>\r\nContent-Type: text/html\r\n\r\n<p>Compiled migration proof.</p><script>unsafe()</script>',
+  );
+  assert.equal(result.outcome, 'inserted');
+  assert.equal(
+    (await storage.first('SELECT content_html FROM articles WHERE id=?', [result.articleId]))
+      .content_html,
+    '<p>Compiled migration proof.</p>',
+  );
+  const cache = new R2ImageCache(await runtime.getR2Bucket('IMAGES'));
+  const url = new URL('https://images.example.test/compiled.png');
+  let requests = 0;
+  const fetcher = async () => {
+    requests++;
+    return new globalThis.Response(new Uint8Array([137, 80, 78, 71]), {
+      headers: { 'content-type': 'image/png' },
+    });
+  };
+  await (await proxyImage(url, fetcher, cache)).arrayBuffer();
+  assert.deepEqual(
+    new Uint8Array(await (await proxyImage(url, fetcher, cache)).arrayBuffer()),
+    new Uint8Array([137, 80, 78, 71]),
+  );
+  assert.equal(requests, 1);
+  process.stdout.write(
+    'Built Cloudflare ports: shared D1 migrations, real MIME cleaning/storage and private R2 image caching passed outside the repository cwd. Worker handler integration remains pending.\n',
+  );
+} finally {
+  await runtime.dispose();
+  process.chdir(originalDirectory);
+}

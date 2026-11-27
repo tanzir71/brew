@@ -18,10 +18,14 @@ export interface NewsletterArticle extends StoredArticle {
 }
 
 export interface NewsletterStoragePort extends IngestStoragePort {
-  ensureSender(sender: { address: string; name: string }): NewsletterFeed;
-  retentionFeeds(): Array<{ id: number; retentionDays: number }>;
+  ensureSender(sender: { address: string; name: string }): NewsletterFeed | Promise<NewsletterFeed>;
+  retentionFeeds():
+    | Array<{ id: number; retentionDays: number }>
+    | Promise<Array<{ id: number; retentionDays: number }>>;
   /** Atomic sender-scoped deduplication and insertion; empty URL becomes /a/:articleId. */
-  insertLetter(article: NewsletterArticle): { id: number; inserted: boolean };
+  insertLetter(
+    article: NewsletterArticle,
+  ): { id: number; inserted: boolean } | Promise<{ id: number; inserted: boolean }>;
 }
 
 export class NewsletterPipeline {
@@ -40,18 +44,24 @@ export class NewsletterPipeline {
   }
 
   /** Hosts call this periodically, including for blocked or inactive senders. */
-  prune(): void {
+  async prune(): Promise<void> {
     const at = this.clock.now().getTime();
-    for (const feed of this.storage.retentionFeeds())
-      this.storage.prune(feed.id, at - feed.retentionDays * 86_400_000);
+    for (const feed of await this.storage.retentionFeeds())
+      await this.storage.prune(feed.id, at - feed.retentionDays * 86_400_000);
   }
 
   async ingestMessage(message: NewsletterMessage): Promise<NewsletterIngestResult> {
     const address = normalizeNewsletterSender(message.from.address);
     validateNewsletterBody(message);
-    const feed = this.storage.ensureSender({ address, name: message.from.name?.trim() || address });
+    const feed = await this.storage.ensureSender({
+      address,
+      name: message.from.name?.trim() || address,
+    });
     if (feed.settings.blocked) {
-      this.storage.prune(feed.id, this.clock.now().getTime() - feed.retentionDays * 86_400_000);
+      await this.storage.prune(
+        feed.id,
+        this.clock.now().getTime() - feed.retentionDays * 86_400_000,
+      );
       return { feedId: feed.id, articleId: null, outcome: 'blocked' };
     }
     const rawHtml = message.html || newsletterTextHtml(message.text ?? '');
@@ -72,7 +82,7 @@ export class NewsletterPipeline {
       Number.isFinite(date.getTime()) && date.getTime() <= receivedAt.getTime() + 86_400_000
         ? date
         : receivedAt;
-    const inserted = this.storage.insertLetter({
+    const inserted = await this.storage.insertLetter({
       feedId: feed.id,
       guid,
       hash: this.hash.sha1(`${address}\n${guid}`),

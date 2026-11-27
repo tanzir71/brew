@@ -15,6 +15,7 @@
     "server/**/*.ts",
     "shared/**/*.ts",
     "targets/node/src/**/*.ts",
+    "targets/cloudflare/src/**/*.ts",
     "packages/core/src/**/*.ts",
     "packages/db/src/**/*.ts",
     "packages/api/src/**/*.ts"
