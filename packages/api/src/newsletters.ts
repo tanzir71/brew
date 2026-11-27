@@ -10,7 +10,7 @@ import {
 import { body, json } from './http.js';
 
 export const originalNewsletterPolicy = `sandbox; ${originalNewsletterContentPolicy}; frame-ancestors 'self'`;
-export function registerNewsletterRoutes(app: Hono, services: ApiServices) {
+export function registerNewsletterRoutes(app: Hono, services: Pick<ApiServices, 'newsletters'>) {
   app.use('/api/newsletters/*', async (c, next) => {
     c.header('Cache-Control', 'no-store');
     await next();

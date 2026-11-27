@@ -4,8 +4,40 @@ import {
   type NewsletterSettings,
   type NewsletterSettingsPatch,
 } from './types/newsletters.js';
-import type { BrewSection } from './types/brew.js';
-import { newBrewSection } from './composition-model.js';
+import type { BrewSection, BrewConfig } from './types/brew.js';
+import { newBrewSection, validateComposition } from './composition-model.js';
+
+export function newsletterRoutingChanges(
+  senderId: number,
+  previous: BrewConfig | null,
+  target: BrewConfig | null,
+  nextId?: number,
+): BrewConfig[] {
+  if (nextId && !target) throw new Error('That Brew no longer exists.');
+  const changes: BrewConfig[] = [];
+  if (previous) {
+    const sections = newsletterBrewSections(previous.sections, senderId, false);
+    if (JSON.stringify(sections) !== JSON.stringify(previous.sections)) {
+      const updated = { ...previous, sections };
+      validateComposition(updated);
+      changes.push(updated);
+    }
+  }
+  if (
+    target &&
+    !target.sections.some((section) =>
+      section.sources.some((source) => source.kind === 'feed' && source.id === senderId),
+    )
+  ) {
+    const updated = {
+      ...target,
+      sections: newsletterBrewSections(target.sections, senderId, true),
+    };
+    validateComposition(updated);
+    changes.push(updated);
+  }
+  return changes;
+}
 
 export const newsletterManagedSectionId = 'brew:newsletter-senders';
 export function newsletterBrewSections(

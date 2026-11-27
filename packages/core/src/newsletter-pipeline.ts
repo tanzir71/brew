@@ -16,6 +16,8 @@ export interface NewsletterArticle extends StoredArticle {
   rawHtml: string;
   cleaningJson: string;
 }
+export type NewsletterInsertResult =
+  { id: number; inserted: boolean; blocked?: false } | { id: null; inserted: false; blocked: true };
 
 export interface NewsletterStoragePort extends IngestStoragePort {
   ensureSender(sender: { address: string; name: string }): NewsletterFeed | Promise<NewsletterFeed>;
@@ -25,7 +27,7 @@ export interface NewsletterStoragePort extends IngestStoragePort {
   /** Atomic sender-scoped deduplication and insertion; empty URL becomes /a/:articleId. */
   insertLetter(
     article: NewsletterArticle,
-  ): { id: number; inserted: boolean } | Promise<{ id: number; inserted: boolean }>;
+  ): NewsletterInsertResult | Promise<NewsletterInsertResult>;
 }
 
 export class NewsletterPipeline {
@@ -98,6 +100,10 @@ export class NewsletterPipeline {
       rawHtml,
       cleaningJson: JSON.stringify(cleaned.cleaning),
     });
+    if (inserted.blocked) {
+      await this.articles.processInserted(feed, []);
+      return { feedId: feed.id, articleId: null, outcome: 'blocked' };
+    }
     await this.articles.processInserted(feed, inserted.inserted ? [inserted.id] : []);
     return {
       feedId: feed.id,

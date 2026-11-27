@@ -140,6 +140,29 @@ missing setup is an explicit error. A timer around synchronous regex cannot supp
 that guarantee, and local Wrangler does not enforce deployment CPU limits. See
 [Wrangler resource limits](https://developers.cloudflare.com/workers/wrangler/configuration/#limits).
 
+## Newsletter library and private page twins
+
+The newsletter library now uses shared sender/count/paging selectors and preview
+planning with Node. Its D1 adapter serves cleaned letters, retained originals and
+sender preferences behind the existing routes. Exact preview revision hashes use
+the same canonical input and SHA-256, with native Web Crypto on the Worker.
+
+Preference writes compare the sender, affected Brew rows and retention candidates
+against one read snapshot. An atomic batch updates routing, preferences and
+retention together; a conflicting concurrent write retries against fresh data.
+Failed batches leave no routing, pruning or temporary marker behind. Concurrent
+independent sender edits merge, and two senders assigned to the same Brew retain
+both source selections. Insertion also rechecks blocking atomically in both Node
+and D1, so a block committed while mail is being processed prevents it being stored.
+
+The graph registers the shared private page twins for letters, feeds, Rules,
+Compose and other saved pages. They preserve existing privacy headers and never
+include newsletter originals or mark letters read. Nine additional workerd cases
+compare Node views, counts, complete paging, sanitized/inert content, exact revision
+hashes and private outputs; exercise routing/concurrent edits/rollback/retention;
+and drive native email into the actual newsletter API and twins. A D1 race check
+protects a letter starred by another invocation before retention commits.
+
 ## Local verification
 
 Use Node.js 22 or newer for the official Cloudflare development tools. No remote
@@ -150,6 +173,7 @@ npm test -- targets/cloudflare/storage.test.ts
 npm test -- targets/cloudflare/reader-api.test.ts
 npm test -- targets/cloudflare/brew-api.test.ts
 npm test -- targets/cloudflare/library-api.test.ts
+npm test -- targets/cloudflare/newsletter-api.test.ts
 npm run typecheck
 npm run build
 ```
@@ -170,7 +194,7 @@ MIME execution inside the product Worker remains part of the remaining handler
 integration.
 
 Still required: product Worker fetch/scheduled/email handlers, the remaining
-agent/Reader-sync/newsletter/OPML API adapters and saved-page twins, an interruptible regex
+agent/Reader-sync/OPML API adapters, an interruptible regex
 executor, bounded polling, Email Routing/outbound mail, owner authentication, and
 the Cloudflare installer/deploy flow. These checks do not claim a working deployed
 Worker or completion of M14.

@@ -53,7 +53,19 @@ const missing = (message: string): never => {
   throw new PageInputError(message, 404);
 };
 
-async function document(services: ApiServices, url: URL, caps: Capabilities) {
+type PageServices = Pick<
+  ApiServices,
+  | 'outputBaseUrl'
+  | 'brews'
+  | 'rules'
+  | 'data'
+  | 'feeds'
+  | 'readerSync'
+  | 'agentAccess'
+  | 'newsletters'
+  | 'capabilities'
+>;
+async function document(services: PageServices, url: URL, caps: Capabilities) {
   const path = url.pathname.replace(/\.(md|json)$/, '');
   const params = url.searchParams;
   const base = services.outputBaseUrl ?? url.origin;
@@ -549,7 +561,7 @@ async function document(services: ApiServices, url: URL, caps: Capabilities) {
   }
   return missing('Page not found.');
 }
-export function registerPageOutputRoutes(app: Hono, services: ApiServices) {
+export function registerPageOutputRoutes(app: Hono, services: PageServices) {
   const roots = [
     '/index',
     '/reader',

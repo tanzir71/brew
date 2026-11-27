@@ -7,6 +7,7 @@ import {
 import type {
   NewsletterArticle,
   NewsletterStoragePort,
+  NewsletterInsertResult,
 } from '../../../../packages/core/src/newsletter-pipeline.js';
 import { feeds } from '../db/schema.js';
 import { NodeIngestStorage } from './ingest-storage.js';
@@ -45,8 +46,14 @@ export class NodeNewsletterStorage extends NodeIngestStorage implements Newslett
     })();
   }
 
-  insertLetter(article: NewsletterArticle): { id: number; inserted: boolean } {
+  insertLetter(article: NewsletterArticle): NewsletterInsertResult {
     return this.database.sqlite.transaction(() => {
+      const sender = this.database.sqlite
+        .prepare(
+          "SELECT coalesce(json_extract(settings_json,'$.blocked'),0) AS blocked FROM feeds WHERE id=?",
+        )
+        .get(article.feedId) as { blocked: number } | undefined;
+      if (sender?.blocked) return { id: null, inserted: false as const, blocked: true as const };
       const duplicate = this.database.sqlite
         .prepare('SELECT id FROM articles WHERE feed_id = ? AND (guid = ? OR hash = ?)')
         .get(article.feedId, article.guid, article.hash) as { id: number } | undefined;

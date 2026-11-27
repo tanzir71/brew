@@ -174,8 +174,41 @@ try {
     ).n,
     1,
   );
+  const overview = await reader.request('https://build.example.test/api/newsletters/overview');
+  assert.equal(overview.status, 200);
+  assert.equal((await overview.json()).senders[0].letterCount, 2);
+  const letter = await reader.request(
+    `https://build.example.test/api/newsletters/letters/${imported.articleId}`,
+  );
+  assert.equal(letter.status, 200);
+  assert.equal((await letter.json()).sender.id, imported.feedId);
+  const review = await reader.request(
+    `https://build.example.test/api/newsletters/senders/${imported.feedId}/preview`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ favorite: true }),
+    },
+  );
+  assert.equal(review.status, 200);
+  assert.match((await review.json()).revision, /^[a-f0-9]{64}$/);
+  const preferences = await reader.request(
+    `https://build.example.test/api/newsletters/senders/${imported.feedId}`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ favorite: true }),
+    },
+  );
+  assert.equal(preferences.status, 200);
+  assert.equal((await preferences.json()).settings.favorite, true);
+  const twin = await reader.request(
+    `https://build.example.test/letters/${imported.feedId}/${imported.articleId}.json`,
+  );
+  assert.equal(twin.status, 200);
+  assert.equal(twin.headers.get('cache-control'), 'private, no-store');
   process.stdout.write(
-    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, compiled Reader/Brew/rules/source HTTP, frozen caches and async Web Crypto ingestion with real rule execution passed outside the repository cwd. Full Worker handler integration remains pending.\n',
+    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion and atomic sender preferences passed outside the repository cwd. Full Worker handler integration remains pending.\n',
   );
 } finally {
   await runtime.dispose();

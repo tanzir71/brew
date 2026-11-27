@@ -10,6 +10,21 @@ import type { SqlQuery } from './reader-queries.js';
 export type BrewConfigRow = Omit<typeof brewConfigs.$inferSelect, 'createdAt'> & {
   createdAt: number | Date;
 };
+export function brewConfigFromRaw(row: Record<string, unknown>): BrewConfigRow {
+  return {
+    id: Number(row.id),
+    name: String(row.name),
+    enabled: !!row.enabled,
+    scheduleCron: String(row.schedule_cron),
+    sectionsJson: String(row.sections_json),
+    timezone: String(row.timezone),
+    scheduleJson: String(row.schedule_json),
+    deliveryJson: String(row.delivery_json),
+    legacySectionsJson: row.legacy_sections_json === null ? null : String(row.legacy_sections_json),
+    compositionVersion: Number(row.composition_version),
+    createdAt: Number(row.created_at),
+  };
+}
 export function legacyBrewConfig(row: BrewConfigRow): BrewConfig {
   return {
     id: row.id,

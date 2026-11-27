@@ -5,6 +5,7 @@ import {
 import type {
   NewsletterArticle,
   NewsletterStoragePort,
+  NewsletterInsertResult,
 } from '../../../packages/core/src/newsletter-pipeline.js';
 import { CloudflareIngestStorage } from './ingest-storage.js';
 
@@ -46,12 +47,13 @@ export class CloudflareNewsletterStorage
       } as NewsletterSettings,
     };
   }
-  async insertLetter(item: NewsletterArticle) {
+  async insertLetter(item: NewsletterArticle): Promise<NewsletterInsertResult> {
     const results = await this.storage.batch([
       this.storage.statement(
         `INSERT INTO articles(feed_id,guid,url,title,author,content_html,image_url,published_at,hash,raw_html,cleaning_json)
          SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS
-         (SELECT 1 FROM articles WHERE feed_id=? AND (guid=? OR hash=?)) RETURNING id`,
+         (SELECT 1 FROM articles WHERE feed_id=? AND (guid=? OR hash=?))
+         AND coalesce((SELECT json_extract(settings_json,'$.blocked') FROM feeds WHERE id=?),0)<>1 RETURNING id`,
         [
           item.feedId,
           item.guid,
@@ -67,17 +69,23 @@ export class CloudflareNewsletterStorage
           item.feedId,
           item.guid,
           item.hash,
+          item.feedId,
         ],
       ),
       this.storage.statement(
-        "UPDATE articles SET url='/a/'||id WHERE feed_id=? AND (guid=? OR hash=?) AND url=''",
-        [item.feedId, item.guid, item.hash],
+        "UPDATE articles SET url='/a/'||id WHERE feed_id=? AND (guid=? OR hash=?) AND url='' AND coalesce((SELECT json_extract(settings_json,'$.blocked') FROM feeds WHERE id=?),0)<>1",
+        [item.feedId, item.guid, item.hash, item.feedId],
       ),
       this.storage.statement(
         'SELECT id FROM articles WHERE feed_id=? AND (guid=? OR hash=?) ORDER BY id LIMIT 1',
         [item.feedId, item.guid, item.hash],
       ),
+      this.storage.statement(
+        "SELECT coalesce(json_extract(settings_json,'$.blocked'),0) AS blocked FROM feeds WHERE id=?",
+        [item.feedId],
+      ),
     ]);
+    if (results[3]!.results[0]?.blocked) return { id: null, inserted: false, blocked: true };
     const row = results[2]!.results[0] as { id: number } | undefined;
     if (!row) throw new Error('Could not store newsletter');
     return { id: row.id, inserted: results[0]!.results.length === 1 };

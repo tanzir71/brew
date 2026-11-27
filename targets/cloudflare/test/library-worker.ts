@@ -4,7 +4,10 @@ import type { Capabilities } from '../../../packages/core/src/types/capabilities
 import type { ParsedArticle } from '../../../packages/core/src/feed-parser.js';
 import { NewsletterInputError } from '../../../packages/core/src/newsletter-mime.js';
 import { cloudflareLibraryServices, createCloudflareLibraryApi } from '../src/library-api.js';
-import { cloudflareIngestion, readNewsletterStream } from '../src/ingestion.js';
+import { cloudflareIngestion, readNewsletterStream, cloudflareHash } from '../src/ingestion.js';
+import { NewsletterPipeline } from '../../../packages/core/src/newsletter-pipeline.js';
+import { CloudflareNewsletterStorage } from '../src/newsletter-storage.js';
+import { CloudflareStorage } from '../src/storage.js';
 
 const clock = { now: () => new Date('2026-11-27T12:00:00Z'), monotonic: () => performance.now() };
 const capabilities: Capabilities = {
@@ -37,6 +40,22 @@ function services(env: ReaderTestEnv) {
 export default {
   async fetch(request: Request, env: ReaderTestEnv) {
     const library = services(env);
+    if (new URL(request.url).pathname === '/__review/newsletter-block-race') {
+      const pipeline = new NewsletterPipeline(
+        new CloudflareNewsletterStorage(new CloudflareStorage(env.DB)),
+        {
+          sha1: async (value) => {
+            await library.newsletters.updateSender(Number(request.headers.get('x-review-sender')), {
+              blocked: true,
+            });
+            return cloudflareHash.sha1(value);
+          },
+        },
+        clock,
+        library.rules,
+      );
+      return Response.json(await pipeline.ingest(await readNewsletterStream(request.body!)));
+    }
     if (new URL(request.url).pathname === '/__review/newsletter') {
       return Response.json(
         await cloudflareIngestion(env.DB, clock, library.rules).newsletters.ingest(
