@@ -22,6 +22,7 @@ const server = createTestHarness({
         main: fileURLToPath(new URL('./test/agent-worker.ts', import.meta.url)),
         compatibility_date: '2026-07-01',
         compatibility_flags: ['nodejs_compat'],
+        rules: [{ type: 'CompiledWasm', globs: ['**/*.wasm', '**/wasm'], fallthrough: true }],
         workers_dev: false,
         d1_databases: [
           {
@@ -175,7 +176,7 @@ const rule = {
   enabled: true,
   matchType: 'all',
   scope: {},
-  conditions: [],
+  conditions: [{ field: 'title', operator: 'matches_regex', value: '(?<=Private )story \\d+' }],
   actions: [{ type: 'star' }],
   stopProcessing: false,
 };

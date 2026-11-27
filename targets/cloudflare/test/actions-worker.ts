@@ -1,9 +1,11 @@
+import { cloudflareRegex } from '../src/regex-worker.js';
 import type { ReaderTestEnv } from './reader-worker.js';
 import { cloudflareLibraryServices, createCloudflareLibraryApi } from '../src/library-api.js';
 export default {
   async fetch(request: Request, env: ReaderTestEnv) {
     const at = Number(request.headers.get('x-review-now') ?? Date.parse('2026-11-27T12:00:00Z'));
     const services = cloudflareLibraryServices(env, {
+      regex: cloudflareRegex,
       clock: { now: () => new Date(at), monotonic: () => performance.now() },
       outputBaseUrl: 'https://brew.example.test',
       fetcher: (input, init) => env.UPSTREAM.fetch(input, init),

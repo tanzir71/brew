@@ -31,6 +31,7 @@ const server = createTestHarness({
         main: fileURLToPath(new URL('./test/library-worker.ts', import.meta.url)),
         compatibility_date: '2026-07-01',
         compatibility_flags: ['nodejs_compat'],
+        rules: [{ type: 'CompiledWasm', globs: ['**/*.wasm', '**/wasm'], fallthrough: true }],
         workers_dev: false,
         d1_databases: [
           {

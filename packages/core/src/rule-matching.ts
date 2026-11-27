@@ -29,6 +29,7 @@ export async function matchingContexts<T extends ArticleContext>(
   rows: T[],
   filter: { match: 'all' | 'any'; conditions: RuleCondition[] } | undefined,
   regex: RegexPort,
+  onRegexFailure: 'throw' | 'exclude' = 'throw',
 ): Promise<T[]> {
   if (!filter?.conditions.length) return rows;
   const matches = rows.map(() => filter.match === 'all');
@@ -40,9 +41,18 @@ export async function matchingContexts<T extends ArticleContext>(
         rows.map((row) => String(row[condition.field] ?? '')),
         500,
       );
-      if (result.error || result.timedOut)
-        throw new Error(result.error ?? 'Regular expression timed out.');
-      values = result.matches;
+      if (result.error || result.timedOut) {
+        if (onRegexFailure === 'throw')
+          throw new Error(result.error ?? 'Regular expression timed out.');
+        // Rule matching historically excludes only the individual failed value.
+        // A failed batch cannot discard benign neighbours or become partial success.
+        values = [];
+        for (const row of rows)
+          values.push(
+            (await safeRegexTest(regex, condition.value, String(row[condition.field] ?? '')))
+              .matched,
+          );
+      } else values = result.matches;
     } else if (condition.operator === 'matches_regex') {
       values = [];
       for (const row of rows) {
@@ -51,7 +61,7 @@ export async function matchingContexts<T extends ArticleContext>(
           condition.value,
           String(row[condition.field] ?? ''),
         );
-        if (result.error || result.timedOut)
+        if ((result.error || result.timedOut) && onRegexFailure === 'throw')
           throw new Error(result.error ?? 'Regular expression timed out.');
         values.push(result.matched);
       }

@@ -15,6 +15,7 @@ import {
 } from '../../packages/core/src/composition-model.js';
 import { renderBrewJson, renderBrewMarkdown } from '../../packages/core/src/brew-outputs.js';
 import { BrewService } from '../../packages/core/src/brew-service.js';
+import { nodeRegex } from '../node/src/ports/runtime.js';
 import { BrewDeliveryRunner } from '../../packages/core/src/brew-delivery.js';
 import { NodeBrewStorage } from '../node/src/ports/brew-storage.js';
 import { openDatabase } from '../node/src/db/database.js';
@@ -30,6 +31,7 @@ const server = createTestHarness({
         main: fileURLToPath(new URL('./test/brew-worker.ts', import.meta.url)),
         compatibility_date: '2026-07-01',
         compatibility_flags: ['nodejs_compat'],
+        rules: [{ type: 'CompiledWasm', globs: ['**/*.wasm', '**/wasm'], fallthrough: true }],
         workers_dev: false,
         d1_databases: [
           {
@@ -59,10 +61,14 @@ const worker = server.getWorker<ReaderTestEnv>('brew-composition-test');
 let env: ReaderTestEnv;
 const database = openDatabase(':memory:');
 const nodeStorage = new NodeBrewStorage(database);
-const node = new BrewService(nodeStorage, {
-  now: () => new Date(now),
-  monotonic: () => performance.now(),
-});
+const node = new BrewService(
+  nodeStorage,
+  {
+    now: () => new Date(now),
+    monotonic: () => performance.now(),
+  },
+  nodeRegex,
+);
 const draft = (): BrewConfigDraft => ({
   name: 'Weekend',
   enabled: false,
@@ -183,11 +189,9 @@ it('previews through shared workerd routes with Node-identical source/filter/out
     match: 'all',
     conditions: [{ field: 'title', operator: 'matches_regex', value: 'design' }],
   };
-  const unavailable = await request(`/api/brew-configs/${saved.id}/preview`, 'POST', {
-    draft: selected,
-  });
-  expect(unavailable.status).toBe(422);
-  expect(await unavailable.text()).toContain('Regex is unavailable');
+  expect(await json(`/api/brew-configs/${saved.id}/preview`, 'POST', { draft: selected })).toEqual(
+    await node.previewBrew(expected.id, undefined, selected),
+  );
   expect(await state()).toEqual(before);
 });
 

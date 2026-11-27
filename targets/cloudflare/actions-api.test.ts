@@ -28,6 +28,7 @@ const server = createTestHarness({
         main: fileURLToPath(new URL('./test/actions-worker.ts', import.meta.url)),
         compatibility_date: '2026-07-01',
         compatibility_flags: ['nodejs_compat'],
+        rules: [{ type: 'CompiledWasm', globs: ['**/*.wasm', '**/wasm'], fallthrough: true }],
         workers_dev: false,
         d1_databases: [
           {
@@ -63,7 +64,7 @@ const draft = {
   name: 'Triage',
   enabled: true,
   scope: {},
-  conditions: [{ field: 'title' as const, operator: 'contains' as const, value: 'Story' }],
+  conditions: [{ field: 'title' as const, operator: 'matches_regex' as const, value: '^Story\\s' }],
   matchType: 'all' as const,
   actions: [{ type: 'star' as const }],
   stopProcessing: false,

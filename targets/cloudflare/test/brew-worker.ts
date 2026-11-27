@@ -1,3 +1,4 @@
+import { cloudflareRegex } from '../src/regex-worker.js';
 import type { ScheduledController } from '@cloudflare/workers-types';
 import type { ReaderTestEnv } from './reader-worker.js';
 import type { Capabilities } from '../../../packages/core/src/types/capabilities.js';
@@ -26,6 +27,7 @@ const capabilities: Capabilities = {
 function services(env: ReaderTestEnv, now: number) {
   return cloudflareBrewServices(env, {
     clock: { now: () => new Date(now), monotonic: () => performance.now() },
+    regex: cloudflareRegex,
     capabilities: () => capabilities,
     fetcher: (input, init) => env.UPSTREAM.fetch(input, init),
     outputBaseUrl: 'https://brew.example.test',

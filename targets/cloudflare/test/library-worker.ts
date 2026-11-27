@@ -1,3 +1,4 @@
+import { cloudflareRegex } from '../src/regex-worker.js';
 import type { ForwardableEmailMessage } from '@cloudflare/workers-types';
 import type { ReaderTestEnv } from './reader-worker.js';
 import type { Capabilities } from '../../../packages/core/src/types/capabilities.js';
@@ -28,6 +29,7 @@ const capabilities: Capabilities = {
 };
 function services(env: ReaderTestEnv) {
   return cloudflareLibraryServices(env, {
+    regex: cloudflareRegex,
     capabilities: () => capabilities,
     clock,
     fetcher: (input, init) => env.UPSTREAM.fetch(input, init),

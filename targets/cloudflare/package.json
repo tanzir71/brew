@@ -7,6 +7,11 @@
     "@brew/api": "0.1.0",
     "@brew/core": "0.1.0",
     "@brew/db": "0.1.0",
+    "@jitl/quickjs-wasmfile-release-sync": "0.32.0",
+    "quickjs-emscripten-core": "0.32.0",
     "rss-parser": "latest"
+  },
+  "devDependencies": {
+    "@jitl/quickjs-ffi-types": "0.32.0"
   }
 }

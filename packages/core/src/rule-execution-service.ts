@@ -17,7 +17,7 @@ import type {
   AsyncRuleStoragePort,
   RuleCandidate,
 } from './ports.js';
-import { matchCondition } from './rule-matching.js';
+import { matchCondition, matchingContexts } from './rule-matching.js';
 
 export class RuleExecutionService {
   constructor(
@@ -27,17 +27,44 @@ export class RuleExecutionService {
     private readonly notifications: NotificationPort,
     private readonly clock: ClockPort,
   ) {}
-  private async *candidates(options: {
+  private async *candidateBatches(options: {
     since?: number;
     visibleOnly?: boolean;
-  }): AsyncGenerator<RuleCandidate> {
+  }): AsyncGenerator<RuleCandidate[]> {
     const ids = await this.storage.articleIds(options);
     for (let offset = 0; offset < ids.length; offset += 40) {
       const batch = ids.slice(offset, offset + 40);
       const rows = new Map((await this.storage.contexts(batch)).map((row) => [row.id, row]));
-      for (const id of batch) {
-        const row = rows.get(id);
-        if (row) yield row;
+      yield batch.flatMap((id) => (rows.has(id) ? [rows.get(id)!] : []));
+    }
+  }
+  private async *candidates(options: { since?: number; visibleOnly?: boolean }) {
+    for await (const rows of this.candidateBatches(options)) yield* rows;
+  }
+  private async *previewMatches(
+    draft: Pick<RuleDraft, 'scope' | 'matchType' | 'conditions'>,
+    limit = Infinity,
+  ) {
+    let count = 0;
+    for await (const rows of this.candidateBatches({ visibleOnly: true })) {
+      const scoped = rows.filter((row) => this.inScope(row, draft.scope));
+      for (let offset = 0; offset < scoped.length;) {
+        // Do not evaluate beyond the prefix a bounded preview still needs.
+        const size = Math.min(scoped.length - offset, limit - count);
+        const matches = await matchingContexts(
+          scoped.slice(offset, offset + size),
+          {
+            match: draft.matchType,
+            conditions: draft.conditions,
+          },
+          this.regex,
+          'exclude',
+        );
+        offset += size;
+        for (const row of matches) {
+          yield row;
+          if (++count === limit) return;
+        }
       }
     }
   }
@@ -193,13 +220,8 @@ export class RuleExecutionService {
   ): Promise<RulePreviewItem[]> {
     if (draft.conditions.length > 10) throw new Error('A rule may have at most 10 conditions');
     const matches: RulePreviewItem[] = [];
-    for await (const context of this.candidates({ visibleOnly: true })) {
+    for await (const context of this.previewMatches(draft, 50)) {
       const id = context.id;
-      if (
-        !context ||
-        !(await this.definitionMatches(context, draft.scope, draft.matchType, draft.conditions))
-      )
-        continue;
       matches.push({
         id,
         title: context.title,
@@ -214,13 +236,8 @@ export class RuleExecutionService {
     if (draft.conditions.length > 10) throw new Error('A rule may have at most 10 conditions');
     const items: RulePreviewItem[] = [];
     let total = 0;
-    for await (const context of this.candidates({ visibleOnly: true })) {
+    for await (const context of this.previewMatches(draft)) {
       const id = context.id;
-      if (
-        !context ||
-        !(await this.definitionMatches(context, draft.scope, draft.matchType, draft.conditions))
-      )
-        continue;
       total++;
       if (items.length < 50)
         items.push({

@@ -32,6 +32,7 @@ const server = createTestHarness({
         main: fileURLToPath(new URL('./test/library-worker.ts', import.meta.url)),
         compatibility_date: '2026-07-01',
         compatibility_flags: ['nodejs_compat'],
+        rules: [{ type: 'CompiledWasm', globs: ['**/*.wasm', '**/wasm'], fallthrough: true }],
         workers_dev: false,
         d1_databases: [
           {
@@ -287,12 +288,10 @@ it('previews all visible matches across context batches without writes or silent
     ...input,
     scope: { folderIds: [1] },
   });
-  const unavailable = await request('/api/rules/preview', 'POST', {
+  await both('/api/rules/preview?includeTotal=true', 'POST', {
     ...input,
     conditions: [{ field: 'title', operator: 'matches_regex', value: 'Design' }],
   });
-  expect(unavailable.status).toBe(400);
-  expect(await unavailable.text()).toContain('execution needs setup');
   expect(await state()).toEqual(before);
 });
 
@@ -434,7 +433,7 @@ it('uses actual Worker Web Crypto and shared ingest to sanitize, deduplicate and
   await disableRules();
   const first = await rule({
     ...draft('Imported first'),
-    conditions: [{ field: 'title', operator: 'starts_with', value: 'Imported' }],
+    conditions: [{ field: 'title', operator: 'matches_regex', value: '^Imported(?= )' }],
     stopProcessing: true,
   });
   await rule({ ...draft('Imported lower'), conditions: [], actions: [{ type: 'hide' }] });

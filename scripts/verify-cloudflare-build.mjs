@@ -7,6 +7,9 @@ import process from 'node:process';
 import { URL } from 'node:url';
 import { Miniflare } from 'miniflare';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import quickJsVariant from '@jitl/quickjs-wasmfile-release-sync';
+import { newQuickJSWASMModuleFromVariant, newVariant } from 'quickjs-emscripten-core';
+import { CloudflareRegex, regexWasmMemory } from '../dist/targets/cloudflare/src/regex.js';
 import { unstable_splitSqlQuery } from 'wrangler';
 import { CloudflareStorage } from '../dist/targets/cloudflare/src/storage.js';
 import { CloudflareNewsletterStorage } from '../dist/targets/cloudflare/src/newsletter-storage.js';
@@ -31,6 +34,25 @@ const runtime = new Miniflare({
   r2Buckets: ['IMAGES'],
 });
 try {
+  const engine = await newQuickJSWASMModuleFromVariant(
+    newVariant(quickJsVariant, {
+      wasmMemory: regexWasmMemory(),
+    }),
+  );
+  const regex = new CloudflareRegex(
+    async () => engine,
+    () => 0,
+  );
+  assert.deepEqual(await regex.test('(?<=Brew )(?<word>read)\\k<word>', 'Brew READread'), {
+    matched: true,
+    timedOut: false,
+  });
+  assert.deepEqual(await regex.test('^(a+)+$', 'a'.repeat(100000) + '!', 20), {
+    matched: false,
+    timedOut: true,
+    error: 'Regular expression timed out.',
+  });
+  assert.deepEqual(await regex.test('ready', 'READY'), { matched: true, timedOut: false });
   const database = await runtime.getD1Database('DB');
   const directory = new URL('../dist/packages/db/migrations/', import.meta.url);
   for (const file of (await readdir(directory)).filter((file) => file.endsWith('.sql')).sort()) {
@@ -70,6 +92,7 @@ try {
   const services = cloudflareLibraryServices(
     { DB: database, IMAGES: await runtime.getR2Bucket('IMAGES') },
     {
+      regex,
       capabilities: () => ({
         mode: 'cloudflare',
         fetch: 'direct',
@@ -151,7 +174,7 @@ try {
       enabled: true,
       scope: {},
       matchType: 'all',
-      conditions: [{ field: 'title', operator: 'contains', value: 'Compiled' }],
+      conditions: [{ field: 'title', operator: 'matches_regex', value: '^Compiled(?= )' }],
       actions: [{ type: 'star' }],
       stopProcessing: false,
     }),
@@ -403,7 +426,7 @@ try {
     await client.close();
   }
   process.stdout.write(
-    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state, journal capture/restore, owner-action preview/commit/replay/Undo and scoped tokens with real MCP write/Undo/revocation passed outside the repository cwd. Full Worker handler integration remains pending.\n',
+    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state, journal capture/restore, owner-action preview/commit/replay/Undo, scoped tokens with real MCP write/Undo/revocation and interruptible WASM regex with frozen-clock fuel/recovery and actual rule ingestion passed outside the repository cwd. Full Worker handler integration remains pending.\n',
   );
 } finally {
   await runtime.dispose();

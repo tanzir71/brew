@@ -103,8 +103,8 @@ webhook behavior, persistent delivery claims, skipped minutes, cache-failure
 rollback, retention, legacy compatibility and newsletter unassignment. Their
 scheduled handler and outbound-mail port belong to the integration fixture; they
 do not establish a product scheduler, Email Routing or a Resend/Email Service
-adapter. A target interruptible regex executor is also still required. Without
-one, regex-filtered previews return the shared explicit unavailable error.
+adapter. Regex-filtered previews use the explicit interruptible executor below;
+omitting that port still returns the shared unavailable error.
 
 ## Rules, sources and native ingestion
 
@@ -135,10 +135,56 @@ Nine library cases compare Node discovery, sources, rule definitions, previews,
 state changes and full history. They verify all actions, live cross-invocation
 notifications, bounded journal/reconnection/deletion behavior, failed asynchronous
 notification and tag writes, rule ordering during actual ingestion, and native
-MIME processing. Regex execution still requires an interruptible target executor;
-missing setup is an explicit error. A timer around synchronous regex cannot supply
-that guarantee, and local Wrangler does not enforce deployment CPU limits. See
+MIME processing. Regex execution now uses the actual WASM executor below. Missing
+setup remains an explicit error. A timer around synchronous host regex cannot supply
+interruption, and local Wrangler does not enforce deployment CPU limits. See
 [Wrangler resource limits](https://developers.cloudflare.com/workers/wrangler/configuration/#limits).
+
+## Interruptible JavaScript regex
+
+`regex-worker.ts` loads the pinned QuickJS 2025-09-13 interpreter as a precompiled
+WASM module. Pass `cloudflareRegex` to the library graph's `regex` option. Wrangler
+needs this rule for the package's exported WASM alias:
+
+```json
+{ "type": "CompiledWasm", "globs": ["**/*.wasm", "**/wasm"], "fallthrough": true }
+```
+
+Patterns and values enter isolated contexts as data handles. The fixed guest
+program constructs JavaScript `RegExp` with Node's `iu` flags; it exposes no host
+functions, application objects, network, storage or module loader. Backreferences,
+named captures, lookbehind, Unicode properties, NUL and lone surrogates are checked
+against the real Node executor. Each operation disposes its handles, context and
+runtime, including after errors. Concurrent requests reuse the compiled module,
+with a fresh runtime and matching state for each operation.
+
+QuickJS polls an interrupt callback during regex backtracking. The executor uses
+both a deadline (at most 500 ms) and finite fuel (512 permitted interrupt/chunk checkpoints,
+scaled down for shorter requested deadlines). Fuel remains effective when deployed
+Worker clocks are frozen during CPU-only work; it is a work bound rather than a
+calibrated millisecond guarantee. See [Cloudflare timers](https://developers.cloudflare.com/workers/runtime-apis/performance/)
+and the [upstream regex polling implementation](https://github.com/justjake/quickjs-emscripten/blob/main/vendor/quickjs/libregexp.c).
+This does not establish compliance with a deployed plan's CPU allowance.
+
+Guest memory is capped at 32 MiB and stack at 256 KiB; imported WASM memory has a
+64 MiB maximum. Compilation is bounded separately to 4000 UTF-16 code units.
+One call accepts at most 50000 values, 4 Mi UTF-16 units per value and 16 Mi units
+in total. Chunking bounds transient allocations without truncating the result.
+Exhaustion returns an explicit redacted error and no partial match array. These
+execution limits can reject otherwise valid patterns or oversized workloads;
+matching never falls back to the host engine or a different regex dialect.
+
+Shared rule previews now batch matching through the existing `testMany` port.
+They preserve scope, order, visibility, complete totals and the first 50 matches.
+A failed batch retries individual values to retain Node's existing policy of
+excluding only a failed value; Compose continues to report a failed batch as an
+error. The Node executor retains its real worker-thread interruption.
+
+Real workerd tests exercise frozen clocks, catastrophic patterns, recovery,
+ordered 50000-value batches, resource refusal, concurrency and Node compatibility.
+The library, Brew, durable-action and MCP fixtures bind this executor through the
+actual services; rule ingestion and dry runs execute it too. These remain explicit
+integration fixtures, while product handler integration is still unfinished.
 
 ## Newsletter library and private page twins
 
@@ -260,8 +306,7 @@ partial failures, cancellation, commit-time token revocation, interrupted recove
 expiry, complete OPML and sender retention/routing Undo. A full 50000-item action
 runs through the actual Worker preview/commit/Undo routes. Controlled elapsed time
 also verifies lease renewal between a sequence of external actions. No existing
-timeout, visual tolerance or performance budget is relaxed. Interruptible regex
-and the product handlers remain open.
+timeout, visual tolerance or performance budget is relaxed. Product handlers remain open.
 
 ## Scoped agents and MCP
 
@@ -307,6 +352,7 @@ npm test -- targets/cloudflare/reader-sync.test.ts
 npm test -- targets/cloudflare/action-journal.test.ts
 npm test -- targets/cloudflare/actions-api.test.ts
 npm test -- targets/cloudflare/agent-api.test.ts
+npm test -- targets/cloudflare/regex.test.ts
 npm run typecheck
 npm run build
 ```
@@ -326,7 +372,7 @@ rules and asynchronous hashing/ingestion outside the repository directory. Inbou
 MIME execution inside the product Worker remains part of the remaining handler
 integration.
 
-Still required: product Worker fetch/scheduled/email handlers, an interruptible regex
-executor, bounded polling, Email Routing/outbound mail, owner authentication, and
+Still required: product Worker fetch/scheduled/email handlers,
+bounded polling, Email Routing/outbound mail, owner authentication, and
 the Cloudflare installer/deploy flow. These checks do not claim a working deployed
 Worker or completion of M14.
