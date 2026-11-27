@@ -1,13 +1,12 @@
 import { McpServer, createMcpHandler } from '@modelcontextprotocol/server';
-import type { ApiServices } from './ports.js';
 import { ActionError } from '../../core/src/actions.js';
 import type { AgentConnection } from '../../core/src/agent-access.js';
-import { brewToolCatalog } from './agent-tools.js';
+import { brewToolCatalog, type AgentToolServices } from './agent-tools.js';
 
 /** One validated service catalog for the Node transports and browser session. */
 export function createBrewMcpServer(
-  services: ApiServices,
-  access: AgentConnection = { write: false },
+  services: AgentToolServices,
+  access: AgentConnection & { signal?: AbortSignal } = { write: false },
 ) {
   const server = new McpServer(
     { name: 'brew', version: '0.1.0' },
@@ -26,12 +25,15 @@ export function createBrewMcpServer(
   return server;
 }
 
-export function createBrewMcpHandler(services: ApiServices, access?: AgentConnection) {
-  return createMcpHandler(({ requestInfo }) => {
+export function createBrewMcpHandler(services: AgentToolServices, access?: AgentConnection) {
+  return createMcpHandler(async ({ requestInfo }) => {
     const connection =
       access ??
-      services.agentAccess?.authenticate(requestInfo?.headers.get('authorization') ?? null);
+      (await services.agentAccess?.authenticate(requestInfo?.headers.get('authorization') ?? null));
     if (services.agentAccess && !connection) throw new ActionError(401, 'Use a valid Brew token.');
-    return createBrewMcpServer(services, connection ?? { write: false });
+    return createBrewMcpServer(services, {
+      ...(connection ?? { write: false }),
+      signal: requestInfo?.signal,
+    });
   });
 }

@@ -61,7 +61,11 @@ export function actionArgumentPlan(request: ActionRequest): {
 export function actionArguments(plan: ReturnType<typeof actionArgumentPlan>, hash?: string) {
   return JSON.stringify({ ...plan.fields, ...(plan.key ? { [plan.key]: hash } : {}) });
 }
-export function actionReceipt(row: StoredAction, at: number, running: boolean): ActionReceipt {
+export function actionReceipt(
+  row: Pick<StoredAction, 'id' | 'result_json' | 'undo_json' | 'undone_at'>,
+  at: number,
+  running: boolean,
+): ActionReceipt {
   const { _lease, ...result } = JSON.parse(row.result_json) as ActionReceipt & { _lease?: unknown };
   void _lease;
   const expires = row.undo_json ? (JSON.parse(row.undo_json).expiresAt as number) : null;

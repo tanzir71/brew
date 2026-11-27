@@ -152,7 +152,7 @@ export class CloudflareActionStorage implements AsyncActionStoragePort {
     if (!row) throw new ActionError(404, 'Action not found.');
     return this.mapReceipt(row);
   }
-  private mapReceipt(row: StoredAction) {
+  mapReceipt(row: Pick<StoredAction, 'id' | 'result_json' | 'undo_json' | 'undone_at'>) {
     const result = JSON.parse(row.result_json) as { status: string; _lease?: { until: number } };
     return actionReceipt(
       row,

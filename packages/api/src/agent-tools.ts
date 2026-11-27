@@ -81,9 +81,14 @@ const safe = async (run: () => Promise<CallToolResult>): Promise<CallToolResult>
   }
 };
 
+export type AgentToolServices = Pick<
+  ApiServices,
+  'agentAccess' | 'actions' | 'search' | 'reader' | 'articles' | 'rules' | 'brews' | 'outputBaseUrl'
+>;
+
 /** One catalog for both transports. It defaults to read-only until the ingress grants writes. */
 export function brewToolCatalog(
-  services: ApiServices,
+  services: AgentToolServices,
   access: AgentConnection & { signal?: AbortSignal } = { write: false },
 ) {
   const tools: BrewTool[] = [];
@@ -111,7 +116,7 @@ export function brewToolCatalog(
   };
   const tracked = (tool: string) => async (run: () => Promise<CallToolResult>) => {
     const result = await safe(async () => {
-      if (access.tokenId !== undefined && !services.agentAccess?.current(access.tokenId))
+      if (access.tokenId !== undefined && !(await services.agentAccess?.current(access.tokenId)))
         throw new ActionError(403, 'This token has expired or been revoked.');
       return run();
     });
@@ -123,7 +128,7 @@ export function brewToolCatalog(
           result.isError ||
           tool === 'undo')
       )
-        services.agentAccess.record(access, tool, result.isError ? 'failed' : 'complete');
+        await services.agentAccess.record(access, tool, result.isError ? 'failed' : 'complete');
       return result;
     });
   };

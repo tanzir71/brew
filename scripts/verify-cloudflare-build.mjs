@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import process from 'node:process';
 import { URL } from 'node:url';
 import { Miniflare } from 'miniflare';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { unstable_splitSqlQuery } from 'wrangler';
 import { CloudflareStorage } from '../dist/targets/cloudflare/src/storage.js';
 import { CloudflareNewsletterStorage } from '../dist/targets/cloudflare/src/newsletter-storage.js';
@@ -76,7 +77,8 @@ try {
         inboundMail: null,
         emailDelivery: null,
         readerApi: false,
-        mcp: null,
+        mcp: 'http',
+        agentAccess: true,
         webmcp: false,
         ai: { available: [], configured: false },
         readState: 'server',
@@ -347,8 +349,61 @@ try {
   const recentActions = await reader.request('https://build.example.test/api/actions');
   assert.equal(recentActions.headers.get('cache-control'), 'private, no-store');
   assert.equal((await recentActions.json())[0].id, actionReceipt.id);
+  const issued = await reader.request('http://localhost/api/agent-access/tokens', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', origin: 'http://localhost' },
+    body: JSON.stringify({ name: 'Compiled MCP', scopes: 'write' }),
+  });
+  assert.equal(issued.status, 201);
+  const credential = await issued.json();
+  assert.match(credential.token, /^brew_rw_[\w-]{43}$/);
+  const client = new Client({ name: 'compiled-verifier', version: '1' });
+  try {
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL('http://localhost/mcp'), {
+        requestInit: { headers: { authorization: `Bearer ${credential.token}` } },
+        fetch: (input, init) => reader.fetch(new globalThis.Request(input, init)),
+      }),
+    );
+    assert.equal((await client.listTools()).tools.length, 12);
+    const starred = await client.callTool({
+      name: 'star',
+      arguments: {
+        id: imported.articleId,
+        confirm: true,
+        request_id: 'compiled_agent_star_001',
+      },
+    });
+    assert.equal(starred.isError, undefined);
+    assert.equal(starred.structuredContent.receipt.canUndo, true);
+    const undone = await client.callTool({
+      name: 'undo',
+      arguments: {
+        undo_id: starred.structuredContent.undo_id,
+        confirm: true,
+      },
+    });
+    assert.equal(undone.structuredContent.receipt.status, 'undone');
+    const activity = await reader.request('http://localhost/api/agent-access/actions');
+    assert.equal(activity.headers.get('cache-control'), 'private, no-store');
+    const audit = await activity.text();
+    assert.ok(audit.includes('Compiled MCP'));
+    assert.ok(!audit.includes(credential.token));
+    assert.ok(!audit.includes('args_json'));
+    const revoked = await reader.request(
+      `http://localhost/api/agent-access/tokens/${credential.entry.id}`,
+      {
+        method: 'DELETE',
+        headers: { origin: 'http://localhost' },
+      },
+    );
+    assert.equal(revoked.status, 200);
+    await assert.rejects(client.listTools(), /Use a valid Brew token/);
+  } finally {
+    await client.close();
+  }
   process.stdout.write(
-    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state and atomic journal capture/restore and real owner-action preview/commit/replay/Undo passed outside the repository cwd. Full Worker handler integration remains pending.\n',
+    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state, journal capture/restore, owner-action preview/commit/replay/Undo and scoped tokens with real MCP write/Undo/revocation passed outside the repository cwd. Full Worker handler integration remains pending.\n',
   );
 } finally {
   await runtime.dispose();

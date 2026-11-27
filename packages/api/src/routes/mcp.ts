@@ -1,7 +1,7 @@
 import type { Hono } from 'hono';
 import { documented, errors, response } from '../openapi.js';
 import { json } from '../http.js';
-import type { AgentAccessPort } from '../../../core/src/agent-access.js';
+import type { ApiServices } from '../ports.js';
 
 export interface McpHttpPort {
   fetch(request: Request): Promise<Response>;
@@ -10,7 +10,7 @@ export function registerMcpRoutes(
   app: Hono,
   port?: McpHttpPort,
   publicUrl?: string,
-  access?: AgentAccessPort,
+  access?: ApiServices['agentAccess'],
 ) {
   const publicOrigin = publicUrl ? new URL(publicUrl).origin : undefined;
   const hosts = new Set(['localhost', '127.0.0.1', '[::1]']);
@@ -57,7 +57,7 @@ export function registerMcpRoutes(
           (origin !== undefined && origin !== url.origin && origin !== publicOrigin)
         )
           return json(c, { error: 'Untrusted MCP Host or Origin.' }, 403);
-        if (access && !access.authenticate(c.req.header('authorization') ?? null)) {
+        if (access && !(await access.authenticate(c.req.header('authorization') ?? null))) {
           c.header('WWW-Authenticate', 'Bearer realm="Brew MCP"');
           return json(c, { error: 'Use a valid Brew token from Settings → Agent access.' }, 401);
         }

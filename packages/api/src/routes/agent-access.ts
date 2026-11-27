@@ -37,7 +37,10 @@ async function guarded(c: Context, run: () => Response | Promise<Response>) {
         : json(c, { error: 'Could not complete Agent access request.' }, 500);
   }
 }
-export function registerAgentAccessRoutes(app: Hono, services: ApiServices) {
+export function registerAgentAccessRoutes(
+  app: Hono,
+  services: Pick<ApiServices, 'agentAccess' | 'outputBaseUrl'>,
+) {
   const hosts = new Set(['localhost', '127.0.0.1', '[::1]']);
   const publicOrigin = services.outputBaseUrl ? new URL(services.outputBaseUrl).origin : undefined;
   if (services.outputBaseUrl) hosts.add(new URL(services.outputBaseUrl).hostname);
@@ -62,7 +65,7 @@ export function registerAgentAccessRoutes(app: Hono, services: ApiServices) {
     documented('Agent access', 'List token metadata (never secrets)', {
       responses: { 200: response(array(token)), ...errors(403, 501) },
     }),
-    (c) => guarded(c, () => json(c, services.agentAccess!.list())),
+    (c) => guarded(c, async () => json(c, await services.agentAccess!.list())),
   );
   app.post(
     '/api/agent-access/tokens',
@@ -84,7 +87,7 @@ export function registerAgentAccessRoutes(app: Hono, services: ApiServices) {
         ...errors(400, 403, 409, 501),
       },
     }),
-    (c) => guarded(c, async () => json(c, services.agentAccess!.create(await body(c)), 201)),
+    (c) => guarded(c, async () => json(c, await services.agentAccess!.create(await body(c)), 201)),
   );
   app.delete(
     '/api/agent-access/tokens/:id',
@@ -93,11 +96,11 @@ export function registerAgentAccessRoutes(app: Hono, services: ApiServices) {
       responses: { 200: response(ref('Ok')), ...errors(400, 403, 501) },
     }),
     (c) =>
-      guarded(c, () => {
+      guarded(c, async () => {
         const value = Number(c.req.param('id'));
         if (!/^[1-9]\d*$/.test(c.req.param('id')) || !Number.isSafeInteger(value))
           throw new ActionError(400, 'Choose a valid token.');
-        services.agentAccess!.revoke(value);
+        await services.agentAccess!.revoke(value);
         return json(c, { ok: true });
       }),
   );
@@ -110,7 +113,7 @@ export function registerAgentAccessRoutes(app: Hono, services: ApiServices) {
       responses: { 200: response(activity), ...errors(400, 403, 501) },
     }),
     (c) =>
-      guarded(c, () => {
+      guarded(c, async () => {
         const before = c.req.query('before');
         if (
           before !== undefined &&
@@ -119,7 +122,7 @@ export function registerAgentAccessRoutes(app: Hono, services: ApiServices) {
           throw new ActionError(400, 'Choose a valid activity cursor.');
         return json(
           c,
-          services.agentAccess!.activity(before === undefined ? undefined : Number(before)),
+          await services.agentAccess!.activity(before === undefined ? undefined : Number(before)),
         );
       }),
   );

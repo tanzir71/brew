@@ -21,7 +21,8 @@ export function createApiBase(notFound?: NotFoundHandler) {
     json(c, { statusCode: 500, error: 'Internal Server Error', message: error.message }, 500),
   );
   app.notFound(notFound ?? ((c) => json(c, { error: 'Not found' }, 404)));
-  app.use('/api/*', async (c, next) => {
+  app.use('*', async (c, next) => {
+    if (c.req.path === '/mcp') return next();
     if (
       /^GoogleLogin\b/i.test(c.req.header('authorization') ?? '') &&
       !c.req.path.startsWith('/api/greader/')

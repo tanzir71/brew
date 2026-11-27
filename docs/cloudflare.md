@@ -203,7 +203,7 @@ selection and conflict policy as Node's temporary triggers. A D1 transaction
 activates recording, writes local state and cascades, extends Undo expiry,
 finalizes caller-supplied receipt updates, and removes activation in one atomic
 batch. The flag never spans asynchronous work. The action service below now uses
-this foundation; scoped agent credentials and product ingress remain unfinished.
+this foundation; product ingress remains unfinished.
 
 Restore checks the journal and recorded fields again at commit, protects later
 children and saved source references, preserves unrelated later fields and
@@ -260,8 +260,37 @@ partial failures, cancellation, commit-time token revocation, interrupted recove
 expiry, complete OPML and sender retention/routing Undo. A full 50000-item action
 runs through the actual Worker preview/commit/Undo routes. Controlled elapsed time
 also verifies lease renewal between a sequence of external actions. No existing
-timeout, visual tolerance or performance budget is relaxed. Native scoped-token
-management/MCP binding, interruptible regex and the product handlers remain open.
+timeout, visual tolerance or performance budget is relaxed. Interruptible regex
+and the product handlers remain open.
+
+## Scoped agents and MCP
+
+The library graph now provides native Worker token issuance, verification,
+revocation and redacted activity. Tokens use 32 bytes from Web Crypto, the same
+base64url format and SHA-256 verifier as Node, read-only defaults and bounded
+expiry. Shared validation, SQL and mappers preserve cross-target credentials.
+The 100-token cap is enforced inside the insert; live-grant checks and last-use
+updates are atomic. Secrets appear only in the creation response.
+
+The actual MCP SDK runs inside workerd with the shared catalog. HTTP ingress,
+per-tool admission, token routes, activity and private page twins await the real
+asynchronous adapters. Token writes use the durable action service, live D1
+authorization, scoped replay identity and token-owned Undo. Reads and rule dry
+runs preserve library state. Write tokens cannot delete content or save rules.
+Revocation during subscription discovery prevents the first commit.
+
+WebMCP uses the same catalog through its existing opt-in capability and owner
+same-origin boundary; scoped credentials cannot enter owner routes or exports.
+The private instance guide reflects the configured capabilities without listing
+library records or credentials. These are real library bindings tested through
+an explicit integration fixture, not the unfinished product Worker or its owner
+authentication gate. No new dependency, schema migration or UI is introduced.
+
+Nine workerd/D1 cases cover native secrets and Node interoperability, concurrent
+token creation, all read tools and paging, actual SDK negotiation, revocation and
+expiry, restricted writes, replay/Undo ownership, activity pagination/redaction,
+async admission, actual subscriptions and WebMCP gating. Compiled verification
+also drives real MCP writes, Undo and revocation outside the repository cwd.
 
 ## Local verification
 
@@ -277,6 +306,7 @@ npm test -- targets/cloudflare/newsletter-api.test.ts
 npm test -- targets/cloudflare/reader-sync.test.ts
 npm test -- targets/cloudflare/action-journal.test.ts
 npm test -- targets/cloudflare/actions-api.test.ts
+npm test -- targets/cloudflare/agent-api.test.ts
 npm run typecheck
 npm run build
 ```
@@ -296,8 +326,7 @@ rules and asynchronous hashing/ingestion outside the repository directory. Inbou
 MIME execution inside the product Worker remains part of the remaining handler
 integration.
 
-Still required: product Worker fetch/scheduled/email handlers, the remaining
-scoped-agent credential and MCP adapters, an interruptible regex
+Still required: product Worker fetch/scheduled/email handlers, an interruptible regex
 executor, bounded polling, Email Routing/outbound mail, owner authentication, and
 the Cloudflare installer/deploy flow. These checks do not claim a working deployed
 Worker or completion of M14.

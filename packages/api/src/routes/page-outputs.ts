@@ -392,6 +392,10 @@ async function document(services: PageServices, url: URL, caps: Capabilities) {
   }
   if (path === '/settings/agents') {
     const access = services.agentAccess;
+    const [tokens, activity] = await Promise.all([
+      access?.list() ?? [],
+      access?.activity() ?? { items: [] },
+    ]);
     return make('agent-access', 'Agent access', '/settings/agents', {}, [
       {
         title: 'In-page tools (WebMCP)',
@@ -409,7 +413,7 @@ async function document(services: PageServices, url: URL, caps: Capabilities) {
       {
         title: 'Tokens',
         items:
-          access?.list().map((token) => ({
+          tokens.map((token) => ({
             id: token.id,
             title: token.name,
             details: {
@@ -422,7 +426,7 @@ async function document(services: PageServices, url: URL, caps: Capabilities) {
       {
         title: 'Recent agent actions',
         items:
-          access?.activity().items.map((action) => ({
+          activity.items.map((action) => ({
             id: action.id,
             title: action.summary,
             details: {

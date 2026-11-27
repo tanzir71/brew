@@ -1,5 +1,6 @@
 import type { Context, Hono } from 'hono';
 import type { ApiServices } from '../ports.js';
+import type { AgentToolServices } from '../agent-tools.js';
 import { brewToolCatalog, toolDefinition } from '../agent-tools.js';
 import { body, json } from '../http.js';
 import { documented, errors, response, jsonBody } from '../openapi.js';
@@ -13,7 +14,10 @@ const result = object(
   },
   ['content'],
 );
-export function registerWebMcpRoutes(app: Hono, services: ApiServices) {
+export function registerWebMcpRoutes(
+  app: Hono,
+  services: AgentToolServices & Pick<ApiServices, 'capabilities'>,
+) {
   const hosts = new Set(['localhost', '127.0.0.1', '[::1]']);
   const publicOrigin = services.outputBaseUrl ? new URL(services.outputBaseUrl).origin : undefined;
   if (publicOrigin) hosts.add(new URL(publicOrigin).hostname);
@@ -65,7 +69,7 @@ export function registerWebMcpRoutes(app: Hono, services: ApiServices) {
     async (c) => invoke(c, services),
   );
 }
-async function invoke(c: Context, services: ApiServices) {
+async function invoke(c: Context, services: AgentToolServices & Pick<ApiServices, 'capabilities'>) {
   let input: unknown;
   try {
     input = await body(c);

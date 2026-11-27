@@ -1,8 +1,12 @@
 import type { ApiServices } from './ports.js';
+import type { AgentToolServices } from './agent-tools.js';
 import { brewToolCatalog } from './agent-tools.js';
 
 /** Curated instance metadata only: never enumerate library records or credentials. */
-export async function instanceGuide(services: ApiServices, hasMcpTransport: boolean) {
+export async function instanceGuide(
+  services: AgentToolServices & Pick<ApiServices, 'capabilities'>,
+  hasMcpTransport: boolean,
+) {
   const caps = await services.capabilities();
   const mcp = hasMcpTransport ? caps.mcp : null;
   const toolPath = mcp ? '/mcp' : caps.webmcp ? '/api/webmcp/tools' : '/api/capabilities';

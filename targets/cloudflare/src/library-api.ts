@@ -19,6 +19,12 @@ import { CloudflareSources } from './source-service.js';
 import { CloudflareNewsletterLibrary } from './newsletter-library.js';
 import { registerNewsletterRoutes } from '../../../packages/api/src/newsletters.js';
 import { registerPageOutputRoutes } from '../../../packages/api/src/routes/page-outputs.js';
+import { CloudflareAgentAccess } from './agent-access.js';
+import { registerAgentAccessRoutes } from '../../../packages/api/src/routes/agent-access.js';
+import { registerMcpRoutes } from '../../../packages/api/src/routes/mcp.js';
+import { createBrewMcpHandler } from '../../../packages/api/src/mcp.js';
+import { registerWebMcpRoutes } from '../../../packages/api/src/routes/webmcp.js';
+import { registerInstanceGuide } from '../../../packages/api/src/routes/instance-guide.js';
 
 /** Real library adapters; the product Worker still requires the other API ports. */
 export function cloudflareLibraryServices(
@@ -33,16 +39,16 @@ export function cloudflareLibraryServices(
       throw new Error('Regular expression execution needs setup on this instance.');
     },
   };
+  const actions = new CloudflareActionStorage(storage, {
+    clock,
+    fetcher: services.fetcher,
+    regex,
+    notify: (article) => services.events.publish('notification', article),
+  });
   return {
     ...services,
-    actions: new AsyncActionsService(
-      new CloudflareActionStorage(storage, {
-        clock,
-        fetcher: services.fetcher,
-        regex,
-        notify: (article) => services.events.publish('notification', article),
-      }),
-    ),
+    actions: new AsyncActionsService(actions),
+    agentAccess: new CloudflareAgentAccess(storage, actions, () => clock.now().getTime()),
     opml: new CloudflareOpml(storage),
     readerSync: {
       access: new CloudflareReaderAccess(storage, () => clock.now().getTime()),
@@ -59,7 +65,14 @@ export function cloudflareLibraryServices(
     newsletters: new CloudflareNewsletterLibrary(storage, services.articles, () => clock.now()),
   } satisfies Pick<
     ApiServices,
-    keyof typeof services | 'rules' | 'sources' | 'newsletters' | 'opml' | 'readerSync' | 'actions'
+    | keyof typeof services
+    | 'rules'
+    | 'sources'
+    | 'newsletters'
+    | 'opml'
+    | 'readerSync'
+    | 'actions'
+    | 'agentAccess'
   >;
 }
 export function createCloudflareLibraryApi(services: ReturnType<typeof cloudflareLibraryServices>) {
@@ -72,6 +85,15 @@ export function createCloudflareLibraryApi(services: ReturnType<typeof cloudflar
   registerRulesRoutes(app, services);
   registerSourceRoutes(app, services);
   registerNewsletterRoutes(app, services);
+  registerAgentAccessRoutes(app, services);
+  registerMcpRoutes(
+    app,
+    createBrewMcpHandler(services),
+    services.outputBaseUrl,
+    services.agentAccess,
+  );
+  registerWebMcpRoutes(app, services);
+  registerInstanceGuide(app, services, true);
   registerPageOutputRoutes(app, services);
   return app;
 }
