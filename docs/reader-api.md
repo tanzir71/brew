@@ -148,5 +148,6 @@ checks outside the repository directory. The contracts were informed by the
 [FreshRSS Reader API](https://freshrss.github.io/FreshRSS/en/developers/06_GoogleReader_API.html),
 [FreshRSS Fever documentation](https://github.com/FreshRSS/FreshRSS/blob/edge/docs/en/developers/06_Fever_API.md)
 and [NetNewsWire's Reader caller](https://github.com/Ranchero-Software/NetNewsWire/blob/main/Modules/Account/Sources/Account/ReaderAPI/ReaderAPICaller.swift).
-These are protocol-derived tests, not captured native-app sessions. M13's native
-NetNewsWire/Reeder replay exit review remains open.
+These are protocol-derived tests, not captured native-app sessions. The owner
+waived M13's native NetNewsWire/Reeder capture replay exit check on 2026-11-27.
+Native-app captures were not collected or replayed.

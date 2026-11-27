@@ -125,7 +125,7 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 
 ## v2
 
-### Current milestone: M13
+### Current milestone: M14
 
 ### Checklist state
 
@@ -175,12 +175,12 @@ Refinement review passed 2026-07-10: focused unit and Playwright coverage exerci
 - [x] Per-instance `/llms.txt` listing routes, auth and tool names.
 - Exit review complete: the real HTTP MCP integration drives list → Markdown read → reviewed mark_read → actual Undo, with durable replay and explicit confirmation; scoped-token authorization tests cover read-only and write boundaries.
 
-DOM checklist audit and evidence: [docs/agent-dom.md](docs/agent-dom.md). All nine requirements are implemented and audited across current screens, with 26 role/label-only journeys. Route-derived OpenAPI 3.1 and the Node MCP server are implemented; see [API discovery](docs/agent-api.md) and [MCP](docs/mcp.md). Scoped tokens, the action-log/Undo interface and full Agent access setup are implemented; see [Agent access](docs/agent-access.md). Flagged [WebMCP](docs/webmcp.md) shares the tool catalog and follows mounted visible controls. The private [instance guide](docs/agent-discovery.md) lists current routes, auth and tool names. M12 is complete; later screens and adapters must preserve these contracts. M13 is the next unfinished milestone.
+DOM checklist audit and evidence: [docs/agent-dom.md](docs/agent-dom.md). All nine requirements are implemented and audited across current screens, with 26 role/label-only journeys. Route-derived OpenAPI 3.1 and the Node MCP server are implemented; see [API discovery](docs/agent-api.md) and [MCP](docs/mcp.md). Scoped tokens, the action-log/Undo interface and full Agent access setup are implemented; see [Agent access](docs/agent-access.md). Flagged [WebMCP](docs/webmcp.md) shares the tool catalog and follows mounted visible controls. The private [instance guide](docs/agent-discovery.md) lists current routes, auth and tool names. M12 is complete; later screens and adapters must preserve these contracts. M13's implementation and review status are tracked below.
 
-### M13 — Google Reader API + Fever
+### M13 — Google Reader API + Fever — DONE (native capture review waived)
 - [x] Google Reader endpoints for login/token, subscriptions, tags, stream contents/ids, edit-tag (read/starred), mark-all-as-read. Fever: groups, feeds, items, read/saved.
 - [x] Settings → Apps & sync: server URL, app password, per-client notes (Reeder Classic, NetNewsWire via "FreshRSS" account type, Unread).
-- Exit review pending: replay requests captured from actual NetNewsWire and Reeder Classic flows. Protocol-derived integration tests do not constitute native-app capture evidence.
+- Exit review waived by the owner on 2026-11-27: when asked for actual NetNewsWire/Reeder Classic capture access, the owner instructed "skip check". Close M13 under that explicit waiver. Native-app captures were not collected or replayed; the existing protocol-derived tests remain the available compatibility evidence.
 
 ### M14 — Cloudflare target
 - [ ] Worker with `fetch`, `scheduled` and `email` handlers; D1 migrations from `packages/db`; R2 for image cache.
@@ -939,3 +939,11 @@ DOM checklist audit and evidence: [docs/agent-dom.md](docs/agent-dom.md). All ni
 - Gate discoveries: the first full browser process ended during Chromium resource failures, without a suite result. A subsequent watcher startup exceeded the unchanged Playwright deadline; native dependency-watch restarts and a stalled alternative watcher did not justify a product/script change. Restore the existing dev script, start the same source Node entrypoint and Vite directly with the test configuration, verify the live API/proxy, and use Playwright's existing server-reuse setting for the final full run. The direct source server and compiled build both start successfully. Stop only verified task process trees. Lint's wrapper also stalled; the direct ESLint/typecheck commands pass, followed by a completed full npm lint gate. Preserve every timeout, tolerance, existing golden and performance budget. Extend the phone case to generate with a 100-character username; wrap that result text and inspect the actual dialog screenshot, with viewport/inner-width and accessibility assertions passing.
 - Files/dependencies: new shared reader-app setup data/URL helper, status response/OpenAPI, page twins/guide/path recognition, lazy Apps & sync page and guarded request client, navigation/setup link/styles, Node/browser/compiled tests and new baselines, README/reader/DOM documentation and this record. No dependency, migration, Figma asset export, deployment or external delivery.
 - Remaining: M13's actual NetNewsWire/Reeder capture replay exit review stays open; M14–M20 remain unfinished. Keep the full v2 goal active. After verification, commit directly to main without a PR or push and exclude the untracked handoff file, then stop this iteration under the handoff loop protocol.
+
+### Iteration M13.3 — Native capture review waived by owner (2026-11-27)
+
+- Owner instruction: after being asked whether a Mac running NetNewsWire and Reeder Classic or existing native captures were available for the remaining exit review, the owner replied "skip check". This explicitly waives that check; it does not establish a passed native-client review.
+- Close M13 with both implementation criteria complete and the native capture requirement waived. Keep the protocol-derived test provenance explicit in README and docs/reader-api.md. Do not manufacture traces, label synthetic requests as captures, or add a recorder after the owner has waived its purpose.
+- Evidence: main is at 64e0293 before this documentation change; its final gates passed 537 unit cases, 269 browser cases, type checking, lint and compiled build verification. This iteration changes only Markdown status/provenance; inspect the diff and retain those application-code results without repeating unchanged runtime checks. No dependency or runtime change.
+- Next: M14's first criterion remains unchecked in full: Worker fetch/scheduled/email handlers, shared D1 migrations and R2 image cache. Initial inspection confirms the portable Hono API accepts async service methods, while several core storage interfaces and Node adapters remain synchronous; a D1 target must preserve these behaviors through real async adapters, rather than claiming the existing synchronous classes already work on D1. Consult Cloudflare's current D1 migration, prepared-statement/batch and R2 binding documentation. No Cloudflare implementation, resource provisioning or deployment has been performed in this iteration.
+- Keep the complete v2 goal active, commit directly to main without a PR or push, and stop this iteration under the handoff loop protocol. M14–M20 remain unfinished.

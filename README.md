@@ -12,7 +12,8 @@ Node also offers [Google Reader and Fever compatibility APIs](docs/reader-api.md
 with a separate generated app password, shared read/star state and subscription
 management. App access defaults off. Open Settings → Apps & sync to copy protocol
 URLs, generate or rotate the app password, and follow per-client instructions.
-Native-client capture replay remains part of M13's exit review.
+The owner waived M13's native-client capture replay check; compatibility evidence
+comes from protocol integration tests.
 
 ## Architecture
 
