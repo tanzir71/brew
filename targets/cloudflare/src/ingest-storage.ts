@@ -1,4 +1,9 @@
-import type { IngestCandidate, IngestStoragePort } from '../../../packages/core/src/ports.js';
+import type {
+  IngestCandidate,
+  IngestStoragePort,
+  DuplicateTitles,
+} from '../../../packages/core/src/ports.js';
+import { duplicateTitleQueries } from '../../../packages/db/src/ingest-queries.js';
 import { CloudflareStorage } from './storage.js';
 import { PollInterruptedError } from '../../../packages/core/src/feed-polling.js';
 
@@ -72,33 +77,32 @@ export class CloudflareIngestStorage implements IngestStoragePort {
       .slice(0, pending.length)
       .flatMap((result) => result.results.map((row) => Number(row.id)));
   }
-  async duplicateFilterEnabled() {
-    return (
-      (
-        await this.storage.first<{ value: string }>(
-          "SELECT value FROM settings WHERE key='duplicate_filter_enabled'",
-        )
-      )?.value === 'true'
+  async duplicateTitles(ids: number[], since: number): Promise<DuplicateTitles | null> {
+    if (!ids.length) return null;
+    const queries = duplicateTitleQueries(ids, since);
+    const results = await this.storage.batch(
+      Object.values(queries).map((query) => this.storage.statement(query.sql, query.values)),
     );
+    return results[0]!.results[0]!.enabled
+      ? {
+          subjects: results[1]!.results as unknown as DuplicateTitles['subjects'],
+          recent: results[2]!.results as unknown as DuplicateTitles['recent'],
+        }
+      : null;
   }
-  async title(id: number) {
-    const article = await this.storage.first<{ title: string }>(
-      'SELECT title FROM articles WHERE id=?',
-      [id],
-    );
-    if (!article) throw new Error('Article not found');
-    return article.title;
-  }
-  async recentTitles(excludeId: number, since: number) {
-    return (
-      await this.storage.all<{ title: string }>(
-        'SELECT title FROM articles WHERE id!=? AND published_at>=?',
-        [excludeId, since],
-      )
-    ).map((row) => row.title);
-  }
-  async hide(id: number) {
-    await this.storage.run('UPDATE articles SET hidden=1 WHERE id=?', [id]);
+  async hideMany(ids: number[]) {
+    if (!ids.length) return;
+    const admission = this.admission?.();
+    const results = await this.storage.batch([
+      this.storage.statement(
+        `UPDATE articles SET hidden=1 WHERE id IN (SELECT value FROM json_each(?))${admission ? ` AND (${admission.predicate})` : ''}`,
+        [JSON.stringify(ids), ...(admission?.values ?? [])],
+      ),
+      ...(admission
+        ? [this.storage.statement(`SELECT 1 WHERE ${admission.predicate}`, admission.values)]
+        : []),
+    ]);
+    if (admission && !results.at(-1)?.results.length) throw this.admissionError(admission);
   }
   async prune(feedId: number, before: number) {
     const admission = this.admission?.();

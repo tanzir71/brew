@@ -4,7 +4,11 @@ import {
   MAX_NEWSLETTER_BYTES,
   NewsletterInputError,
 } from '../../../packages/core/src/newsletter-mime.js';
-import type { AsyncHashPort, ClockPort } from '../../../packages/core/src/ports.js';
+import type {
+  AsyncHashPort,
+  ClockPort,
+  IngestRulesPort,
+} from '../../../packages/core/src/ports.js';
 import type { D1Database } from '@cloudflare/workers-types';
 import { CloudflareStorage } from './storage.js';
 import { CloudflareIngestStorage } from './ingest-storage.js';
@@ -21,7 +25,7 @@ export const cloudflareHash: AsyncHashPort = {
 export function cloudflareIngestion(
   database: D1Database,
   clock: ClockPort,
-  rules: { evaluateArticle(id: number): Promise<number> },
+  rules: IngestRulesPort,
 ) {
   const storage = new CloudflareStorage(database);
   return {

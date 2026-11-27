@@ -1,4 +1,10 @@
-import type { ClockPort, AsyncHashPort, IngestStoragePort, StoredArticle } from './ports.js';
+import type {
+  ClockPort,
+  AsyncHashPort,
+  IngestStoragePort,
+  StoredArticle,
+  IngestRulesPort,
+} from './ports.js';
 import { IngestPipeline } from './ingest-pipeline.js';
 import { cleanNewsletterHtml, newsletterTextHtml } from './newsletter-cleaner.js';
 import {
@@ -36,7 +42,7 @@ export class NewsletterPipeline {
     private readonly storage: NewsletterStoragePort,
     private readonly hash: AsyncHashPort,
     private readonly clock: ClockPort,
-    rules?: { evaluateArticle(id: number): Promise<number> },
+    rules?: IngestRulesPort,
   ) {
     this.articles = new IngestPipeline(storage, hash, clock, rules);
   }

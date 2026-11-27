@@ -4,7 +4,7 @@ import {
   NewsletterInputError,
 } from '../../../packages/core/src/newsletter-mime.js';
 import { NewsletterPipeline } from '../../../packages/core/src/newsletter-pipeline.js';
-import type { ClockPort } from '../../../packages/core/src/ports.js';
+import type { ClockPort, IngestRulesPort } from '../../../packages/core/src/ports.js';
 import { CloudflareStorage } from './storage.js';
 import { CloudflareNewsletterStorage } from './newsletter-storage.js';
 import { cloudflareHash, readNewsletterStream } from './ingestion.js';
@@ -29,7 +29,7 @@ export async function receiveCloudflareMail(
   message: Pick<ForwardableEmailMessage, 'from' | 'to' | 'raw' | 'rawSize' | 'setReject'>,
   storage: CloudflareStorage,
   clock: ClockPort,
-  rules: { evaluateArticle(id: number): Promise<number> },
+  rules: IngestRulesPort,
 ) {
   const stream = message.raw as unknown as ReadableStream<Uint8Array>;
   let consumed = false;

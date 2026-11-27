@@ -8,7 +8,13 @@ import { cloudflareHash } from '../src/ingestion.js';
 import { cloudflarePollingServices } from '../src/polling-api.js';
 import { CloudflareFetchBudget } from '../src/fetch-budget.js';
 import { cloudflareRegex } from '../src/regex-worker.js';
-import type { ForwardableEmailMessage } from '@cloudflare/workers-types';
+import type { ForwardableEmailMessage, D1PreparedStatement } from '@cloudflare/workers-types';
+import { IngestPipeline } from '../../../packages/core/src/ingest-pipeline.js';
+import { AsyncRulesService } from '../../../packages/core/src/async-rules-service.js';
+import type { ParsedArticle } from '../../../packages/core/src/feed-parser.js';
+import { CloudflareRuleStorage } from '../src/rule-storage.js';
+import { CloudflareIngestStorage } from '../src/ingest-storage.js';
+import { CloudflareEvents } from '../src/events.js';
 
 export interface ProductEnv extends CloudflareWorkerEnv {
   UPSTREAM: { fetch: typeof fetch };
@@ -19,10 +25,50 @@ const product = createCloudflareWorker<ProductEnv>({
   clock,
   fetcher: (env) => (input, init) => env.UPSTREAM.fetch(input, init),
 });
+class CountedStorage extends CloudflareStorage {
+  readonly calls = { first: 0, all: 0, run: 0, batch: 0 };
+  override first<T>(sql: string, values: unknown[] = []) {
+    this.calls.first++;
+    return super.first<T>(sql, values);
+  }
+  override all<T>(sql: string, values: unknown[] = []) {
+    this.calls.all++;
+    return super.all<T>(sql, values);
+  }
+  override run(sql: string, values: unknown[] = []) {
+    this.calls.run++;
+    return super.run(sql, values);
+  }
+  override batch<T = Record<string, unknown>>(statements: D1PreparedStatement[]) {
+    this.calls.batch++;
+    return super.batch<T>(statements);
+  }
+}
 export default {
   ...product,
   async fetch(request: Request, env: ProductEnv) {
     const path = new URL(request.url).pathname;
+    if (path === '/__review/ingest-batch') {
+      const storage = new CountedStorage(env.DB),
+        events = new CloudflareEvents(storage);
+      const network = new CloudflareFetchBudget(40, (input, init) =>
+        env.UPSTREAM.fetch(input, init),
+      );
+      const rules = new AsyncRulesService(
+        new CloudflareRuleStorage(storage),
+        cloudflareRegex,
+        { fetch: network.fetch },
+        { notify: (article) => events.publish('notification', article) },
+        clock,
+      );
+      const inserted = await new IngestPipeline(
+        new CloudflareIngestStorage(storage),
+        cloudflareHash,
+        clock,
+        rules,
+      ).ingest({ id: 1, retentionDays: 90 }, (await request.json()) as ParsedArticle[]);
+      return Response.json({ inserted, calls: storage.calls });
+    }
     if (path === '/__review/revoke-during-read' || path === '/__review/revoke-during-hash') {
       const storage = new CloudflareStorage(env.DB),
         address = (await activeInboundAddress(storage))!;

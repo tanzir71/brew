@@ -183,14 +183,38 @@ export class RuleExecutionService {
   async evaluateArticle(articleId: number): Promise<number> {
     const context = await this.storage.context(articleId);
     if (!context) return 0;
+    return this.evaluateContext(
+      context,
+      (await this.storage.definitions()).filter((rule) => rule.enabled),
+    );
+  }
+
+  /** One definition snapshot and bounded context batches for newly ingested items. */
+  async evaluateArticles(articleIds: number[]): Promise<number> {
+    if (!articleIds.length) return 0;
+    const rules = (await this.storage.definitions()).filter((rule) => rule.enabled);
+    if (!rules.length) return 0;
     let matched = 0;
-    for (const rule of (await this.storage.definitions()).filter((rule) => rule.enabled)) {
+    for (let offset = 0; offset < articleIds.length; offset += 40) {
+      const ids = articleIds.slice(offset, offset + 40);
+      const contexts = new Map((await this.storage.contexts(ids)).map((row) => [row.id, row]));
+      for (const id of ids) {
+        const context = contexts.get(id);
+        if (context) matched += await this.evaluateContext(context, rules);
+      }
+    }
+    return matched;
+  }
+
+  private async evaluateContext(context: ArticleContext, rules: RuleRecord[]): Promise<number> {
+    let matched = 0;
+    for (const rule of rules) {
       if (
         rule.conditions.length > 10 ||
         !(await this.definitionMatches(context, rule.scope, rule.matchType, rule.conditions))
       )
         continue;
-      await this.storage.log(rule.id, articleId, await this.executeActions(rule, context));
+      await this.storage.log(rule.id, context.id, await this.executeActions(rule, context));
       matched++;
       if (rule.stopProcessing) break;
     }

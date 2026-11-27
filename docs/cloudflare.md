@@ -374,6 +374,27 @@ described below.
 
 ## Polling prerequisite
 
+The shared ingestion port reads duplicate-filter state, new titles and recent
+candidate titles in one consistent D1 batch. Node uses the same queries inside a
+SQLite transaction. The shared NFKC/trigram policy uses a bounded candidate cache and
+excludes each article's own ID; matching titles are hidden in one update before
+rules run. Cloudflare rechecks polling or receiving-address admission inside that
+update. A failed update rolls back all hides.
+
+Ingestion snapshots rule definitions once per evaluation and reads contexts in
+groups of 40, preserving input order, rule priority, stop-processing, action order,
+real webhook retries/results and notifications. An evaluation with no enabled
+rules loads no contexts; later evaluations read fresh definitions. Existing
+single-article evaluation remains available. These policies are shared by Node,
+feed polling and inbound newsletters.
+
+A native workerd check ingests 120 sanitized articles with inactive duplicate and
+rule policy in five D1 calls: the existing deduplication lookup/insert, duplicate
+snapshot, rule-definition read and retention batch. Another actual product cron
+ingests a 120-item feed with a nonmatching rule. Matching actions and multiple
+feeds still add calls; durable processing/resource continuation and deployed CPU
+verification remain necessary before claiming complete Free compliance.
+
 `cloudflarePollingServices` adds the real poller to the library graph. Node and
 Cloudflare now share conditional requests, parsing policy, adaptive intervals,
 failure backoff and health updates. The Worker parser supports RSS, Atom and JSON

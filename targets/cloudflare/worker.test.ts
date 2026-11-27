@@ -403,6 +403,54 @@ it('receives a real Email Routing envelope, deduplicates it and serves the clean
   expect(twin.status).toBe(200);
 });
 
+it('ingests 120 articles in five native D1 calls with inactive policy, then runs a bulk feed through the actual product scheduler', async () => {
+  await env.DB.prepare(
+    "INSERT INTO feeds(id,url,title) VALUES(1,'https://source.test/quiet','Batch fixture')",
+  ).run();
+  const response = await worker.fetch(`${base}/__review/ingest-batch`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(
+      Array.from({ length: 120 }, (_, id) => ({
+        guid: `new-${id}`,
+        url: `https://one.test/new/${id}`,
+        title: `New story ${id}`,
+        author: null,
+        summaryHtml: null,
+        contentHtml: '<p>Clean story.</p><script>unsafe()</script>',
+        publishedAt: new Date(now).toISOString(),
+      })),
+    ),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    inserted: 120,
+    calls: { first: 0, all: 2, run: 0, batch: 3 },
+  });
+  expect(
+    await env.DB.prepare(
+      "SELECT count(*) AS count FROM articles WHERE feed_id=1 AND content_html='<p>Clean story.</p>' AND hidden=0",
+    ).first(),
+  ).toEqual({ count: 120 });
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO feeds(id,url,title) VALUES(2,'https://source.test/bulk','Bulk feed')",
+    ),
+    env.DB.prepare(`INSERT INTO rules(name,match_type,scope_json,conditions_json,actions_json)
+      VALUES('Nonmatching batch rule','all','{}','[{"field":"title","operator":"contains","value":"no match here"}]','[{"type":"star"}]')`),
+  ]);
+  await worker.scheduled({ scheduledTime: new Date(now) });
+  expect(
+    await env.DB.prepare(
+      "SELECT count(*) AS count FROM articles WHERE feed_id=2 AND content_html='<p>Keep this.</p>' AND hidden=0",
+    ).first(),
+  ).toEqual({ count: 120 });
+  expect(await env.DB.prepare('SELECT count(*) AS count FROM rule_logs').first()).toEqual({
+    count: 0,
+  });
+  expect((await stats()).sort()).toEqual(['/bulk', '/quiet']);
+});
+
 it('continues bounded newsletter retention across real scheduled invocations while still polling RSS', async () => {
   await env.DB.batch([
     env.DB.prepare(`WITH RECURSIVE numbers(id) AS

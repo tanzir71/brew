@@ -614,8 +614,40 @@ try {
     0,
   );
   assert.equal(await new CloudflareBrewStorage(storage).nextIssueNumber(archived.id), 502);
+  await storage.run(
+    "INSERT INTO settings(key,value) VALUES('duplicate_filter_enabled','true') ON CONFLICT(key) DO UPDATE SET value='true'",
+  );
+  const batchSource = await storage.first(
+    "INSERT INTO feeds(url,title) VALUES('https://compiled.example.test/batch','Compiled batch') RETURNING id",
+  );
+  const batchInserted = await cloudflareIngestion(
+    database,
+    mailClock,
+    services.rules,
+  ).articles.ingest(
+    { id: batchSource.id, retentionDays: 90 },
+    [0, 1].map((id) => ({
+      guid: `compiled-batch-${id}`,
+      url: `https://compiled.example.test/batch/${id}`,
+      title: 'Compiled duplicate boundary proof',
+      author: null,
+      summaryHtml: null,
+      contentHtml: '<p>Batch content.</p><script>unsafe()</script>',
+      publishedAt: new Date(),
+    })),
+  );
+  assert.equal(batchInserted, 2);
+  assert.equal(
+    (
+      await storage.first(
+        "SELECT count(*) AS count FROM articles WHERE feed_id=? AND hidden=1 AND starred_at IS NOT NULL AND content_html='<p>Batch content.</p>'",
+        [batchSource.id],
+      )
+    ).count,
+    2,
+  );
   process.stdout.write(
-    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state, journal capture/restore, owner-action preview/commit/replay/Undo, scoped tokens with real MCP write/Undo/revocation, interruptible WASM regex, durable polling/redirect accounting, signed Access audience enforcement, active-address mail admission/revocation, bounded newsletter maintenance, cron-scoped scheduling and bounded history/number preservation passed outside the repository cwd. Free resource compliance and installer integration remain pending.\n',
+    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state, journal capture/restore, owner-action preview/commit/replay/Undo, scoped tokens with real MCP write/Undo/revocation, interruptible WASM regex, durable polling/redirect accounting, signed Access audience enforcement, active-address mail admission/revocation, bounded newsletter maintenance, cron-scoped scheduling, bounded history/number preservation and batched duplicate/rule ingestion passed outside the repository cwd. Free resource compliance and installer integration remain pending.\n',
   );
 } finally {
   await runtime.dispose();

@@ -59,7 +59,7 @@ export async function pollerUpstream(request: Request) {
   const busy = path === '/busy';
   const items = path.endsWith('/quiet')
     ? []
-    : Array.from({ length: busy ? 11 : 1 }, (_, index) => ({
+    : Array.from({ length: path === '/bulk' ? 120 : busy ? 11 : 1 }, (_, index) => ({
         id: `${path}-${index}`,
         url: `https://source.test/articles${path}-${index}`,
         title: `Brew article ${path}-${index}`,

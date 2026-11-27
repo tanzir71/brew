@@ -170,11 +170,21 @@ export interface IngestCandidate {
 }
 export interface IngestStoragePort {
   insertBatch(items: IngestCandidate[]): number[] | Promise<number[]>;
-  duplicateFilterEnabled(): boolean | Promise<boolean>;
-  title(id: number): string | Promise<string>;
-  recentTitles(excludeId: number, since: number): string[] | Promise<string[]>;
-  hide(id: number): void | Promise<void>;
+  /** Null means disabled; both lists are read from one consistent snapshot. */
+  duplicateTitles(
+    ids: number[],
+    since: number,
+  ): DuplicateTitles | null | Promise<DuplicateTitles | null>;
+  hideMany(ids: number[]): void | Promise<void>;
   prune(feedId: number, before: number): void | Promise<void>;
+}
+export interface DuplicateTitles {
+  subjects: Array<{ id: number; title: string }>;
+  recent: Array<{ id: number; title: string }>;
+}
+export interface IngestRulesPort {
+  evaluateArticle(id: number): Promise<number>;
+  evaluateArticles?(ids: number[]): Promise<number>;
 }
 export type SearchScope = 'all' | 'folder' | 'starred';
 export interface SearchOptions {

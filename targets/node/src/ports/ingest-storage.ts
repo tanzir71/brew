@@ -1,5 +1,10 @@
 import { and, eq, or } from 'drizzle-orm';
-import type { IngestStoragePort, IngestCandidate } from '../../../../packages/core/src/ports.js';
+import type {
+  IngestStoragePort,
+  IngestCandidate,
+  DuplicateTitles,
+} from '../../../../packages/core/src/ports.js';
+import { duplicateTitleQueries } from '../../../../packages/db/src/ingest-queries.js';
 import type { BrewDatabase } from '../db/database.js';
 import { articles } from '../db/schema.js';
 
@@ -31,31 +36,27 @@ export class NodeIngestStorage implements IngestStoragePort {
       return ids;
     })();
   }
-  duplicateFilterEnabled(): boolean {
-    return (
-      (
-        this.database.sqlite
-          .prepare("SELECT value FROM settings WHERE key = 'duplicate_filter_enabled'")
-          .get() as { value: string } | undefined
-      )?.value === 'true'
-    );
+  duplicateTitles(ids: number[], since: number): DuplicateTitles | null {
+    if (!ids.length) return null;
+    const queries = duplicateTitleQueries(ids, since);
+    return this.database.sqlite.transaction(() => {
+      const enabled = this.database.sqlite.prepare(queries.enabled.sql).get() as {
+        enabled: number;
+      };
+      if (!enabled.enabled) return null;
+      return {
+        subjects: this.database.sqlite
+          .prepare(queries.subjects.sql)
+          .all(...queries.subjects.values),
+        recent: this.database.sqlite.prepare(queries.recent.sql).all(...queries.recent.values),
+      } as DuplicateTitles;
+    })();
   }
-  title(id: number): string {
-    return this.database.db
-      .select({ title: articles.title })
-      .from(articles)
-      .where(eq(articles.id, id))
-      .get()!.title;
-  }
-  recentTitles(excludeId: number, since: number): string[] {
-    return (
+  hideMany(ids: number[]): void {
+    if (ids.length)
       this.database.sqlite
-        .prepare('SELECT title FROM articles WHERE id != ? AND published_at >= ?')
-        .all(excludeId, since) as Array<{ title: string }>
-    ).map((row) => row.title);
-  }
-  hide(id: number): void {
-    this.database.db.update(articles).set({ hidden: true }).where(eq(articles.id, id)).run();
+        .prepare('UPDATE articles SET hidden=1 WHERE id IN (SELECT value FROM json_each(?))')
+        .run(JSON.stringify(ids));
   }
   prune(feedId: number, before: number): void {
     // Starred/tagged stories keep their cleaned text, but never retain original
