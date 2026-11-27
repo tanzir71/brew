@@ -78,6 +78,8 @@ export function decodeIngestState(value: string): IngestProcessingState {
 }
 export interface IngestStepBudget {
   remaining: number;
+  /** Reserve a claim/release pair or one complete step before its first I/O. */
+  reserve?: (kind: 'job' | 'step') => (() => void) | null;
 }
 export function cloneIngestRuleState(state: Extract<IngestProcessingState, { phase: 'rules' }>) {
   return {
@@ -108,26 +110,39 @@ export class IngestProcessingService {
   async drain(feedId?: number, limit = Infinity): Promise<number> {
     let steps = 0;
     while (this.budget.remaining > 0 && steps < limit) {
+      const releaseJob = this.budget.reserve?.('job');
+      if (releaseJob === null) break;
       const runner = this.runner(),
         now = this.clock.now().getTime();
-      const job = await this.jobs.claim(runner, now, now + INGEST_LEASE_MS, feedId);
-      if (!job) break;
+      let job: IngestJob | null = null;
       try {
+        job = await this.jobs.claim(runner, now, now + INGEST_LEASE_MS, feedId);
+        if (!job) break;
         while (this.budget.remaining > 0 && steps < limit) {
+          const releaseStep = this.budget.reserve?.('step');
+          if (releaseStep === null) return steps;
           const finishing = job.state.phase === 'retention';
-          this.budget.remaining--;
-          if (!(await this.step(job))) {
-            this.budget.remaining++;
-            return steps;
+          try {
+            this.budget.remaining--;
+            if (!(await this.step(job))) {
+              this.budget.remaining++;
+              return steps;
+            }
+            steps++;
+          } finally {
+            releaseStep?.();
           }
-          steps++;
           if (finishing) break;
         }
       } catch (error) {
         if (error instanceof IngestLeaseLost) return steps;
         throw error;
       } finally {
-        await this.jobs.release(job.id, runner);
+        try {
+          if (job) await this.jobs.release(job.id, runner);
+        } finally {
+          releaseJob?.();
+        }
       }
     }
     return steps;

@@ -104,18 +104,27 @@ export class CloudflarePoller {
     let cursor = 0;
     const work = async () => {
       while (cursor < queue.length && this.budget.remaining > 0) {
+        // A feed can read deduplication, insert, prune an empty refresh and
+        // update metadata; leave one further call for a failed metadata write's
+        // shared failure-policy update. Reserve before the external request.
+        const release = this.storage.queryBudget?.reserve(5);
+        if (release === null) break;
         const feed = queue[cursor++]!;
-        results.push(
-          await pollFeed(feed, {
-            fetcher: this.budget.fetch,
-            now: this.now,
-            parse: (body, type) => parseCloudflareFeed(body, type, this.now),
-            readBody: readFeedBody,
-            ingest: (value, articles) =>
-              this.ingest(value, articles, this.admission(value, runner)),
-            update: (value, patch) => this.update(value, runner, patch),
-          }),
-        );
+        try {
+          results.push(
+            await pollFeed(feed, {
+              fetcher: this.budget.fetch,
+              now: this.now,
+              parse: (body, type) => parseCloudflareFeed(body, type, this.now),
+              readBody: readFeedBody,
+              ingest: (value, articles) =>
+                this.ingest(value, articles, this.admission(value, runner)),
+              update: (value, patch) => this.update(value, runner, patch),
+            }),
+          );
+        } finally {
+          release?.();
+        }
       }
     };
     // Drain every worker before releasing leases, including after a D1 failure.
@@ -138,8 +147,18 @@ export class CloudflarePoller {
     }
   }
   async pollDue() {
+    return this.start(this.budget.remaining);
+  }
+  private async start(limit: number, id?: number) {
+    // Hold claim and cleanup capacity while all concurrent work settles.
+    const release = this.storage.queryBudget?.reserve(2);
+    if (release === null) return [];
     const runner = crypto.randomUUID();
-    return this.run(runner, await this.claim(runner, this.budget.remaining));
+    try {
+      return await this.run(runner, await this.claim(runner, limit, id));
+    } finally {
+      release?.();
+    }
   }
   async pollFeedById(id: number): Promise<PollResult | null> {
     if (!Number.isSafeInteger(id) || id < 1) return null;
@@ -155,10 +174,7 @@ export class CloudflarePoller {
         outcome: 'error',
         error: 'Newsletter senders receive mail instead of RSS polling.',
       };
-    const runner = crypto.randomUUID();
-    const result = (
-      await this.run(runner, await this.claim(runner, Math.min(1, this.budget.remaining), id))
-    )[0];
+    const result = (await this.start(Math.min(1, this.budget.remaining), id))[0];
     return (
       result ?? {
         feedId: id,

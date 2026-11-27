@@ -68,13 +68,16 @@ beforeEach(async () => {
     ].map((sql) => env.DB.prepare(sql)),
   );
 });
-type Report = { results: PollResult[]; used: number };
+type Report = { results: PollResult[]; used: number; queries: number; accounted: number };
 async function poll(limit = 40, headers: Record<string, string> = {}): Promise<Report> {
   const response = await worker.fetch('https://brew.test/__review/poll', {
     headers: { 'x-review-limit': String(limit), ...headers },
   });
   expect(response.status).toBe(200);
-  return response.json() as Promise<Report>;
+  const report = (await response.json()) as Report;
+  expect(report.queries).toBe(report.accounted - Number(headers['x-review-query-spent'] ?? 0));
+  expect(report.accounted).toBeLessThanOrEqual(Number(headers['x-review-query-limit'] ?? 50));
+  return report;
 }
 async function calls(): Promise<PollerCall[]> {
   return (await env.UPSTREAM.fetch('https://source.test/__review/stats')).json() as Promise<
@@ -98,7 +101,7 @@ async function manual(id: number) {
   return { status: response.status, value: (await response.json()) as PollResult };
 }
 
-it('polls 200 real feeds over five native scheduled invocations with at most 40 external requests each', async () => {
+it('drains 200 real feeds in due order over native scheduled invocations within both query and fetch allowances', async () => {
   await env.DB.batch(
     Array.from({ length: 200 }, (_, index) =>
       env.DB.prepare("INSERT INTO feeds(id,url,title) VALUES(?,?,'Pending')").bind(
@@ -111,15 +114,17 @@ it('polls 200 real feeds over five native scheduled invocations with at most 40 
     "INSERT INTO feeds(id,url,title,kind) VALUES(201,'mailto:letters@example.test','Letters','newsletter')",
   ).run();
   const seen: number[] = [];
-  for (let index = 0; index < 5; index++) {
+  for (let index = 0; index < 40 && seen.length < 200; index++) {
     const time = now + index * 60_000;
     await worker.scheduled({ cron: '* * * * *', scheduledTime: new Date(time) });
     const saved = await env.DB.prepare('SELECT value FROM settings WHERE key=?')
       .bind(`review-poll-${time}`)
       .first<{ value: string }>();
     const report = JSON.parse(saved!.value) as Report;
-    expect(report.used).toBe(40);
-    expect(report.results).toHaveLength(40);
+    expect(report.used).toBeLessThanOrEqual(40);
+    expect(report.results.length).toBeGreaterThan(0);
+    expect(report.queries).toBe(report.accounted);
+    expect(report.queries).toBeLessThanOrEqual(50);
     expect(
       report.results.every((result) => result.outcome === 'success' && result.newItems === 1),
     ).toBe(true);
@@ -153,6 +158,132 @@ it('orders by due time with stable ID ties, excludes backoff/future/newsletter s
   expect((await poll(2)).results).toEqual([]);
   expect(await env.DB.prepare('SELECT count(*) AS n FROM feed_poll_leases').first()).toEqual({
     n: 0,
+  });
+});
+
+it('leaves due feeds untouched when earlier invocation work leaves no safe D1 capacity, then resumes them', async () => {
+  await insert(1, '/capacity');
+  const paused = await poll(40, { 'x-review-query-spent': '47' });
+  expect(paused.results).toEqual([]);
+  expect(paused.used).toBe(0);
+  expect(await calls()).toEqual([]);
+  expect(
+    await env.DB.prepare('SELECT last_fetched_at,consecutive_failures FROM feeds').first(),
+  ).toEqual({
+    last_fetched_at: null,
+    consecutive_failures: 0,
+  });
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM feed_poll_leases').first()).toEqual({
+    n: 0,
+  });
+  expect((await poll()).results).toMatchObject([{ feedId: 1, outcome: 'success', newItems: 1 }]);
+});
+
+it('reserves the failure-policy write while concurrent real metadata updates are rejected', async () => {
+  await env.DB.batch(
+    Array.from({ length: 30 }, (_, i) =>
+      env.DB.prepare("INSERT INTO feeds(id,url,title) VALUES(?,?,'Pending')").bind(
+        i + 1,
+        `https://source.test/failure/${i + 1}`,
+      ),
+    ),
+  );
+  await env.DB.prepare(
+    `CREATE TRIGGER reject_success_metadata BEFORE UPDATE OF last_status ON feeds
+    WHEN NEW.last_status=200 BEGIN SELECT RAISE(ABORT,'controlled metadata rejection'); END`,
+  ).run();
+  try {
+    const report = await poll();
+    expect(report.results.length).toBeGreaterThan(1);
+    expect(report.results.every((result) => result.outcome === 'error')).toBe(true);
+    expect(report.queries).toBeLessThanOrEqual(50);
+    expect(
+      await env.DB.prepare('SELECT count(*) AS n FROM feeds WHERE consecutive_failures=1').first(),
+    ).toEqual({ n: report.results.length });
+    expect(await env.DB.prepare('SELECT count(*) AS n FROM feed_poll_leases').first()).toEqual({
+      n: 0,
+    });
+  } finally {
+    await env.DB.prepare('DROP TRIGGER reject_success_metadata').run();
+  }
+});
+
+it('reserves a real notification or webhook result before sending near the D1 boundary', async () => {
+  await insert(1, '/boundary');
+  await env.DB.prepare(
+    "INSERT INTO rules(name,match_type,scope_json,conditions_json,actions_json) VALUES('Boundary','all','{}','[]',?)",
+  )
+    .bind(
+      JSON.stringify([
+        { type: 'notify' },
+        { type: 'webhook', url: 'https://source.test/webhook' },
+        { type: 'star' },
+      ]),
+    )
+    .run();
+  await poll(40, { 'x-review-query-limit': '17' });
+  const pending = async () => {
+    const row = await env.DB.prepare('SELECT state_json,runner,expires_at FROM ingest_jobs').first<{
+      state_json: string;
+      runner: string | null;
+      expires_at: number;
+    }>();
+    return row
+      ? { state: JSON.parse(row.state_json), runner: row.runner, expires: row.expires_at }
+      : null;
+  };
+  expect(await pending()).toMatchObject({
+    state: { actions: { index: 0, externalStarted: false } },
+    runner: null,
+    expires: 0,
+  });
+  const resume = async (limit: number) => {
+    const response = await worker.fetch('https://brew.test/__review/resume', {
+      headers: { 'x-review-query-limit': String(limit) },
+    });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as { queries: number; accounted: number };
+    expect(report.queries).toBe(report.accounted);
+    expect(report.queries).toBeLessThanOrEqual(limit);
+  };
+  await resume(5);
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM instance_events').first()).toEqual({
+    n: 0,
+  });
+  await resume(6);
+  expect(await pending()).toMatchObject({
+    state: {
+      actions: { index: 1, externalStarted: false, results: [{ type: 'notify', ok: true }] },
+    },
+    runner: null,
+    expires: 0,
+  });
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM instance_events').first()).toEqual({
+    n: 1,
+  });
+  expect((await calls()).map((call) => call.path)).toEqual(['/boundary']);
+  await resume(6);
+  expect(await pending()).toMatchObject({
+    state: { actions: { index: 2, externalStarted: false } },
+    runner: null,
+    expires: 0,
+  });
+  await resume(50);
+  expect(await pending()).toBeNull();
+  expect((await calls()).map((call) => call.path)).toEqual(['/boundary', '/webhook']);
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM instance_events').first()).toEqual({
+    n: 1,
+  });
+  const log = await env.DB.prepare('SELECT actions_taken_json FROM rule_logs').first<{
+    actions_taken_json: string;
+  }>();
+  expect(JSON.parse(log!.actions_taken_json)).toEqual([
+    { type: 'notify', ok: true },
+    { type: 'webhook', ok: true },
+    { type: 'star', ok: true },
+  ]);
+  expect(await env.DB.prepare('SELECT starred_at FROM articles').first()).toEqual({
+    starred_at: now,
   });
 });
 
@@ -271,7 +402,7 @@ it('defers rule delivery until its retry allowance is available and records real
   expect(await env.DB.prepare('SELECT count(*) AS n FROM rule_logs').first()).toEqual({ n: 0 });
   expect(await env.DB.prepare('SELECT count(*) AS n FROM ingest_jobs').first()).toEqual({ n: 1 });
   const resumed = await poll(3);
-  expect(resumed).toEqual({ results: [], used: 3 });
+  expect(resumed).toMatchObject({ results: [], used: 3 });
   expect((await calls()).map((call) => call.path)).toEqual([
     '/prefetch',
     '/rule',

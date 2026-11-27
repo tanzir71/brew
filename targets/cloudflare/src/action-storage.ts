@@ -513,7 +513,7 @@ export class CloudflareActionStorage implements AsyncActionStoragePort {
     }
     // Reuse the real rule adapter and shared executor; only its atomic write batches
     // gain journal activation. Network work never holds the database flag.
-    const recorded = new RecordedStorage(this.storage.database);
+    const recorded = new RecordedStorage(this.storage.database, this.storage.queryBudget);
     const ruleStorage = new CloudflareRuleStorage(recorded);
     let failures = 0;
     const log = ruleStorage.log.bind(ruleStorage);

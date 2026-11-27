@@ -22,7 +22,8 @@ export function cloudflareBrewServices(
     ...services,
     outboundMail: options.outboundMail,
     brews: new AsyncBrewService(
-      options.brewStorage ?? new CloudflareBrewStorage(new CloudflareStorage(bindings.DB)),
+      options.brewStorage ??
+        new CloudflareBrewStorage(new CloudflareStorage(bindings.DB, options.queryBudget)),
       clock,
       options.regex,
       {

@@ -31,6 +31,7 @@ import {
 } from './inbound-mail.js';
 import { maintainCloudflareNewsletters } from './newsletter-maintenance.js';
 import { CloudflareBrewStorage } from './brew-storage.js';
+import { CloudflareQueryBudget } from './query-budget.js';
 
 export interface CloudflareWorkerEnv {
   DB: D1Database;
@@ -97,13 +98,15 @@ export function createCloudflareWorker<E extends CloudflareWorkerEnv = Cloudflar
     initialize: false | 'mail' | 'scheduled',
   ) {
     const base = publicOrigin(env.BREW_PUBLIC_URL);
-    const storage = new CloudflareStorage(env.DB);
+    const queryBudget = new CloudflareQueryBudget();
+    const storage = new CloudflareStorage(env.DB, queryBudget);
     if (initialize) {
       await upgradeLegacyCompositions(storage);
       await initializeInboundAddress(storage, env.BREW_INBOUND_ADDRESS);
     }
     const library = cloudflarePollingServices(env, {
       budget: network,
+      queryBudget,
       clock,
       regex: options.regex ?? cloudflareRegex,
       outputBaseUrl: base,

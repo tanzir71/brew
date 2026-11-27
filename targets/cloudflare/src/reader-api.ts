@@ -19,6 +19,7 @@ import { CloudflareApiData } from './api-data.js';
 import { CloudflareFeeds } from './feed-service.js';
 import { CloudflareEvents } from './events.js';
 import { R2ImageCache } from './image-cache.js';
+import type { CloudflareQueryBudget } from './query-budget.js';
 
 /** Reader graph; the full Worker also needs Brew/rules/agent/inbound adapters. */
 export function cloudflareReaderServices(
@@ -30,9 +31,10 @@ export function cloudflareReaderServices(
     outputBaseUrl?: string;
     eventPollMs?: number;
     eventLifetimeMs?: number;
+    queryBudget?: CloudflareQueryBudget;
   },
 ) {
-  const storage = new CloudflareStorage(bindings.DB),
+  const storage = new CloudflareStorage(bindings.DB, options.queryBudget),
     clock = options.clock ?? { now: () => new Date(), monotonic: () => performance.now() },
     fetcher = options.fetcher ?? globalThis.fetch;
   return {

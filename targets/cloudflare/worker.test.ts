@@ -356,7 +356,7 @@ it('uses the actual R2 image cache through the authenticated product API', async
   expect((await env.IMAGES.list()).objects.length).toBeGreaterThan(0);
 });
 
-it('polls 200 feeds via the real product scheduled handler with the shared external allowance', async () => {
+it('polls 200 feeds through the product scheduler within shared native D1 and external allowances', async () => {
   await env.DB.batch(
     Array.from({ length: 200 }, (_, index) =>
       env.DB.prepare("INSERT INTO feeds(url,title) VALUES(?,'Pending')").bind(
@@ -364,11 +364,20 @@ it('polls 200 feeds via the real product scheduled handler with the shared exter
       ),
     ),
   );
-  for (let index = 0; index < 5; index++) {
+  const seen: string[] = [];
+  for (let index = 0; index < 50 && seen.length < 200; index++) {
     await env.UPSTREAM.fetch('https://source.test/__review/reset');
     await worker.scheduled({ cron: '* * * * *', scheduledTime: new Date(now + index * 60_000) });
-    expect(await stats()).toHaveLength(40);
+    const calls = await stats();
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.length).toBeLessThanOrEqual(40);
+    seen.push(...calls);
+    const usage = await env.DB.prepare(
+      "SELECT value FROM settings WHERE key='review:cron:queries'",
+    ).first<{ value: string }>();
+    expect(Number(usage!.value)).toBeLessThanOrEqual(50);
   }
+  expect(seen).toEqual(Array.from({ length: 200 }, (_, index) => `/feed/${index}`));
   expect(await env.DB.prepare('SELECT count(*) AS n FROM articles').first()).toEqual({ n: 200 });
   expect(await env.DB.prepare('SELECT count(*) AS n FROM feed_poll_leases').first()).toEqual({
     n: 0,
@@ -555,7 +564,7 @@ it('continues a long rule across product cron invocations without fetching again
   ]);
   await worker.scheduled({ scheduledTime: new Date(now) });
   expect(await env.DB.prepare('SELECT count(*) AS n FROM ingest_jobs').first()).toEqual({ n: 1 });
-  expect(await env.DB.prepare('SELECT count(*) AS n FROM article_tags').first()).toEqual({ n: 13 });
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM article_tags').first()).toEqual({ n: 12 });
   expect(await env.DB.prepare('SELECT starred_at FROM articles').first()).toEqual({
     starred_at: null,
   });
@@ -580,6 +589,51 @@ it('continues a long rule across product cron invocations without fetching again
     ).first(),
   ).toEqual({ n: 1 });
   expect(await stats()).toEqual(['/durable', '/webhook']);
+});
+
+it('keeps polling due feeds while a long rule job consumes its reserved share', async () => {
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO feeds(id,url,title) VALUES(1,'https://source.test/backlog','Backlog')",
+    ),
+    env.DB.prepare(
+      "INSERT INTO rules(name,match_type,scope_json,conditions_json,actions_json) VALUES('Long backlog','all','{}','[]',?)",
+    ).bind(
+      JSON.stringify(
+        Array.from({ length: 120 }, (_, id) => ({ type: 'add_tag', tag: `Backlog ${id}` })),
+      ),
+    ),
+  ]);
+  await worker.scheduled({ scheduledTime: new Date(now) });
+  const first = await env.DB.prepare('SELECT count(*) AS n FROM article_tags').first<{
+    n: number;
+  }>();
+  expect(first!.n).toBeGreaterThan(0);
+  await env.DB.prepare(
+    "INSERT INTO feeds(id,url,title) VALUES(2,'https://source.test/fresh','Fresh')",
+  ).run();
+  await worker.scheduled({ scheduledTime: new Date(now) });
+  expect(
+    await env.DB.prepare('SELECT last_status,last_fetched_at FROM feeds WHERE id=2').first(),
+  ).toEqual({ last_status: 200, last_fetched_at: now });
+  expect(
+    await env.DB.prepare(
+      'SELECT count(*) AS n FROM article_tags t JOIN articles a ON a.id=t.article_id WHERE a.feed_id=1',
+    ).first<{
+      n: number;
+    }>(),
+  ).toEqual({ n: first!.n + 16 });
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM ingest_jobs').first()).toEqual({ n: 2 });
+  expect(
+    await env.DB.prepare(
+      'SELECT count(*) AS n FROM ingest_jobs WHERE runner IS NOT NULL OR expires_at!=0',
+    ).first(),
+  ).toEqual({ n: 0 });
+  const usage = await env.DB.prepare(
+    "SELECT value FROM settings WHERE key='review:cron:queries'",
+  ).first<{ value: string }>();
+  expect(Number(usage!.value)).toBeLessThanOrEqual(50);
+  expect(await stats()).toEqual(['/backlog', '/fresh']);
 });
 
 it('accepts a queued Email Routing letter and completes its long rule on a later cron without redelivery', async () => {

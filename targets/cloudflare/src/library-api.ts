@@ -32,7 +32,7 @@ export function cloudflareLibraryServices(
   options: Parameters<typeof cloudflareBrewServices>[1],
 ) {
   const services = cloudflareBrewServices(bindings, options);
-  const storage = new CloudflareStorage(bindings.DB);
+  const storage = new CloudflareStorage(bindings.DB, options.queryBudget);
   const clock = options.clock ?? { now: () => new Date(), monotonic: () => performance.now() };
   const regex = options.regex ?? {
     test: async () => {

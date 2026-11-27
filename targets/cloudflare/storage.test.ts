@@ -13,6 +13,7 @@ import { NewsletterPipeline } from '../../packages/core/src/newsletter-pipeline.
 import { IngestPipeline } from '../../packages/core/src/ingest-pipeline.js';
 import { proxyImage, MAX_IMAGE_BYTES } from '../../packages/api/src/image-proxy.js';
 import { openDatabase } from '../node/src/db/database.js';
+import { CloudflareQueryBudget } from './src/query-budget.js';
 
 const runtime = new Miniflare({
   modules: true,
@@ -64,6 +65,33 @@ beforeAll(async () => {
   bucket = (await runtime.getR2Bucket('IMAGES')) as unknown as R2Bucket;
 }, 30_000);
 afterAll(async () => runtime.dispose());
+
+it('shares actual D1 call accounting across adapters, counts a failed atomic batch once and releases phase reservations', async () => {
+  const budget = new CloudflareQueryBudget(6);
+  const phase = budget.share(4);
+  const first = new CloudflareStorage(storage.database, phase);
+  const second = new CloudflareStorage(storage.database, budget);
+  const release = phase.reserve(3)!;
+  expect(budget.reserve(4)).toBeNull();
+  await first.batch([first.statement('SELECT 1'), first.statement('SELECT 2')]);
+  await expect(
+    first.batch([
+      first.statement("INSERT INTO tags(name,color) VALUES('query rollback','#000000')"),
+      first.statement("INSERT INTO tags(name,color) VALUES('query rollback','#000000')"),
+    ]),
+  ).rejects.toThrow();
+  release();
+  release();
+  expect(phase.used).toBe(2);
+  expect(budget.used).toBe(2);
+  expect(await second.first("SELECT id FROM tags WHERE name='query rollback'")).toBeNull();
+  await first.batch([]);
+  expect(budget.used).toBe(3);
+  expect(phase.reserve(3)).toBeNull();
+  const next = budget.reserve(3);
+  expect(next).not.toBeNull();
+  next!();
+});
 
 it('upgrades an actual v1 row on D1 without losing schedule, section identity, legacy payload or delivery defaults', async () => {
   const row = await storage.first<{

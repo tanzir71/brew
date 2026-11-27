@@ -13,6 +13,8 @@ import {
 } from '../../../packages/core/src/ingest-processing.js';
 import { CloudflareIngestJobs } from './ingest-jobs.js';
 import { CloudflareRuleStorage } from './rule-storage.js';
+import { CloudflareQueryBudget } from './query-budget.js';
+import { CloudflareEvents } from './events.js';
 
 /** Real polling graph; the product entrypoint still needs owner/email admission. */
 export function cloudflarePollingServices(
@@ -22,26 +24,45 @@ export function cloudflarePollingServices(
     processingBudget?: IngestStepBudget;
   },
 ) {
+  const queryBudget = options.queryBudget ?? new CloudflareQueryBudget();
   const library = cloudflareLibraryServices(bindings, {
     ...options,
+    queryBudget,
     fetcher: options.budget.fetch,
   });
-  const storage = new CloudflareStorage(bindings.DB);
+  const storage = new CloudflareStorage(bindings.DB, queryBudget);
+  // Leave capacity for due feeds even when older rule jobs keep arriving.
+  const processingQueries = queryBudget.share(24);
+  const processingStorage = new CloudflareStorage(bindings.DB, processingQueries);
+  const steps = options.processingBudget ?? { remaining: 16 };
   const clock = options.clock ?? { now: () => new Date(), monotonic: () => performance.now() };
   const processor = new IngestProcessingService(
-    new CloudflareIngestJobs(storage),
-    new CloudflareIngestStorage(storage),
-    new CloudflareRuleStorage(storage),
+    new CloudflareIngestJobs(processingStorage),
+    new CloudflareIngestStorage(processingStorage),
+    new CloudflareRuleStorage(processingStorage),
     options.regex ?? {
       test: async () => {
         throw new Error('Regular expression execution needs setup on this instance.');
       },
     },
     { fetch: options.budget.fetch },
-    { notify: (article) => library.events.publish('notification', article) },
+    {
+      notify: (article) => new CloudflareEvents(processingStorage).publish('notification', article),
+    },
     clock,
     () => crypto.randomUUID(),
-    options.processingBudget ?? { remaining: 16 },
+    {
+      get remaining() {
+        return steps.remaining;
+      },
+      set remaining(value) {
+        steps.remaining = value;
+      },
+      // Claim/release: two calls. A step: at most three (duplicate snapshot,
+      // definitions and checkpoint; or start, notification and result). This also
+      // covers a rejected tag transaction followed by its failure checkpoint.
+      reserve: (kind) => processingQueries.reserve(kind === 'job' ? 2 : 3),
+    },
     (type) => type === 'notify' || options.budget.remaining >= 2,
   );
   let previous = Promise.resolve(0);

@@ -17,6 +17,7 @@ import { CloudflareIngestStorage } from '../src/ingest-storage.js';
 import { CloudflareEvents } from '../src/events.js';
 import { IngestProcessingService } from '../../../packages/core/src/ingest-processing.js';
 import { CloudflareIngestJobs } from '../src/ingest-jobs.js';
+import { countD1 } from './query-count.js';
 
 export interface ProductEnv extends CloudflareWorkerEnv {
   UPSTREAM: { fetch: typeof fetch };
@@ -73,6 +74,15 @@ const scheduledController = () => ({
 });
 const reviewWorker = {
   ...product,
+  async scheduled(controller: Parameters<typeof product.scheduled>[0], env: ProductEnv) {
+    const native = countD1(env.DB);
+    await product.scheduled(controller, { ...env, DB: native.database });
+    await env.DB.prepare(
+      "INSERT INTO settings(key,value) VALUES('review:cron:queries',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+    )
+      .bind(String(native.calls))
+      .run();
+  },
   async fetch(request: Request, env: ProductEnv): Promise<Response> {
     const path = new URL(request.url).pathname;
     if (path === '/__review/resume-mail') {

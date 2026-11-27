@@ -450,10 +450,10 @@ A direct-port workerd check ingests 120 sanitized articles with inactive duplica
 rule policy in five D1 calls: the existing deduplication lookup/insert, duplicate
 snapshot, rule-definition read and retention batch. Another actual product cron
 ingests a 120-item feed with a nonmatching rule. Matching actions and multiple
-feeds still add calls. The step allowance is not a bound on D1 calls, SQL rows,
-snapshot bytes, sanitization/regex CPU, or total invocation work. Overall query and
-due-generation resource continuation and deployed CPU verification remain necessary
-before claiming complete Free compliance.
+feeds still add calls. The step allowance alone is not a resource bound. Polling
+and pending processing now also use the D1 admission accounting described below.
+SQL rows, snapshot bytes, sanitization/regex CPU, due-generation continuation and
+deployed CPU verification remain necessary before claiming complete Free compliance.
 
 `cloudflarePollingServices` adds the real poller to the library graph. Node and
 Cloudflare now share conditional requests, parsing policy, adaptive intervals,
@@ -477,16 +477,36 @@ remove credentials. Streaming writes require manual redirects. Discarded bodies
 are cancelled. Exhaustion before an input feed finishes leaves its validators and
 health unchanged so a later invocation can retry; it is not a remote-source error.
 
-The native scheduled integration fixture polls 200 feeds over five invocations,
-with 40 external requests each, and verifies overlap/expiry/deletion races, real
-ingestion, conditional refreshes, Node parity and shared rule-webhook accounting.
-The fixture is not the product Worker or its owner authentication boundary.
+One `CloudflareQueryBudget` counts storage calls across each polling graph and the
+product invocation's setup, maintenance and Brew services. A native batch counts
+once, including a rejected transaction; preparing statements or an empty batch
+does not spend a call. Before fetching a feed, reserve its complete deduplication,
+insertion, retention and metadata path, including the failure-policy update.
+Reserve lease claim/cleanup separately and keep those reservations until all
+concurrent work settles. Fewer feeds run when D1 capacity is the tighter limit.
+Unstarted due sources retain their health and validators for the next invocation.
 
-This proves the external-fetch bound only. The current per-feed ingestion/rule
-calls can exceed the separate Free D1 query allowance; durable batching and
-resource continuation still need work. Local workerd does not prove the deployed
-10 ms Free CPU budget. M14 remains open until the complete runtime meets its
-resource limits. See the [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
+Pending processing gets at most 24 D1 calls and sixteen steps per invocation, so
+old rule jobs leave capacity for newly due feeds. Claim/release and each complete
+step reserve capacity before I/O, including both durable send markers and the
+actual notification write/result. Intentional yields release their leases.
+Admission is conservative: partially spent concurrent reservations retain their
+full estimate until completion. Accounting itself never throws between a write
+and acknowledgement or during cleanup. Unused capacity is released for other work.
+
+The polling harness and the actual product scheduler each drain 200 feeds over
+fresh invocations with no more than 50 native D1 calls or 40 external fetches per
+invocation in these scenarios. The test transport independently counts native
+prepared-statement and session/batch calls. Other cases cover a nearly spent
+allowance, rejected concurrent metadata writes, real notification/webhook results
+at the query boundary, and new polling alongside a long rule backlog.
+
+This admission currently bounds the polling and pending-processing phases. Due
+Brew generation/delivery and arbitrary owner operations still need resumable
+admission; a counter does not make those operations bounded. Large config/source
+snapshots and SQL work also remain unbounded. Local workerd does not prove the
+deployed 10 ms Free CPU budget. M14 remains open until the complete runtime meets
+its resource limits. See the [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
 and [D1 limits](https://developers.cloudflare.com/d1/platform/limits/).
 
 Still required: durable resource continuation, optional outbound provider setup
