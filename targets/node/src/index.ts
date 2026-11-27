@@ -1,6 +1,7 @@
 import { smtpConfigFromEnv } from './outbound-config.js';
 import { createApp } from './app.js';
 import { inboundConfigFromEnv } from './inbound-config.js';
+import { resendMailFromEnv } from '../../../packages/core/src/resend-mail.js';
 
 const args = process.argv.slice(2);
 if (args.length === 1 && (args[0] === 'mcp' || args[0] === '--mcp')) {
@@ -14,11 +15,13 @@ if (args.length === 1 && (args[0] === 'mcp' || args[0] === '--mcp')) {
   console.error('Usage: node dist/targets/node/src/index.js [mcp]');
   process.exitCode = 2;
 } else {
+  const smtp = smtpConfigFromEnv(process.env);
   const app = await createApp({
     serveWeb: process.env.NODE_ENV === 'production',
     publicUrl: process.env.BREW_PUBLIC_URL || undefined,
     startPoller: true,
-    smtp: smtpConfigFromEnv(process.env),
+    smtp,
+    outboundMail: smtp ? undefined : resendMailFromEnv(process.env),
     inbound: inboundConfigFromEnv(process.env),
   });
 

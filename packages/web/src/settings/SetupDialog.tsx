@@ -29,7 +29,7 @@ const guides: Record<SetupTopic, { title: string; description: string; steps: st
     description: 'Send a finished issue through a mail service you control.',
     steps: [
       'On a Node instance, set BREW_SMTP_HOST, BREW_SMTP_FROM and BREW_PUBLIC_URL, plus your SMTP TLS/authentication settings, then restart Brew. See the outbound delivery guide in the README.',
-      'Other supported instances can use Cloudflare Email Service, Resend or their host’s mail service.',
+      'For Resend on Node or Cloudflare, set BREW_RESEND_API_KEY and BREW_RESEND_FROM, plus BREW_PUBLIC_URL. Store the key as a secret and restart Node or redeploy the Worker.',
       'Choose an email recipient in Compose → Schedule & delivery.',
       'Use “Send a test now” before turning on scheduled delivery.',
     ],

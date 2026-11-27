@@ -106,6 +106,10 @@ afterAll(async () => {
   await server.close();
 });
 beforeEach(async () => {
+  await worker.fetch(`${base}/__review/mail-config`, {
+    method: 'POST',
+    body: JSON.stringify({ mode: 'off' }),
+  });
   await env.DB.batch(
     [
       'DELETE FROM feeds',
@@ -1167,3 +1171,183 @@ it('continues a complete multi-megabyte configuration snapshot after live edits 
   });
   expect((await stats()).filter((path) => path === '/during-discovery')).toHaveLength(1);
 }, 30_000);
+
+const mailDraft = (delivery: Record<string, unknown> = {}) => ({
+  name: 'Resend Worker',
+  enabled: true,
+  timezone: 'UTC',
+  schedule: { kind: 'daily', time: '12:00' },
+  delivery: { ...defaultDelivery(), email: { to: 'owner@example.test' }, ...delivery },
+  sections: [
+    { ...newBrewSection('mail', 'note'), note: 'A private **Worker note**. [Read](/all)' },
+  ],
+});
+async function configureMail(mode = 'configured', limit = '40') {
+  await worker.fetch(`${base}/__review/mail-config`, {
+    method: 'POST',
+    body: JSON.stringify({ mode, limit }),
+  });
+}
+async function sentEmails() {
+  return (await (await env.UPSTREAM.fetch('https://source.test/__review/emails')).json()) as {
+    url: string;
+    authorization: string;
+    agent: string;
+    key: string | null;
+    assertion: string | null;
+    body: { from: string; to: string[]; subject: string; html: string; text: string };
+  }[];
+}
+
+it('keeps incomplete Resend setup unavailable and sends the actual unsaved preview through the native product API', async () => {
+  for (const mode of ['off', 'partial', 'invalid']) {
+    await configureMail(mode);
+    expect(
+      ((await (await request('/api/capabilities')).json()) as Capabilities).emailDelivery,
+    ).toBeNull();
+    expect(
+      (
+        await request('/api/brew-configs/1/test-email', {
+          method: 'POST',
+          headers: { origin: base, 'content-type': 'application/json' },
+          body: JSON.stringify({ draft: mailDraft() }),
+        })
+      ).status,
+    ).toBe(501);
+  }
+  expect(await sentEmails()).toHaveLength(0);
+  await configureMail();
+  expect(((await (await request('/api/capabilities')).json()) as Capabilities).emailDelivery).toBe(
+    'resend',
+  );
+  const created = await request('/api/brew-configs/composition', {
+    method: 'POST',
+    headers: { origin: base, 'content-type': 'application/json' },
+    body: JSON.stringify(mailDraft()),
+  });
+  expect(created.status).toBe(201);
+  const id = ((await created.json()) as { id: number }).id;
+  const preview = await request(`/api/brew-configs/${id}/test-email`, {
+    method: 'POST',
+    headers: { origin: base, 'content-type': 'application/json' },
+    body: JSON.stringify({ draft: { ...mailDraft(), name: 'Unsaved Worker' } }),
+  });
+  expect(preview.status).toBe(200);
+  expect(await preview.json()).toMatchObject({ sent: true, messageId: 'native-resend-1' });
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM brews').first()).toEqual({ n: 0 });
+  const email = (await sentEmails())[0]!;
+  expect(email).toMatchObject({
+    url: 'https://api.resend.com/emails',
+    authorization: 'Bearer re_native_fixture',
+    agent: 'Brew/0.1',
+    key: null,
+    assertion: null,
+    body: {
+      from: 'brew@example.test',
+      to: ['owner@example.test'],
+      subject: 'Test · Unsaved Worker',
+    },
+  });
+  expect(email.body.html).toContain(`${base}/all`);
+  expect(email.body.text).toContain('A private Worker note.');
+  await env.UPSTREAM.fetch('https://source.test/__review/mail-mode', {
+    method: 'POST',
+    body: JSON.stringify({ mode: 'reject' }),
+  });
+  const rejected = await request(`/api/brew-configs/${id}/test-email`, {
+    method: 'POST',
+    headers: { origin: base, 'content-type': 'application/json' },
+    body: JSON.stringify({ draft: mailDraft() }),
+  });
+  expect(rejected.status).toBe(422);
+  expect(await rejected.text()).not.toMatch(/sensitive upstream|re_native_fixture/);
+  expect(await sentEmails()).toHaveLength(2);
+});
+
+it('reserves one shared fetch for real scheduled Resend mail and continues polling on the next native cron', async () => {
+  await configureMail('configured', '1');
+  await env.DB.prepare(
+    `INSERT INTO brew_configs(name,enabled,composition_version,timezone,schedule_json,sections_json,delivery_json)
+    VALUES('Resend scheduled',1,2,'UTC','{"kind":"daily","time":"12:00"}',?,?)`,
+  )
+    .bind(JSON.stringify(mailDraft().sections), JSON.stringify(mailDraft().delivery))
+    .run();
+  await env.DB.prepare(
+    "INSERT INTO feeds(url,title,fetch_interval_minutes) VALUES('https://source.test/after-mail','After mail',1440)",
+  ).run();
+  await worker.scheduled({ scheduledTime: new Date(now) });
+  expect(await stats()).toEqual(['/emails']);
+  expect(await sentEmails()).toHaveLength(1);
+  expect(
+    await env.DB.prepare(
+      'SELECT last_fetched_at,last_status,consecutive_failures FROM feeds',
+    ).first(),
+  ).toEqual({ last_fetched_at: null, last_status: null, consecutive_failures: 0 });
+  const issue = await env.DB.prepare('SELECT generated_at,sent_json FROM brews').first<{
+    generated_at: number;
+    sent_json: string;
+  }>();
+  expect(issue!.generated_at).toBe(now);
+  expect(JSON.parse(issue!.sent_json).email).toMatchObject({
+    status: 'sent',
+    attempts: 1,
+    messageId: 'native-resend-1',
+  });
+  expect((await sentEmails())[0]!.key).toMatch(/^brew\/[a-f\d]{64}$/);
+  expect(
+    Number(
+      (await env.DB.prepare("SELECT value FROM settings WHERE key='review:cron:queries'").first<{
+        value: string;
+      }>())!.value,
+    ),
+  ).toBeLessThanOrEqual(50);
+  await worker.scheduled({ cron: 'review:advance', scheduledTime: new Date(now + 60_000) });
+  expect(await stats()).toEqual(['/emails', '/after-mail']);
+  expect(await sentEmails()).toHaveLength(1);
+  expect(await env.DB.prepare('SELECT last_status FROM feeds').first()).toEqual({
+    last_status: 200,
+  });
+  expect(
+    Number(
+      (await env.DB.prepare("SELECT value FROM settings WHERE key='review:cron:queries'").first<{
+        value: string;
+      }>())!.value,
+    ),
+  ).toBeLessThanOrEqual(50);
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM brew_schedule_jobs').first()).toEqual({
+    n: 0,
+  });
+});
+
+it.each(['reject', 'malformed', 'redirect'])(
+  'records a real Resend %s outcome while the webhook settles and never replays the occurrence',
+  async (mode) => {
+    await configureMail();
+    await env.UPSTREAM.fetch('https://source.test/__review/mail-mode', {
+      method: 'POST',
+      body: JSON.stringify({ mode }),
+    });
+    const draft = mailDraft({ webhook: { url: 'https://source.test/webhook' } });
+    await env.DB.prepare(
+      `INSERT INTO brew_configs(name,enabled,composition_version,timezone,schedule_json,sections_json,delivery_json)
+    VALUES('Both channels',1,2,'UTC','{"kind":"daily","time":"12:00"}',?,?)`,
+    )
+      .bind(JSON.stringify(draft.sections), JSON.stringify(draft.delivery))
+      .run();
+    await worker.scheduled({ scheduledTime: new Date(now) });
+    expect(await sentEmails()).toHaveLength(1);
+    expect((await stats()).filter((path) => path === '/webhook')).toHaveLength(1);
+    expect(await stats()).not.toContain('/stolen-mail');
+    const receipt = (await env.DB.prepare('SELECT sent_json FROM brews').first<{
+      sent_json: string;
+    }>())!.sent_json;
+    expect(JSON.parse(receipt)).toMatchObject({
+      email: { status: 'failed', attempts: 1, error: 'email' },
+      webhook: { status: 'sent', attempts: 1, httpStatus: 204 },
+    });
+    expect(receipt).not.toMatch(/re_native_fixture|sensitive upstream/);
+    await worker.scheduled({ scheduledTime: new Date(now) });
+    expect(await sentEmails()).toHaveLength(1);
+    expect((await stats()).filter((path) => path === '/webhook')).toHaveLength(1);
+  },
+);

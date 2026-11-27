@@ -28,6 +28,19 @@ const product = createCloudflareWorker<ProductEnv>({
   clock,
   fetcher: (env) => (input, init) => env.UPSTREAM.fetch(input, init),
 });
+let mailMode = 'off',
+  mailLimit: string | undefined;
+const withMail = (env: ProductEnv): ProductEnv => ({
+  ...env,
+  BREW_RESEND_API_KEY:
+    mailMode === 'off'
+      ? undefined
+      : mailMode === 'invalid'
+        ? 'invalid\r\nkey'
+        : 're_native_fixture',
+  BREW_RESEND_FROM: mailMode === 'off' || mailMode === 'partial' ? undefined : 'brew@example.test',
+  BREW_MAX_FETCHES_PER_RUN: mailLimit ?? env.BREW_MAX_FETCHES_PER_RUN,
+});
 class CountedStorage extends CloudflareStorage {
   readonly calls = { first: 0, all: 0, run: 0, batch: 0 };
   override first<T>(sql: string, values: unknown[] = []) {
@@ -75,6 +88,7 @@ const scheduledController = () => ({
 const reviewWorker = {
   ...product,
   async scheduled(controller: Parameters<typeof product.scheduled>[0], env: ProductEnv) {
+    env = withMail(env);
     const native = countD1(env.DB);
     const invocation =
       controller.cron === 'review:advance'
@@ -107,6 +121,12 @@ const reviewWorker = {
   },
   async fetch(request: Request, env: ProductEnv): Promise<Response> {
     const path = new URL(request.url).pathname;
+    if (path === '/__review/mail-config') {
+      const value = (await request.json()) as { mode?: string; limit?: string };
+      mailMode = value.mode ?? 'off';
+      mailLimit = value.limit;
+      return new Response(null, { status: 204 });
+    }
     if (path === '/__review/discover-and-poll') {
       let invocations = 0,
         maxQueries = 0;
@@ -336,7 +356,7 @@ const reviewWorker = {
     const headers = new Headers(request.headers);
     headers.set('host', headers.get('x-review-host') ?? new URL(request.url).host);
     headers.delete('x-review-host');
-    return product.fetch(new Request(request, { headers }), env);
+    return product.fetch(new Request(request, { headers }), withMail(env));
   },
 };
 export default reviewWorker;

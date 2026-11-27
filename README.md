@@ -112,8 +112,9 @@ durable actions, scoped MCP credentials/tools, interruptible WASM regex, lease-f
 polling with redirect accounting and native MIME ingestion run in bundled
 workerd tests alongside verified D1/R2 storage ports. The product Worker now
 connects fetch, scheduled and Email Routing handlers with Cloudflare Access and
-private assets. Resource continuation, optional outbound mail and the installer
-remain unfinished; M14 stays open.
+private assets. Optional Resend delivery shares the same mail port as Node and
+the invocation's fetch allowance. The installer remains unfinished; M14 stays
+open. Read the Cloudflare guide's resource bounds before deploying.
 
 ```
 packages/core/   portable domain services, ports and shared types
@@ -404,9 +405,9 @@ the server with DST handling. Pause scheduling or skip issues below a threshold
 of unique unread selected items. Changes stay local until Save; closing the
 sheet cancels them. Delivery controls follow capabilities and keep unavailable
 channels visible with setup links. Test email sends the unsaved preview through
-a configured `OutboundMailPort` and saves no issue or settings; Node's SMTP
-adapter is configured through environment variables; webhook and feed delivery
-work in Node. A default Node install keeps email gated until SMTP is configured,
+a configured `OutboundMailPort` and saves no issue or settings; Node supports SMTP
+or Resend through environment variables; webhook and feed delivery
+work in Node. A default Node install keeps email gated until a mail provider is configured,
 and public-copy publishing remains pending.
 
 V2 issues are retained for 30 days, with monotonic issue numbers even after the
@@ -530,7 +531,7 @@ Complete `.brew` transfer remains a later milestone.
 
 
 Node outbound delivery is documented in [docs/outbound-delivery.md](docs/outbound-delivery.md).
-Set SMTP sender/connection settings and `BREW_PUBLIC_URL`, then restart the Node
+Set SMTP connection settings or `BREW_RESEND_API_KEY`/`BREW_RESEND_FROM`, plus `BREW_PUBLIC_URL`, then restart the Node
 process. Choose a single recipient or an HTTP(S) webhook in Schedule & delivery.
 Generated issues freeze first, then deliver their frozen HTML/plain text and
 content-only JSON. Failures preserve the issue and appear separately at

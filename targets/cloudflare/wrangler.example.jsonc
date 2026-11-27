@@ -1,6 +1,7 @@
 {
-  // Runtime integration example. Free D1/CPU budgeting and the installer remain
-  // under implementation; see docs/cloudflare.md before using a live instance.
+  // Runtime integration example. The installer is still under implementation;
+  // see docs/cloudflare.md for resource bounds before using a live instance.
+  // Optional email: set BREW_RESEND_API_KEY with `wrangler secret put`, never here.
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "brew-reader",
   "main": "src/worker.ts",
@@ -32,5 +33,6 @@
     "BREW_INBOUND_ADDRESS": "brew@letters.example.com",
     "BREW_MAX_FETCHES_PER_RUN": "40",
     "BREW_WEBMCP": "0",
+    // "BREW_RESEND_FROM": "brew@your-verified-domain.example",
   },
 }

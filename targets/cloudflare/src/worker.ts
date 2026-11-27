@@ -32,6 +32,7 @@ import {
 import { maintainCloudflareNewsletters } from './newsletter-maintenance.js';
 import { CloudflareBrewStorage } from './brew-storage.js';
 import { CloudflareQueryBudget } from './query-budget.js';
+import { resendMailFromEnv } from '../../../packages/core/src/resend-mail.js';
 
 export interface CloudflareWorkerEnv {
   DB: D1Database;
@@ -45,6 +46,8 @@ export interface CloudflareWorkerEnv {
   BREW_INBOUND_ADDRESS?: string;
   BREW_MAX_FETCHES_PER_RUN?: string;
   BREW_WEBMCP?: string;
+  BREW_RESEND_API_KEY?: string;
+  BREW_RESEND_FROM?: string;
 }
 function result(value: unknown, status = 200) {
   return Response.json(value, { status });
@@ -100,6 +103,7 @@ export function createCloudflareWorker<E extends CloudflareWorkerEnv = Cloudflar
     const base = publicOrigin(env.BREW_PUBLIC_URL);
     const queryBudget = new CloudflareQueryBudget();
     const storage = new CloudflareStorage(env.DB, queryBudget);
+    const outboundMail = resendMailFromEnv(env, network.fetch);
     if (initialize) {
       await upgradeLegacyCompositions(storage);
       await initializeInboundAddress(storage, env.BREW_INBOUND_ADDRESS);
@@ -110,6 +114,7 @@ export function createCloudflareWorker<E extends CloudflareWorkerEnv = Cloudflar
       clock,
       regex: options.regex ?? cloudflareRegex,
       outputBaseUrl: base,
+      outboundMail,
       brewStorage:
         initialize === 'scheduled'
           ? await CloudflareBrewStorage.scheduled(storage, clock.now(), false)
@@ -119,7 +124,7 @@ export function createCloudflareWorker<E extends CloudflareWorkerEnv = Cloudflar
         fetch: 'direct',
         backgroundFetch: { kind: 'cron', everyMinutes: 1 },
         inboundMail: (await activeInboundAddress(storage)) ? 'cloudflare-email' : null,
-        emailDelivery: null,
+        emailDelivery: outboundMail?.kind ?? null,
         readerApi: (await library.readerSync.access.status()).enabled,
         mcp: 'http',
         agentAccess: true,

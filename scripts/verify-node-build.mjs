@@ -22,6 +22,7 @@ import { NodeScheduledBrewJobs } from '../dist/targets/node/src/ports/brew-sched
 import { BrewService as ScheduledNodeService } from '../dist/targets/node/src/services/brew-service.js';
 import { ScheduledBrewProcessor } from '../dist/packages/core/src/brew-scheduled-processing.js';
 import { nodeRegex } from '../dist/targets/node/src/ports/runtime.js';
+import { resendMailFromEnv } from '../dist/packages/core/src/resend-mail.js';
 
 // A built install must find migrations and the SPA outside the repository cwd.
 const previousDirectory = process.cwd();
@@ -706,13 +707,12 @@ try {
   const deliveryApp = await createApp({
     database: openDatabase(':memory:'),
     publicUrl: 'https://compiled.example.test',
-    outboundMail: {
-      kind: 'smtp',
-      send: async (message) => {
-        delivered.push(message);
-        return { messageId: 'compiled-message' };
-      },
-    },
+    outboundMail: resendMailFromEnv({BREW_RESEND_API_KEY:'re_compiled_fixture',BREW_RESEND_FROM:'brew@example.test'},async(input,init)=>{
+      const request=new globalThis.Request(input,init);
+      assert.equal(request.url,'https://api.resend.com/emails');assert.equal(request.headers.get('authorization'),'Bearer re_compiled_fixture');
+      assert.equal(request.headers.get('user-agent'),'Brew/0.1');assert.match(request.headers.get('idempotency-key'),/^brew\/[a-f\d]{64}$/);
+      delivered.push(await request.json());return globalThis.Response.json({id:'compiled-resend'});
+    }),
     fetcher: async (_url, init) => {
       posted.push(JSON.parse(init.body));
       return new globalThis.Response(null, { status: 204 });
@@ -751,6 +751,7 @@ try {
     const results = (await deliveryApp.inject(`/api/brews/${generated.json().id}/delivery`)).json()
       .results;
     assert.equal(results.email.status, 'sent');
+    assert.equal(results.email.messageId,'compiled-resend');
     assert.equal(results.webhook.status, 'sent');
   } finally {
     await deliveryApp.close();

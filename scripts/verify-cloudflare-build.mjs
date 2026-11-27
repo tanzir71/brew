@@ -42,6 +42,7 @@ import { newBrewSection } from '../dist/packages/core/src/composition-model.js';
 import { renderBrewMarkdown } from '../dist/packages/core/src/brew-outputs.js';
 import { ScheduledBrewProcessor } from '../dist/packages/core/src/brew-scheduled-processing.js';
 import { CloudflareScheduledBrewJobs } from '../dist/targets/cloudflare/src/brew-scheduled-jobs.js';
+import { resendMailFromEnv } from '../dist/packages/core/src/resend-mail.js';
 
 const originalDirectory = process.cwd();
 process.chdir(tmpdir());
@@ -720,6 +721,18 @@ try {
     ).count,
     2,
   );
+  let resendCalls=0;
+  const resendBudget=new CloudflareFetchBudget(1,async(input,init)=>{
+    resendCalls++;const request=new globalThis.Request(input,init);
+    assert.equal(request.url,'https://api.resend.com/emails');assert.equal(request.headers.get('authorization'),'Bearer re_compiled_fixture');
+    assert.equal(request.headers.get('user-agent'),'Brew/0.1');assert.equal(request.redirect,'manual');
+    assert.match(request.headers.get('idempotency-key'),/^brew\/[a-f\d]{64}$/);
+    assert.deepEqual((await request.json()).to,['owner@example.test']);return globalThis.Response.json({id:'compiled-worker-resend'});
+  });
+  const compiledMail=resendMailFromEnv({BREW_RESEND_API_KEY:'re_compiled_fixture',BREW_RESEND_FROM:'brew@example.test'},resendBudget.fetch);
+  const compiledMessage={to:'owner@example.test',subject:'Compiled mail',html:'<p>Compiled private body.</p>',text:'Compiled private body.',idempotencyKey:'https://compiled.example.test/b/1/1'};
+  assert.equal((await compiledMail.send(compiledMessage)).messageId,'compiled-worker-resend');
+  await assert.rejects(()=>compiledMail.send(compiledMessage));assert.equal(resendCalls,1);assert.equal(resendBudget.used,1);
   process.stdout.write(
     'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state, journal capture/restore, owner-action preview/commit/replay/Undo, scoped tokens with real MCP write/Undo/revocation, interruptible WASM regex, durable polling/redirect accounting, signed Access audience enforcement, active-address mail admission/revocation, bounded newsletter maintenance, cron-scoped scheduling, bounded history/number preservation and batched duplicate/rule ingestion passed outside the repository cwd. Free resource compliance and installer integration remain pending.\n',
   );

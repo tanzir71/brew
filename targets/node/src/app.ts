@@ -52,6 +52,8 @@ export async function createApp(
   const publicUrl = outputBaseUrl(options.publicUrl);
   if (options.smtp && !publicUrl)
     throw new Error('BREW_PUBLIC_URL is required for SMTP links and images.');
+  if (options.outboundMail?.kind === 'resend' && !publicUrl)
+    throw new Error('BREW_PUBLIC_URL is required for Resend links and images.');
   const smtp = options.smtp ? new SmtpMail(options.smtp, options.smtpTls) : undefined;
   const outboundMail = options.outboundMail ?? smtp;
   const loggerEnabled = options.logger ?? process.env.NODE_ENV !== 'test';

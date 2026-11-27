@@ -2,9 +2,9 @@
 
 M14 is in progress. The Node target remains the completed deployment target.
 The product Worker now connects actual fetch, scheduled and email handlers to
-the shared API and D1/R2 services. Free resource budgeting, optional outbound
-mail and the installer remain unfinished; the complete runtime criterion stays
-open until that integration and its resource evidence are complete.
+the shared API and D1/R2 services, including optional Resend delivery. The installer
+remains unfinished. The runtime, polling, Email Routing/mail and Access criteria
+have native integration evidence; deployment/resource limits below remain explicit.
 
 ## D1
 
@@ -570,13 +570,32 @@ Arbitrary owner operations still need resumable admission. Per-configuration and
 per-candidate bytes, accumulated rendered sections and snapshot materialization SQL
 work remain unbounded. A row limit does not bound arbitrary article size or CPU.
 Content filters and longest ordering still inspect full captured bodies. Local workerd does not prove the
-deployed 10 ms Free CPU budget. M14 remains open until the complete runtime meets
-its resource limits. See the [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
+deployed 10 ms Free CPU budget or arbitrary-input Free compliance. Large libraries
+and content can require a paid Worker plan. See the [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
 and [D1 limits](https://developers.cloudflare.com/d1/platform/limits/).
 
-Still required: complete resource bounds, optional outbound provider setup
-and the Cloudflare installer/deploy flow. These checks do not claim a working deployed
-Worker or completion of M14.
+Still required for M14: the Cloudflare installer/deploy flow. These local native
+checks do not claim a provisioned or verified live Worker. Resource hardening above
+remains a deployment consideration, not a claim of universal Free CPU compliance.
+
+## Optional Resend delivery
+
+Email stays unavailable until both `BREW_RESEND_API_KEY` and `BREW_RESEND_FROM`
+contain valid settings. `BREW_RESEND_FROM` is one bare address on your verified
+sender domain; store the API key with `wrangler secret put BREW_RESEND_API_KEY`
+using your instance's Wrangler config. Never put that key in vars or source control.
+Use a domain-restricted sending key. Redeploy after configuring the sender and secret.
+The same port works on Node; see the [outbound guide](outbound-delivery.md).
+
+Capabilities then report `emailDelivery: 'resend'`. The existing Schedule & delivery
+controls and unsaved test send use the actual provider; a configured key is not a
+deliverability check. Scheduled email reserves one request through the invocation's
+shared fetch allowance before polling. A five-second request/receipt deadline,
+8 KiB receipt limit, redirect refusal and redacted failures preserve honest outcomes.
+A valid provider ID is required for `sent`; an email failure still lets the webhook
+settle. Durable attempt/result receipts prevent silent resend after a lost outcome.
+Native product tests exercise this HTTP path with an isolated service binding;
+they do not send mail through a commercial Resend account.
 
 
 ## Product Worker and admission
