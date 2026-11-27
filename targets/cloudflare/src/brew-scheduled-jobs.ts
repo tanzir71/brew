@@ -6,6 +6,15 @@ import {
   type ScheduledPayload,
 } from '../../../packages/core/src/brew-scheduled-processing.js';
 import type { ScheduledBrewRequest } from '../../../packages/core/src/brew-scheduled-request.js';
+import type { ScheduledCapture } from '../../../packages/core/src/brew-scheduled-capture.js';
+import {
+  beginScheduledCapture,
+  scheduledCaptureAnchor,
+  scheduledConfigPage,
+  capturedConfigs,
+  commitScheduledCapture,
+  releaseScheduledCapture,
+} from '../../../packages/db/src/brew-scheduled-capture.js';
 import type { AsyncPort, BrewItemQuery } from '../../../packages/core/src/ports.js';
 import {
   scheduledSourceQueries,
@@ -18,7 +27,6 @@ import type { BrewDeliveryResults } from '../../../packages/core/src/types/deliv
 import {
   scheduledJob,
   scheduledJobColumns,
-  enqueueScheduledQueries,
   claimScheduledQuery,
   scheduleFence,
   clearScheduleFence,
@@ -34,18 +42,26 @@ export class CloudflareScheduledBrewJobs implements AsyncPort<ScheduledBrewJobsP
     private readonly storage: CloudflareStorage,
     private readonly brew = new CloudflareBrewStorage(storage),
   ) {}
-  configs() {
-    return this.brew.scheduledConfigs();
+  async beginCapture(runner: string, now: number, until: number, pendingOnly = false) {
+    if (!pendingOnly) await this.batch([scheduledCaptureAnchor(now)]);
+    const results = await this.batch(beginScheduledCapture(runner, now, until, pendingOnly));
+    return (results.at(-1)!.results[0] as unknown as ScheduledCapture | undefined) ?? null;
   }
-  async captureAfter(now: number) {
-    const results = await this.batch([
-      {
-        sql: "INSERT OR IGNORE INTO settings(key,value) VALUES('brew:schedule:through',?)",
-        values: [String(now - 60_000)],
-      },
-      { sql: "SELECT value FROM settings WHERE key='brew:schedule:through'", values: [] },
-    ]);
-    return Number(results[1]!.results[0]!.value);
+  async captureConfigs(capture: ScheduledCapture, limit: number, now: number) {
+    const results = await this.batch(scheduledConfigPage(capture, limit, now));
+    return capturedConfigs(results[1]!.results as unknown as { snapshot_json: string }[]);
+  }
+  async commitCapture(
+    capture: ScheduledCapture,
+    cursor: number | null,
+    requests: ScheduledBrewRequest[],
+    now: number,
+    until: number,
+  ) {
+    await this.batch(commitScheduledCapture(capture, cursor, requests, now, until));
+  }
+  async releaseCapture(capture: ScheduledCapture) {
+    await this.batch([releaseScheduledCapture(capture)]);
   }
   private async batch(queries: SqlQuery[]) {
     try {
@@ -57,9 +73,6 @@ export class CloudflareScheduledBrewJobs implements AsyncPort<ScheduledBrewJobsP
         throw new ScheduleLeaseLost('Scheduled Brew ownership changed.');
       throw error;
     }
-  }
-  async enqueue(requests: ScheduledBrewRequest[], now: number) {
-    await this.batch(enqueueScheduledQueries(requests, now));
   }
   async claim(runner: string, now: number, until: number) {
     runner = scheduledRunner(runner);

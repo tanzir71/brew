@@ -6,6 +6,7 @@ export function countD1(database: D1Database) {
   const statements = new WeakMap<D1PreparedStatement, D1PreparedStatement>();
   const sql = new WeakMap<object, string>();
   const candidatePages = { reads: 0, maxRows: 0, maxBytes: 0 };
+  const configPages = { reads: 0, maxRows: 0, maxBytes: 0 };
   const wrap = <T extends object>(value: T): T =>
     new Proxy(value, {
       get(target, key) {
@@ -34,16 +35,18 @@ export function countD1(database: D1Database) {
           if (key === 'batch')
             return Promise.resolve(result).then((results) => {
               (results as { results: unknown[] }[]).forEach((value, index) => {
-                if (
-                  !/SELECT format,snapshot_json FROM brew_schedule_candidates.* LIMIT /i.test(
-                    queries[index] ?? '',
-                  )
-                )
-                  return;
-                candidatePages.reads++;
-                candidatePages.maxRows = Math.max(candidatePages.maxRows, value.results.length);
-                candidatePages.maxBytes = Math.max(
-                  candidatePages.maxBytes,
+                const query = queries[index] ?? '';
+                const pages =
+                  /SELECT format,snapshot_json FROM brew_schedule_candidates.* LIMIT /i.test(query)
+                    ? candidatePages
+                    : /SELECT snapshot_json FROM brew_schedule_configs.* LIMIT /i.test(query)
+                      ? configPages
+                      : null;
+                if (!pages) return;
+                pages.reads++;
+                pages.maxRows = Math.max(pages.maxRows, value.results.length);
+                pages.maxBytes = Math.max(
+                  pages.maxBytes,
                   new TextEncoder().encode(JSON.stringify(value.results)).byteLength,
                 );
               });
@@ -56,6 +59,7 @@ export function countD1(database: D1Database) {
   return {
     database: wrap(database),
     candidatePages,
+    configPages,
     get calls() {
       return calls;
     },

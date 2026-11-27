@@ -111,6 +111,7 @@ beforeEach(async () => {
       'DELETE FROM feeds',
       'DELETE FROM rules',
       'DELETE FROM brew_configs',
+      'DELETE FROM brew_schedule_captures',
       'DELETE FROM settings',
       'DELETE FROM inbound_addresses',
       'DELETE FROM reader_sessions',
@@ -692,6 +693,39 @@ it.each([1, 30])(
   },
 );
 
+it('sends a small captured RSS Brew before its first due poll within discovery admission', async () => {
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO feeds(id,url,title,last_fetched_at) VALUES(1,'https://source.test/existing','Existing',?)",
+    ).bind(now),
+    env.DB.prepare(
+      "INSERT INTO articles(feed_id,guid,hash,url,title,content_html,published_at) VALUES(1,'small','small','https://source.test/small','Small story','<p>Small body.</p>',?)",
+    ).bind(now - 1000),
+    env.DB.prepare("INSERT INTO feeds(url,title) VALUES('https://source.test/fresh','Due')"),
+    env.DB.prepare(
+      `INSERT INTO brew_configs(name,enabled,composition_version,timezone,schedule_json,sections_json,delivery_json)
+      VALUES('Small due Brew',1,2,'UTC','{"kind":"daily","time":"12:00"}',?,?)`,
+    ).bind(
+      JSON.stringify([
+        { ...newBrewSection('small'), onlyUnread: false, sources: [{ kind: 'feed', id: 1 }] },
+      ]),
+      JSON.stringify({ ...defaultDelivery(), webhook: { url: 'https://source.test/webhook' } }),
+    ),
+  ]);
+  await worker.scheduled({ scheduledTime: new Date(now) });
+  expect(await stats()).toEqual(['/webhook', '/fresh']);
+  expect(
+    Number(
+      (await env.DB.prepare("SELECT value FROM settings WHERE key='review:cron:queries'").first<{
+        value: string;
+      }>())!.value,
+    ),
+  ).toBeLessThanOrEqual(50);
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM brew_schedule_jobs').first()).toEqual({
+    n: 0,
+  });
+});
+
 it('freezes and delivers a scheduled composition before polling, and never sends its claimed minute twice', async () => {
   await env.DB.prepare(
     `WITH RECURSIVE numbers(id) AS
@@ -729,7 +763,13 @@ it('freezes and delivers a scheduled composition before polling, and never sends
     "INSERT INTO feeds(url,title) VALUES('https://source.test/fresh','Due source')",
   ).run();
   await env.UPSTREAM.fetch('https://source.test/__review/reset');
-  await worker.scheduled({ cron: '* * * * *', scheduledTime: new Date(now) });
+  const discovery = (await (await worker.fetch(`${base}/__review/discover-and-poll`)).json()) as {
+    invocations: number;
+    maxQueries: number;
+  };
+  expect(discovery.invocations).toBeGreaterThan(1);
+  expect(discovery.invocations).toBeLessThan(24);
+  expect(discovery.maxQueries).toBeLessThanOrEqual(50);
   expect(await stats()).toEqual(['/webhook', '/fresh']);
   const frozen = await env.DB.prepare('SELECT id FROM brews WHERE brew_config_id=?')
     .bind(config.id)
@@ -1043,4 +1083,87 @@ it('pages a complete multi-megabyte captured source across real cron invocations
       "SELECT count(*) AS n FROM settings WHERE key LIKE 'brew_composed_%'",
     ).first(),
   ).toEqual({ n: 1 });
+}, 30_000);
+
+it('continues a complete multi-megabyte configuration snapshot after live edits with bounded native pages and polling', async () => {
+  const big = JSON.stringify([{ ...newBrewSection('unused', 'note'), note: 'x'.repeat(65_536) }]);
+  const small = JSON.stringify([{ ...newBrewSection('due', 'note'), note: 'Captured due note.' }]);
+  await env.DB.batch(
+    Array.from({ length: 80 }, (_, index) =>
+      env.DB.prepare(
+        `INSERT INTO brew_configs(id,name,enabled,composition_version,timezone,schedule_json,sections_json,delivery_json)
+    VALUES(?, ?,1,2,'UTC',?,?,?)`,
+      ).bind(
+        index + 1,
+        `Captured ${index}`,
+        JSON.stringify({ kind: 'daily', time: index % 5 ? '23:00' : '12:00' }),
+        index % 5 ? big : small,
+        JSON.stringify(defaultDelivery()),
+      ),
+    ),
+  );
+  await env.DB.prepare(
+    "INSERT INTO feeds(url,title,fetch_interval_minutes) VALUES('https://source.test/during-discovery','During discovery',1440)",
+  ).run();
+  let reads = 0,
+    invocations = 0,
+    captured = false;
+  for (; invocations < 40; invocations++) {
+    await worker.scheduled({
+      cron: invocations ? 'review:advance' : '* * * * *',
+      scheduledTime: new Date(now + (invocations ? 60_000 : 0)),
+    });
+    const row = await env.DB.prepare(
+      `SELECT
+      (SELECT count(*) FROM brew_schedule_jobs) AS jobs,
+      (SELECT count(*) FROM brew_schedule_captures) AS captures,
+      (SELECT sum(length(CAST(snapshot_json AS BLOB))) FROM brew_schedule_configs) AS bytes,
+      (SELECT count(*) FROM brew_schedule_captures WHERE runner IS NOT NULL OR expires_at!=0) AS leased,
+      (SELECT value FROM settings WHERE key='review:cron:config-pages') AS pages,
+      (SELECT value FROM settings WHERE key='review:cron:queries') AS queries`,
+    ).first<{
+      jobs: number;
+      captures: number;
+      bytes: number | null;
+      leased: number;
+      pages: string;
+      queries: string;
+    }>();
+    const pages = JSON.parse(row!.pages) as { reads: number; maxRows: number; maxBytes: number };
+    reads += pages.reads;
+    expect(pages.maxRows).toBeLessThanOrEqual(4);
+    expect(pages.reads).toBeLessThanOrEqual(2);
+    expect(pages.maxBytes).toBeLessThan(600_000);
+    expect(row!.leased).toBe(0);
+    expect(Number(row!.queries)).toBeLessThanOrEqual(50);
+    if (!invocations) {
+      expect(row!.bytes).toBeGreaterThan(4_000_000);
+      expect(pages.reads).toBe(2);
+      captured = true;
+      await env.DB.prepare(
+        "UPDATE brew_configs SET name='Changed after snapshot',enabled=0,sections_json='[]'",
+      ).run();
+    }
+    if (!row!.captures && !row!.jobs) break;
+  }
+  expect(captured).toBe(true);
+  expect(invocations).toBeGreaterThan(9);
+  expect(invocations).toBeLessThan(40);
+  expect(reads).toBeGreaterThanOrEqual(21);
+  const issues = await env.DB.prepare(
+    'SELECT generated_at,payload_json FROM brews ORDER BY brew_config_id',
+  ).all<{ generated_at: number; payload_json: string }>();
+  expect(issues.results).toHaveLength(16);
+  expect(
+    issues.results.every(
+      (row) =>
+        row.generated_at === now &&
+        JSON.parse(row.payload_json).configName.startsWith('Captured ') &&
+        row.payload_json.includes('Captured due note.'),
+    ),
+  ).toBe(true);
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM brew_schedule_configs').first()).toEqual({
+    n: 0,
+  });
+  expect((await stats()).filter((path) => path === '/during-discovery')).toHaveLength(1);
 }, 30_000);

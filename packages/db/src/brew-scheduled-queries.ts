@@ -7,28 +7,28 @@ import type { SqlQuery } from './reader-queries.js';
 import { legacyBrewConfig, brewComposition, type BrewConfigRow } from './brew-queries.js';
 import { initialScheduledState } from '../../core/src/brew-scheduled-processing.js';
 import type { ScheduledBrewRequest } from '../../core/src/brew-scheduled-request.js';
-export function enqueueScheduledQueries(requests: ScheduledBrewRequest[], now: number): SqlQuery[] {
-  return [
-    ...requests.map((request) => ({
-      sql: `INSERT INTO brew_schedule_jobs(id,config_id,request_json,state_json,created_at)
+export function scheduledRequestQueries(requests: ScheduledBrewRequest[], now: number): SqlQuery[] {
+  return requests.map((request) => ({
+    sql: `INSERT INTO brew_schedule_jobs(id,config_id,request_json,state_json,created_at)
       SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM brew_configs WHERE id=?)
       AND NOT EXISTS(SELECT 1 FROM settings WHERE key=?) ON CONFLICT(id) DO NOTHING`,
-      values: [
-        request.receipt.key,
-        request.config.id,
-        JSON.stringify(request),
-        JSON.stringify(initialScheduledState(request)),
-        now,
-        request.config.id,
-        request.receipt.key,
-      ],
-    })),
-    {
-      sql: `INSERT INTO settings(key,value) VALUES('brew:schedule:through',?) ON CONFLICT(key)
+    values: [
+      request.receipt.key,
+      request.config.id,
+      JSON.stringify(request),
+      JSON.stringify(initialScheduledState(request)),
+      now,
+      request.config.id,
+      request.receipt.key,
+    ],
+  }));
+}
+export function scheduledWatermark(now: number): SqlQuery {
+  return {
+    sql: `INSERT INTO settings(key,value) VALUES('brew:schedule:through',?) ON CONFLICT(key)
     DO UPDATE SET value=CAST(max(CAST(settings.value AS INTEGER),CAST(excluded.value AS INTEGER)) AS TEXT)`,
-      values: [String(now)],
-    },
-  ];
+    values: [String(now)],
+  };
 }
 export function claimScheduledQuery(runner: string, now: number, until: number): SqlQuery {
   return {

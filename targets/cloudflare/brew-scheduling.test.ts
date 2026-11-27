@@ -22,6 +22,7 @@ import {
 } from '../../packages/core/src/brew-scheduled-processing.js';
 import { CloudflareScheduledBrewJobs } from './src/brew-scheduled-jobs.js';
 import { nodeRegex } from '../node/src/ports/runtime.js';
+import { capturedScheduleRequests } from '../../packages/core/src/brew-scheduled-capture.js';
 
 const runtime = new Miniflare({
   modules: true,
@@ -53,7 +54,9 @@ beforeEach(async () => {
       'DROP TRIGGER IF EXISTS history_failure',
       'DROP TRIGGER IF EXISTS freeze_failure',
       'DROP TRIGGER IF EXISTS source_failure',
+      'DROP TRIGGER IF EXISTS discovery_failure',
       'DELETE FROM brew_configs',
+      'DELETE FROM brew_schedule_captures',
       'DELETE FROM settings',
       "DELETE FROM sqlite_sequence WHERE name IN ('brew_configs','brews')",
     ].map((sql) => storage.statement(sql)),
@@ -203,6 +206,50 @@ it('rolls back native source materialization with its cursor and preserves captu
   } finally {
     await storage.run('DELETE FROM feeds WHERE id=991');
   }
+});
+
+it('fences native discovery leases and rolls a rejected page back with its jobs and watermark', async () => {
+  await new CloudflareBrewStorage(storage).createComposition(
+    draft('Frozen discovery', { kind: 'daily', time: '12:00' }),
+  );
+  const jobs = new CloudflareScheduledBrewJobs(storage),
+    at = now.getTime();
+  const old = (await jobs.beginCapture('old-capture', at, at + SCHEDULE_LEASE_MS))!;
+  await storage.run(
+    "INSERT INTO brew_schedule_jobs(id,config_id,request_json,state_json,created_at) SELECT 'older-bundle',id,'{}','{}',? FROM brew_configs",
+    [at],
+  );
+  await storage.run("UPDATE settings SET value=? WHERE key='brew:schedule:through'", [
+    String(at + 86_400_000),
+  ]);
+  expect(await jobs.beginCapture('busy-capture', at, at + SCHEDULE_LEASE_MS)).toBeNull();
+  await storage.run("UPDATE brew_configs SET enabled=0,name='Changed after capture'");
+  const later = at + SCHEDULE_LEASE_MS + 1;
+  const current = (await jobs.beginCapture('new-capture', later, later + SCHEDULE_LEASE_MS))!;
+  await expect(jobs.captureConfigs(old, 4, later)).rejects.toThrow(ScheduleLeaseLost);
+  await expect(jobs.commitCapture(old, null, [], later, later + SCHEDULE_LEASE_MS)).rejects.toThrow(
+    ScheduleLeaseLost,
+  );
+  await jobs.releaseCapture(old);
+  const configs = await jobs.captureConfigs(current, 4, later);
+  expect(configs[0]!.config.name).toBe('Frozen discovery');
+  const requests = configs.flatMap((config) => capturedScheduleRequests(config, current));
+  await storage.run(
+    "CREATE TRIGGER discovery_failure BEFORE INSERT ON brew_schedule_jobs BEGIN SELECT RAISE(ABORT,'controlled discovery failure'); END",
+  );
+  await expect(
+    jobs.commitCapture(current, null, requests, later, later + SCHEDULE_LEASE_MS),
+  ).rejects.toThrow('controlled discovery failure');
+  expect(await storage.first('SELECT cursor FROM brew_schedule_captures')).toEqual({ cursor: 0 });
+  expect(await storage.first('SELECT count(*) AS n FROM brew_schedule_jobs')).toEqual({ n: 0 });
+  expect(
+    await storage.first("SELECT value FROM settings WHERE key='brew:schedule:through'"),
+  ).toEqual({ value: String(at - 60_000) });
+  await storage.run('DROP TRIGGER discovery_failure');
+  await jobs.commitCapture(current, null, requests, later, later + SCHEDULE_LEASE_MS);
+  expect(await storage.first('SELECT count(*) AS n FROM brew_schedule_configs')).toEqual({ n: 0 });
+  await pendingProcessor().drain();
+  expect(await storage.first('SELECT count(*) AS n FROM brews')).toEqual({ n: 1 });
 });
 
 it('marks an interrupted native delivery unknown without sending its claimed issue again', async () => {

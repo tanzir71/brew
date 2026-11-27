@@ -10,11 +10,7 @@ import type {
 import type { BrewSnapshotSection } from './types/brew.js';
 import type { BrewSnapshotSection as LegacySection } from './types/legacy-brew.js';
 import type { BrewDeliveryOptions, BrewDeliveryResults } from './types/delivery.js';
-import {
-  scheduledBrewRequests,
-  type ScheduledBrewRequest,
-  type ScheduledConfig,
-} from './brew-scheduled-request.js';
+import { type ScheduledBrewRequest, type ScheduledConfig } from './brew-scheduled-request.js';
 import { legacyBrewQuery, legacyBrewItems } from './brew-model.js';
 import {
   sectionActive,
@@ -26,6 +22,7 @@ import {
 } from './composition-section.js';
 import { matchingContexts } from './rule-matching.js';
 import { BrewDeliveryRunner } from './brew-delivery.js';
+import { capturedScheduleRequests, type ScheduledCapture } from './brew-scheduled-capture.js';
 
 export const SCHEDULE_LEASE_MS = 16 * 60_000;
 export type ScheduledPayload = Parameters<BrewStoragePort['save']>[1];
@@ -73,9 +70,21 @@ export function initialScheduledState(request: ScheduledBrewRequest): ScheduledB
 }
 export class ScheduleLeaseLost extends Error {}
 export interface ScheduledBrewJobsPort {
-  captureAfter(now: number): number | null;
-  configs(): ScheduledConfig[];
-  enqueue(requests: ScheduledBrewRequest[], now: number): void;
+  beginCapture(
+    runner: string,
+    now: number,
+    until: number,
+    pendingOnly?: boolean,
+  ): ScheduledCapture | null;
+  captureConfigs(capture: ScheduledCapture, limit: number, now: number): ScheduledConfig[];
+  commitCapture(
+    capture: ScheduledCapture,
+    cursor: number | null,
+    requests: ScheduledBrewRequest[],
+    now: number,
+    until: number,
+  ): void;
+  releaseCapture(capture: ScheduledCapture): void;
   claim(runner: string, now: number, until: number): ScheduledBrewJob | null;
   checkpoint(
     job: ScheduledBrewJob,
@@ -120,9 +129,11 @@ export interface ScheduledBrewJobsPort {
 }
 export interface ScheduledWorkBudget {
   remaining: number;
-  reserve?: (kind: 'job' | 'build' | 'delivery') => (() => void) | null;
+  reserve?: (kind: 'capture' | 'job' | 'build' | 'delivery') => (() => void) | null;
   canDeliver?: (request: ScheduledBrewRequest) => boolean;
   candidatePageSize?: number;
+  configPageSize?: number;
+  capturePages?: number;
 }
 /** The same durable minute, section/source cursor and delivery policy runs on Node and Workers. */
 export class ScheduledBrewProcessor {
@@ -135,27 +146,59 @@ export class ScheduledBrewProcessor {
     private readonly runner: () => string = () => crypto.randomUUID(),
     private readonly budget: ScheduledWorkBudget = { remaining: Infinity },
   ) {}
-  async capture(now = this.clock.now()) {
-    const saved = await this.jobs.captureAfter(now.getTime());
-    const after = Math.min(
-      saved !== null && Number.isSafeInteger(saved) ? saved : now.getTime() - 60_000,
-      now.getTime() - 60_000,
-    );
-    const through = Math.min(now.getTime(), after + 86_400_000);
-    const requests = (await this.jobs.configs()).flatMap((value) => {
-      const created = Date.parse(value.config.createdAt);
-      const start =
-        Number.isFinite(created) && created <= now.getTime()
-          ? Math.max(after, Math.floor(created / 60_000) * 60_000 - 1)
-          : after;
-      const requests = scheduledBrewRequests(value, new Date(start), new Date(through));
-      if (through < now.getTime())
-        requests.push(
-          ...scheduledBrewRequests(value, new Date(Math.max(start, now.getTime() - 60_000)), now),
-        );
-      return [...new Map(requests.map((request) => [request.receipt.key, request])).values()];
-    });
-    await this.jobs.enqueue(requests, through);
+  async resumeCapture() {
+    await this.capture(this.clock.now(), true);
+  }
+  async capture(now = this.clock.now(), pendingOnly = false) {
+    if (this.budget.remaining <= 0) return;
+    const release = this.budget.reserve?.('capture');
+    if (release === null) return;
+    let capture: ScheduledCapture | null = null;
+    try {
+      capture = await this.jobs.beginCapture(
+        this.runner(),
+        now.getTime(),
+        now.getTime() + SCHEDULE_LEASE_MS,
+        pendingOnly,
+      );
+      if (!capture) return;
+      const limit = this.budget.configPageSize ?? 32;
+      for (
+        let page = 0;
+        page < (this.budget.capturePages ?? Infinity) && this.budget.remaining > 0;
+        page++
+      ) {
+        const releasePage = this.budget.reserve?.('build');
+        if (releasePage === null) return;
+        try {
+          this.budget.remaining--;
+          const at = this.clock.now().getTime();
+          const configs = await this.jobs.captureConfigs(capture, limit, at);
+          const requests = configs.flatMap((value) => capturedScheduleRequests(value, capture!));
+          const cursor = configs.length < limit ? null : configs.at(-1)!.config.id;
+          await this.jobs.commitCapture(
+            capture,
+            cursor,
+            requests,
+            this.clock.now().getTime(),
+            this.clock.now().getTime() + SCHEDULE_LEASE_MS,
+          );
+          if (cursor === null) return;
+          capture.cursor = cursor;
+          capture.version++;
+        } finally {
+          releasePage?.();
+        }
+      }
+    } catch (error) {
+      if (!(error instanceof ScheduleLeaseLost)) throw error;
+    } finally {
+      try {
+        if (capture) await this.jobs.releaseCapture(capture);
+      } finally {
+        release?.();
+      }
+    }
   }
   async drain(limit = Infinity) {
     let steps = 0;

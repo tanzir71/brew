@@ -678,10 +678,13 @@ try {
     const insertCaptured = scheduleDatabase.sqlite.prepare("INSERT INTO articles(feed_id,guid,hash,url,title,content_html,published_at) VALUES(1,?,?,'https://compiled.example.test/story',?,?,?)");
     for (let index=0;index<35;index++) insertCaptured.run(String(index),String(index),`Captured ${index}`,'<p>Original compiled content.</p>',time-index*1000);
     const id = storage.createComposition({name:'Compiled pending schedule',enabled:true,timezone:'UTC',schedule:{kind:'daily',time:'12:00'},delivery:{web:true,feed:false,publicCopy:false},sections:[{...newBrewSection('first'),onlyUnread:false,depth:'full',maxItems:2,sources:[{kind:'feed',id:1}]},{...newBrewSection('second','note'),note:'Second compiled note.'}]});
-    const work = new ScheduledBrewProcessor(new NodeScheduledBrewJobs(scheduleDatabase),storage,clock,nodeRegex);
+    const laterConfig=storage.createComposition({name:'Compiled captured definition',enabled:true,timezone:'UTC',schedule:{kind:'daily',time:'12:00'},delivery:{web:true,feed:false,publicCopy:false},sections:[{...newBrewSection('definition','note'),note:'Captured definition.'}]});
+    const work = new ScheduledBrewProcessor(new NodeScheduledBrewJobs(scheduleDatabase),storage,clock,nodeRegex,{},()=>globalThis.crypto.randomUUID(),{remaining:Infinity,configPageSize:1,capturePages:1});
     await work.capture(); await work.drain(1);
     assert.equal(scheduleDatabase.sqlite.prepare('SELECT count(*) AS n FROM brew_schedule_jobs').get().n,1);
     assert.equal(scheduleDatabase.sqlite.prepare('SELECT count(*) AS n FROM brew_schedule_candidates').get().n,35);
+    assert.equal(scheduleDatabase.sqlite.prepare('SELECT count(*) AS n FROM brew_schedule_configs').get().n,2);
+    scheduleDatabase.sqlite.prepare("UPDATE brew_configs SET enabled=0,name='Changed live',sections_json='[]' WHERE id=?").run(laterConfig);
     assert.ok(scheduleDatabase.sqlite.prepare('SELECT length(state_json) AS bytes FROM brew_schedule_jobs').get().bytes<16384);
     scheduleDatabase.sqlite.prepare('DELETE FROM articles').run();
     time += 60_000;
@@ -693,6 +696,10 @@ try {
     assert.deepEqual(issue.sections[0].items.map(row=>row.id),[1,2]);
     assert.ok(issue.sections[0].items[0].contentHtml.includes('Original compiled content.'));
     assert.equal(scheduleDatabase.sqlite.prepare('SELECT count(*) AS n FROM brew_schedule_candidates').get().n,0);
+    assert.equal(scheduleDatabase.sqlite.prepare('SELECT count(*) AS n FROM brew_schedule_configs').get().n,0);
+    assert.equal(scheduleDatabase.sqlite.prepare('SELECT count(*) AS n FROM brew_schedule_captures').get().n,0);
+    const laterIssue=storage.snapshot(storage.historyIds(laterConfig)[0]);
+    assert.equal(laterIssue.configName,'Compiled captured definition');assert.ok(laterIssue.sections[0].noteHtml.includes('Captured definition.'));
     assert.equal(storage.deliveryResults(issue.id).webhook.status,'disabled');
   } finally { scheduleDatabase.close(); }
   const posted = [];

@@ -38,7 +38,7 @@ export function cloudflarePollingServices(
   const processingQueries = queryBudget.share(20);
   const processingStorage = new CloudflareStorage(bindings.DB, processingQueries);
   const steps = options.processingBudget ?? { remaining: 16 };
-  const scheduledQueries = queryBudget.share(24);
+  const scheduledQueries = queryBudget.share(26);
   const scheduledStorage = new CloudflareStorage(bindings.DB, scheduledQueries);
   const clock = options.clock ?? { now: () => new Date(), monotonic: () => performance.now() };
   const processor = new IngestProcessingService(
@@ -109,6 +109,8 @@ export function cloudflarePollingServices(
       {
         remaining: 16,
         candidatePageSize: 4,
+        configPageSize: 4,
+        capturePages: 2,
         reserve: (kind) =>
           scheduledQueries.reserve(kind === 'job' ? 2 : kind === 'delivery' ? 12 : 3),
         canDeliver: (request) =>

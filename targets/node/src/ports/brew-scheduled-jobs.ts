@@ -17,13 +17,19 @@ import {
   scheduledSelectedCandidates,
   type ScheduledCandidateRow,
 } from '../../../../packages/db/src/brew-scheduled-candidates.js';
-import { brewConfigFromRaw } from '../../../../packages/db/src/brew-queries.js';
+import type { ScheduledCapture } from '../../../../packages/core/src/brew-scheduled-capture.js';
+import {
+  beginScheduledCapture,
+  scheduledCaptureAnchor,
+  scheduledConfigPage,
+  capturedConfigs,
+  commitScheduledCapture,
+  releaseScheduledCapture,
+} from '../../../../packages/db/src/brew-scheduled-capture.js';
 import { BREW_RETENTION_DAYS } from '../../../../packages/core/src/composition-model.js';
 import {
-  scheduledConfig,
   scheduledJob,
   scheduledJobColumns,
-  enqueueScheduledQueries,
   claimScheduledQuery,
   scheduleFence,
   clearScheduleFence,
@@ -38,29 +44,46 @@ export class NodeScheduledBrewJobs implements ScheduledBrewJobsPort {
   constructor(private readonly database: BrewDatabase) {
     this.brew = new NodeBrewStorage(database);
   }
-  configs() {
-    return (
-      this.database.sqlite.prepare('SELECT * FROM brew_configs ORDER BY id').all() as Record<
-        string,
-        unknown
-      >[]
-    ).map((row) => scheduledConfig(brewConfigFromRaw(row)));
-  }
   private run(query: SqlQuery) {
     return this.database.sqlite.prepare(query.sql).run(...query.values);
   }
-  captureAfter(now: number) {
-    return this.database.sqlite.transaction(() => {
-      this.database.sqlite
-        .prepare("INSERT OR IGNORE INTO settings(key,value) VALUES('brew:schedule:through',?)")
-        .run(String(now - 60_000));
-      return Number(this.brew.setting('brew:schedule:through'));
-    })();
+  beginCapture(runner: string, now: number, until: number, pendingOnly = false) {
+    if (!pendingOnly) this.run(scheduledCaptureAnchor(now));
+    return this.transaction(() => {
+      const queries = beginScheduledCapture(runner, now, until, pendingOnly);
+      for (const query of queries.slice(0, -1)) this.run(query);
+      const read = queries.at(-1)!;
+      return (
+        (this.database.sqlite.prepare(read.sql).get(...read.values) as
+          ScheduledCapture | undefined) ?? null
+      );
+    });
   }
-  enqueue(requests: ScheduledBrewRequest[], now: number) {
-    this.database.sqlite.transaction(() => {
-      for (const query of enqueueScheduledQueries(requests, now)) this.run(query);
-    })();
+  captureConfigs(capture: ScheduledCapture, limit: number, now: number) {
+    return this.transaction(() => {
+      const [fence, read, clear] = scheduledConfigPage(capture, limit, now);
+      this.run(fence!);
+      const rows = this.database.sqlite.prepare(read!.sql).all(...read!.values) as {
+        snapshot_json: string;
+      }[];
+      this.run(clear!);
+      return capturedConfigs(rows);
+    });
+  }
+  commitCapture(
+    capture: ScheduledCapture,
+    cursor: number | null,
+    requests: ScheduledBrewRequest[],
+    now: number,
+    until: number,
+  ) {
+    this.transaction(() => {
+      for (const query of commitScheduledCapture(capture, cursor, requests, now, until))
+        this.run(query);
+    });
+  }
+  releaseCapture(capture: ScheduledCapture) {
+    this.run(releaseScheduledCapture(capture));
   }
   claim(runner: string, now: number, until: number) {
     runner = scheduledRunner(runner);

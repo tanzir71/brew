@@ -98,10 +98,46 @@ const reviewWorker = {
           "INSERT INTO settings(key,value) VALUES('review:cron:candidate-pages',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
         )
         .bind(JSON.stringify(native.candidatePages)),
+      native.database
+        .prepare(
+          "INSERT INTO settings(key,value) VALUES('review:cron:config-pages',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        )
+        .bind(JSON.stringify(native.configPages)),
     ]);
   },
   async fetch(request: Request, env: ProductEnv): Promise<Response> {
     const path = new URL(request.url).pathname;
+    if (path === '/__review/discover-and-poll') {
+      let invocations = 0,
+        maxQueries = 0;
+      for (; invocations < 24; invocations++) {
+        await env.DB.prepare(
+          "UPDATE feeds SET last_fetched_at=NULL WHERE url='https://source.test/fresh'",
+        ).run();
+        await env.UPSTREAM.fetch('https://source.test/__review/reset');
+        await reviewWorker.scheduled(
+          {
+            ...scheduledController(),
+            cron: invocations ? 'review:advance' : '* * * * *',
+            scheduledTime: clock.now().getTime() + (invocations ? 60_000 : 0),
+          },
+          env,
+        );
+        maxQueries = Math.max(
+          maxQueries,
+          Number(
+            (await env.DB.prepare(
+              "SELECT value FROM settings WHERE key='review:cron:queries'",
+            ).first<{ value: string }>())!.value,
+          ),
+        );
+        const order = (await (
+          await env.UPSTREAM.fetch('https://source.test/__review/stats')
+        ).json()) as string[];
+        if (order.includes('/webhook')) break;
+      }
+      return Response.json({ invocations, maxQueries });
+    }
     if (path === '/__review/resume-mail') {
       const before = await processingSnapshot(env);
       await product.scheduled(scheduledController(), env);

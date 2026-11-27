@@ -22,6 +22,7 @@ import type { BrewConfigDraft } from '../../packages/core/src/types/brew.js';
 import type { BrewDeliveryOptions } from '../../packages/core/src/types/delivery.js';
 import { createApp } from '../../targets/node/src/app.js';
 import { PollerService } from '../../targets/node/src/services/poller-service.js';
+import { BrewService as ScheduledNodeService } from '../../targets/node/src/services/brew-service.js';
 
 const baseline = Date.parse('2026-11-27T12:00:00Z');
 let at = baseline;
@@ -133,6 +134,257 @@ function scheduledIssue(db: BrewDatabase) {
   if (!('version' in issue)) throw new Error('Expected a composition snapshot.');
   return issue;
 }
+
+it('resumes a frozen configuration scan after SQLite reopening, edits and deletion, then catches a newly created due Brew', async () => {
+  const file = join(tmpdir(), `brew-capture-${randomUUID()}.db`);
+  files.push(file);
+  let db = database(file);
+  const { storage } = fixture(db, {
+    sections: [{ ...newBrewSection('note', 'note'), note: 'Original note.' }],
+  });
+  for (let i = 2; i <= 8; i++)
+    storage.createComposition({ ...storage.composition(1)!, name: `Original ${i}` });
+  await processor(
+    db,
+    undefined,
+    {},
+    { remaining: Infinity, configPageSize: 2, capturePages: 1 },
+  ).capture();
+  expect(count(db, 'brew_schedule_jobs')).toBe(2);
+  expect(count(db, 'brew_schedule_configs')).toBe(8);
+  expect(storage.setting('brew:schedule:through')).toBe(String(baseline - 60_000));
+  db.sqlite
+    .prepare("UPDATE brew_configs SET name='Changed live',enabled=0,sections_json='[]'")
+    .run();
+  storage.delete(5);
+  at += 60_000;
+  const later = storage.createComposition({
+    ...storage.composition(1)!,
+    enabled: true,
+    name: 'Created during capture',
+    schedule: { kind: 'daily', time: '12:01' },
+    sections: [{ ...newBrewSection('later', 'note'), note: 'Later note.' }],
+  });
+  db.sqlite.prepare('UPDATE brew_configs SET created_at=? WHERE id=?').run(at, later);
+  let pages = 0;
+  while (count(db, 'brew_schedule_captures') && pages++ < 8) {
+    close(db);
+    db = database(file);
+    at += 60_000;
+    await processor(
+      db,
+      undefined,
+      {},
+      { remaining: Infinity, configPageSize: 2, capturePages: 1 },
+    ).capture();
+  }
+  expect(pages).toBe(4);
+  expect(count(db, 'brew_schedule_configs')).toBe(0);
+  expect(count(db, 'brew_schedule_jobs')).toBe(7);
+  expect(new NodeBrewStorage(db).setting('brew:schedule:through')).toBe(String(baseline));
+  await processor(db).capture();
+  await processor(db).drain();
+  const rows = db.sqlite
+    .prepare('SELECT generated_at,payload_json FROM brews ORDER BY brew_config_id')
+    .all() as { generated_at: number; payload_json: string }[];
+  expect(rows).toHaveLength(8);
+  expect(rows.slice(0, 7).map((row) => row.generated_at)).toEqual(Array(7).fill(baseline));
+  expect(
+    rows
+      .slice(0, 7)
+      .every((row) => JSON.parse(row.payload_json).sections[0].noteHtml.includes('Original note.')),
+  ).toBe(true);
+  expect(rows.at(-1)!.generated_at).toBe(baseline + 60_000);
+});
+
+it('resumes only an accepted discovery window at Node startup and admits new configurations on the next capture', async () => {
+  const db = database();
+  const { storage } = fixture(db);
+  storage.createComposition({ ...storage.composition(1)!, name: 'Accepted second' });
+  await processor(
+    db,
+    undefined,
+    {},
+    { remaining: Infinity, configPageSize: 1, capturePages: 1 },
+  ).capture();
+  storage.createComposition({ ...storage.composition(1)!, name: 'Created after snapshot' });
+  await new ScheduledNodeService(db, clock).runPendingScheduled(false);
+  expect(count(db, 'brews')).toBe(2);
+  expect(count(db, 'brew_schedule_captures')).toBe(0);
+  await new ScheduledNodeService(db, clock).runPendingScheduled(false);
+  expect(count(db, 'brews')).toBe(2);
+  await new ScheduledNodeService(db, clock).runPendingScheduled(true);
+  expect(count(db, 'brews')).toBe(3);
+});
+
+it('fences older enqueue and watermark writes until accepted discovery finishes', async () => {
+  const db = database();
+  const { storage } = fixture(db);
+  storage.createComposition({ ...storage.composition(1)!, name: 'Frozen second' });
+  await processor(
+    db,
+    undefined,
+    {},
+    { remaining: Infinity, configPageSize: 1, capturePages: 1 },
+  ).capture();
+  const first = db.sqlite
+    .prepare('SELECT request_json,state_json FROM brew_schedule_jobs')
+    .get() as { request_json: string; state_json: string };
+  const request = JSON.parse(first.request_json);
+  request.config.id = 2;
+  request.config.name = 'Older changed definition';
+  request.receipt.key = `brew_composed_2_${request.receipt.value}`;
+  expect(
+    db.sqlite
+      .prepare(
+        'INSERT INTO brew_schedule_jobs(id,config_id,request_json,state_json,created_at) VALUES(?,2,?,?,?)',
+      )
+      .run(request.receipt.key, JSON.stringify(request), first.state_json, at).changes,
+  ).toBe(0);
+  expect(
+    db.sqlite
+      .prepare("UPDATE settings SET value=? WHERE key='brew:schedule:through'")
+      .run(String(at + 86_400_000)).changes,
+  ).toBe(0);
+  expect(
+    db.sqlite
+      .prepare(
+        "INSERT INTO settings(key,value) VALUES('brew:schedule:through',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+      )
+      .run(String(at + 86_400_000)).changes,
+  ).toBe(0);
+  await processor(db).capture();
+  await processor(db).drain();
+  expect(count(db, 'brews')).toBe(2);
+  expect(scheduledIssue(db).configName).toBe('Frozen second');
+  expect(storage.setting('brew:schedule:through')).toBe(String(baseline));
+});
+
+it('bounds configuration reads for a multi-megabyte library without dropping non-due or disabled definitions', async () => {
+  const db = database();
+  const { storage } = fixture(db, {
+    sections: [{ ...newBrewSection('note', 'note'), note: 'x'.repeat(65_536) }],
+  });
+  for (let i = 1; i < 80; i++)
+    storage.createComposition({
+      ...storage.composition(1)!,
+      name: `Large ${i}`,
+      enabled: i % 2 === 0,
+      schedule: { kind: 'daily', time: i % 3 ? '13:00' : '12:00' },
+    });
+  const jobs = new NodeScheduledBrewJobs(db),
+    pages = vi.spyOn(jobs, 'captureConfigs');
+  await processor(
+    db,
+    jobs,
+    {},
+    { remaining: Infinity, configPageSize: 3, capturePages: 1 },
+  ).capture();
+  expect(
+    (
+      db.sqlite
+        .prepare('SELECT sum(length(snapshot_json)) AS bytes FROM brew_schedule_configs')
+        .get() as { bytes: number }
+    ).bytes,
+  ).toBeGreaterThan(5_000_000);
+  let steps = 0;
+  while (count(db, 'brew_schedule_captures') && steps++ < 30)
+    await processor(
+      db,
+      jobs,
+      {},
+      { remaining: Infinity, configPageSize: 3, capturePages: 1 },
+    ).capture();
+  expect(steps).toBeLessThan(30);
+  expect(pages.mock.results.every((result) => result.value.length <= 3)).toBe(true);
+  expect(pages.mock.results.reduce((sum, result) => sum + result.value.length, 0)).toBe(80);
+  expect(count(db, 'brew_schedule_jobs')).toBe(14);
+  expect(count(db, 'brew_schedule_configs')).toBe(0);
+});
+
+it.each(['before', 'after'] as const)(
+  'recovers configuration page acknowledgement loss %s commit without duplicate occurrences',
+  async (timing) => {
+    const db = database();
+    const { storage } = fixture(db);
+    for (let i = 0; i < 2; i++)
+      storage.createComposition({ ...storage.composition(1)!, name: `Other ${i}` });
+    const jobs = new NodeScheduledBrewJobs(db),
+      commit = jobs.commitCapture.bind(jobs);
+    vi.spyOn(jobs, 'commitCapture').mockImplementationOnce((...args) => {
+      if (timing === 'after') commit(...args);
+      throw new Error('lost configuration response');
+    });
+    await expect(
+      processor(db, jobs, {}, { remaining: Infinity, configPageSize: 2 }).capture(),
+    ).rejects.toThrow('lost configuration response');
+    expect(storage.setting('brew:schedule:through')).toBe(String(baseline - 60_000));
+    at += 60_000;
+    await processor(db).capture();
+    await processor(db).drain();
+    expect(count(db, 'brews')).toBe(3);
+    expect(count(db, 'brew_schedule_captures')).toBe(0);
+  },
+);
+
+it.each(['invalid', '1.5', '9007199254740992'])(
+  'uses a safe initial minute for an invalid discovery watermark %s',
+  async (value) => {
+    const db = database();
+    fixture(db);
+    db.sqlite
+      .prepare("INSERT INTO settings(key,value) VALUES('brew:schedule:through',?)")
+      .run(value);
+    await processor(db).capture();
+    await processor(db).drain();
+    expect(scheduledIssue(db).generatedAt).toBe(new Date(baseline).toISOString());
+  },
+);
+
+it('persists the initial discovery watermark before a failed source-of-configurations snapshot', async () => {
+  const db = database();
+  fixture(db);
+  db.sqlite.exec(
+    "CREATE TRIGGER reject_capture BEFORE INSERT ON brew_schedule_configs BEGIN SELECT RAISE(ABORT,'controlled capture failure'); END",
+  );
+  await expect(processor(db).capture()).rejects.toThrow('controlled capture failure');
+  expect(new NodeBrewStorage(db).setting('brew:schedule:through')).toBe(String(baseline - 60_000));
+  expect(count(db, 'brew_schedule_captures')).toBe(0);
+  expect(count(db, 'brew_schedule_configs')).toBe(0);
+  db.sqlite.exec('DROP TRIGGER reject_capture');
+  at += 60_000;
+  await processor(db).capture();
+  await processor(db).drain();
+  expect(scheduledIssue(db).generatedAt).toBe(new Date(baseline).toISOString());
+});
+
+it('recovers a lost capture claim after expiry and fences superseded configuration reads and commits', async () => {
+  const db = database();
+  const { storage } = fixture(db);
+  const jobs = new NodeScheduledBrewJobs(db),
+    begin = jobs.beginCapture.bind(jobs);
+  let original: ReturnType<typeof begin>;
+  vi.spyOn(jobs, 'beginCapture').mockImplementationOnce((...args) => {
+    original = begin(...args);
+    throw new Error('lost capture claim');
+  });
+  await expect(processor(db, jobs).capture()).rejects.toThrow('lost capture claim');
+  expect(jobs.beginCapture('busy', at, at + SCHEDULE_LEASE_MS)).toBeNull();
+  db.sqlite.prepare("UPDATE brew_configs SET name='Changed after lost claim'").run();
+  at += SCHEDULE_LEASE_MS + 1;
+  const current = jobs.beginCapture('new', at, at + SCHEDULE_LEASE_MS)!;
+  expect(() => jobs.captureConfigs(original!, 2, at)).toThrow(ScheduleLeaseLost);
+  expect(() => jobs.commitCapture(original!, null, [], at, at + SCHEDULE_LEASE_MS)).toThrow(
+    ScheduleLeaseLost,
+  );
+  jobs.releaseCapture(original!);
+  expect(jobs.captureConfigs(current, 2, at)[0]!.config.name).toBe('Scheduled');
+  jobs.releaseCapture(current);
+  await processor(db).capture();
+  await processor(db).drain();
+  expect(scheduledIssue(db).configName).toBe('Scheduled');
+  expect(storage.setting('brew:schedule:through')).toBe(String(baseline));
+});
 
 it.each([1, 2, 31])(
   'preserves longest ordering, ties and counts with candidate pages of %i',

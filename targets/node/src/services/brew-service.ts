@@ -30,6 +30,7 @@ export class BrewService extends CoreBrewService {
       .catch(() => 0)
       .then(async () => {
         if (capture) await this.pendingSchedule.capture();
+        else await this.pendingSchedule.resumeCapture();
         return this.pendingSchedule.drain(100);
       });
     scheduledRuns.set(this.scheduledDatabase, run);

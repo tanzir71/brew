@@ -501,15 +501,30 @@ prepared-statement and session/batch calls. Other cases cover a nearly spent
 allowance, rejected concurrent metadata writes, real notification/webhook results
 at the query boundary, and new polling alongside a long rule backlog.
 
-Scheduled Brews use canonical migrations 0017–0018 and the same Node-first durable
+Scheduled Brews use canonical migrations 0017–0019 and the same Node-first durable
 processor on both targets. Capture stores immutable configuration snapshots and
 receipt keys before doing source work. Its initial watermark is persisted before
-discovery; enqueue advances it atomically with the requests. A failed capture is
-retried from that watermark. Catch-up discovery advances one day per invocation
+discovery; a completed discovery window advances it atomically with the last page's
+requests. A failed capture is retried from that watermark. Catch-up discovery advances one day per window
 and also admits the current minute, without backfilling before a configuration's
 creation minute. Repeated capture and overlapping invocations deduplicate receipts.
 Configuration deletion cancels its queued work; editing or pausing retains the
 configuration already captured for an accepted due occurrence.
+
+Migration 0019 freezes the complete configuration library directly in a database
+work table. A leased discovery cursor reads at most four definitions per page and
+two pages per Cloudflare invocation (32 definitions per page by default on Node).
+Each page's occurrences and cursor commit together. Edits, pauses and deletion
+during a scan cannot change its accepted definitions; deleted configurations are
+checked again before enqueue. Completion removes the work rows with the watermark
+update. Lost acknowledgements and expired or superseded runners cannot duplicate
+occurrences or advance another runner's cursor. A failed first SQL snapshot retains
+the independently committed initial watermark. Node startup resumes accepted scans;
+its background timer also admits new windows. Large scans can delay discovery past
+the due minute and continue from their original time without dropping definitions.
+While a window is unfinished, database triggers fence older bundles' unfenced
+enqueue and watermark writes. They cannot replace accepted definitions or skip
+unscanned occurrences during a rolling upgrade; existing job processing continues.
 
 Each section/source has a durable cursor and candidate snapshot. Manual previews
 and queued generation share selectors, days, union/deduplication, filters,
@@ -534,7 +549,7 @@ Section completion and configuration deletion remove their work rows atomically.
 Migration 0018 preserves existing inline snapshots, fences older runners and
 converts jobs that an older in-flight bundle enqueues after the migration.
 
-Scheduled work has a 24-query/sixteen-step share. Cron protects eight calls for
+Scheduled work has a 26-query/sixteen-step share, including discovery. Cron protects eight calls for
 polling and six for pending ingestion while scheduled work runs. Admitted delivery
 reserves all attempt/result writes and provider fetch slots before it starts;
 simple Brews still freeze/send before polling. Real product cron tests resume
@@ -545,9 +560,14 @@ product bound. A real cron regression drains a 600-item, 4.9 MB snapshot after
 live article deletion with pages of at most four rows; its observed result pages
 and job cursors stay below 64 KiB for that fixture. Compiled installs recover
 captured source work outside the repository cwd after the live rows are deleted.
+An 80-definition, multi-megabyte native regression retains all captured definitions
+after live edits, generates all sixteen due Brews and preserves polling capacity.
+The native counter observes at most two four-row configuration pages per invocation.
+The 101-definition delivery regression resumes beyond the due minute and verifies
+the real provider send precedes the due poll in its delivery invocation.
 
-Arbitrary owner operations still need resumable admission. Configuration discovery,
-per-candidate bytes, accumulated rendered sections and source materialization SQL
+Arbitrary owner operations still need resumable admission. Per-configuration and
+per-candidate bytes, accumulated rendered sections and snapshot materialization SQL
 work remain unbounded. A row limit does not bound arbitrary article size or CPU.
 Content filters and longest ordering still inspect full captured bodies. Local workerd does not prove the
 deployed 10 ms Free CPU budget. M14 remains open until the complete runtime meets
@@ -628,12 +648,12 @@ D1 invocation calls, not total SQL rows inspected or the complete Worker's CPU
 and query usage; polling, rules and scheduled generation still need their own
 resource continuation.
 
-Cron also loads Brew configuration metadata once for both shared legacy and
-composition schedulers. That snapshot belongs to the current invocation; owner
-HTTP and email work retain live adapters and do not run archive maintenance.
-Format/composition lookups during the schedule scan use the snapshot rather than
-making a D1 request for every configuration. The existing Node scheduling,
-timezone, skip-threshold, issue-freeze and delivery policies remain in use.
+Product cron uses the durable paged configuration discovery described above for
+both legacy and composition schedules. It avoids transferring the complete library
+into the Worker. The older direct one-pass adapters retain their invocation-only
+snapshot for compatibility. Owner HTTP and email work retain live adapters and do
+not run archive maintenance. Existing Node scheduling, timezone, skip-threshold,
+issue-freeze and delivery policies remain in use.
 
 Composition history cleanup removes at most 500 expired issues, oldest first,
 per cron invocation, including paused configurations. It preserves each affected
@@ -641,10 +661,10 @@ configuration's maximum issue number in the same D1 transaction before deleting
 history. The next invocation continues from the remaining expired rows. Kind and
 expiry are rechecked during deletion; failed transactions retain both history and
 counters for retry. Legacy history keeps its existing count-based retention.
-Metadata and cleanup use one read batch and, when expired rows exist, one write
-batch. This removes per-configuration metadata/pruning query growth. The queued
-processor above continues due generation and delivery; a large metadata snapshot
-is still not evidence of compliance with deployed Free CPU limits.
+Archive cleanup uses one bounded read batch and, when expired rows exist, one write
+batch. Product cron does not load all configuration bodies in that read. The queued
+processor continues discovery, due generation and delivery; SQL materialization and
+arbitrary row sizes remain open for deployed Free resource compliance.
 
 For a live configuration, keep the private receiving address in a secret binding,
 rather than checking it into a repository. For Email Routing,

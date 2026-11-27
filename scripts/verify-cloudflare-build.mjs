@@ -662,13 +662,20 @@ try {
   await storage.batch(Array.from({length:35},(_,index)=>storage.statement("INSERT INTO articles(feed_id,guid,hash,url,title,content_html,published_at) VALUES(?,?,?,'https://compiled.example.test/story',?,?,?)",[capturedFeed.id,String(index),String(index),`Captured ${index}`,'<p>Original compiled content.</p>',scheduledClock.now().getTime()-index*1000])));
   const capturedIds=await storage.all('SELECT id FROM articles WHERE feed_id=? ORDER BY published_at DESC LIMIT 2',[capturedFeed.id]);
   const queuedConfig=await queuedBrewStorage.createComposition({name:'Compiled queued schedule',enabled:true,timezone:'UTC',schedule:{kind:'daily',time:'12:00'},delivery:{web:true,feed:false,publicCopy:false},sections:[{...newBrewSection('first'),onlyUnread:false,depth:'full',maxItems:2,sources:[{kind:'feed',id:capturedFeed.id}]},{...newBrewSection('second','note'),note:'Second queued note.'}]});
-  const queuedSchedule=new ScheduledBrewProcessor(new CloudflareScheduledBrewJobs(storage),queuedBrewStorage,scheduledClock,regex);
+  const laterConfig=await queuedBrewStorage.createComposition({name:'Compiled captured definition',enabled:true,timezone:'UTC',schedule:{kind:'daily',time:'12:00'},delivery:{web:true,feed:false,publicCopy:false},sections:[{...newBrewSection('definition','note'),note:'Captured definition.'}]});
+  const queuedSchedule=new ScheduledBrewProcessor(new CloudflareScheduledBrewJobs(storage),queuedBrewStorage,scheduledClock,regex,{},()=>globalThis.crypto.randomUUID(),{remaining:Infinity,configPageSize:1,capturePages:1});
   await queuedSchedule.capture();await queuedSchedule.drain(1);
+  // Earlier compiled fixtures may contain paused definitions. Finish discovery
+  // one bounded page at a time until this new source is admitted and captured.
+  for(let page=0;page<100 && !(await storage.first('SELECT count(*) AS n FROM brew_schedule_candidates WHERE job_id IN (SELECT id FROM brew_schedule_jobs WHERE config_id=?)',[queuedConfig])).n;page++) {await queuedSchedule.capture();await queuedSchedule.drain(1);}
   assert.equal((await storage.first('SELECT count(*) AS n FROM brew_schedule_jobs WHERE config_id=?',[queuedConfig])).n,1);
   assert.equal((await storage.first('SELECT count(*) AS n FROM brew_schedule_candidates')).n,35);
+  assert.ok((await storage.first('SELECT count(*) AS n FROM brew_schedule_configs')).n>=2);
+  await storage.run("UPDATE brew_configs SET enabled=0,name='Changed live',sections_json='[]' WHERE id=?",[laterConfig]);
   assert.ok((await storage.first('SELECT length(state_json) AS bytes FROM brew_schedule_jobs WHERE config_id=?',[queuedConfig])).bytes<16384);
   await storage.run('DELETE FROM articles WHERE feed_id=?',[capturedFeed.id]);
-  await new ScheduledBrewProcessor(new CloudflareScheduledBrewJobs(new CloudflareStorage(database)),queuedBrewStorage,{...scheduledClock,now:()=>new Date('2026-11-27T12:01:00Z')},regex).drain();
+  const resumedSchedule=new ScheduledBrewProcessor(new CloudflareScheduledBrewJobs(new CloudflareStorage(database)),queuedBrewStorage,{...scheduledClock,now:()=>new Date('2026-11-27T12:01:00Z')},regex);
+  await resumedSchedule.capture();await resumedSchedule.drain();
   assert.equal((await storage.first('SELECT count(*) AS n FROM brew_schedule_jobs WHERE config_id=?',[queuedConfig])).n,0);
   const queuedIssue=await queuedBrewStorage.snapshot((await queuedBrewStorage.historyIds(queuedConfig))[0]);
   assert.equal(queuedIssue.generatedAt,'2026-11-27T12:00:00.000Z');assert.equal(queuedIssue.sections.length,2);
@@ -676,6 +683,10 @@ try {
   assert.deepEqual(queuedIssue.sections[0].items.map(row=>row.id),capturedIds.map(row=>row.id));
   assert.ok(queuedIssue.sections[0].items[0].contentHtml.includes('Original compiled content.'));
   assert.equal((await storage.first('SELECT count(*) AS n FROM brew_schedule_candidates')).n,0);
+  assert.equal((await storage.first('SELECT count(*) AS n FROM brew_schedule_configs')).n,0);
+  assert.equal((await storage.first('SELECT count(*) AS n FROM brew_schedule_captures')).n,0);
+  const laterIssue=await queuedBrewStorage.snapshot((await queuedBrewStorage.historyIds(laterConfig))[0]);
+  assert.equal(laterIssue.configName,'Compiled captured definition');assert.ok(laterIssue.sections[0].noteHtml.includes('Captured definition.'));
   assert.equal((await queuedBrewStorage.deliveryResults(queuedIssue.id)).webhook.status,'disabled');
   await storage.run(
     "INSERT INTO settings(key,value) VALUES('duplicate_filter_enabled','true') ON CONFLICT(key) DO UPDATE SET value='true'",

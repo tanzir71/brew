@@ -389,7 +389,37 @@ export const brewScheduleCandidates = sqliteTable(
   ],
 );
 
+export const brewScheduleCaptures = sqliteTable(
+  'brew_schedule_captures',
+  {
+    slot: integer('slot').primaryKey(),
+    id: text('id').notNull().unique(),
+    afterAt: integer('after_at').notNull(),
+    throughAt: integer('through_at').notNull(),
+    currentAt: integer('current_at').notNull(),
+    cursor: integer('cursor').notNull().default(0),
+    initialized: integer('initialized').notNull().default(0),
+    runner: text('runner'),
+    expiresAt: integer('expires_at').notNull().default(0),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [check('brew_schedule_capture_slot', sql`${table.slot}=1`)],
+);
+export const brewScheduleConfigs = sqliteTable(
+  'brew_schedule_configs',
+  {
+    captureId: text('capture_id')
+      .notNull()
+      .references(() => brewScheduleCaptures.id, { onDelete: 'cascade' }),
+    configId: integer('config_id').notNull(),
+    snapshotJson: text('snapshot_json').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.captureId, table.configId] })],
+);
+
 export const schema = {
+  brewScheduleCaptures,
+  brewScheduleConfigs,
   brewScheduleCandidates,
   brewScheduleJobs,
   brewScheduleGuard,

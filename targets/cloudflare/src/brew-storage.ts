@@ -61,19 +61,21 @@ export class CloudflareBrewStorage implements AsyncBrewStoragePort {
     private storage: CloudflareStorage,
     private timezone = 'UTC',
   ) {}
-  /** Cron-only snapshot; never cache mutable configuration across invocations. */
-  static async scheduled(storage: CloudflareStorage, now: Date) {
+  /** Bounded archive maintenance; legacy one-pass schedulers can request a config snapshot. */
+  static async scheduled(storage: CloudflareStorage, now: Date, captureConfigurations = true) {
     const before = now.getTime() - BREW_RETENTION_DAYS * 86_400_000;
     if (!Number.isFinite(before)) throw new Error('Invalid Brew maintenance time.');
     const reads = await storage.batch([
-      storage.statement(`SELECT ${configColumns} FROM brew_configs ORDER BY id`),
+      ...(captureConfigurations
+        ? [storage.statement(`SELECT ${configColumns} FROM brew_configs ORDER BY id`)]
+        : []),
       storage.statement(
         `SELECT b.id,b.brew_config_id AS configId FROM brews b JOIN brew_configs c ON c.id=b.brew_config_id
          WHERE c.composition_version=2 AND b.generated_at<? ORDER BY b.generated_at,b.id LIMIT 500`,
         [before],
       ),
     ]);
-    const expired = reads[1]!.results as unknown as { id: number; configId: number }[];
+    const expired = reads.at(-1)!.results as unknown as { id: number; configId: number }[];
     if (expired.length) {
       const counters = [...new Set(expired.map((issue) => issue.configId))].map((configId) => {
         const key = `brew_issue_number_${configId}`;
@@ -94,9 +96,10 @@ export class CloudflareBrewStorage implements AsyncBrewStoragePort {
       ]);
     }
     const scoped = new CloudflareBrewStorage(storage);
-    scoped.scheduleRows = new Map(
-      (reads[0]!.results as unknown as BrewConfigRow[]).map((row) => [row.id, row]),
-    );
+    if (captureConfigurations)
+      scoped.scheduleRows = new Map(
+        (reads[0]!.results as unknown as BrewConfigRow[]).map((row) => [row.id, row]),
+      );
     return scoped;
   }
   async listConfigs() {
