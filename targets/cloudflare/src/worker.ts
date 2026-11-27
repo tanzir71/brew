@@ -30,6 +30,7 @@ import {
   receiveCloudflareMail,
 } from './inbound-mail.js';
 import { maintainCloudflareNewsletters } from './newsletter-maintenance.js';
+import { CloudflareBrewStorage } from './brew-storage.js';
 
 export interface CloudflareWorkerEnv {
   DB: D1Database;
@@ -90,7 +91,11 @@ export function createCloudflareWorker<E extends CloudflareWorkerEnv = Cloudflar
       env.BREW_MAX_FETCHES_PER_RUN === undefined ? 40 : Number(env.BREW_MAX_FETCHES_PER_RUN),
       options.fetcher?.(env) ?? globalThis.fetch,
     );
-  async function services(env: E, network: CloudflareFetchBudget, initialize: boolean) {
+  async function services(
+    env: E,
+    network: CloudflareFetchBudget,
+    initialize: false | 'mail' | 'scheduled',
+  ) {
     const base = publicOrigin(env.BREW_PUBLIC_URL);
     const storage = new CloudflareStorage(env.DB);
     if (initialize) {
@@ -102,6 +107,10 @@ export function createCloudflareWorker<E extends CloudflareWorkerEnv = Cloudflar
       clock,
       regex: options.regex ?? cloudflareRegex,
       outputBaseUrl: base,
+      brewStorage:
+        initialize === 'scheduled'
+          ? await CloudflareBrewStorage.scheduled(storage, clock.now())
+          : undefined,
       capabilities: async (): Promise<Capabilities> => ({
         mode: 'cloudflare',
         fetch: 'direct',
@@ -219,7 +228,7 @@ export function createCloudflareWorker<E extends CloudflareWorkerEnv = Cloudflar
     },
     async scheduled(_controller: ScheduledController, env: E) {
       const network = budget(env);
-      const { library, storage } = await services(env, network, true);
+      const { library, storage } = await services(env, network, 'scheduled');
       // Freeze/deliver scheduled issues before polling can spend the allowance.
       await library.actions.cleanup();
       await maintainCloudflareNewsletters(storage, clock.now());
@@ -229,7 +238,7 @@ export function createCloudflareWorker<E extends CloudflareWorkerEnv = Cloudflar
     },
     async email(message: ForwardableEmailMessage, env: E) {
       try {
-        const { library, storage } = await services(env, budget(env), true);
+        const { library, storage } = await services(env, budget(env), 'mail');
         await receiveCloudflareMail(message, storage, clock, library.rules);
       } catch {
         await message.raw.cancel().catch(() => undefined);

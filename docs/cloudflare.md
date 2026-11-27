@@ -482,6 +482,24 @@ D1 invocation calls, not total SQL rows inspected or the complete Worker's CPU
 and query usage; polling, rules and scheduled generation still need their own
 resource continuation.
 
+Cron also loads Brew configuration metadata once for both shared legacy and
+composition schedulers. That snapshot belongs to the current invocation; owner
+HTTP and email work retain live adapters and do not run archive maintenance.
+Format/composition lookups during the schedule scan use the snapshot rather than
+making a D1 request for every configuration. The existing Node scheduling,
+timezone, skip-threshold, issue-freeze and delivery policies remain in use.
+
+Composition history cleanup removes at most 500 expired issues, oldest first,
+per cron invocation, including paused configurations. It preserves each affected
+configuration's maximum issue number in the same D1 transaction before deleting
+history. The next invocation continues from the remaining expired rows. Kind and
+expiry are rechecked during deletion; failed transactions retain both history and
+counters for retry. Legacy history keeps its existing count-based retention.
+Metadata and cleanup use one read batch and, when expired rows exist, one write
+batch. This removes per-configuration metadata/pruning query growth; due issue
+generation and delivery still need resource continuation, and a large metadata
+snapshot is not evidence of compliance with deployed Free CPU limits.
+
 For a live configuration, keep the private receiving address in a secret binding,
 rather than checking it into a repository. For Email Routing,
 `BREW_INBOUND_ADDRESS` bootstraps the initial receiving

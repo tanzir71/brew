@@ -443,6 +443,12 @@ it('continues bounded newsletter retention across real scheduled invocations whi
 
 it('freezes and delivers a scheduled composition before polling, and never sends its claimed minute twice', async () => {
   await env.DB.prepare(
+    `WITH RECURSIVE numbers(id) AS
+    (SELECT 1 UNION ALL SELECT id+1 FROM numbers WHERE id<100)
+    INSERT INTO brew_configs(name,composition_version,schedule_json)
+    SELECT 'Later '||id,2,'{"kind":"daily","time":"23:00"}' FROM numbers`,
+  ).run();
+  await env.DB.prepare(
     "INSERT INTO feeds(id,url,title,last_fetched_at) VALUES(1,'https://source.test/existing','Existing',?)",
   )
     .bind(now)
@@ -490,6 +496,34 @@ it('freezes and delivers a scheduled composition before polling, and never sends
       .bind(config.id)
       .first(),
   ).toEqual({ n: 1 });
+});
+
+it('restricts bounded Brew history maintenance to cron and continues across genuine scheduled invocations', async () => {
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO brew_configs(id,name,enabled,composition_version) VALUES(1,'Paused archive',0,2)",
+    ),
+    env.DB.prepare(`WITH RECURSIVE numbers(id) AS
+      (SELECT 1 UNION ALL SELECT id+1 FROM numbers WHERE id<501)
+      INSERT INTO brews(brew_config_id,issue_number,generated_at,payload_json)
+      SELECT 1,id,0,'{"configName":"Old","sections":[]}' FROM numbers`),
+  ]);
+  expect((await request('/api/brew-configs')).status).toBe(200);
+  await worker.email({
+    from: 'bounce@example.test',
+    to: 'brew@letters.example.test',
+    raw: mime('history-scope'),
+  });
+  expect(await env.DB.prepare('SELECT count(*) AS count FROM brews').first()).toEqual({
+    count: 501,
+  });
+  await worker.scheduled({ scheduledTime: new Date(now) });
+  expect(await env.DB.prepare('SELECT count(*) AS count FROM brews').first()).toEqual({ count: 1 });
+  await worker.scheduled({ scheduledTime: new Date(now + 60_000) });
+  expect(await env.DB.prepare('SELECT count(*) AS count FROM brews').first()).toEqual({ count: 0 });
+  expect(
+    await env.DB.prepare("SELECT value FROM settings WHERE key='brew_issue_number_1'").first(),
+  ).toEqual({ value: '501' });
 });
 
 it('rejects ambiguous newsletter senders without creating a sender or storing letter content', async () => {

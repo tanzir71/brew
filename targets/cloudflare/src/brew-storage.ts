@@ -2,7 +2,11 @@ import {
   renderBrewJson,
   renderBrewMarkdownParts,
 } from '../../../packages/core/src/brew-outputs.js';
-import { upgradeLegacyDraft, scheduleCron } from '../../../packages/core/src/composition-model.js';
+import {
+  upgradeLegacyDraft,
+  scheduleCron,
+  BREW_RETENTION_DAYS,
+} from '../../../packages/core/src/composition-model.js';
 import type {
   AsyncBrewStoragePort,
   BrewStoragePort,
@@ -43,14 +47,54 @@ const lastNumber = `max(coalesce((SELECT CASE WHEN json_valid(value) THEN
 type Payload = Parameters<BrewStoragePort['save']>[1];
 
 export class CloudflareBrewStorage implements AsyncBrewStoragePort {
+  private scheduleRows?: ReadonlyMap<number, BrewConfigRow>;
   constructor(
     private storage: CloudflareStorage,
     private timezone = 'UTC',
   ) {}
-  async listConfigs() {
-    return (await this.storage.all<BrewConfigRow>(`SELECT ${configColumns} FROM brew_configs`)).map(
-      legacyBrewConfig,
+  /** Cron-only snapshot; never cache mutable configuration across invocations. */
+  static async scheduled(storage: CloudflareStorage, now: Date) {
+    const before = now.getTime() - BREW_RETENTION_DAYS * 86_400_000;
+    if (!Number.isFinite(before)) throw new Error('Invalid Brew maintenance time.');
+    const reads = await storage.batch([
+      storage.statement(`SELECT ${configColumns} FROM brew_configs ORDER BY id`),
+      storage.statement(
+        `SELECT b.id,b.brew_config_id AS configId FROM brews b JOIN brew_configs c ON c.id=b.brew_config_id
+         WHERE c.composition_version=2 AND b.generated_at<? ORDER BY b.generated_at,b.id LIMIT 500`,
+        [before],
+      ),
+    ]);
+    const expired = reads[1]!.results as unknown as { id: number; configId: number }[];
+    if (expired.length) {
+      const counters = [...new Set(expired.map((issue) => issue.configId))].map((configId) => {
+        const key = `brew_issue_number_${configId}`;
+        return storage.statement(
+          `INSERT INTO settings(key,value) SELECT ?,CAST(n AS TEXT) FROM (SELECT ${lastNumber} AS n)
+           WHERE n>0 AND EXISTS(SELECT 1 FROM brew_configs WHERE id=? AND composition_version=2)
+           ON CONFLICT(key) DO UPDATE SET value=excluded.value`,
+          [key, key, configId, configId],
+        );
+      });
+      await storage.batch([
+        ...counters,
+        storage.statement(
+          `DELETE FROM brews WHERE id IN (SELECT value FROM json_each(?)) AND generated_at<?
+           AND EXISTS(SELECT 1 FROM brew_configs WHERE id=brews.brew_config_id AND composition_version=2)`,
+          [JSON.stringify(expired.map((issue) => issue.id)), before],
+        ),
+      ]);
+    }
+    const scoped = new CloudflareBrewStorage(storage);
+    scoped.scheduleRows = new Map(
+      (reads[0]!.results as unknown as BrewConfigRow[]).map((row) => [row.id, row]),
     );
+    return scoped;
+  }
+  async listConfigs() {
+    const rows = this.scheduleRows
+      ? [...this.scheduleRows.values()]
+      : await this.storage.all<BrewConfigRow>(`SELECT ${configColumns} FROM brew_configs`);
+    return rows.map(legacyBrewConfig);
   }
   private async writeConfig(draft: CompositionDraft, legacy?: BrewConfigDraft, id?: number) {
     const previous = id === undefined ? null : await this.composition(id);
@@ -178,6 +222,9 @@ export class CloudflareBrewStorage implements AsyncBrewStoragePort {
     );
   }
   async pruneBefore(configId: number, before: number) {
+    // Scheduled setup already performs one bounded global history page. Do not
+    // turn the shared per-config policy back into unbounded invocation queries.
+    if (this.scheduleRows) return;
     const counter = `brew_issue_number_${configId}`;
     await this.storage.batch([
       this.storage.statement(
@@ -255,13 +302,16 @@ export class CloudflareBrewStorage implements AsyncBrewStoragePort {
       : null;
   }
   async composition(id: number) {
-    const row = await this.storage.first<BrewConfigRow>(
-      `SELECT ${configColumns} FROM brew_configs WHERE id=?`,
-      [id],
-    );
+    const row = this.scheduleRows
+      ? this.scheduleRows.get(id)
+      : await this.storage.first<BrewConfigRow>(
+          `SELECT ${configColumns} FROM brew_configs WHERE id=?`,
+          [id],
+        );
     return row ? brewComposition(row) : null;
   }
   async usesComposition(id: number) {
+    if (this.scheduleRows) return this.scheduleRows.get(id)?.compositionVersion === 2;
     return (
       (
         await this.storage.first<{ version: number }>(

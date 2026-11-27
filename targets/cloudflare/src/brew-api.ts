@@ -1,5 +1,5 @@
 import { AsyncBrewService } from '../../../packages/core/src/async-brew-service.js';
-import type { RegexPort } from '../../../packages/core/src/ports.js';
+import type { RegexPort, AsyncBrewStoragePort } from '../../../packages/core/src/ports.js';
 import type { ApiServices } from '../../../packages/api/src/ports.js';
 import { registerBrewRoutes } from '../../../packages/api/src/routes/brews.js';
 import { registerBrewOutputRoutes } from '../../../packages/api/src/routes/brew-outputs.js';
@@ -13,6 +13,7 @@ export function cloudflareBrewServices(
   options: Parameters<typeof cloudflareReaderServices>[1] & {
     regex?: RegexPort;
     outboundMail?: ApiServices['outboundMail'];
+    brewStorage?: AsyncBrewStoragePort;
   },
 ) {
   const services = cloudflareReaderServices(bindings, options);
@@ -21,7 +22,7 @@ export function cloudflareBrewServices(
     ...services,
     outboundMail: options.outboundMail,
     brews: new AsyncBrewService(
-      new CloudflareBrewStorage(new CloudflareStorage(bindings.DB)),
+      options.brewStorage ?? new CloudflareBrewStorage(new CloudflareStorage(bindings.DB)),
       clock,
       options.regex,
       {

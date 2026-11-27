@@ -12,6 +12,7 @@ import { newQuickJSWASMModuleFromVariant, newVariant } from 'quickjs-emscripten-
 import { CloudflareRegex, regexWasmMemory } from '../dist/targets/cloudflare/src/regex.js';
 import { unstable_splitSqlQuery } from 'wrangler';
 import { CloudflareStorage } from '../dist/targets/cloudflare/src/storage.js';
+import { CloudflareBrewStorage } from '../dist/targets/cloudflare/src/brew-storage.js';
 import { CloudflareNewsletterStorage } from '../dist/targets/cloudflare/src/newsletter-storage.js';
 import { maintainCloudflareNewsletters } from '../dist/targets/cloudflare/src/newsletter-maintenance.js';
 import { R2ImageCache } from '../dist/targets/cloudflare/src/image-cache.js';
@@ -583,8 +584,38 @@ try {
     await storage.first("SELECT id FROM articles WHERE title='Compiled envelope'"),
     null,
   );
+  const archived = await storage.first(
+    "INSERT INTO brew_configs(name,enabled,composition_version) VALUES('Compiled paused archive',0,2) RETURNING id",
+  );
+  await storage.run(
+    `WITH RECURSIVE numbers(id) AS
+    (SELECT 1 UNION ALL SELECT id+1 FROM numbers WHERE id<501)
+    INSERT INTO brews(brew_config_id,issue_number,generated_at,payload_json)
+    SELECT ?,id,0,'{}' FROM numbers`,
+    [archived.id],
+  );
+  const scheduledStorage = await CloudflareBrewStorage.scheduled(storage, new Date());
+  assert.equal((await scheduledStorage.composition(archived.id)).name, 'Compiled paused archive');
+  assert.equal(
+    (
+      await storage.first('SELECT count(*) AS count FROM brews WHERE brew_config_id=?', [
+        archived.id,
+      ])
+    ).count,
+    1,
+  );
+  await CloudflareBrewStorage.scheduled(new CloudflareStorage(database), new Date());
+  assert.equal(
+    (
+      await storage.first('SELECT count(*) AS count FROM brews WHERE brew_config_id=?', [
+        archived.id,
+      ])
+    ).count,
+    0,
+  );
+  assert.equal(await new CloudflareBrewStorage(storage).nextIssueNumber(archived.id), 502);
   process.stdout.write(
-    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state, journal capture/restore, owner-action preview/commit/replay/Undo, scoped tokens with real MCP write/Undo/revocation, interruptible WASM regex, durable polling/redirect accounting, signed Access audience enforcement, active-address mail admission/revocation and bounded newsletter maintenance continuation passed outside the repository cwd. Free resource compliance and installer integration remain pending.\n',
+    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state, journal capture/restore, owner-action preview/commit/replay/Undo, scoped tokens with real MCP write/Undo/revocation, interruptible WASM regex, durable polling/redirect accounting, signed Access audience enforcement, active-address mail admission/revocation, bounded newsletter maintenance, cron-scoped scheduling and bounded history/number preservation passed outside the repository cwd. Free resource compliance and installer integration remain pending.\n',
   );
 } finally {
   await runtime.dispose();
