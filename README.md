@@ -17,6 +17,13 @@ comes from protocol integration tests.
 
 ## Architecture
 
+Cloudflare's Worker target and a resumable deployment CLI are in development.
+See [installation and release status](docs/cloudflare-install.md) and
+[runtime limits](docs/cloudflare.md). The local CLI tarball includes the actual
+Worker/WASM, web assets and canonical migrations; public npm publication is pending.
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2Ftanzir71%2Fbrew%2Ftree%2Fmain)
+
 ```
                        your machine
 ┌──────────────────────────────────────────────────────────┐
@@ -113,13 +120,15 @@ polling with redirect accounting and native MIME ingestion run in bundled
 workerd tests alongside verified D1/R2 storage ports. The product Worker now
 connects fetch, scheduled and Email Routing handlers with Cloudflare Access and
 private assets. Optional Resend delivery shares the same mail port as Node and
-the invocation's fetch allowance. The installer remains unfinished; M14 stays
-open. Read the Cloudflare guide's resource bounds before deploying.
+the invocation's fetch allowance. The installer and deploy-button template are
+implemented locally; M14 stays open for public release availability. Read the
+[installation guide](docs/cloudflare-install.md) and resource bounds before deploying.
 
 ```
 packages/core/   portable domain services, ports and shared types
 packages/db/     canonical Drizzle SQLite schema and SQL migrations
 packages/api/    Hono REST router with target-independent service interfaces
+packages/cli/    resumable Cloudflare deployment package and generated payload
 packages/web/    React SPA and Vite configuration
 targets/node/   Fastify transport, SQLite, feed fetching and platform adapters
 server/         unchanged v1 unit tests, fixtures and compatibility exports

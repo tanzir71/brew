@@ -1,0 +1,37 @@
+{
+  // Deploy-button template; configure owner Access first (docs/cloudflare-install.md).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "brew-reader",
+  "main": "targets/cloudflare/src/worker.ts",
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "send_metrics": false,
+  "keep_vars": true,
+  "observability": { "enabled": false },
+  "assets": {
+    "directory": "packages/web/dist",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "not_found_handling": "single-page-application",
+  },
+  "rules": [{ "type": "CompiledWasm", "globs": ["**/*.wasm", "**/wasm"], "fallthrough": true }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "brew-reader",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "packages/db/migrations",
+    },
+  ],
+  "r2_buckets": [{ "binding": "IMAGES", "bucket_name": "brew-reader-images" }],
+  "triggers": { "crons": ["* * * * *"] },
+  "vars": {
+    "BREW_PUBLIC_URL": "https://brew.example.com",
+    "BREW_ACCESS_TEAM_DOMAIN": "https://your-team.cloudflareaccess.com",
+    "BREW_ACCESS_AUD": "REPLACE_WITH_ACCESS_APPLICATION_AUDIENCE",
+    "BREW_MAX_FETCHES_PER_RUN": "40",
+    "BREW_WEBMCP": "0",
+  },
+}

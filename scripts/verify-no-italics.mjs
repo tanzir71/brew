@@ -13,7 +13,7 @@ async function collect(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const filename = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      if (!['node_modules', 'dist', '.wrangler', 'contracts', 'fixtures'].includes(entry.name))
+      if (!['node_modules', 'dist', '.wrangler', 'contracts', 'fixtures'].includes(entry.name) && filename !== path.join(root,'packages/cli/payload'))
         await collect(filename);
     } else if (
       /\.(?:[cm]?[jt]sx?|css|html|svg)$/.test(entry.name) &&

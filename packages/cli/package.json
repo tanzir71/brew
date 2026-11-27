@@ -1,0 +1,30 @@
+{
+  "name": "brew-reader",
+  "version": "0.1.0",
+  "description": "Deploy your own private Brew reader",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "bin": {
+    "brew-reader": "bin/brew-reader.mjs"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "payload",
+    "README.md"
+  ],
+  "scripts": {
+    "prepack": "node bin/check-package.mjs"
+  },
+  "dependencies": {
+    "wrangler": "4.168.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tanzir71/brew.git",
+    "directory": "packages/cli"
+  }
+}

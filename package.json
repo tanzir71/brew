@@ -10,8 +10,8 @@
     "dev": "concurrently -k -n server,web \"node --watch --import tsx targets/node/src/index.ts\" \"vite --config packages/web/vite.config.ts\"",
     "start": "node dist/targets/node/src/index.js",
     "mcp": "node dist/targets/node/src/index.js mcp",
-    "build": "npm run typography:check && npm run tokens:check && npm run icons:check && vite build --config packages/web/vite.config.ts && tsc -p tsconfig.server.json && node scripts/copy-build-assets.mjs && node scripts/verify-node-build.mjs && node scripts/verify-cloudflare-build.mjs && node scripts/build-cloudflare.mjs",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p targets/cloudflare/tsconfig.json",
+    "build": "npm run typography:check && npm run tokens:check && npm run icons:check && vite build --config packages/web/vite.config.ts && tsc -p tsconfig.server.json && node scripts/copy-build-assets.mjs && node scripts/verify-node-build.mjs && node scripts/verify-cloudflare-build.mjs && node scripts/build-cloudflare.mjs && npm run build:cli",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p targets/cloudflare/tsconfig.json && tsc --noEmit -p packages/cli/tsconfig.json",
     "lint": "npm run typography:check && npm run tokens:check && npm run icons:check && eslint .",
     "tokens:generate": "node scripts/generate-tokens.mjs",
     "icons:generate": "node scripts/generate-icons.mjs",
@@ -25,7 +25,9 @@
     "seed:big": "tsx server/scripts/seed-big.ts",
     "website:verify": "node scripts/verify-site.mjs",
     "website:browser": "node scripts/verify-website-browser.mjs",
-    "typography:check": "node scripts/verify-no-italics.mjs"
+    "typography:check": "node scripts/verify-no-italics.mjs",
+    "build:cli": "tsc -p packages/cli/tsconfig.json && node scripts/package-cloudflare-payload.mjs && node scripts/verify-cli-build.mjs",
+    "deploy": "node scripts/deploy-cloudflare-button.mjs"
   },
   "dependencies": {
     "@brew/core": "0.1.0",
@@ -66,5 +68,24 @@
   "workspaces": [
     "packages/*",
     "targets/*"
-  ]
+  ],
+  "cloudflare": {
+    "bindings": {
+      "BREW_PUBLIC_URL": {
+        "description": "HTTPS hostname in your account; prepare owner Access first: docs/cloudflare-install.md."
+      },
+      "BREW_ACCESS_TEAM_DOMAIN": {
+        "description": "Exact team.cloudflareaccess.com from your Zero Trust organization."
+      },
+      "BREW_ACCESS_AUD": {
+        "description": "Audience of the self-hosted owner Access application. Never use your Cloudflare API token here."
+      },
+      "DB": {
+        "description": "Private Brew library with canonical migrations."
+      },
+      "IMAGES": {
+        "description": "Private image cache; do not enable public bucket access."
+      }
+    }
+  }
 }

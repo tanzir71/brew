@@ -2,8 +2,9 @@
 
 M14 is in progress. The Node target remains the completed deployment target.
 The product Worker now connects actual fetch, scheduled and email handlers to
-the shared API and D1/R2 services, including optional Resend delivery. The installer
-remains unfinished. The runtime, polling, Email Routing/mail and Access criteria
+the shared API and D1/R2 services, including optional Resend delivery. The
+[installer and deploy-button template](cloudflare-install.md) are implemented
+locally; public package/source release remains pending. The runtime, polling, Email Routing/mail and Access criteria
 have native integration evidence; deployment/resource limits below remain explicit.
 
 ## D1
@@ -39,7 +40,8 @@ read/write outage falls back to the origin response.
 The proxy validates HTTP(S) and image content types, limits streams to 10 MiB,
 and cancels oversized bodies before reading more. All served images keep private
 browser-cache headers. The cache does not expose bucket objects as public URLs.
-Bucket lifecycle provisioning is part of the unfinished installer work.
+The installer leaves the bucket private. Cache expiry is checked on reads;
+an optional bucket lifecycle rule can reclaim expired objects in the dashboard.
 
 See the [R2 Worker binding API](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/).
 
@@ -574,7 +576,8 @@ deployed 10 ms Free CPU budget or arbitrary-input Free compliance. Large librari
 and content can require a paid Worker plan. See the [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
 and [D1 limits](https://developers.cloudflare.com/d1/platform/limits/).
 
-Still required for M14: the Cloudflare installer/deploy flow. These local native
+The [installer/deploy flow](cloudflare-install.md) is now implemented locally;
+the public npm/source release remains pending. These local native
 checks do not claim a provisioned or verified live Worker. Resource hardening above
 remains a deployment consideration, not a claim of universal Free CPU compliance.
 
