@@ -8,7 +8,7 @@ function validateDestination(url: URL) {
 
 export class FetchBudgetExceeded extends PollInterruptedError {
   constructor() {
-    super('This invocation has used its fetch allowance. Polling will resume on the next run.');
+    super('This invocation has used its fetch allowance.');
   }
 }
 /** One instance per invocation, shared by polling, rules and delivery. */
@@ -30,11 +30,16 @@ export class CloudflareFetchBudget {
   readonly fetch: typeof fetch = async (input, init) => {
     let request: Request;
     try {
-      request = new Request(input, init);
+      // Workers accepts follow/manual only. Preserve the standard "error"
+      // policy in this port while constructing a native manual request.
+      request = new Request(
+        input,
+        init?.redirect === 'error' ? { ...init, redirect: 'manual' } : init,
+      );
     } catch {
       throw new Error('The fetch request is invalid.');
     }
-    const mode = request.redirect;
+    const mode = init?.redirect ?? request.redirect;
     for (let redirects = 0; ; redirects++) {
       const url = new URL(request.url);
       validateDestination(url);
@@ -42,15 +47,21 @@ export class CloudflareFetchBudget {
       this.count++;
       let response: Response;
       try {
-        response = await this.upstream(new Request(request, { redirect: 'manual' }));
+        // Native global fetch must not receive this budget as its `this`.
+        const upstream = this.upstream;
+        response = await upstream(new Request(request, { redirect: 'manual' }));
       } catch {
         throw new Error('The upstream request failed.');
       }
       const location = response.headers.get('location');
-      if (![301, 302, 303, 307, 308].includes(response.status) || !location || mode === 'manual')
+      if (![301, 302, 303, 307, 308].includes(response.status) || mode === 'manual')
         return response;
+      if (mode === 'error') {
+        await response.body?.cancel();
+        throw new Error('The upstream request redirected.');
+      }
+      if (!location) return response;
       await response.body?.cancel();
-      if (mode === 'error') throw new Error('The upstream request redirected.');
       if (redirects >= MAX_FETCH_REDIRECTS)
         throw new Error('The upstream request redirected too many times.');
       // All product webhook/delivery POSTs use manual redirects. Do not replay an

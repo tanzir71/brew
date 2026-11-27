@@ -26,6 +26,15 @@ import {
   createCloudflarePollingApi,
 } from '../dist/targets/cloudflare/src/polling-api.js';
 import { CloudflareFetchBudget } from '../dist/targets/cloudflare/src/fetch-budget.js';
+import {
+  CloudflareAccessVerifier,
+  accessConfiguration,
+} from '../dist/targets/cloudflare/src/access.js';
+import {
+  initializeInboundAddress,
+  receiveCloudflareMail,
+} from '../dist/targets/cloudflare/src/inbound-mail.js';
+import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { newBrewSection } from '../dist/packages/core/src/composition-model.js';
 import { renderBrewMarkdown } from '../dist/packages/core/src/brew-outputs.js';
 
@@ -493,8 +502,66 @@ try {
   assert.equal((await noAllowance.json()).outcome, 'error');
   assert.equal(pollCalls, 2);
   assert.equal((await storage.first('SELECT count(*) AS count FROM feed_poll_leases')).count, 0);
+  const ownerKeys = await generateKeyPair('RS256', { extractable: true });
+  const ownerConfig = accessConfiguration('https://compiled.cloudflareaccess.com', 'compiled-app');
+  const ownerToken = await new SignJWT({
+    iss: ownerConfig.issuer,
+    aud: ownerConfig.audience,
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  })
+    .setProtectedHeader({ alg: 'RS256', kid: 'compiled' })
+    .sign(ownerKeys.privateKey);
+  const ownerVerifier = new CloudflareAccessVerifier();
+  await ownerVerifier.verify(ownerToken, ownerConfig, async (input) => {
+    assert.equal(input, `${ownerConfig.issuer}/cdn-cgi/access/certs`);
+    return globalThis.Response.json({
+      keys: [
+        { ...(await exportJWK(ownerKeys.publicKey)), kid: 'compiled', alg: 'RS256', use: 'sig' },
+      ],
+    });
+  });
+  await assert.rejects(
+    ownerVerifier.verify(
+      ownerToken,
+      { ...ownerConfig, audience: 'different-app' },
+      globalThis.fetch,
+    ),
+    /valid Cloudflare Access/,
+  );
+  await initializeInboundAddress(storage, 'compiled@letters.example.test');
+  const mailClock = { now: () => new Date(), monotonic: () => globalThis.performance.now() };
+  let rejected;
+  const receive = () =>
+    receiveCloudflareMail(
+      {
+        from: 'bounce@example.test',
+        to: 'compiled@letters.example.test',
+        raw: new globalThis.Response(
+          'From: Native <native@example.test>\r\nSubject: Compiled envelope\r\nMessage-ID: <compiled-envelope@example.test>\r\nContent-Type: text/html\r\n\r\n<p>Compiled admission.</p><script>unsafe()</script>',
+        ).body,
+        rawSize: 300,
+        setReject: (reason) => {
+          rejected = reason;
+        },
+      },
+      storage,
+      mailClock,
+      services.rules,
+    );
+  await receive();
+  assert.equal(rejected, undefined);
+  assert.equal(
+    (await storage.first("SELECT content_html FROM articles WHERE title='Compiled envelope'"))
+      .content_html,
+    '<p>Compiled admission.</p>',
+  );
+  await storage.run('UPDATE inbound_addresses SET active=0');
+  await initializeInboundAddress(storage, 'compiled@letters.example.test');
+  await receive();
+  assert.equal(rejected, 'This receiving address is not active.');
+  assert.equal((await storage.first('SELECT active FROM inbound_addresses')).active, 0);
   process.stdout.write(
-    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state, journal capture/restore, owner-action preview/commit/replay/Undo, scoped tokens with real MCP write/Undo/revocation, interruptible WASM regex with frozen-clock fuel/recovery and actual rule ingestion, plus lease-fenced polling/redirect accounting and actual feed insertion passed outside the repository cwd. Full Worker handler integration and Free resource compliance remain pending.\n',
+    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state, journal capture/restore, owner-action preview/commit/replay/Undo, scoped tokens with real MCP write/Undo/revocation, interruptible WASM regex, durable polling/redirect accounting, signed Access audience enforcement and active-address mail admission/revocation passed outside the repository cwd. Free resource compliance and installer integration remain pending.\n',
   );
 } finally {
   await runtime.dispose();

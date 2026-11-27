@@ -1,9 +1,10 @@
 # Cloudflare target
 
-M14 is in progress. The deployable application remains the Node target while
-the Worker handlers and asynchronous API services are being connected. The
-first M14 acceptance criterion is still open. Storage ports and the Reader/Brew
-service graph below are verified prerequisites.
+M14 is in progress. The Node target remains the completed deployment target.
+The product Worker now connects actual fetch, scheduled and email handlers to
+the shared API and D1/R2 services. Free resource budgeting, optional outbound
+mail and the installer remain unfinished; the complete runtime criterion stays
+open until that integration and its resource evidence are complete.
 
 ## D1
 
@@ -249,7 +250,7 @@ selection and conflict policy as Node's temporary triggers. A D1 transaction
 activates recording, writes local state and cascades, extends Undo expiry,
 finalizes caller-supplied receipt updates, and removes activation in one atomic
 batch. The flag never spans asynchronous work. The action service below now uses
-this foundation; product ingress remains unfinished.
+this foundation; the product ingress section below connects it to real handlers.
 
 Restore checks the journal and recorded fields again at commit, protects later
 children and saved source references, preserves unrelated later fields and
@@ -306,7 +307,7 @@ partial failures, cancellation, commit-time token revocation, interrupted recove
 expiry, complete OPML and sender retention/routing Undo. A full 50000-item action
 runs through the actual Worker preview/commit/Undo routes. Controlled elapsed time
 also verifies lease renewal between a sequence of external actions. No existing
-timeout, visual tolerance or performance budget is relaxed. Product handlers remain open.
+timeout, visual tolerance or performance budget is relaxed. Product ingress is exercised below; complete resource budgeting remains open.
 
 ## Scoped agents and MCP
 
@@ -328,7 +329,7 @@ WebMCP uses the same catalog through its existing opt-in capability and owner
 same-origin boundary; scoped credentials cannot enter owner routes or exports.
 The private instance guide reflects the configured capabilities without listing
 library records or credentials. These are real library bindings tested through
-an explicit integration fixture, not the unfinished product Worker or its owner
+an explicit integration fixture, not the product Worker or its owner
 authentication gate. No new dependency, schema migration or UI is introduced.
 
 Nine workerd/D1 cases cover native secrets and Node interoperability, concurrent
@@ -368,9 +369,8 @@ through the compiled HTTP graph with a matching Markdown cache.
 The original storage checks execute in the Node harness against real bindings.
 The library cases additionally run feed and MIME ingestion, rules, sources and
 Reader/Brew HTTP inside workerd. Compiled verification also checks saved sources,
-rules and asynchronous hashing/ingestion outside the repository directory. Inbound
-MIME execution inside the product Worker remains part of the remaining handler
-integration.
+rules and asynchronous hashing/ingestion outside the repository directory. The product email admission path is exercised by the native product harness
+described below.
 
 ## Polling prerequisite
 
@@ -402,13 +402,93 @@ ingestion, conditional refreshes, Node parity and shared rule-webhook accounting
 The fixture is not the product Worker or its owner authentication boundary.
 
 This proves the external-fetch bound only. The current per-feed ingestion/rule
-calls can exceed the separate Free D1 query allowance; durable batching and full
-product scheduling still need work. Local workerd does not prove the deployed
+calls can exceed the separate Free D1 query allowance; durable batching and
+resource continuation still need work. Local workerd does not prove the deployed
 10 ms Free CPU budget. M14 remains open until the complete runtime meets its
 resource limits. See the [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
 and [D1 limits](https://developers.cloudflare.com/d1/platform/limits/).
 
-Still required: product Worker fetch/scheduled/email handlers, complete resource
-budgeting, Email Routing/outbound mail, owner authentication, and
-the Cloudflare installer/deploy flow. These checks do not claim a working deployed
+Still required: durable resource continuation, optional outbound provider setup
+and the Cloudflare installer/deploy flow. These checks do not claim a working deployed
 Worker or completion of M14.
+
+
+## Product Worker and admission
+
+`targets/cloudflare/src/worker.ts` is the product entrypoint.
+`targets/cloudflare/wrangler.example.jsonc` binds the canonical migrations, D1, R2,
+SPA assets, precompiled WASM and a once-per-minute Cron Trigger. `npm run build`
+now also bundles that entrypoint and its WASM with Wrangler in dry-run mode;
+it does not provision resources or deploy. The example remains an integration
+checkpoint, with Free D1/CPU compliance still under implementation.
+
+Configure `BREW_PUBLIC_URL` as the exact HTTPS origin,
+`BREW_ACCESS_TEAM_DOMAIN` as `https://your-team.cloudflareaccess.com`, and
+`BREW_ACCESS_AUD` as the Access application's audience. The Worker verifies the
+`Cf-Access-Jwt-Assertion` signature with native Web Crypto through pinned `jose`,
+RS256 only, and validates issuer, audience, expiration, not-before and future
+issue times. Cookies and an authenticated-email header do not substitute for
+signature verification. Public keys come only from the configured team, never a
+JWT-provided URL. Key responses are bounded to 64 KiB/20 keys; keys cache for ten
+minutes, with a 30-second refresh cooldown and deduplicated concurrent loading.
+Failures return redacted private 401/503 responses and never accept expired cache
+state. The cache retains public verification state, not an invocation's fetcher,
+budget, owner token or identity.
+
+`assets.run_worker_first: true` is required: owner HTML, fonts, scripts and other
+assets pass the same admission boundary as owner REST and private text twins.
+Owner mutations require an exact same-origin Origin header; command-line owner
+clients must supply it too. Requests must use the configured origin/Host. Unknown
+API paths return JSON 404 and never the SPA shell. GET/HEAD, static assets and
+credential admission do not bootstrap database state. Legacy data/address
+initialization runs as deployment/background work through the actual scheduled
+and email handlers. Health is a generic read-only liveness response.
+
+Reader routes under `/api/greader/` and `/api/fever` retain their real app-password
+credentials. `/mcp` retains its scoped Brew token. Configure Access policy so
+these machine endpoints can reach the Worker with those credentials, while owner
+paths receive Access application assertions. A valid Access assertion does not
+replace a Reader password or MCP token. The shared namespace isolation remains
+active after owner admission.
+
+Optional `PUBLIC_ASSETS` is an independent service binding containing published
+static artifacts only. GET/HEAD `/share/*` remains public; writes are refused.
+Forwarded requests omit owner credentials, cookies, assertions and query/fragment
+data, and never enter the owner database/API graph. Its public caching is separate
+from private owner responses. Access policy must also permit those published paths.
+Publishing controls remain unavailable until the M16 publisher is implemented;
+`publicCopy` stays false.
+
+The scheduled handler runs actual journal cleanup, newsletter retention and both
+legacy/composition schedules, then due polling. Frozen issue/delivery receipts
+prevent repeats across invocations; scheduled delivery gets the shared allowance
+before polling. `BREW_MAX_FETCHES_PER_RUN` accepts integers 1–40 (default 40).
+`BREW_WEBMCP=1` enables the existing opt-in WebMCP capability. Outbound mail and AI
+remain unavailable until their providers are wired, and Reader capability follows
+the persisted app-password setup.
+
+For a live configuration, keep the private receiving address in a secret binding,
+rather than checking it into a repository. For Email Routing,
+`BREW_INBOUND_ADDRESS` bootstraps the initial receiving
+identity only when no address has ever been stored. Existing identities and
+revocations win over stale deployment variables. The native handler validates the
+envelope sender and active envelope recipient before reading MIME. Header From
+may legitimately differ from a bounce envelope, and Bcc mail need not contain To.
+Sender creation, letter insertion and retention recheck the active receiving
+identity inside their SQL writes, including revocation during reading/hashing.
+Input failures are rejected permanently with a redacted reason; transient storage
+failures throw for provider retry. No message is forwarded or replied to.
+
+The native product harness uses actual D1/R2/assets and cryptographic signatures,
+and executes the real handlers. It covers owner assets/REST/twins, temporal and
+issuer/audience/signature failures, same-origin writes, machine credential
+isolation, public static artifacts, R2 hits, 200 feeds over scheduled invocations,
+scheduled delivery order/receipts, real inbound MIME and address revocation races.
+Wrangler's local assets proxy overwrites Host with loopback, so the test-only
+transport wrapper restores it from the original URL and explicitly models Host
+mismatches; production keeps both checks. This is not deployed Free CPU or D1
+quota evidence.
+
+See [Access token validation](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/),
+[Worker-first asset routing](https://developers.cloudflare.com/workers/static-assets/routing/worker-script/)
+and [Email Routing handlers](https://developers.cloudflare.com/email-service/api/route-emails/email-handler/).

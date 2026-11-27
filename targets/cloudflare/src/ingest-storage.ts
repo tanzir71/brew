@@ -3,13 +3,17 @@ import { CloudflareStorage } from './storage.js';
 import { PollInterruptedError } from '../../../packages/core/src/feed-polling.js';
 
 /** Trusted adapter predicate, evaluated atomically with article insertion. */
-export type IngestAdmission = () => { predicate: string; values: unknown[] };
+export type StorageAdmission = { predicate: string; values: unknown[]; error?: () => Error };
+export type IngestAdmission = () => StorageAdmission;
 
 export class CloudflareIngestStorage implements IngestStoragePort {
   constructor(
     protected readonly storage: CloudflareStorage,
-    private readonly admission?: IngestAdmission,
+    protected readonly admission?: IngestAdmission,
   ) {}
+  protected admissionError(admission: StorageAdmission) {
+    return admission.error?.() ?? new PollInterruptedError('Feed polling ownership changed.');
+  }
   async insertBatch(items: IngestCandidate[]) {
     if (!items.length && !this.admission) return [];
     // Preserve lazy cleaning: a normal conditional refresh can repeat thousands
@@ -63,8 +67,7 @@ export class CloudflareIngestStorage implements IngestStoragePort {
         this.storage.statement(`SELECT 1 AS id WHERE ${admission.predicate}`, admission.values),
       );
     const results = await this.storage.batch<{ id: number }>(statements);
-    if (admission && !results.at(-1)?.results.length)
-      throw new PollInterruptedError('Feed polling ownership changed.');
+    if (admission && !results.at(-1)?.results.length) throw this.admissionError(admission);
     return results
       .slice(0, pending.length)
       .flatMap((result) => result.results.map((row) => Number(row.id)));
@@ -115,7 +118,6 @@ export class CloudflareIngestStorage implements IngestStoragePort {
         this.storage.statement(`SELECT 1 AS id WHERE ${admission.predicate}`, admission.values),
       );
     const results = await this.storage.batch(statements);
-    if (admission && !results.at(-1)?.results.length)
-      throw new PollInterruptedError('Feed polling ownership changed.');
+    if (admission && !results.at(-1)?.results.length) throw this.admissionError(admission);
   }
 }

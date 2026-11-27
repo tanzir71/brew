@@ -110,8 +110,10 @@ The [Cloudflare target](docs/cloudflare.md) is under implementation. Its D1 Read
 and Brew APIs, rules, sources, newsletter management, OPML, Reader-sync state,
 durable actions, scoped MCP credentials/tools, interruptible WASM regex, lease-fenced
 polling with redirect accounting and native MIME ingestion run in bundled
-workerd tests alongside verified D1/R2 storage ports. The full Worker handlers,
-remaining API services and deployment remain unfinished.
+workerd tests alongside verified D1/R2 storage ports. The product Worker now
+connects fetch, scheduled and Email Routing handlers with Cloudflare Access and
+private assets. Resource continuation, optional outbound mail and the installer
+remain unfinished; M14 stays open.
 
 ```
 packages/core/   portable domain services, ports and shared types
