@@ -467,6 +467,21 @@ before polling. `BREW_MAX_FETCHES_PER_RUN` accepts integers 1–40 (default 40).
 remain unavailable until their providers are wired, and Reader capability follows
 the persisted app-password setup.
 
+Scheduled newsletter retention processes at most 500 letters in one atomic D1
+batch per invocation, rather than issuing a query for every sender. A private
+settings cursor records the last ID and the fixed upper ID of the current sweep.
+Later invocations resume it, including after an isolate restart. New mail waits
+for the next sweep, so continuous arrivals cannot prevent revisiting older mail.
+Original HTML is cleared after each sender's retention period; starred or tagged
+letters keep their cleaned content, and RSS articles are untouched. The current
+sender kind, retention and saved state are checked inside the transaction.
+Cursor advancement and mutations commit together; overlapping invocations take
+successive pages, and failed pages roll back for retry. Large inboxes therefore
+finish retention over several cron runs. This bounds the processed page and its
+D1 invocation calls, not total SQL rows inspected or the complete Worker's CPU
+and query usage; polling, rules and scheduled generation still need their own
+resource continuation.
+
 For a live configuration, keep the private receiving address in a secret binding,
 rather than checking it into a repository. For Email Routing,
 `BREW_INBOUND_ADDRESS` bootstraps the initial receiving

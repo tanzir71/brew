@@ -29,7 +29,7 @@ import {
   activeInboundAddress,
   receiveCloudflareMail,
 } from './inbound-mail.js';
-import { cloudflareIngestion } from './ingestion.js';
+import { maintainCloudflareNewsletters } from './newsletter-maintenance.js';
 
 export interface CloudflareWorkerEnv {
   DB: D1Database;
@@ -219,10 +219,10 @@ export function createCloudflareWorker<E extends CloudflareWorkerEnv = Cloudflar
     },
     async scheduled(_controller: ScheduledController, env: E) {
       const network = budget(env);
-      const { library } = await services(env, network, true);
+      const { library, storage } = await services(env, network, true);
       // Freeze/deliver scheduled issues before polling can spend the allowance.
       await library.actions.cleanup();
-      await cloudflareIngestion(env.DB, clock, library.rules).newsletters.prune();
+      await maintainCloudflareNewsletters(storage, clock.now());
       await library.brews.runScheduled();
       await library.brews.runCompositionScheduled();
       await library.poller.pollDue();

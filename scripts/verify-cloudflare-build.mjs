@@ -13,6 +13,7 @@ import { CloudflareRegex, regexWasmMemory } from '../dist/targets/cloudflare/src
 import { unstable_splitSqlQuery } from 'wrangler';
 import { CloudflareStorage } from '../dist/targets/cloudflare/src/storage.js';
 import { CloudflareNewsletterStorage } from '../dist/targets/cloudflare/src/newsletter-storage.js';
+import { maintainCloudflareNewsletters } from '../dist/targets/cloudflare/src/newsletter-maintenance.js';
 import { R2ImageCache } from '../dist/targets/cloudflare/src/image-cache.js';
 import { NewsletterPipeline } from '../dist/packages/core/src/newsletter-pipeline.js';
 import { proxyImage } from '../dist/packages/api/src/image-proxy.js';
@@ -560,8 +561,30 @@ try {
   await receive();
   assert.equal(rejected, 'This receiving address is not active.');
   assert.equal((await storage.first('SELECT active FROM inbound_addresses')).active, 0);
+  await storage.run(
+    "UPDATE articles SET published_at=0,starred_at=? WHERE title='Compiled envelope'",
+    [Date.now()],
+  );
+  const maintenance = await maintainCloudflareNewsletters(storage, new Date());
+  assert(maintenance.scanned >= 1 && maintenance.scanned <= 500);
+  assert.equal(
+    (await storage.first("SELECT raw_html FROM articles WHERE title='Compiled envelope'")).raw_html,
+    null,
+  );
+  assert.equal(
+    await storage.first(
+      "SELECT key FROM settings WHERE key='maintenance:newsletter-retention:page'",
+    ),
+    null,
+  );
+  await storage.run("UPDATE articles SET starred_at=NULL WHERE title='Compiled envelope'");
+  await maintainCloudflareNewsletters(new CloudflareStorage(database), new Date());
+  assert.equal(
+    await storage.first("SELECT id FROM articles WHERE title='Compiled envelope'"),
+    null,
+  );
   process.stdout.write(
-    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state, journal capture/restore, owner-action preview/commit/replay/Undo, scoped tokens with real MCP write/Undo/revocation, interruptible WASM regex, durable polling/redirect accounting, signed Access audience enforcement and active-address mail admission/revocation passed outside the repository cwd. Free resource compliance and installer integration remain pending.\n',
+    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state, journal capture/restore, owner-action preview/commit/replay/Undo, scoped tokens with real MCP write/Undo/revocation, interruptible WASM regex, durable polling/redirect accounting, signed Access audience enforcement, active-address mail admission/revocation and bounded newsletter maintenance continuation passed outside the repository cwd. Free resource compliance and installer integration remain pending.\n',
   );
 } finally {
   await runtime.dispose();

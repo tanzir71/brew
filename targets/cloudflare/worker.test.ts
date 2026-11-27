@@ -403,6 +403,44 @@ it('receives a real Email Routing envelope, deduplicates it and serves the clean
   expect(twin.status).toBe(200);
 });
 
+it('continues bounded newsletter retention across real scheduled invocations while still polling RSS', async () => {
+  await env.DB.batch([
+    env.DB.prepare(`WITH RECURSIVE numbers(id) AS
+      (SELECT 1 UNION ALL SELECT id+1 FROM numbers WHERE id<501)
+      INSERT INTO feeds(id,url,title,kind,retention_days)
+      SELECT id,'mailto:sender'||id||'@example.test','Sender','newsletter',7 FROM numbers`),
+    env.DB.prepare(`INSERT INTO articles(id,feed_id,guid,title,url,published_at,raw_html,hash)
+      SELECT id,id,'letter-'||id,'Expired letter','/a/'||id,0,'Original','letter-hash-'||id FROM feeds`),
+    env.DB.prepare(
+      "INSERT INTO feeds(id,url,title) VALUES(502,'https://source.test/feed/502','Pending')",
+    ),
+  ]);
+  await worker.scheduled({ cron: '* * * * *', scheduledTime: new Date(now) });
+  expect(
+    await env.DB.prepare(
+      'SELECT count(*) AS count FROM articles WHERE raw_html IS NOT NULL',
+    ).first(),
+  ).toEqual({ count: 1 });
+  expect(
+    await env.DB.prepare('SELECT count(*) AS count FROM articles WHERE feed_id=502').first(),
+  ).toEqual({ count: 1 });
+  expect(await stats()).toHaveLength(1);
+  await worker.scheduled({ cron: '* * * * *', scheduledTime: new Date(now + 60_000) });
+  expect(
+    await env.DB.prepare(
+      'SELECT count(*) AS count FROM articles WHERE raw_html IS NOT NULL',
+    ).first(),
+  ).toEqual({ count: 0 });
+  expect(
+    await env.DB.prepare('SELECT count(*) AS count FROM articles WHERE feed_id=502').first(),
+  ).toEqual({ count: 1 });
+  expect(
+    await env.DB.prepare(
+      "SELECT key FROM settings WHERE key='maintenance:newsletter-retention:page'",
+    ).first(),
+  ).toBeNull();
+});
+
 it('freezes and delivers a scheduled composition before polling, and never sends its claimed minute twice', async () => {
   await env.DB.prepare(
     "INSERT INTO feeds(id,url,title,last_fetched_at) VALUES(1,'https://source.test/existing','Existing',?)",
