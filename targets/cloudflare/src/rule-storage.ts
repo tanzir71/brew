@@ -2,6 +2,8 @@ import type {
   ActionResult,
   ArticleChanges,
   AsyncRuleStoragePort,
+  RuleCommit,
+  RuleTagAction,
 } from '../../../packages/core/src/ports.js';
 import { ruleLogPageSize, type RuleDraft } from '../../../packages/core/src/types/rules.js';
 import {
@@ -23,6 +25,13 @@ import {
 } from '../../../packages/db/src/rule-queries.js';
 import { CloudflareStorage } from './storage.js';
 import { libraryRevision } from './events.js';
+import {
+  ruleArticleQuery,
+  ruleCommitQueries,
+  ruleLogQuery,
+  ruleTagQueries,
+} from '../../../packages/db/src/rule-mutations.js';
+import type { SqlQuery } from '../../../packages/db/src/reader-queries.js';
 
 export class CloudflareRuleStorage implements AsyncRuleStoragePort {
   constructor(private storage: CloudflareStorage) {}
@@ -128,62 +137,64 @@ export class CloudflareRuleStorage implements AsyncRuleStoragePort {
     };
   }
   async addTag(articleId: number, name: string) {
-    await this.storage.batch([
-      this.storage.statement("INSERT OR IGNORE INTO tags(name,color) VALUES(?,'#b45309')", [name]),
-      this.storage.statement(
-        'INSERT OR IGNORE INTO article_tags(article_id,tag_id) SELECT ?,id FROM tags WHERE name=?',
-        [articleId, name],
-      ),
-      libraryRevision(this.storage),
-    ]);
+    await this.runQueries(ruleTagQueries(articleId, { type: 'add_tag', tag: name }));
   }
   async removeTag(articleId: number, name: string) {
+    await this.runQueries(ruleTagQueries(articleId, { type: 'remove_tag', tag: name }));
+  }
+  private async runQueries(queries: SqlQuery[]) {
+    if (!queries.length) return;
     await this.storage.batch([
-      this.storage.statement(
-        'DELETE FROM article_tags WHERE article_id=? AND tag_id IN (SELECT id FROM tags WHERE name=?)',
-        [articleId, name],
-      ),
+      ...queries.map(({ sql, values }) => this.storage.statement(sql, values)),
       libraryRevision(this.storage),
     ]);
+  }
+  async applyTagActions(articleId: number, actions: RuleTagAction[]): Promise<ActionResult[]> {
+    if (!actions.length) return [];
+    let queries: SqlQuery[];
+    try {
+      queries = actions.flatMap((action) => ruleTagQueries(articleId, action));
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error;
+      return this.individualTagActions(articleId, actions);
+    }
+    try {
+      await this.runQueries(queries);
+      return actions.map(({ type }) => ({ type, ok: true }));
+    } catch (error) {
+      // D1 also uses D1_ERROR for transport/timeouts. Those can have an unknown
+      // write outcome; only SQLite constraint errors confirm batch rollback.
+      if (!(error instanceof Error && /^D1_ERROR:.*: SQLITE_CONSTRAINT\b/s.test(error.message)))
+        throw error;
+      return this.individualTagActions(articleId, actions);
+    }
+  }
+  private async individualTagActions(articleId: number, actions: RuleTagAction[]) {
+    const results: ActionResult[] = [];
+    for (const action of actions) {
+      try {
+        if (action.type === 'add_tag') await this.addTag(articleId, action.tag);
+        else await this.removeTag(articleId, action.tag);
+        results.push({ type: action.type, ok: true });
+      } catch (error) {
+        results.push({
+          type: action.type,
+          ok: false,
+          error: error instanceof Error ? error.message : 'Action failed',
+        });
+      }
+    }
+    return results;
+  }
+  async commitRule(value: RuleCommit) {
+    await this.runQueries(ruleCommitQueries(value));
   }
   async updateArticle(id: number, changes: ArticleChanges) {
-    const columns = {
-      starredAt: 'starred_at',
-      readAt: 'read_at',
-      hidden: 'hidden',
-      highlightColor: 'highlight_color',
-      featuredInBrew: 'featured_in_brew',
-      excludedFromBrew: 'excluded_from_brew',
-    };
-    const fields = Object.entries(changes).filter(([, value]) => value !== undefined) as Array<
-      [keyof ArticleChanges, Date | boolean | string]
-    >;
-    if (!fields.length) return;
-    await this.storage.batch([
-      this.storage.statement(
-        `UPDATE articles SET ${fields.map(([key]) => `${columns[key]}=?`).join(',')} WHERE id=?`,
-        [
-          ...fields.map(([, value]) =>
-            value instanceof Date
-              ? value.getTime()
-              : typeof value === 'boolean'
-                ? Number(value)
-                : value,
-          ),
-          id,
-        ],
-      ),
-      libraryRevision(this.storage),
-    ]);
+    const query = ruleArticleQuery(id, changes);
+    if (query) await this.runQueries([query]);
   }
   async log(ruleId: number, articleId: number, results: ActionResult[]) {
-    await this.storage.batch([
-      this.storage.statement(
-        'INSERT INTO rule_logs(rule_id,article_id,actions_taken_json) VALUES(?,?,?)',
-        [ruleId, articleId, JSON.stringify(results)],
-      ),
-      libraryRevision(this.storage),
-    ]);
+    await this.runQueries([ruleLogQuery(ruleId, articleId, results)]);
   }
   async articleIds(options: { since?: number; visibleOnly?: boolean }) {
     const built = ruleArticleIdsQuery(options);

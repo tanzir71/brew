@@ -13,7 +13,10 @@ import {
   type RuleHitsRow,
   type RuleLogRow,
 } from '../../../../packages/db/src/rule-queries.js';
-import { and, asc, eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
+import Database from 'better-sqlite3';
+import { ruleCommitQueries, ruleTagQueries } from '../../../../packages/db/src/rule-mutations.js';
+import type { SqlQuery } from '../../../../packages/db/src/reader-queries.js';
 import { ruleLogPageSize, type RuleLogPage } from '../../../../packages/core/src/types/rules.js';
 import type {
   RuleDraft,
@@ -25,9 +28,11 @@ import type {
   ArticleChanges,
   ArticleContext,
   RuleStoragePort,
+  RuleCommit,
+  RuleTagAction,
 } from '../../../../packages/core/src/ports.js';
 import type { BrewDatabase } from '../db/database.js';
-import { articleTags, articles, ruleLogs, rules, tags } from '../db/schema.js';
+import { articles, ruleLogs, rules } from '../db/schema.js';
 export class NodeRuleStorage implements RuleStoragePort {
   constructor(private readonly database: BrewDatabase) {}
   definitions(): RuleRecord[] {
@@ -127,25 +132,46 @@ export class NodeRuleStorage implements RuleStoragePort {
     })();
   }
   addTag(articleId: number, name: string): void {
-    this.database.db
-      .insert(tags)
-      .values({ name, color: '#b45309' })
-      .onConflictDoNothing({ target: tags.name })
-      .run();
-    const tag = this.database.db.select().from(tags).where(eq(tags.name, name)).get()!;
-    this.database.db
-      .insert(articleTags)
-      .values({ articleId, tagId: tag.id })
-      .onConflictDoNothing()
-      .run();
+    this.runQueries(ruleTagQueries(articleId, { type: 'add_tag', tag: name }));
   }
   removeTag(articleId: number, name: string): void {
-    const tag = this.database.db.select().from(tags).where(eq(tags.name, name)).get();
-    if (tag)
-      this.database.db
-        .delete(articleTags)
-        .where(and(eq(articleTags.articleId, articleId), eq(articleTags.tagId, tag.id)))
-        .run();
+    this.runQueries(ruleTagQueries(articleId, { type: 'remove_tag', tag: name }));
+  }
+  private runQueries(queries: SqlQuery[]): void {
+    this.database.sqlite.transaction(() => {
+      for (const query of queries) this.database.sqlite.prepare(query.sql).run(...query.values);
+    })();
+  }
+  applyTagActions(articleId: number, actions: RuleTagAction[]): ActionResult[] {
+    if (!actions.length) return [];
+    try {
+      this.runQueries(actions.flatMap((action) => ruleTagQueries(articleId, action)));
+      return actions.map(({ type }) => ({ type, ok: true }));
+    } catch (error) {
+      // Only a confirmed constraint rollback or pre-execution validation permits
+      // individual fallback. Storage/commit failures propagate to the caller.
+      if (
+        !(error instanceof TypeError) &&
+        !(error instanceof Database.SqliteError && error.code.startsWith('SQLITE_CONSTRAINT'))
+      )
+        throw error;
+    }
+    return actions.map((action) => {
+      try {
+        if (action.type === 'add_tag') this.addTag(articleId, action.tag);
+        else this.removeTag(articleId, action.tag);
+        return { type: action.type, ok: true };
+      } catch (error) {
+        return {
+          type: action.type,
+          ok: false,
+          error: error instanceof Error ? error.message : 'Action failed',
+        };
+      }
+    });
+  }
+  commitRule(value: RuleCommit): void {
+    this.runQueries(ruleCommitQueries(value));
   }
   updateArticle(id: number, changes: ArticleChanges): void {
     this.database.db.update(articles).set(changes).where(eq(articles.id, id)).run();

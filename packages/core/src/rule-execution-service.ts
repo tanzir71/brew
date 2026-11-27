@@ -16,6 +16,7 @@ import type {
   RegexPort,
   AsyncRuleStoragePort,
   RuleCandidate,
+  RuleTagAction,
 } from './ports.js';
 import { matchCondition, matchingContexts } from './rule-matching.js';
 
@@ -96,10 +97,36 @@ export class RuleExecutionService {
     return matchCondition(this.regex, context, condition);
   }
 
-  private async executeActions(rule: RuleRecord, context: ArticleContext): Promise<ActionResult[]> {
-    const results: ActionResult[] = [];
+  private async executeActions(rule: RuleRecord, context: ArticleContext): Promise<void> {
+    const results: Array<ActionResult | null> = [];
     const changes: ArticleChanges = {};
+    const batched = Boolean(this.storage.applyTagActions && this.storage.commitRule);
+    let pending: Array<{ index: number; action: RuleTagAction }> = [];
+    const flush = async () => {
+      if (!pending.length) return;
+      const applied = await this.storage.applyTagActions!(
+        context.id,
+        pending.map(({ action }) => action),
+      );
+      if (
+        applied.length !== pending.length ||
+        applied.some((result, index) => result.type !== pending[index]!.action.type)
+      )
+        throw new Error('Invalid rule tag action results');
+      pending.forEach(({ index }, position) => {
+        results[index] = applied[position]!;
+      });
+      pending = [];
+    };
     for (const action of rule.actions) {
+      if (batched && (action.type === 'add_tag' || action.type === 'remove_tag')) {
+        pending.push({ index: results.length, action });
+        results.push(null);
+        continue;
+      }
+      // Tags have always been visible to subsequent external actions. Article fields
+      // remain deferred until the rule finishes, as in the single-action path.
+      if (batched && (action.type === 'webhook' || action.type === 'notify')) await flush();
       try {
         switch (action.type) {
           case 'add_tag':
@@ -148,8 +175,22 @@ export class RuleExecutionService {
         });
       }
     }
-    if (Object.keys(changes).length) await this.storage.updateArticle(context.id, changes);
-    return results;
+    await flush();
+    const completed = results.map((result) => {
+      if (!result) throw new Error('Unfinished rule tag action');
+      return result;
+    });
+    if (batched) {
+      await this.storage.commitRule!({
+        ruleId: rule.id,
+        articleId: context.id,
+        changes,
+        results: completed,
+      });
+    } else {
+      if (Object.keys(changes).length) await this.storage.updateArticle(context.id, changes);
+      await this.storage.log(rule.id, context.id, completed);
+    }
   }
 
   private async webhook(
@@ -214,7 +255,7 @@ export class RuleExecutionService {
         !(await this.definitionMatches(context, rule.scope, rule.matchType, rule.conditions))
       )
         continue;
-      await this.storage.log(rule.id, context.id, await this.executeActions(rule, context));
+      await this.executeActions(rule, context);
       matched++;
       if (rule.stopProcessing) break;
     }
@@ -227,13 +268,12 @@ export class RuleExecutionService {
     const since = this.clock.now().getTime() - Math.min(3650, Math.max(1, days)) * 86_400_000;
     let matched = 0;
     for await (const context of this.candidates({ since })) {
-      const id = context.id;
       if (
         !context ||
         !(await this.definitionMatches(context, rule.scope, rule.matchType, rule.conditions))
       )
         continue;
-      await this.storage.log(ruleId, id, await this.executeActions(rule, context));
+      await this.executeActions(rule, context);
       matched++;
     }
     return matched;

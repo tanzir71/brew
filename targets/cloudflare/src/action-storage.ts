@@ -521,6 +521,11 @@ export class CloudflareActionStorage implements AsyncActionStoragePort {
       failures += values[2].filter((value) => !value.ok).length;
       await log(...values);
     };
+    const commitRule = ruleStorage.commitRule.bind(ruleStorage);
+    ruleStorage.commitRule = async (value) => {
+      await commitRule(value);
+      failures += value.results.filter((result) => !result.ok).length;
+    };
     const renew = () =>
       this.journal.transaction({
         actionId: null,

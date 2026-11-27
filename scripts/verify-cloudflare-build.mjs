@@ -191,7 +191,12 @@ try {
       scope: {},
       matchType: 'all',
       conditions: [{ field: 'title', operator: 'matches_regex', value: '^Compiled(?= )' }],
-      actions: [{ type: 'star' }],
+      actions: [
+        { type: 'add_tag', tag: 'Compiled transient' },
+        { type: 'add_tag', tag: 'Compiled kept' },
+        { type: 'remove_tag', tag: 'Compiled transient' },
+        { type: 'star' },
+      ],
       stopProcessing: false,
     }),
   });
@@ -204,6 +209,20 @@ try {
     'From: Publisher <publisher@example.test>\r\nSubject: Compiled async letter\r\nContent-Type: text/html\r\n\r\n<p>Native Web Crypto identity and shared rule execution.</p>',
   );
   assert.equal(imported.outcome, 'inserted');
+  assert.deepEqual(
+    await storage.all(
+      'SELECT t.name FROM article_tags at JOIN tags t ON t.id=at.tag_id WHERE at.article_id=? ORDER BY t.name',
+      [imported.articleId],
+    ),
+    [{ name: 'Compiled kept' }],
+  );
+  assert.deepEqual(
+    JSON.parse((await storage.first('SELECT actions_taken_json FROM rule_logs WHERE article_id=?', [imported.articleId])).actions_taken_json),
+    [
+      { type: 'add_tag', ok: true }, { type: 'add_tag', ok: true },
+      { type: 'remove_tag', ok: true }, { type: 'star', ok: true },
+    ],
+  );
   assert.ok(
     (await storage.first('SELECT starred_at FROM articles WHERE id=?', [imported.articleId]))
       .starred_at,
@@ -279,7 +298,7 @@ try {
   );
   const synchronized = await services.readerSync.storage.items({ ids: [imported.articleId] });
   assert.equal(synchronized.items[0].starred, false);
-  assert.deepEqual(synchronized.items[0].tags, ['Compiled sync']);
+  assert.deepEqual(synchronized.items[0].tags, ['Compiled kept', 'Compiled sync']);
   assert.equal(
     (await storage.first("SELECT count(*) AS n FROM settings WHERE key LIKE 'reader_change:%'")).n,
     0,
@@ -578,7 +597,14 @@ try {
     ),
     null,
   );
-  await storage.run("UPDATE articles SET starred_at=NULL WHERE title='Compiled envelope'");
+  const expiredEnvelope = await storage.first("SELECT id FROM articles WHERE title='Compiled envelope'");
+  assert.equal(
+    await services.readerSync.storage.change(
+      { ids: [expiredEnvelope.id] },
+      { starred: false, remove: ['Compiled kept'] },
+    ),
+    1,
+  );
   await maintainCloudflareNewsletters(new CloudflareStorage(database), new Date());
   assert.equal(
     await storage.first("SELECT id FROM articles WHERE title='Compiled envelope'"),

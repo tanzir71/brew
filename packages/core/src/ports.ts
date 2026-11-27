@@ -54,6 +54,13 @@ export interface ActionResult {
   ok: boolean;
   error?: string;
 }
+export type RuleTagAction = Extract<RuleAction, { type: 'add_tag' | 'remove_tag' }>;
+export interface RuleCommit {
+  ruleId: number;
+  articleId: number;
+  changes: ArticleChanges;
+  results: ActionResult[];
+}
 export interface RuleStoragePort {
   context(id: number): ArticleContext | null;
   contexts(ids: number[]): RuleCandidate[];
@@ -66,6 +73,10 @@ export interface RuleStoragePort {
   removeTag(articleId: number, name: string): void;
   updateArticle(id: number, changes: ArticleChanges): void;
   log(ruleId: number, articleId: number, results: ActionResult[]): void;
+  /** Ordered tag group; confirmed SQL failures retain individual action results. */
+  applyTagActions?(articleId: number, actions: RuleTagAction[]): ActionResult[];
+  /** Atomically persist deferred article changes and their completed rule log. */
+  commitRule?(value: RuleCommit): void;
   logs(ruleId: number): RuleLogRecord[];
   logPage(ruleId: number, page: number): import('./types/rules.js').RuleLogPage;
   articleIds(options: { since?: number; visibleOnly?: boolean }): number[];
@@ -113,7 +124,7 @@ export interface BrewStoragePort {
   setSetting(key: string, value: string): void;
 }
 export type AsyncPort<T> = {
-  [K in keyof T]: T[K] extends (...args: infer A) => infer R
+  [K in keyof T]: NonNullable<T[K]> extends (...args: infer A) => infer R
     ? (...args: A) => R | Promise<R>
     : never;
 };

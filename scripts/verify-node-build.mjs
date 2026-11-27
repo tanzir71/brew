@@ -14,6 +14,7 @@ import { renderBrewJson, renderBrewMarkdown } from '../dist/packages/core/src/br
 import { inboundConfigFromEnv } from '../dist/targets/node/src/inbound-config.js';
 import { verifyMcpBuild } from './verify-mcp-build.mjs';
 import { verifyReaderSyncBuild } from './verify-reader-sync-build.mjs';
+import { RulesService } from '../dist/targets/node/src/services/rules-service.js';
 
 // A built install must find migrations and the SPA outside the repository cwd.
 const previousDirectory = process.cwd();
@@ -634,6 +635,25 @@ try {
   );
   assert.deepEqual((await app.inject('/api/feeds')).json(), subscriptions);
   const delivered = [];
+  const ruleDatabase = openDatabase(':memory:');
+  try {
+    ruleDatabase.sqlite.prepare("INSERT INTO feeds(id,url,title) VALUES(1,'https://compiled.test/rss','Compiled')").run();
+    ruleDatabase.sqlite.prepare("INSERT INTO articles(id,feed_id,guid,hash,url,title,published_at) VALUES(1,1,'compiled','compiled','https://compiled.test/one','Compiled actions',?)").run(Date.now());
+    const ruleService = new RulesService(ruleDatabase);
+    const localRule = ruleService.create({
+      name: 'Compiled local actions', enabled: true, scope: {}, matchType: 'all', conditions: [], stopProcessing: false,
+      actions: [{ type: 'add_tag', tag: 'Temporary' }, { type: 'remove_tag', tag: 'Temporary' },
+        { type: 'add_tag', tag: 'Retained' }, { type: 'star' }],
+    });
+    assert.equal(await ruleService.evaluateArticle(1), 1);
+    assert.deepEqual(ruleDatabase.sqlite.prepare('SELECT t.name FROM article_tags at JOIN tags t ON t.id=at.tag_id WHERE at.article_id=1').all(), [{ name: 'Retained' }]);
+    assert.ok(ruleDatabase.sqlite.prepare('SELECT starred_at FROM articles WHERE id=1').get().starred_at);
+    assert.deepEqual(JSON.parse(ruleDatabase.sqlite.prepare('SELECT actions_taken_json FROM rule_logs WHERE rule_id=?').get(localRule.id).actions_taken_json), [
+      { type: 'add_tag', ok: true }, { type: 'remove_tag', ok: true }, { type: 'add_tag', ok: true }, { type: 'star', ok: true },
+    ]);
+  } finally {
+    ruleDatabase.close();
+  }
   const posted = [];
   const deliveryApp = await createApp({
     database: openDatabase(':memory:'),

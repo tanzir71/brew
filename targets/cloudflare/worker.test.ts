@@ -451,6 +451,55 @@ it('ingests 120 articles in five native D1 calls with inactive policy, then runs
   expect((await stats()).sort()).toEqual(['/bulk', '/quiet']);
 });
 
+it('commits a matching rule with many tag actions in two native D1 write calls', async () => {
+  const actions = [
+    ...Array.from({ length: 24 }, (_, id) => ({ type: 'add_tag', tag: `Native ${id}` })),
+    { type: 'remove_tag', tag: 'Native 0' },
+    { type: 'star' },
+    { type: 'mark_read' },
+  ];
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO feeds(id,url,title) VALUES(1,'https://source.test/quiet','Batch fixture')",
+    ),
+    env.DB.prepare(
+      `INSERT INTO rules(name,match_type,scope_json,conditions_json,actions_json)
+      VALUES('Native local rule','all','{}','[]',?)`,
+    ).bind(JSON.stringify(actions)),
+  ]);
+  const response = await worker.fetch(`${base}/__review/ingest-batch`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify([
+      {
+        guid: 'native-effects',
+        url: 'https://one.test/native-effects',
+        title: 'Native effects',
+        author: null,
+        summaryHtml: null,
+        contentHtml: '<p>Native rule.</p>',
+        publishedAt: new Date(now).toISOString(),
+      },
+    ]),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    inserted: 1,
+    calls: { first: 0, all: 3, run: 0, batch: 5 },
+  });
+  expect(await env.DB.prepare('SELECT starred_at,read_at FROM articles').first()).toEqual({
+    starred_at: now,
+    read_at: now,
+  });
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM article_tags').first()).toEqual({ n: 23 });
+  const result = await env.DB.prepare('SELECT actions_taken_json FROM rule_logs').first<{
+    actions_taken_json: string;
+  }>();
+  expect(JSON.parse(result!.actions_taken_json)).toEqual(
+    actions.map(({ type }) => ({ type, ok: true })),
+  );
+});
+
 it('continues bounded newsletter retention across real scheduled invocations while still polling RSS', async () => {
   await env.DB.batch([
     env.DB.prepare(`WITH RECURSIVE numbers(id) AS

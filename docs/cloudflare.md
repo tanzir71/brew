@@ -388,6 +388,26 @@ rules loads no contexts; later evaluations read fresh definitions. Existing
 single-article evaluation remains available. These policies are shared by Node,
 feed polling and inbound newsletters.
 
+Matched rules group ordered tag actions into one atomic write per group, flushing
+before a webhook or notification can observe their state. Article fields remain
+deferred until the rule finishes; those changes and the completed action log now
+commit together in one batch. Node uses the same SQL helpers in SQLite
+transactions. Narrow per-action ports, including the Node undo journal, retain
+their existing execution path. A local rule with any number of tag actions and
+no external actions normally uses two D1 write calls; a rule without tags uses
+one. This reduces calls but does not bound the statements or work in a group.
+
+A confirmed SQLite constraint rollback permits individual tag-action fallback,
+so one rejected action does not erase other action results. Invalid tag values
+fail explicitly. Transport/storage failures with uncertain write outcomes
+propagate without replaying the batch or inventing provider acknowledgments.
+Native binding cases cover constraint failures, field/log rollback and a real
+commit followed by response loss; a workerd ingest check verifies 24 tag adds,
+one removal and read/star changes in two write calls. External HTTP retries and
+notification failures keep their actual results and ordering. Tag groups and
+external effects are separate commits from the final field/log transaction;
+durable interruption recovery across those boundaries remains unfinished.
+
 A native workerd check ingests 120 sanitized articles with inactive duplicate and
 rule policy in five D1 calls: the existing deduplication lookup/insert, duplicate
 snapshot, rule-definition read and retention batch. Another actual product cron
