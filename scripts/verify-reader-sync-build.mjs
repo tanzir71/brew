@@ -17,6 +17,13 @@ export async function verifyReaderSyncBuild() {
     });
     assert.equal(configured.statusCode, 200);
     const credentials = configured.json();
+    const setup = (await app.inject('/api/reader-access')).json();
+    assert.equal(setup.googleReaderUrl, 'http://localhost/api/greader');
+    assert.equal(setup.feverUrl, 'http://localhost/api/fever');
+    const settingsTwin = await app.inject('/settings/apps.json');
+    assert.equal(settingsTwin.statusCode, 200);
+    assert.equal(settingsTwin.json().kind, 'reader-apps');
+    assert.ok(!settingsTwin.body.includes(credentials.password));
     assert.equal((await app.inject('/api/capabilities')).json().readerApi, true);
     assert.match((await app.inject('/llms.txt')).body, /Google Reader/);
     database.sqlite.exec(

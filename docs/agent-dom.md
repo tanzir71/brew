@@ -529,6 +529,7 @@ this does not complete M12 or enable agent-mode behavior.
 | Feed library/audit | `/feeds` | `section=feeds|health|hidden`; hidden views also retain `page`. |
 | Newsletters list | `/letters`, `/letters/:senderId` | `view`, `page`, sender `sort`; exact filtered ranges and view unread count. Legacy `?sender=` filters remain readable. |
 | Instance settings | `/settings/runs` | Current capabilities; `setup=...` mirrors the setup hash dialog. |
+| Reader app settings | `/settings/apps` | Saved access status, app username, protocol URLs and per-client notes. Generated passwords and dialog drafts are never exported. |
 
 These formats deliberately read persisted server state. They never save an
 unsaved form, generate an issue, execute a rule, mark a letter read or fetch a

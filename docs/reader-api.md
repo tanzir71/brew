@@ -11,8 +11,27 @@ Protect the owner app at your deployment boundary. Configure `BREW_PUBLIC_URL`
 for a remote instance and use HTTPS there. Native clients must be able to reach
 the Reader endpoints through any reverse proxy protection you configure.
 
-The Apps & sync settings interface is a separate implementation step. The current
-owner API can configure access with a same-origin JSON request:
+Open **Settings → Apps & sync** (`/settings/apps`). The page shows this instance's
+Google Reader and Fever URLs, prefers the configured public server origin, and
+includes Reeder Classic / NetNewsWire FreshRSS instructions and Unread Fever
+instructions. These are compatibility endpoints; no FreshRSS account on another
+service is needed. Unsupported instances keep the controls visible and disabled
+with setup guidance. Loading failures offer Retry.
+
+Choose **Generate app password**, enter an app username, then copy the generated
+password from the one-time dialog into your reader. The secret stays in that
+dialog's memory and is cleared on dismissal, navigation or page hide; it never
+enters browser storage, the URL, query cache or saved-page exports. Generation
+is never retried automatically. If its response is lost, the page explains that
+generating again replaces any password the first request created.
+
+**Rotate app password** and **Disable app access** require a native confirmation
+dialog and describe disconnection of all reader apps. Cancel starts focused for
+these existing-access changes. Rotation does not restore the old password.
+Status/capabilities refresh after changes; disable returns focus to the generation
+control when the refresh finishes, without taking focus from newer user input.
+
+The owner API can also configure access with a same-origin JSON request:
 
 ```js
 const credentials = await fetch('/api/reader-access', {
@@ -26,8 +45,10 @@ The browser supplies the Origin header. The response contains `username` and a
 new app `password`, shown only by this response. Copy it into the reader app.
 Custom passwords are rejected: every password is a generated 192-bit random key.
 Repeating this request rotates the credential and revokes all Reader sessions
-and the previous Fever key. `GET /api/reader-access` returns status and username
-only. Same-origin `DELETE /api/reader-access` disables access immediately.
+and the previous Fever key. `GET /api/reader-access` returns status, username and
+the server/protocol URLs, never a password. Same-origin `DELETE /api/reader-access`
+disables access immediately. Private GET/HEAD `/settings/apps.md` and `.json`
+describe saved setup and client notes without credentials or browser drafts.
 
 The database stores a salted SHA-256 verifier of the generated password. Fever
 requires MD5 of `username:password` on the wire; Brew stores only a SHA-256 verifier

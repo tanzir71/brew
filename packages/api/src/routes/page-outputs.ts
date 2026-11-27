@@ -26,6 +26,7 @@ import {
 } from '../../../core/src/page-document.js';
 import { textTwinHref } from '../../../core/src/reader-pages.js';
 import { json } from '../http.js';
+import { readerAppClients } from '../../../core/src/reader-apps.js';
 
 const conditions = (items: RuleCondition[]) =>
   items.map((item) => ({ field: item.field, operator: item.operator, value: item.value }));
@@ -337,6 +338,46 @@ async function document(services: ApiServices, url: URL, caps: Capabilities) {
       ],
     );
   }
+  if (path === '/settings/apps') {
+    const access = services.readerSync?.access;
+    const status = access ? await access.status() : { enabled: false, username: null };
+    return make(
+      'reader-apps',
+      'Apps & sync',
+      `/settings/apps${params.get('agent') === '1' ? '?agent=1' : ''}`,
+      {},
+      [
+        {
+          title: 'App access',
+          text: access
+            ? status.enabled
+              ? 'Reader app access is on.'
+              : 'Generate an app password in the owner interface to turn on reader sync.'
+            : 'Reader app access needs a supported server instance.',
+          data: { available: Boolean(access), enabled: status.enabled, username: status.username },
+        },
+        {
+          title: 'Server URLs',
+          items: [
+            { title: 'Google Reader API', url: '/api/greader' },
+            { title: 'Fever', url: '/api/fever' },
+          ],
+        },
+        {
+          title: 'App password',
+          text: 'Generated passwords appear only once in the owner interface. Rotating or disabling access disconnects reader apps. Passwords and session credentials are never included in this view.',
+        },
+        {
+          title: 'Connect an app',
+          items: readerAppClients.map((app) => ({
+            title: app.name,
+            url: app.guide,
+            details: { accountType: app.account, protocol: app.protocol, steps: app.steps },
+          })),
+        },
+      ],
+    );
+  }
   if (path === '/settings/agents') {
     const access = services.agentAccess;
     return make('agent-access', 'Agent access', '/settings/agents', {}, [
@@ -517,6 +558,7 @@ export function registerPageOutputRoutes(app: Hono, services: ApiServices) {
     '/rules',
     '/settings/runs',
     '/settings/agents',
+    '/settings/apps',
     '/b/:id/compose',
     '/b/:id/read',
   ];

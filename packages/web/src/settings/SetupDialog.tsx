@@ -139,6 +139,11 @@ export function SetupDialog({
       </div>
       <p>{guide.description}</p>
       {topic === 'agents' && <AgentPreferences />}
+      {topic === 'apps' && (
+        <a className="runs-button" href={agentPageHref('/settings/apps')}>
+          Open Apps &amp; sync settings
+        </a>
+      )}
       {topic === 'agents' && (
         <a className="runs-button" href={agentPageHref('/settings/agents')}>
           Open Agent access settings

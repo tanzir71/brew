@@ -61,6 +61,7 @@ export async function instanceGuide(services: ApiServices, hasMcpTransport: bool
       '- [Newsletters](/letters.md): Saved sender/letter views; JSON at /letters.json.',
       '- [Rules](/rules.md): Saved definitions, selected preview/log and execution pages; JSON at /rules.json.',
       '- [Instance setup](/settings/runs.md): Mode capabilities and setup; JSON at /settings/runs.json.',
+      '- [Apps & sync](/settings/apps.md): Reader protocol URLs, setup status and per-client instructions; JSON at /settings/apps.json. Generate app passwords only in the owner interface /settings/apps.',
     );
   lines.push('', '## Agent access', '');
   if (caps.agentAccess)

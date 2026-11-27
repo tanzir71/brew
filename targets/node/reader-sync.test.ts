@@ -136,7 +136,13 @@ it('creates a separate app credential once, stores only verifiers, and never per
   const f = await fixture();
   expect((await f.app.inject('/api/capabilities')).json().readerApi).toBe(true);
   const status = await f.app.inject('/api/reader-access');
-  expect(status.json()).toEqual({ enabled: true, username: 'reader' });
+  expect(status.json()).toEqual({
+    enabled: true,
+    username: 'reader',
+    serverUrl: 'http://localhost',
+    googleReaderUrl: 'http://localhost/api/greader',
+    feverUrl: 'http://localhost/api/fever',
+  });
   expect(status.headers['cache-control']).toBe('private, no-store');
   const stored = JSON.stringify(f.database.sqlite.prepare('SELECT * FROM reader_access').get());
   for (const secret of [f.credentials.password, f.key, f.token, f.writeToken])
@@ -750,4 +756,55 @@ it('uses crawl time for incremental Reader sync and requires an authenticated he
     ['ts', String((now - 1000) * 1000)],
   ]);
   expect((await f.services.articles.get(1))?.readAt).toBeNull();
+});
+
+it('exports Apps & sync saved status and client instructions without credentials or writes', async () => {
+  const f = await fixture();
+  const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+  for (const format of ['md', 'json']) {
+    const response = await f.app.inject(`/settings/apps.${format}?agent=1`);
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.headers['cache-control']).toBe('private, no-store');
+    expect(response.headers['x-robots-tag']).toBe('noindex, nofollow');
+    expect(response.body).toContain('Apps & sync');
+    expect(response.body).toContain('NetNewsWire');
+    expect(response.body).toContain('FreshRSS');
+    expect(response.body).toContain('Unread');
+    expect(response.body).toContain('/api/greader');
+    if (format === 'json') expect(new URL(response.json().url).searchParams.get('agent')).toBe('1');
+    for (const secret of [f.credentials.password, f.key, f.token, f.writeToken])
+      expect(response.body).not.toContain(secret);
+    const head = await f.app.inject({ method: 'HEAD', url: `/settings/apps.${format}` });
+    expect(head.statusCode).toBe(200);
+    expect(head.body).toBe('');
+  }
+  expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+  expect(f.fetcher).not.toHaveBeenCalled();
+});
+
+it('uses the configured public server URL for app setup and keeps unwired setup visible in text twins', async () => {
+  const app = await createApp({
+    database: openDatabase(':memory:'),
+    logger: false,
+    publicUrl: 'https://sync.example.test',
+  });
+  closes.push(() => app.close());
+  const settings = await app.inject('/api/reader-access');
+  expect(settings.json()).toEqual({
+    enabled: false,
+    username: null,
+    serverUrl: 'https://sync.example.test',
+    googleReaderUrl: 'https://sync.example.test/api/greader',
+    feverUrl: 'https://sync.example.test/api/fever',
+  });
+  const services = nodeServices(app);
+  services.readerSync = undefined;
+  expect((await app.inject('/api/reader-access')).statusCode).toBe(501);
+  const twin = await app.inject('/settings/apps.json');
+  expect(twin.statusCode).toBe(200);
+  expect(twin.json().sections[0].data).toEqual({
+    available: false,
+    enabled: false,
+    username: null,
+  });
 });

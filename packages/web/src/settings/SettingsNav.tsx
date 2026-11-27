@@ -4,7 +4,7 @@ export function SettingsNav({
   current = 'runs',
   preferenceTopic,
 }: {
-  current?: 'runs' | 'agents';
+  current?: 'runs' | 'agents' | 'apps';
   preferenceTopic?: 'general' | 'reading';
 }) {
   const runsHref = (hash = '') =>
@@ -44,7 +44,10 @@ export function SettingsNav({
         <img src={current === 'agents' ? '/figma/agents/1d102.svg' : runAssets.agent} alt="" />
         Agent access
       </a>
-      <a href={runsHref('#setup-apps')}>
+      <a
+        href={agentPageHref('/settings/apps')}
+        aria-current={current === 'apps' ? 'page' : undefined}
+      >
         <img src={runAssets.apps} alt="" />
         Apps &amp; sync
       </a>

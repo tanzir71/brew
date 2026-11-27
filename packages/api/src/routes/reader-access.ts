@@ -4,6 +4,7 @@ import { body, json } from '../http.js';
 import { documented, errors, jsonBody, response } from '../openapi.js';
 import { object, str, bool } from '../openapi-schemas.js';
 import { readerPort, syncBoundary, syncFailure } from '../reader-sync/shared.js';
+import { readerServerUrls } from '../../../core/src/reader-apps.js';
 
 export function registerReaderAccess(app: Hono, services: ApiServices) {
   app.use('/api/reader-access', async (c, next) => {
@@ -15,14 +16,25 @@ export function registerReaderAccess(app: Hono, services: ApiServices) {
     '/api/reader-access',
     documented('Reader apps', 'Read app-password setup status', {
       responses: {
-        200: response(object({ enabled: bool, username: { type: ['string', 'null'] } })),
+        200: response(
+          object({
+            enabled: bool,
+            username: { type: ['string', 'null'] },
+            serverUrl: str,
+            googleReaderUrl: str,
+            feverUrl: str,
+          }),
+        ),
         ...errors(403, 501),
       },
     }),
     async (c) => {
       try {
         syncBoundary(c, services.outputBaseUrl, true);
-        return json(c, await (await readerPort(services)).access.status());
+        return json(c, {
+          ...(await (await readerPort(services)).access.status()),
+          ...readerServerUrls(services.outputBaseUrl ?? c.req.url),
+        });
       } catch (error) {
         return syncFailure(c, error);
       }

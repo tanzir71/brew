@@ -10,8 +10,9 @@ Brew fetches your RSS/Atom feeds, stores everything locally, lets you build rule
 
 Node also offers [Google Reader and Fever compatibility APIs](docs/reader-api.md)
 with a separate generated app password, shared read/star state and subscription
-management. App access defaults off. The Apps & sync settings interface and
-native-client capture review remain part of M13's next steps.
+management. App access defaults off. Open Settings → Apps & sync to copy protocol
+URLs, generate or rotate the app password, and follow per-client instructions.
+Native-client capture replay remains part of M13's exit review.
 
 ## Architecture
 
