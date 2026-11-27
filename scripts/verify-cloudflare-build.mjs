@@ -1,3 +1,4 @@
+import { CloudflareActionJournal } from '../dist/targets/cloudflare/src/action-journal.js';
 import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -242,8 +243,67 @@ try {
     (await storage.first("SELECT count(*) AS n FROM settings WHERE key LIKE 'reader_change:%'")).n,
     0,
   );
+  const journal = new CloudflareActionJournal(storage);
+  const journalKey = 'compiled-journal-proof';
+  const priorRead = (
+    await storage.first('SELECT read_at FROM articles WHERE id=?', [imported.articleId])
+  ).read_at;
+  await journal.transaction({
+    actionId: { sql: '(SELECT id FROM agent_actions WHERE request_id=?)', values: [journalKey] },
+    at: Date.now(),
+    before: [
+      {
+        sql: 'INSERT INTO agent_actions(agent,request_id,tool,args_json,result_json,undo_json,created_at) VALUES(?,?,?,?,?,?,?)',
+        values: [
+          'web',
+          journalKey,
+          'mark_read',
+          '{}',
+          '{"kind":"mark_read","status":"complete"}',
+          JSON.stringify({ version: 1, expiresAt: Date.now() + 30000 }),
+          Date.now(),
+        ],
+      },
+    ],
+    queries: [
+      { sql: 'UPDATE articles SET read_at=? WHERE id=?', values: [123456, imported.articleId] },
+    ],
+  });
+  const journalId = (
+    await storage.first('SELECT id FROM agent_actions WHERE request_id=?', [journalKey])
+  ).id;
+  assert.equal(
+    (
+      await storage.first('SELECT count(*) AS n FROM agent_action_changes WHERE action_id=?', [
+        journalId,
+      ])
+    ).n,
+    1,
+  );
+  await storage.run('UPDATE articles SET author=? WHERE id=?', [
+    'Later unrelated author',
+    imported.articleId,
+  ]);
+  await journal.restore(journalId, Date.now(), {
+    after: [
+      {
+        sql: 'UPDATE agent_actions SET undone_at=?,undo_json=NULL WHERE id=?',
+        values: [Date.now(), journalId],
+      },
+      { sql: 'DELETE FROM agent_action_changes WHERE action_id=?', values: [journalId] },
+    ],
+  });
+  const restored = await storage.first('SELECT read_at,author FROM articles WHERE id=?', [
+    imported.articleId,
+  ]);
+  assert.equal(restored.read_at, priorRead);
+  assert.equal(restored.author, 'Later unrelated author');
+  assert.equal(
+    await storage.first("SELECT value FROM settings WHERE key='brew_active_action'"),
+    null,
+  );
   process.stdout.write(
-    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML and Reader-sync state passed outside the repository cwd. Full Worker handler integration remains pending.\n',
+    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state and atomic journal capture/restore passed outside the repository cwd. Full Worker handler integration remains pending.\n',
   );
 } finally {
   await runtime.dispose();

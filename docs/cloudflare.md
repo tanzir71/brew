@@ -196,6 +196,36 @@ session bounds; and exercise forced rollback and revoked-generation writes.
 Subscription actions remain explicitly unavailable until their real adapter is
 connected. The fixture is not a product Worker or owner authentication boundary.
 
+## Durable action journal foundation
+
+Canonical migration 0014 adds persistent journal triggers using the same field
+selection and conflict policy as Node's temporary triggers. A D1 transaction
+activates recording, writes local state and cascades, extends Undo expiry,
+finalizes caller-supplied receipt updates, and removes activation in one atomic
+batch. The flag never spans asynchronous work. This is the storage foundation;
+owner/agent action orchestration and subscription receipts are still unfinished.
+
+Restore checks the journal and recorded fields again at commit, protects later
+children and saved source references, preserves unrelated later fields and
+reverses foreign-key cascades in parent order. Short journals retain exact reverse
+order, including unique-name swaps. Bulk restoration uses joined updates and JSON
+chunks within D1's binding limit. A 50000-item read/Undo case runs inside workerd
+and compares Node's result, without relaxing its deadline. Node also caches SQL
+statements for the duration of Undo rather than recompile them per row.
+
+D1 permits only five compound SELECT terms and 32 function arguments. The shared
+trigger builder therefore uses bounded JSON groups, including wide article/feed
+rows, rather than a SELECT union for every column. Cloudflare's current limits
+also specify that an atomic batch counts as one D1 query invocation; individual
+statement size and binding limits still apply to every statement. See
+[D1 limits](https://developers.cloudflare.com/d1/platform/limits/).
+
+Fifteen new real workerd/D1 cases cover capture, cascade restoration, transaction
+rollback, commit-time conflicts, later source/child uses, tag ownership, concurrent
+journal isolation, unique-name swaps and the full 50000-item case. These checks
+verify local behavior and query/binding bounds, not deployed Free-plan CPU limits.
+The raw SQL ingress is exclusively a test fixture and is never a product route.
+
 ## Local verification
 
 Use Node.js 22 or newer for the official Cloudflare development tools. No remote
@@ -208,6 +238,7 @@ npm test -- targets/cloudflare/brew-api.test.ts
 npm test -- targets/cloudflare/library-api.test.ts
 npm test -- targets/cloudflare/newsletter-api.test.ts
 npm test -- targets/cloudflare/reader-sync.test.ts
+npm test -- targets/cloudflare/action-journal.test.ts
 npm run typecheck
 npm run build
 ```
