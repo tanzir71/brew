@@ -81,6 +81,13 @@ export interface BrewStoragePort {
       | Pick<BrewSnapshot, 'configName' | 'sections'>
       | Omit<import('./types/brew.js').BrewSnapshot, 'id' | 'brewConfigId' | 'scrollPosition'>,
   ): number;
+  /** Freeze an issue and its schedule receipt in one transaction; null means already claimed. */
+  saveScheduled(
+    configId: number,
+    payload: Parameters<BrewStoragePort['save']>[1],
+    receipt: { key: string; value: string },
+  ): number | null;
+  claimSchedule(key: string, value: string): boolean;
   prune(configId: number, keep: number): void;
   pruneBefore(configId: number, before: number): void;
   claimDelivery(id: number, results: import('./types/delivery.js').BrewDeliveryResults): boolean;
@@ -99,8 +106,14 @@ export interface BrewStoragePort {
   setting(key: string): string | undefined;
   setSetting(key: string, value: string): void;
 }
+export type AsyncPort<T> = {
+  [K in keyof T]: T[K] extends (...args: infer A) => infer R
+    ? (...args: A) => R | Promise<R>
+    : never;
+};
+export type AsyncBrewStoragePort = AsyncPort<BrewStoragePort>;
 export type BrewPreviewStoragePort = Pick<
-  BrewStoragePort,
+  AsyncBrewStoragePort,
   'compositionItems' | 'savedSourceSearch' | 'nextIssueNumber'
 >;
 export interface BrewItemQuery {

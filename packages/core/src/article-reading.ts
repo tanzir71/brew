@@ -2,11 +2,14 @@ import { parseHTML } from 'linkedom';
 import { Readability } from '@mozilla/readability';
 import { sanitizeArticleHtml } from './html-sanitizer.js';
 
-export function articleReadTime(html: string | null): number {
-  const text = html
+export const articleText = (html: string | null): string =>
+  html
     ? (parseHTML(`<!doctype html><html><body>${html}</body></html>`).document.body.textContent ??
       '')
     : '';
+
+export function articleReadTime(html: string | null): number {
+  const text = articleText(html);
   return Math.max(1, Math.ceil((text.trim() ? text.trim().split(/\s+/).length : 0) / 225));
 }
 /** Fetch is injected; extraction and sanitization are shared by every runtime. */

@@ -1,6 +1,1 @@
-import { parseHTML } from 'linkedom';
-export const articleText = (html: string | null): string =>
-  html
-    ? (parseHTML(`<!doctype html><html><body>${html}</body></html>`).document.body.textContent ??
-      '')
-    : '';
+export { articleText } from '../../../../packages/core/src/article-reading.js';

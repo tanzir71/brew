@@ -14,7 +14,10 @@ import {
 const id = (value: string): number | null =>
   /^[1-9]\d*$/.test(value) && Number.isSafeInteger(Number(value)) ? Number(value) : null;
 
-export function registerBrewOutputRoutes(app: Hono, services: ApiServices): void {
+export function registerBrewOutputRoutes(
+  app: Hono,
+  services: Pick<ApiServices, 'brews' | 'capabilities' | 'outputBaseUrl'>,
+): void {
   app.use('/b/*', async (c, next) => {
     await next();
     c.header('Cache-Control', 'private, no-store');

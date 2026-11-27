@@ -111,11 +111,11 @@ function webDocument(issue: BrewIssueDocument): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><title>${escapeHtml(issue.configName)} · No. ${issue.issueNumber}</title><style>${style}</style></head><body><main>${fragment(issue)}</main></body></html>`;
 }
 
-function textDocument(issue: BrewIssueDocument, markdown: boolean): string {
+function textDocumentParts(issue: BrewIssueDocument, markdown: boolean): [string, string] {
   const title = (value: string, level: number) =>
     (markdown ? '#'.repeat(level) + ' ' : '') +
     (markdown ? escapeMarkdown(value) : value.replace(/\s+/g, ' '));
-  const parts = [title(issue.configName, 1), `${dateLabel(issue)} · No. ${issue.issueNumber}`];
+  const parts: string[] = [];
   for (const section of issue.sections) {
     if (section.kind === 'divider') parts.push('---');
     parts.push(title(section.title, 2));
@@ -144,7 +144,16 @@ function textDocument(issue: BrewIssueDocument, markdown: boolean): string {
     }
     if (!section.items.length) parts.push(emptySection);
   }
-  return parts.filter(Boolean).join('\n\n') + '\n';
+  const body = parts.filter(Boolean).join('\n\n');
+  const heading = title(issue.configName, 1);
+  return [
+    `${heading ? `${heading}\n\n` : ''}${dateLabel(issue)} · No. `,
+    (body ? `\n\n${body}` : '') + '\n',
+  ];
+}
+function textDocument(issue: BrewIssueDocument, markdown: boolean): string {
+  const [before, after] = textDocumentParts(issue, markdown);
+  return before + issue.issueNumber + after;
 }
 
 export const renderBrewWeb = (snapshot: BrewSnapshot, options: BrewOutputOptions = {}): string =>
@@ -161,6 +170,9 @@ export const renderBrewMarkdown = (
   snapshot: BrewSnapshot,
   options: BrewOutputOptions = {},
 ): string => textDocument(documentFor(snapshot, options, true), true);
+/** The counter is assigned inside the storage transaction, without replacing user text. */
+export const renderBrewMarkdownParts = (snapshot: BrewSnapshot): [string, string] =>
+  textDocumentParts(documentFor(snapshot, {}, true), true);
 export const renderBrewJson = (snapshot: BrewSnapshot, options: BrewOutputOptions = {}): string =>
   JSON.stringify(documentFor(snapshot, options, true), null, 2) + '\n';
 

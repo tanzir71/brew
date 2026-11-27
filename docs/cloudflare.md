@@ -2,7 +2,7 @@
 
 M14 is in progress. The deployable application remains the Node target while
 the Worker handlers and asynchronous API services are being connected. The
-first M14 acceptance criterion is still open. Storage ports and the Reader
+first M14 acceptance criterion is still open. Storage ports and the Reader/Brew
 service graph below are verified prerequisites.
 
 ## D1
@@ -71,6 +71,37 @@ capabilities; they are not the deployable Worker or its final capability declara
 
 See the [official test harness](https://developers.cloudflare.com/workers/testing/test-harness/configure/).
 
+## Brew composition and frozen issues
+
+The expanded library graph supplies real asynchronous Brew services behind the
+shared configuration, preview, generate, history, read-state, delivery-result and
+private output routes. Node keeps its existing synchronous compatibility methods;
+both targets use the same composition runner, source selectors, sentence matching,
+schedule/threshold policy, sanitizer and renderers. D1 selectors bind ID collections
+as JSON, including newsletter selections and live state for more than 100 articles.
+
+An atomic D1 batch allocates the persistent issue number, stores the frozen payload
+and origin-neutral Markdown/JSON caches, and records a scheduled minute's receipt.
+Concurrent invocations can preview the same minute, but only one freezes and
+delivers it. A failed cache write rolls back the issue, counter and receipt together.
+Retention preserves numbering after the entire retained history expires. Reads and
+previews never backfill caches or write article state.
+
+The shared delivery runner awaits its durable claim before external I/O and
+serializes snapshots of concurrent email/webhook results. Reopening a service graph
+cannot silently resend a claimed issue. Webhooks use manual redirect handling and
+reject redirects explicitly: Workers does not support `redirect: "error"`. See the
+[Worker Request API](https://developers.cloudflare.com/workers/runtime-apis/request/).
+
+Nine additional workerd cases compare Node previews, frozen issues and outputs,
+exercise concurrent generation and scheduled invocations, retry/no-forwarding
+webhook behavior, persistent delivery claims, skipped minutes, cache-failure
+rollback, retention, legacy compatibility and newsletter unassignment. Their
+scheduled handler and outbound-mail port belong to the integration fixture; they
+do not establish a product scheduler, Email Routing or a Resend/Email Service
+adapter. A target interruptible regex executor is also still required. Without
+one, regex-filtered previews return the shared explicit unavailable error.
+
 ## Local verification
 
 Use Node.js 22 or newer for the official Cloudflare development tools. No remote
@@ -79,6 +110,7 @@ Cloudflare account, resource or credential is used by these checks.
 ```sh
 npm test -- targets/cloudflare/storage.test.ts
 npm test -- targets/cloudflare/reader-api.test.ts
+npm test -- targets/cloudflare/brew-api.test.ts
 npm run typecheck
 npm run build
 ```
@@ -88,14 +120,17 @@ tables, indexes and FTS triggers with Node, upgrade a v1 Brew row, exercise atom
 rollback and concurrent duplicate deliveries, process real MIME, and verify R2
 hits, expiry, private responses, outages and stream cancellation. The build also
 loads the compiled ports outside the repository working directory and verifies
-real D1 newsletter ingest and an R2-backed image cache hit.
+real D1 newsletter ingest, an R2-backed image cache hit and frozen Brew generation
+through the compiled HTTP graph with a matching Markdown cache.
 
 The MIME ingest pipeline's storage checks still execute in the Node harness
-against real bindings. Reader HTTP, feed discovery, extraction and sanitization
+against real bindings. Reader/Brew HTTP, composition, scheduling policy,
+feed discovery, extraction and sanitization
 also execute in bundled workerd tests. Inbound MIME execution inside the product
 Worker remains part of the remaining handler integration.
 
 Still required: product Worker fetch/scheduled/email handlers, the remaining
-Brew/rules/agent/Reader-sync/newsletter API adapters, bounded polling, Email Routing,
-owner authentication, and the Cloudflare installer/deploy flow. These checks do not claim a working deployed
+rules/agent/Reader-sync/newsletter/source API adapters, an interruptible regex
+executor, bounded polling, Email Routing/outbound mail, owner authentication, and
+the Cloudflare installer/deploy flow. These checks do not claim a working deployed
 Worker or completion of M14.

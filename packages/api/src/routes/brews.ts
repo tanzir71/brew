@@ -9,7 +9,12 @@ import type { BrewConfigDraft as CompositionDraft } from '../../../core/src/type
 
 export function registerBrewRoutes(
   app: Hono,
-  { brews: service, outboundMail, capabilities, outputBaseUrl }: ApiServices,
+  {
+    brews: service,
+    outboundMail,
+    capabilities,
+    outputBaseUrl,
+  }: Pick<ApiServices, 'brews' | 'outboundMail' | 'capabilities' | 'outputBaseUrl'>,
 ): void {
   app.post(
     '/api/brew-configs/:id/schedule-preview',

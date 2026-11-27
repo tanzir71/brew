@@ -354,6 +354,47 @@ describe('bounded JSON webhooks and durable results', () => {
     expect(await f.service.runCompositionScheduled(now)).toBe(0);
     expect(sends).toBe(1);
   });
+  it('claims a scheduled minute across separate service instances and rolls back a failed freeze', async () => {
+    let sends = 0;
+    const options: BrewDeliveryOptions = {
+      baseUrl: 'https://brew.example.test',
+      mail: {
+        kind: 'smtp',
+        send: async () => {
+          sends++;
+          return {};
+        },
+      },
+    };
+    const f = setup(options);
+    const second = new BrewService(f.database, clock, options);
+    expect(
+      (
+        await Promise.all([
+          f.service.runCompositionScheduled(now),
+          second.runCompositionScheduled(now),
+        ])
+      ).sort(),
+    ).toEqual([0, 1]);
+    expect(f.service.history(f.config.id)).toHaveLength(1);
+    expect(sends).toBe(1);
+    const key = `brew_composed_${f.config.id}_${new Date(now.getTime() + 86_400_000).toISOString()}`;
+    f.database.sqlite.exec(
+      "CREATE TRIGGER reject_brew_cache BEFORE UPDATE OF rendered_md ON brews BEGIN SELECT RAISE(ABORT,'test cache failure'); END",
+    );
+    try {
+      await expect(
+        second.runCompositionScheduled(new Date(now.getTime() + 86_400_000)),
+      ).rejects.toThrow('test cache failure');
+      expect(f.storage.setting(key)).toBeUndefined();
+      expect(f.service.history(f.config.id)).toHaveLength(1);
+      expect(f.storage.nextIssueNumber(f.config.id)).toBe(2);
+    } finally {
+      f.database.sqlite.exec('DROP TRIGGER reject_brew_cache');
+    }
+    expect(await second.runCompositionScheduled(new Date(now.getTime() + 86_400_000))).toBe(1);
+    expect(sends).toBe(2);
+  });
 });
 
 describe('delivery configuration boundaries', () => {

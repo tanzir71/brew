@@ -72,12 +72,14 @@ export class CompositionPreview {
       const unique = new Map<number, BrewCandidate>();
       for (const source of section.sources) {
         const search =
-          source.kind === 'saved_search' ? this.storage.savedSourceSearch(source.id!) : undefined;
+          source.kind === 'saved_search'
+            ? await this.storage.savedSourceSearch(source.id!)
+            : undefined;
         if (source.kind === 'saved_search' && !search) {
           warnings.push(`${section.title}: Saved search is no longer available.`);
           continue;
         }
-        const rows = this.storage.compositionItems({
+        const rows = await this.storage.compositionItems({
           newsletters:
             source.kind === 'newsletters'
               ? { senderIds: source.senderIds, tagIds: source.tagIds }
@@ -148,7 +150,7 @@ export class CompositionPreview {
     const snapshot: BrewSnapshot = {
       version: 2,
       id: 0,
-      issueNumber: configId ? this.storage.nextIssueNumber(configId) : 1,
+      issueNumber: configId ? await this.storage.nextIssueNumber(configId) : 1,
       brewConfigId: configId,
       configName: draft.name,
       generatedAt: when.toISOString(),

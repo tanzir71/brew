@@ -1,6 +1,13 @@
-import { compileFtsQuery } from '../../../../packages/core/src/search-service.js';
+import {
+  legacyBrewConfig,
+  brewComposition,
+  compositionItemsQuery,
+  brewCandidates,
+  legacyBrewItemsQuery,
+  brewArticleStates,
+  type BrewCandidateRow,
+} from '../../../../packages/db/src/brew-queries.js';
 import { renderBrewJson, renderBrewMarkdown } from '../../../../packages/core/src/brew-outputs.js';
-import { articleText } from './article-text.js';
 import { desc, eq } from 'drizzle-orm';
 import type {
   BrewConfig,
@@ -17,7 +24,6 @@ import type { BrewDatabase } from '../db/database.js';
 import { brewConfigs, brews } from '../db/schema.js';
 import {
   upgradeLegacyDraft,
-  legacySections,
   scheduleCron,
 } from '../../../../packages/core/src/composition-model.js';
 import type {
@@ -30,22 +36,7 @@ import type { BrewCandidate } from '../../../../packages/core/src/ports.js';
 export class NodeBrewStorage implements BrewStoragePort {
   constructor(private readonly database: BrewDatabase) {}
   listConfigs(): BrewConfig[] {
-    return this.database.db
-      .select()
-      .from(brewConfigs)
-      .all()
-      .map((row) => ({
-        id: row.id,
-        name: row.name,
-        scheduleCron: row.scheduleCron,
-        enabled: row.enabled,
-        sections: row.legacySectionsJson
-          ? JSON.parse(row.legacySectionsJson)
-          : JSON.parse(row.sectionsJson)[0]?.kind
-            ? legacySections(JSON.parse(row.sectionsJson))
-            : JSON.parse(row.sectionsJson),
-        createdAt: row.createdAt.toISOString(),
-      }));
+    return this.database.db.select().from(brewConfigs).all().map(legacyBrewConfig);
   }
   create(draft: BrewConfigDraft): number {
     const value = upgradeLegacyDraft(draft, Intl.DateTimeFormat().resolvedOptions().timeZone);
@@ -99,39 +90,8 @@ export class NodeBrewStorage implements BrewStoragePort {
     })();
   }
   items(query: BrewItemQuery): BrewItemRow[] {
-    const clauses = ['a.hidden = 0', 'a.excluded_from_brew = 0'];
-    const params: Array<number | string> = [];
-    if (query.onlyUnread) clauses.push('a.read_at IS NULL');
-    if (query.folderId !== undefined) {
-      clauses.push('f.folder_id = ?');
-      params.push(query.folderId);
-    }
-    if (query.feedId !== undefined) {
-      clauses.push('a.feed_id = ?');
-      params.push(query.feedId);
-    }
-    if (query.tagId !== undefined) {
-      clauses.push(
-        'EXISTS (SELECT 1 FROM article_tags at JOIN tags t ON t.id=at.tag_id WHERE at.article_id=a.id AND t.id=?)',
-      );
-      params.push(query.tagId);
-    }
-    if (query.starred) clauses.push('a.starred_at IS NOT NULL');
-    if (query.featured) clauses.push('a.featured_in_brew = 1');
-    if (query.publishedSince !== undefined) {
-      clauses.push('a.published_at >= ?');
-      params.push(query.publishedSince);
-    }
-    const order =
-      query.sort === 'longest'
-        ? "length(coalesce(a.full_text_html,a.content_html,a.summary_html,'')) DESC"
-        : 'a.published_at DESC';
-    params.push(query.limit ?? 20);
-    return this.database.sqlite
-      .prepare(
-        `SELECT a.id,a.title,a.url,a.author,a.summary_html AS summaryHtml,a.image_url AS imageUrl,a.published_at AS publishedAt,a.read_at AS readAt,f.title AS feedTitle,coalesce(a.full_text_html,a.content_html,a.summary_html) AS body FROM articles a JOIN feeds f ON f.id=a.feed_id WHERE ${clauses.join(' AND ')} ORDER BY ${order} LIMIT ?`,
-      )
-      .all(...params) as BrewItemRow[];
+    const built = legacyBrewItemsQuery(query);
+    return this.database.sqlite.prepare(built.sql).all(...built.values) as BrewItemRow[];
   }
   save(
     configId: number,
@@ -175,6 +135,23 @@ export class NodeBrewStorage implements BrewStoragePort {
   prune(configId: number, keep: number): void {
     for (const id of this.historyIds(configId).slice(keep))
       this.database.db.delete(brews).where(eq(brews.id, id)).run();
+  }
+  saveScheduled(
+    configId: number,
+    payload: Parameters<BrewStoragePort['save']>[1],
+    receipt: { key: string; value: string },
+  ): number | null {
+    return this.database.sqlite.transaction(() => {
+      if (!this.claimSchedule(receipt.key, receipt.value)) return null;
+      return this.save(configId, payload);
+    })();
+  }
+  claimSchedule(key: string, value: string): boolean {
+    return (
+      this.database.sqlite
+        .prepare('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)')
+        .run(key, value).changes === 1
+    );
   }
   pruneBefore(configId: number, before: number): void {
     this.database.sqlite.transaction(() => {
@@ -241,28 +218,7 @@ export class NodeBrewStorage implements BrewStoragePort {
   }
   composition(id: number): Composition | null {
     const row = this.database.db.select().from(brewConfigs).where(eq(brewConfigs.id, id)).get();
-    if (!row) return null;
-    const sections = JSON.parse(row.sectionsJson);
-    const value =
-      sections[0] && !sections[0].kind
-        ? upgradeLegacyDraft(
-            { name: row.name, scheduleCron: row.scheduleCron, enabled: row.enabled, sections },
-            row.timezone,
-          )
-        : {
-            sections,
-            timezone: row.timezone,
-            schedule: JSON.parse(row.scheduleJson),
-            delivery: JSON.parse(row.deliveryJson),
-          };
-    return {
-      id: row.id,
-      name: row.name,
-      enabled: row.enabled,
-      createdAt: row.createdAt.toISOString(),
-      scheduleCron: row.scheduleCron,
-      ...value,
-    };
+    return row ? brewComposition(row) : null;
   }
   usesComposition(id: number): boolean {
     return (
@@ -330,80 +286,12 @@ export class NodeBrewStorage implements BrewStoragePort {
       .get(id) as { query: string } | undefined;
   }
   compositionItems(query: BrewItemQuery): BrewCandidate[] {
-    const clauses = ['a.hidden=0', 'a.excluded_from_brew=0'];
-    if (query.searchQuery !== undefined && !compileFtsQuery(query.searchQuery)) return [];
-    const params: Array<number | string> = [];
-    if (query.newsletters) {
-      clauses.push("f.kind='newsletter'");
-      const selectors: string[] = [];
-      if (query.newsletters.senderIds !== undefined) {
-        selectors.push(
-          query.newsletters.senderIds.length
-            ? `f.id IN (${query.newsletters.senderIds.map(() => '?').join(',')})`
-            : '0=1',
-        );
-        params.push(...query.newsletters.senderIds);
-      }
-      if (query.newsletters.tagIds !== undefined) {
-        selectors.push(
-          query.newsletters.tagIds.length
-            ? `EXISTS(SELECT 1 FROM article_tags at WHERE at.article_id=a.id AND at.tag_id IN (${query.newsletters.tagIds.map(() => '?').join(',')}))`
-            : '0=1',
-        );
-        params.push(...query.newsletters.tagIds);
-      }
-      if (selectors.length) clauses.push(`(${selectors.join(' OR ')})`);
-    }
-    if (query.onlyUnread) clauses.push('a.read_at IS NULL');
-    if (query.folderId !== undefined) {
-      clauses.push('f.folder_id=?');
-      params.push(query.folderId);
-    }
-    if (query.feedId !== undefined) {
-      clauses.push('a.feed_id=?');
-      params.push(query.feedId);
-    }
-    if (query.tagId !== undefined) {
-      clauses.push(
-        'EXISTS(SELECT 1 FROM article_tags at WHERE at.article_id=a.id AND at.tag_id=?)',
-      );
-      params.push(query.tagId);
-    }
-    if (query.starred) clauses.push('a.starred_at IS NOT NULL');
-    if (query.featured) clauses.push('a.featured_in_brew=1');
-    if (query.publishedSince !== undefined) {
-      clauses.push('a.published_at>=?');
-      params.push(query.publishedSince);
-    }
-    if (query.searchQuery !== undefined) {
-      clauses.push(
-        'f.muted=0',
-        'a.id IN (SELECT rowid FROM articles_fts WHERE articles_fts MATCH ?)',
-      );
-      params.push(compileFtsQuery(query.searchQuery)!);
-    }
-    const rows = this.database.sqlite
-      .prepare(
-        `SELECT f.kind AS feedKind,a.cleaning_json AS cleaningJson,a.id,a.title,a.url,coalesce(a.author,'') AS author,a.feed_id AS feedId,f.title AS feed,f.folder_id AS folderId,coalesce(fo.title,'') AS folder,a.summary_html AS summaryHtml,a.image_url AS imageUrl,a.published_at AS publishedAt,a.read_at AS readAt,coalesce(a.full_text_html,a.content_html,a.summary_html,'') AS body FROM articles a JOIN feeds f ON f.id=a.feed_id LEFT JOIN folders fo ON fo.id=f.folder_id WHERE ${clauses.join(' AND ')}`,
-      )
-      .all(...params) as Array<
-      Omit<BrewCandidate, 'content'> & { feedKind: string; cleaningJson: string | null }
-    >;
-    return rows.map(({ feedKind, cleaningJson, ...row }) => ({
-      ...row,
-      content: articleText(row.body),
-      ...(feedKind === 'newsletter'
-        ? {
-            newsletter: {
-              cleaning: cleaningJson
-                ? (JSON.parse(
-                    cleaningJson,
-                  ) as import('../../../../packages/core/src/types/newsletters.js').NewsletterCleaning)
-                : null,
-            },
-          }
-        : {}),
-    }));
+    const built = compositionItemsQuery(query);
+    return built
+      ? brewCandidates(
+          this.database.sqlite.prepare(built.sql).all(...built.values) as BrewCandidateRow[],
+        )
+      : [];
   }
   setting(key: string): string | undefined {
     return (
@@ -430,24 +318,7 @@ export class NodeBrewStorage implements BrewStoragePort {
         `SELECT l.article_id AS articleId, r.id, r.name, l.actions_taken_json AS actions FROM rule_logs l JOIN rules r ON r.id = l.rule_id WHERE l.article_id IN (${placeholders}) ORDER BY l.executed_at DESC, l.id DESC`,
       )
       .all(...ids) as Array<{ articleId: number; id: number; name: string; actions: string }>;
-    return ids.map((id) => {
-      const row = rows.find((item) => item.id === id);
-      const applied = new Map<number, { id: number; name: string }>();
-      for (const log of logs.filter((entry) => entry.articleId === id)) {
-        const actions = JSON.parse(log.actions) as Array<{ ok: boolean }>;
-        if (actions.some((action) => action.ok))
-          applied.set(log.id, { id: log.id, name: log.name });
-      }
-      return {
-        id,
-        feedId: row?.feedId ?? null,
-        available: !!row,
-        readAt: row?.readAt == null ? null : new Date(row.readAt).toISOString(),
-        starredAt: row?.starredAt == null ? null : new Date(row.starredAt).toISOString(),
-        highlightColor: row?.highlightColor ?? null,
-        rules: [...applied.values()],
-      };
-    });
+    return brewArticleStates(ids, rows, logs);
   }
   setSetting(key: string, value: string): void {
     this.database.sqlite

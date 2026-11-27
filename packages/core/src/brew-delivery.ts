@@ -1,6 +1,6 @@
 import { renderBrewEmail, renderBrewJson } from './brew-outputs.js';
 import { brewIssuePath } from './brew-output-paths.js';
-import type { BrewStoragePort, ClockPort } from './ports.js';
+import type { AsyncBrewStoragePort, ClockPort } from './ports.js';
 import type { BrewSnapshot, BrewDelivery } from './types/composition.js';
 import type { BrewDeliveryOptions, BrewDeliveryResults } from './types/delivery.js';
 
@@ -8,7 +8,10 @@ export const WEBHOOK_TIMEOUT_MS = 5_000;
 
 export class BrewDeliveryRunner {
   constructor(
-    private storage: Pick<BrewStoragePort, 'claimDelivery' | 'saveDelivery' | 'deliveryResults'>,
+    private storage: Pick<
+      AsyncBrewStoragePort,
+      'claimDelivery' | 'saveDelivery' | 'deliveryResults'
+    >,
     private clock: ClockPort,
     private options: BrewDeliveryOptions = {},
   ) {}
@@ -29,9 +32,16 @@ export class BrewDeliveryRunner {
           : { status: 'pending', attempts: 0 },
     };
     // Claim before any external I/O. Never silently resend a completed or interrupted issue.
-    if (!this.storage.claimDelivery(issue.id, results))
-      return this.storage.deliveryResults(issue.id) ?? results;
-    const save = () => this.storage.saveDelivery(issue.id, results);
+    if (!(await this.storage.claimDelivery(issue.id, results)))
+      return (await this.storage.deliveryResults(issue.id)) ?? results;
+    // Both channels mutate one receipt. Capture each state now and serialize
+    // asynchronous writes so an older pending state cannot overwrite completion.
+    let pending = Promise.resolve();
+    const save = () => {
+      const snapshot = structuredClone(results);
+      pending = pending.then(() => this.storage.saveDelivery(issue.id, snapshot));
+      return pending;
+    };
     const key = this.options.baseUrl
       ? `${this.options.baseUrl}${brewIssuePath(issue)}`
       : `urn:brew:${issue.brewConfigId}:${issue.id}`;
@@ -41,7 +51,7 @@ export class BrewDeliveryRunner {
         const result = results.email;
         result.attempts = 1;
         result.attemptedAt = this.clock.now().toISOString();
-        save();
+        await save();
         try {
           const { html, text } = renderBrewEmail(issue, { baseUrl: this.options.baseUrl });
           const receipt = await this.options.mail!.send({
@@ -59,7 +69,7 @@ export class BrewDeliveryRunner {
           result.error = 'email';
         }
         result.completedAt = this.clock.now().toISOString();
-        save();
+        await save();
       })(),
       (async () => {
         if (results.webhook.status !== 'pending') return;
@@ -70,7 +80,7 @@ export class BrewDeliveryRunner {
           delete result.error;
           result.attempts = attempt;
           result.attemptedAt = this.clock.now().toISOString();
-          save();
+          await save();
           const controller = new AbortController();
           let timedOut = false;
           let timer: ReturnType<typeof setTimeout> | undefined;
@@ -80,7 +90,7 @@ export class BrewDeliveryRunner {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key },
                 body: payload,
-                redirect: 'error',
+                redirect: 'manual',
                 signal: controller.signal,
               }),
               new Promise<never>((_, reject) => {
@@ -91,8 +101,12 @@ export class BrewDeliveryRunner {
                 }, WEBHOOK_TIMEOUT_MS);
               }),
             ]);
-            result.httpStatus = response.status;
             void response.body?.cancel().catch(() => {});
+            // Workers does not implement redirect:error. Refuse redirects
+            // explicitly, preserving the same no-forwarding failure on Node.
+            if ([301, 302, 303, 307, 308].includes(response.status))
+              throw new Error('Webhook redirect refused');
+            result.httpStatus = response.status;
             if (response.ok) {
               result.status = 'sent';
               delete result.error;
@@ -107,7 +121,7 @@ export class BrewDeliveryRunner {
         }
         if (result.status !== 'sent') result.status = 'failed';
         result.completedAt = this.clock.now().toISOString();
-        save();
+        await save();
       })(),
     ]);
     return results;

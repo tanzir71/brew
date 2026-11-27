@@ -12,9 +12,11 @@ import { R2ImageCache } from '../dist/targets/cloudflare/src/image-cache.js';
 import { NewsletterPipeline } from '../dist/packages/core/src/newsletter-pipeline.js';
 import { proxyImage } from '../dist/packages/api/src/image-proxy.js';
 import {
-  cloudflareReaderServices,
-  createCloudflareReaderApi,
-} from '../dist/targets/cloudflare/src/reader-api.js';
+  cloudflareBrewServices,
+  createCloudflareBrewApi,
+} from '../dist/targets/cloudflare/src/brew-api.js';
+import { newBrewSection } from '../dist/packages/core/src/composition-model.js';
+import { renderBrewMarkdown } from '../dist/packages/core/src/brew-outputs.js';
 
 const originalDirectory = process.cwd();
 process.chdir(tmpdir());
@@ -62,8 +64,8 @@ try {
     new Uint8Array([137, 80, 78, 71]),
   );
   assert.equal(requests, 1);
-  const reader = createCloudflareReaderApi(
-    cloudflareReaderServices(
+  const reader = createCloudflareBrewApi(
+    cloudflareBrewServices(
       { DB: database, IMAGES: await runtime.getR2Bucket('IMAGES') },
       {
         capabilities: () => ({
@@ -100,8 +102,40 @@ try {
     (await reader.request(`https://build.example.test/a/${result.articleId}.md`)).status,
     200,
   );
+  const saved = await reader.request('https://build.example.test/api/brew-configs/composition', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      name: 'Compiled issue',
+      enabled: false,
+      timezone: 'UTC',
+      schedule: { kind: 'daily', time: '07:00' },
+      delivery: { web: true, feed: false, publicCopy: false },
+      sections: [
+        { ...newBrewSection('letters'), sources: [{ kind: 'newsletters' }], onlyUnread: false },
+      ],
+    }),
+  });
+  assert.equal(saved.status, 201);
+  const config = await saved.json();
+  const generated = await reader.request(
+    `https://build.example.test/api/brew-configs/${config.id}/generate`,
+    { method: 'POST' },
+  );
+  assert.equal(generated.status, 200);
+  const issue = await generated.json();
+  assert.equal(issue.issueNumber, 1);
+  assert.equal(issue.sections[0].items[0].id, result.articleId);
+  assert.equal(
+    (await storage.first('SELECT rendered_md FROM brews WHERE id=?', [issue.id])).rendered_md,
+    renderBrewMarkdown(issue),
+  );
+  assert.equal(
+    (await reader.request(`https://build.example.test/b/${config.id}/${issue.id}.json`)).status,
+    200,
+  );
   process.stdout.write(
-    'Built Cloudflare ports: shared D1 migrations, real MIME cleaning/storage, private R2 images and the compiled Reader HTTP graph passed outside the repository cwd. Full Worker handler integration remains pending.\n',
+    'Built Cloudflare ports: shared D1 migrations, real MIME cleaning/storage, private R2 images and the compiled Reader/Brew HTTP graph with frozen caches passed outside the repository cwd. Full Worker handler integration remains pending.\n',
   );
 } finally {
   await runtime.dispose();
