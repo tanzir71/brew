@@ -1,3 +1,6 @@
+import { AsyncActionsService } from '../../../packages/core/src/async-actions-service.js';
+import { CloudflareActionStorage } from './action-storage.js';
+import { registerActionRoutes } from '../../../packages/api/src/routes/actions.js';
 import { CloudflareOpml } from './opml-service.js';
 import { CloudflareReaderAccess } from './reader-access.js';
 import { CloudflareReaderSyncStorage } from './reader-sync-storage.js';
@@ -32,6 +35,14 @@ export function cloudflareLibraryServices(
   };
   return {
     ...services,
+    actions: new AsyncActionsService(
+      new CloudflareActionStorage(storage, {
+        clock,
+        fetcher: services.fetcher,
+        regex,
+        notify: (article) => services.events.publish('notification', article),
+      }),
+    ),
     opml: new CloudflareOpml(storage),
     readerSync: {
       access: new CloudflareReaderAccess(storage, () => clock.now().getTime()),
@@ -48,11 +59,12 @@ export function cloudflareLibraryServices(
     newsletters: new CloudflareNewsletterLibrary(storage, services.articles, () => clock.now()),
   } satisfies Pick<
     ApiServices,
-    keyof typeof services | 'rules' | 'sources' | 'newsletters' | 'opml' | 'readerSync'
+    keyof typeof services | 'rules' | 'sources' | 'newsletters' | 'opml' | 'readerSync' | 'actions'
   >;
 }
 export function createCloudflareLibraryApi(services: ReturnType<typeof cloudflareLibraryServices>) {
   const app = createCloudflareBrewApi(services);
+  registerActionRoutes(app, services);
   registerOpmlRoutes(app, services);
   registerReaderAccess(app, services);
   registerGoogleReader(app, services);

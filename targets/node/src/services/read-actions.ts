@@ -5,9 +5,12 @@ import type {
   ReadActionPreview,
 } from '../../../../packages/core/src/read-actions.js';
 import { ActionError } from '../../../../packages/core/src/actions.js';
-import { readerNewsletterVisibility } from '../ports/newsletter-visibility.js';
+import {
+  readActionQuery,
+  readActionPlan,
+  type ReadActionRow as Row,
+} from '../../../../packages/db/src/read-action-queries.js';
 
-type Row = { id: number; readAt: number | null };
 export class ReadActions {
   constructor(
     private readonly database: BrewDatabase,
@@ -15,19 +18,7 @@ export class ReadActions {
   ) {}
   inspect(target: ReadActionTarget): { ids: number[]; preview: ReadActionPreview } {
     return this.database.sqlite.transaction(() => {
-      let rows: Row[] = [];
-      if (target.kind === 'items') {
-        for (let offset = 0; offset < target.ids.length; offset += 500) {
-          const ids = target.ids.slice(offset, offset + 500);
-          rows.push(
-            ...(this.database.sqlite
-              .prepare(
-                `SELECT id,read_at AS readAt FROM articles WHERE id IN (${ids.map(() => '?').join(',')})`,
-              )
-              .all(...ids) as Row[]),
-          );
-        }
-      } else {
+      if (target.kind === 'reader') {
         if (
           target.feedId &&
           !this.database.sqlite.prepare('SELECT id FROM feeds WHERE id=?').get(target.feedId)
@@ -38,37 +29,18 @@ export class ReadActions {
           !this.database.sqlite.prepare('SELECT id FROM folders WHERE id=?').get(target.folderId)
         )
           throw new ActionError(404, 'Folder not found.');
-        const clauses = ['a.hidden=0', 'a.read_at IS NULL', 'f.muted=0'];
-        const args: number[] = [];
-        if (target.view !== 'starred' && target.feedId === undefined)
-          clauses.push(readerNewsletterVisibility);
-        if (target.view === 'today') {
-          clauses.push('a.published_at>=?');
-          args.push(this.now().getTime() - 86_400_000);
-        }
-        if (target.view === 'starred') clauses.push('a.starred_at IS NOT NULL');
-        if (target.feedId !== undefined) {
-          clauses.push('a.feed_id=?');
-          args.push(target.feedId);
-        }
-        if (target.folderId !== undefined) {
-          clauses.push('f.folder_id=?');
-          args.push(target.folderId);
-        }
-        rows = this.database.sqlite
-          .prepare(
-            `SELECT a.id,a.read_at AS readAt FROM articles a JOIN feeds f ON f.id=a.feed_id WHERE ${clauses.join(' AND ')} ORDER BY a.id`,
-          )
-          .all(...args) as Row[];
       }
+      const query = readActionQuery(target, this.now().getTime());
+      const rows = this.database.sqlite.prepare(query.sql).all(...query.values) as Row[];
       rows.sort((a, b) => a.id - b.id);
-      const ids = rows.filter((row) => row.readAt === null).map((row) => row.id);
+      const plan = readActionPlan(target, rows),
+        ids = plan.ids;
       return {
         ids,
         preview: {
-          revision: createHash('sha256').update(JSON.stringify({ target, rows })).digest('hex'),
+          revision: createHash('sha256').update(plan.revisionInput).digest('hex'),
           updated: ids.length,
-          unavailable: target.kind === 'items' ? target.ids.length - rows.length : 0,
+          unavailable: plan.unavailable,
         },
       };
     })();

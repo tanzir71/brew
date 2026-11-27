@@ -22,28 +22,32 @@ export class CloudflareOpml {
       new Set(result[1]!.results.map((row) => String(row.title))),
     );
   }
-  async import(xml: string) {
+  importPlan(xml: string) {
     const outlines = readOpmlOutlines(xml),
       encoded = JSON.stringify(outlines);
-    const result = await this.storage.batch([
-      this.storage.statement(
+    const statement = (sql: string, values: unknown[] = []) => ({ sql, values });
+    const queries = [
+      statement(
         `${incoming}, new_folders AS (SELECT folderTitle,min(position) AS firstPosition FROM additions WHERE folderTitle IS NOT NULL AND NOT EXISTS(SELECT 1 FROM folders WHERE title=folderTitle) GROUP BY folderTitle) INSERT INTO folders(title,position) SELECT folderTitle,(SELECT count(DISTINCT title) FROM folders)+row_number() OVER(ORDER BY firstPosition)-1 FROM new_folders ORDER BY firstPosition RETURNING id`,
         [encoded],
       ),
-      this.storage.statement(
+      statement(
         `${incoming} INSERT INTO feeds(folder_id,url,site_url,title) SELECT (SELECT max(id) FROM folders WHERE title=folderTitle),url,siteUrl,title FROM additions ORDER BY position RETURNING id`,
         [encoded],
       ),
-      this.storage.statement(
+      statement(
         "INSERT INTO settings(key,value) SELECT 'library_revision','1' WHERE changes()>0 ON CONFLICT(key) DO UPDATE SET value=CAST(value AS INTEGER)+1",
       ),
-    ]);
+    ];
+    return { queries, total: outlines.length };
+  }
+  async import(xml: string) {
+    const plan = this.importPlan(xml);
+    const result = await this.storage.batch(
+      plan.queries.map((query) => this.storage.statement(query.sql, query.values)),
+    );
     const imported = result[1]!.results.length;
-    return {
-      imported,
-      skipped: outlines.length - imported,
-      foldersCreated: result[0]!.results.length,
-    };
+    return { imported, skipped: plan.total - imported, foldersCreated: result[0]!.results.length };
   }
   async export() {
     const result = await this.storage.batch([

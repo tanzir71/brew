@@ -259,7 +259,13 @@ try {
           journalKey,
           'mark_read',
           '{}',
-          '{"kind":"mark_read","status":"complete"}',
+          JSON.stringify({
+            kind: 'mark_read',
+            targetId: imported.articleId,
+            summary: 'Compiled journal.',
+            status: 'complete',
+            externalEffects: false,
+          }),
           JSON.stringify({ version: 1, expiresAt: Date.now() + 30000 }),
           Date.now(),
         ],
@@ -302,8 +308,47 @@ try {
     await storage.first("SELECT value FROM settings WHERE key='brew_active_action'"),
     null,
   );
+  const actionTarget = { kind: 'items', ids: [imported.articleId] };
+  const actionReview = await reader.request(
+    'https://build.example.test/api/actions/mark-read/preview',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(actionTarget),
+    },
+  );
+  assert.equal(actionReview.status, 200);
+  const actionInput = {
+    kind: 'mark_read',
+    target: actionTarget,
+    revision: (await actionReview.json()).revision,
+    confirm: true,
+    requestId: 'compiled_action_123456',
+  };
+  const actionRequest = () =>
+    reader.request('https://build.example.test/api/actions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(actionInput),
+    });
+  const actionResponse = await actionRequest();
+  assert.equal(actionResponse.status, 200);
+  const actionReceipt = await actionResponse.json();
+  assert.equal(actionReceipt.updated, 1);
+  assert.equal(actionReceipt.canUndo, true);
+  assert.deepEqual(await (await actionRequest()).json(), actionReceipt);
+  const actionUndo = await reader.request(
+    `https://build.example.test/api/actions/${actionReceipt.id}/undo`,
+    { method: 'POST' },
+  );
+  assert.equal(actionUndo.status, 200);
+  assert.equal((await actionUndo.json()).status, 'undone');
+  assert.equal((await (await actionRequest()).json()).status, 'undone');
+  const recentActions = await reader.request('https://build.example.test/api/actions');
+  assert.equal(recentActions.headers.get('cache-control'), 'private, no-store');
+  assert.equal((await recentActions.json())[0].id, actionReceipt.id);
   process.stdout.write(
-    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state and atomic journal capture/restore passed outside the repository cwd. Full Worker handler integration remains pending.\n',
+    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state and atomic journal capture/restore and real owner-action preview/commit/replay/Undo passed outside the repository cwd. Full Worker handler integration remains pending.\n',
   );
 } finally {
   await runtime.dispose();

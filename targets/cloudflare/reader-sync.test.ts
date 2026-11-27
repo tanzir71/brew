@@ -68,7 +68,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await env.DB.exec(
-    'DELETE FROM reader_sessions; DELETE FROM reader_access; DELETE FROM feeds; DELETE FROM folders; DELETE FROM tags; DELETE FROM settings; DELETE FROM sqlite_sequence;',
+    'DELETE FROM agent_actions; DELETE FROM reader_sessions; DELETE FROM reader_access; DELETE FROM feeds; DELETE FROM folders; DELETE FROM tags; DELETE FROM settings; DELETE FROM sqlite_sequence;',
   );
   database = openDatabase(':memory:');
   node = await createApp({
@@ -609,12 +609,16 @@ it('executes Fever forms against the same sanitized library and persisted read/s
   expect(((await json('/api/reader-access')) as { enabled: boolean }).enabled).toBe(false);
 });
 
-it('persists the shared login/Fever failure window across invocations and leaves subscription actions explicitly unavailable', async () => {
+it('persists the shared login/Fever failure window across invocations and performs subscription actions with durable Undo', async () => {
   const f = await auth();
   const unavailable = await post('subscription/quickadd', f.authorization, f.writeToken, [
     ['quickadd', 'https://upstream.example.test/rss'],
   ]);
-  expect(unavailable.status).toBe(501);
+  expect(unavailable.status, await unavailable.clone().text()).toBe(200);
+  expect((await table('feeds')).length).toBe(3);
+  const undoId = unavailable.headers.get('x-brew-undo-id');
+  expect(undoId).toMatch(/^[1-9]\d*$/);
+  expect((await request(`/api/actions/${undoId}/undo`, 'POST')).status).toBe(200);
   expect((await table('feeds')).length).toBe(2);
   for (let index = 0; index < 30; index++) {
     const response = await request(

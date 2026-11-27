@@ -5,7 +5,7 @@ import type { ApiServices } from '../ports.js';
 import { ActionError } from '../../../core/src/actions.js';
 import { body, json } from '../http.js';
 
-export function registerActionRoutes(app: Hono, services: ApiServices) {
+export function registerActionRoutes(app: Hono, services: Pick<ApiServices, 'actions'>) {
   app.use('/api/actions*', async (c, next) => {
     await next();
     c.header('Cache-Control', 'private, no-store');

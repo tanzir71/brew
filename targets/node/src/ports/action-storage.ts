@@ -1,3 +1,11 @@
+import {
+  actionArgumentPlan,
+  actionArguments,
+  actionRequestKey,
+  actionReceipt,
+  tokenWriteKinds,
+  type StoredAction as Stored,
+} from '../../../../packages/core/src/action-records.js';
 import type { BrewDatabase } from '../db/database.js';
 import type { ClockPort, RuleStoragePort } from '../../../../packages/core/src/ports.js';
 import {
@@ -20,15 +28,6 @@ import type { ReadActionTarget } from '../../../../packages/core/src/read-action
 import { copiedRuleDraft, ruleCopySource } from '../../../../packages/core/src/rule-copy.js';
 
 const undoMs = 30_000;
-interface Stored {
-  id: number;
-  token_id: number | null;
-  tool: ActionRequest['kind'];
-  args_json: string;
-  result_json: string;
-  undo_json: string | null;
-  undone_at: number | null;
-}
 export class NodeActionStorage implements ActionStoragePort {
   private readonly journal: ActionJournal;
   private readonly running = new Set<number>();
@@ -37,43 +36,11 @@ export class NodeActionStorage implements ActionStoragePort {
     { signature: string; task: Promise<ActionReceipt> }
   >();
   private args(request: ActionRequest) {
-    if (['star_item', 'tag_item', 'add_feed', 'create_rule'].includes(request.kind)) {
-      const input = {
-        ...request,
-        requestId: undefined,
-        actor: undefined,
-        tokenId: undefined,
-        agentName: undefined,
-        signal: undefined,
-        readerGeneration: undefined,
-        confirm: undefined,
-      };
-      return JSON.stringify({
-        sha256: createHash('sha256').update(JSON.stringify(input)).digest('hex'),
-      });
-    }
-    if (request.kind === 'copy_rule')
-      return JSON.stringify({
-        id: request.id,
-        revision: createHash('sha256').update(request.definition).digest('hex'),
-      });
-    if (request.kind === 'mark_read')
-      return JSON.stringify({
-        revision: request.revision,
-        sha256: createHash('sha256').update(JSON.stringify(request.target)).digest('hex'),
-      });
-    if (request.kind === 'update_sender')
-      return JSON.stringify({
-        id: request.id,
-        revision: request.revision,
-        sha256: createHash('sha256').update(JSON.stringify(request.patch)).digest('hex'),
-      });
-    if (request.kind === 'import_opml')
-      return JSON.stringify({ sha256: createHash('sha256').update(request.opml).digest('hex') });
-    return JSON.stringify({
-      id: 'id' in request ? request.id : null,
-      ...(request.kind === 'apply_rule' ? { days: request.days ?? 30 } : {}),
-    });
+    const plan = actionArgumentPlan(request);
+    return actionArguments(
+      plan,
+      plan.value === undefined ? undefined : createHash('sha256').update(plan.value).digest('hex'),
+    );
   }
   private readonly tasks = new Set<Promise<ActionReceipt>>();
   constructor(
@@ -90,24 +57,7 @@ export class NodeActionStorage implements ActionStoragePort {
     const row = this.database.sqlite.prepare('SELECT * FROM agent_actions WHERE id=?').get(id) as
       Stored | undefined;
     if (!row) throw new ActionError(404, 'Action not found.');
-    const result = JSON.parse(row.result_json) as ActionReceipt;
-    const expires = row.undo_json ? (JSON.parse(row.undo_json).expiresAt as number) : null;
-    const interrupted = result.status === 'pending' && !this.running.has(id);
-    return {
-      ...result,
-      id,
-      status: row.undone_at !== null ? 'undone' : interrupted ? 'failed' : result.status,
-      ...(interrupted
-        ? { summary: 'Rule application was interrupted. Undo can restore its local changes.' }
-        : {}),
-      expiresAt: expires === null ? null : new Date(expires).toISOString(),
-      undoneAt: row.undone_at !== null ? new Date(row.undone_at).toISOString() : null,
-      canUndo:
-        expires !== null &&
-        expires > this.clock.now().getTime() &&
-        row.undone_at === null &&
-        !this.running.has(id),
-    };
+    return actionReceipt(row, this.clock.now().getTime(), this.running.has(id));
   }
   private create(request: ActionRequest, summary: string, externalEffects: boolean) {
     const result = {
@@ -148,12 +98,7 @@ export class NodeActionStorage implements ActionStoragePort {
     return new ReadActions(this.database, () => this.clock.now()).inspect(target).preview;
   }
   private requestKey(request: ActionRequest) {
-    return (
-      request.requestId &&
-      (request.tokenId === undefined
-        ? request.requestId
-        : `token:${request.tokenId}:${request.requestId}`)
-    );
+    return actionRequestKey(request);
   }
   private authorizeToken(tokenId?: number, kind?: string) {
     if (tokenId === undefined) return;
@@ -161,7 +106,7 @@ export class NodeActionStorage implements ActionStoragePort {
       .prepare("SELECT id FROM api_tokens WHERE id=? AND scopes='write' AND expires_at>?")
       .get(tokenId, this.clock.now().getTime());
     if (!token) throw new ActionError(403, 'This token cannot write.');
-    if (kind && !['mark_read', 'star_item', 'tag_item', 'add_feed'].includes(kind))
+    if (kind && !tokenWriteKinds.includes(kind))
       throw new ActionError(
         403,
         'Tokens can mark, star, tag and add feeds. Review other changes in Brew.',

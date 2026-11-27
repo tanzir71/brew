@@ -98,7 +98,7 @@ export interface ApiServices {
   imageCache?: import('../../core/src/types/images.js').ImageCachePort;
   readerSync?: import('../../core/src/reader-sync.js').ReaderSyncPort;
   agentAccess?: import('../../core/src/agent-access.js').AgentAccessPort;
-  actions?: import('../../core/src/actions.js').ActionsService;
+  actions?: ServicePort<import('../../core/src/actions.js').ActionsService>;
   outputBaseUrl?: string;
   newsletters?: {
     overview(): MaybePromise<NewsletterOverview>;

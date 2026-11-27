@@ -6,7 +6,7 @@ import { schema } from '../../../packages/db/src/schema.js';
 export class CloudflareStorage {
   readonly session;
   readonly db;
-  constructor(database: D1Database) {
+  constructor(readonly database: D1Database) {
     this.session = database.withSession('first-primary');
     this.db = drizzle(database, { schema });
   }

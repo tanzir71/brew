@@ -48,8 +48,11 @@ export class CloudflareFeeds implements FeedApiPort {
     const row = await this.storage.first<FeedRow>(`SELECT ${columns} FROM feeds WHERE id=?`, [id]);
     return row ? this.summarize(row) : undefined;
   }
+  async prepareAdd(url: string, folderId: number | null = null) {
+    return { result: await this.discovery.prepare(url), folderId };
+  }
   async add(url: string, folderId: number | null = null) {
-    const prepared = await this.discovery.prepare(url);
+    const prepared = (await this.prepareAdd(url, folderId)).result;
     if (
       folderId !== null &&
       !(await this.storage.first('SELECT id FROM folders WHERE id=?', [folderId]))

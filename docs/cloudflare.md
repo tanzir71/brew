@@ -177,9 +177,9 @@ cursor ordering, timestamps and labels. JSON bindings handle 10000 IDs and 100
 streams without exceeding D1's parameter limit. State/tag changes, label edits
 and revision updates use atomic batches; a revoked credential generation cannot
 commit a delayed write. Temporary transaction markers never survive a failed
-batch. These adapters do not yet enable the product's Reader capability:
-subscription add/remove/import still requires the unfinished durable action
-service and returns an explicit setup response in its absence.
+batch. Subscription add/remove/import now uses the actual durable action service
+and returns a receipt for Undo. The full product capability declaration still
+awaits its Worker entrypoint and owner authentication boundary.
 
 Worker app keys use native Web Crypto randomness, SHA-256, HMAC and timing-safe
 comparison. Fever's required MD5 value is stored only as a SHA-256 verifier.
@@ -193,8 +193,8 @@ Ten workerd/D1 cases compare Node parsing, imports/exports, stream counts and al
 cursor pages; run actual Google Reader/Fever forms; verify bidirectional Node
 credential/session compatibility, no plaintext secrets, rotation, throttling and
 session bounds; and exercise forced rollback and revoked-generation writes.
-Subscription actions remain explicitly unavailable until their real adapter is
-connected. The fixture is not a product Worker or owner authentication boundary.
+The subscription contract now verifies actual quick-add plus durable Undo.
+The fixture is not a product Worker or owner authentication boundary.
 
 ## Durable action journal foundation
 
@@ -202,8 +202,8 @@ Canonical migration 0014 adds persistent journal triggers using the same field
 selection and conflict policy as Node's temporary triggers. A D1 transaction
 activates recording, writes local state and cascades, extends Undo expiry,
 finalizes caller-supplied receipt updates, and removes activation in one atomic
-batch. The flag never spans asynchronous work. This is the storage foundation;
-owner/agent action orchestration and subscription receipts are still unfinished.
+batch. The flag never spans asynchronous work. The action service below now uses
+this foundation; scoped agent credentials and product ingress remain unfinished.
 
 Restore checks the journal and recorded fields again at commit, protects later
 children and saved source references, preserves unrelated later fields and
@@ -226,6 +226,43 @@ journal isolation, unique-name swaps and the full 50000-item case. These checks
 verify local behavior and query/binding bounds, not deployed Free-plan CPU limits.
 The raw SQL ingress is exclusively a test fixture and is never a product route.
 
+## Confirmed actions and durable receipts
+
+The library graph registers the existing action routes through a real async
+service. Node and D1 share confirmation/validation, normalized request fingerprints,
+redacted arguments, exact read-review inputs and receipt formatting. The D1 adapter
+handles all existing action kinds: read/star/tags, subscription and OPML changes,
+feed/folder/rule deletion, rule creation/Copy/application, and reviewed sender
+preferences with routing and retention. Direct preference and legacy OPML routes
+reuse the same prepared mutation plans.
+
+Local effects, the receipt, Undo data, authorization rechecks and library revision
+commit together. Duplicate request identities replay the original receipt across
+invocations, including after Undo; different arguments conflict. Token actions
+recheck a live write grant in D1, preserve the existing limited action kinds and
+scope Undo to the originating token. Reader generation is checked again in the commit transaction. Cancellation is
+rechecked after asynchronous authorization and before issuing the batch. This admission logic does not substitute for
+the still-unfinished production owner or scoped-token ingress.
+
+Rule application uses the shared executor and actual rule adapter. Each local
+phase is journaled atomically; external operations hold no activation flag. A
+persistent 15-second lease is renewed on local phases and before each external
+operation. Replays observe pending work without launching it again; active work
+refuses Undo, and an expired interrupted lease exposes failed status and its
+remaining Undo window. Failed actions retain successful local changes and report
+the real failure count. Undo cannot recall external effects. Receipt cleanup drops
+expired Undo data and history, preserving active leases and redacted receipts.
+Purged Undo data fences a stalled runner from resuming local or external work.
+
+Twenty-one new workerd/D1 and adapter cases compare Node contracts and cover all action
+kinds, concurrent commit/replay/Undo, actual held webhooks across invocations,
+partial failures, cancellation, commit-time token revocation, interrupted recovery,
+expiry, complete OPML and sender retention/routing Undo. A full 50000-item action
+runs through the actual Worker preview/commit/Undo routes. Controlled elapsed time
+also verifies lease renewal between a sequence of external actions. No existing
+timeout, visual tolerance or performance budget is relaxed. Native scoped-token
+management/MCP binding, interruptible regex and the product handlers remain open.
+
 ## Local verification
 
 Use Node.js 22 or newer for the official Cloudflare development tools. No remote
@@ -239,6 +276,7 @@ npm test -- targets/cloudflare/library-api.test.ts
 npm test -- targets/cloudflare/newsletter-api.test.ts
 npm test -- targets/cloudflare/reader-sync.test.ts
 npm test -- targets/cloudflare/action-journal.test.ts
+npm test -- targets/cloudflare/actions-api.test.ts
 npm run typecheck
 npm run build
 ```
@@ -259,7 +297,7 @@ MIME execution inside the product Worker remains part of the remaining handler
 integration.
 
 Still required: product Worker fetch/scheduled/email handlers, the remaining
-owner/agent journal and subscription-action adapters, an interruptible regex
+scoped-agent credential and MCP adapters, an interruptible regex
 executor, bounded polling, Email Routing/outbound mail, owner authentication, and
 the Cloudflare installer/deploy flow. These checks do not claim a working deployed
 Worker or completion of M14.

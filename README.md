@@ -107,7 +107,7 @@ Environment knobs: `BREW_DB_PATH` points at a different SQLite file; set `NODE_E
 ## Project structure
 
 The [Cloudflare target](docs/cloudflare.md) is under implementation. Its D1 Reader
-and Brew APIs, rules, sources, newsletter management, OPML, Reader-sync state and native MIME ingestion run in bundled
+and Brew APIs, rules, sources, newsletter management, OPML, Reader-sync state, durable actions and native MIME ingestion run in bundled
 workerd tests alongside verified D1/R2 storage ports. The full Worker handlers,
 remaining API services and deployment remain unfinished.
 
