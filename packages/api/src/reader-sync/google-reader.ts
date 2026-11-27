@@ -1,5 +1,5 @@
 import type { Context, Hono } from 'hono';
-import type { ApiServices } from '../ports.js';
+import type { ReaderSyncServices } from './shared.js';
 import { documented, errors, response, query as queryParameter } from '../openapi.js';
 import { json } from '../http.js';
 import {
@@ -104,9 +104,9 @@ function patch(p: URLSearchParams): SyncPatch {
 }
 async function subscriptionAction(
   c: Context,
-  services: ApiServices,
+  services: ReaderSyncServices,
   session: ReaderSession,
-  input: Parameters<NonNullable<ApiServices['actions']>['run']>[0],
+  input: Parameters<NonNullable<ReaderSyncServices['actions']>['run']>[0],
 ) {
   if (!services.actions) throw new ReaderSyncError(501, 'Subscription actions need setup.');
   const receipt = await services.actions.run(input, readerActionContext(c, session));
@@ -116,7 +116,7 @@ async function subscriptionAction(
 }
 async function dispatch(
   c: Context,
-  services: ApiServices,
+  services: ReaderSyncServices,
   port: ReaderSyncPort,
   p: URLSearchParams,
   session: ReaderSession,
@@ -358,7 +358,7 @@ async function dispatch(
   throw new ReaderSyncError(404, 'Reader operation not found.');
 }
 
-export function registerGoogleReader(app: Hono, services: ApiServices) {
+export function registerGoogleReader(app: Hono, services: ReaderSyncServices) {
   const add = (
     method: 'get' | 'post',
     path: string,

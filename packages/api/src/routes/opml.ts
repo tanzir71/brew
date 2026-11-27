@@ -5,7 +5,7 @@ import type { ApiServices } from '../ports.js';
 import { body, errorMessage, isJsonContentType, json } from '../http.js';
 import { opmlDocument } from '../../../core/src/opml.js';
 
-export function registerOpmlRoutes(app: Hono, { opml: service }: ApiServices): void {
+export function registerOpmlRoutes(app: Hono, { opml: service }: Pick<ApiServices, 'opml'>): void {
   app.post(
     '/api/opml/preview',
     documented('Subscriptions', 'Review OPML without importing', {

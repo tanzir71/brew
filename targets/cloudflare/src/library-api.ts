@@ -1,3 +1,10 @@
+import { CloudflareOpml } from './opml-service.js';
+import { CloudflareReaderAccess } from './reader-access.js';
+import { CloudflareReaderSyncStorage } from './reader-sync-storage.js';
+import { registerOpmlRoutes } from '../../../packages/api/src/routes/opml.js';
+import { registerReaderAccess } from '../../../packages/api/src/routes/reader-access.js';
+import { registerGoogleReader } from '../../../packages/api/src/reader-sync/google-reader.js';
+import { registerFever } from '../../../packages/api/src/reader-sync/fever.js';
 import { AsyncRulesService } from '../../../packages/core/src/async-rules-service.js';
 import type { ApiServices } from '../../../packages/api/src/ports.js';
 import { registerRulesRoutes } from '../../../packages/api/src/routes/rules.js';
@@ -25,6 +32,11 @@ export function cloudflareLibraryServices(
   };
   return {
     ...services,
+    opml: new CloudflareOpml(storage),
+    readerSync: {
+      access: new CloudflareReaderAccess(storage, () => clock.now().getTime()),
+      storage: new CloudflareReaderSyncStorage(storage, () => clock.now().getTime()),
+    },
     rules: new AsyncRulesService(
       new CloudflareRuleStorage(storage),
       regex,
@@ -34,10 +46,17 @@ export function cloudflareLibraryServices(
     ),
     sources: new CloudflareSources(storage, services.fetcher),
     newsletters: new CloudflareNewsletterLibrary(storage, services.articles, () => clock.now()),
-  } satisfies Pick<ApiServices, keyof typeof services | 'rules' | 'sources' | 'newsletters'>;
+  } satisfies Pick<
+    ApiServices,
+    keyof typeof services | 'rules' | 'sources' | 'newsletters' | 'opml' | 'readerSync'
+  >;
 }
 export function createCloudflareLibraryApi(services: ReturnType<typeof cloudflareLibraryServices>) {
   const app = createCloudflareBrewApi(services);
+  registerOpmlRoutes(app, services);
+  registerReaderAccess(app, services);
+  registerGoogleReader(app, services);
+  registerFever(app, services);
   registerRulesRoutes(app, services);
   registerSourceRoutes(app, services);
   registerNewsletterRoutes(app, services);

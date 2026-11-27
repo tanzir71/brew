@@ -6,7 +6,10 @@ import { object, str, bool } from '../openapi-schemas.js';
 import { readerPort, syncBoundary, syncFailure } from '../reader-sync/shared.js';
 import { readerServerUrls } from '../../../core/src/reader-apps.js';
 
-export function registerReaderAccess(app: Hono, services: ApiServices) {
+export function registerReaderAccess(
+  app: Hono,
+  services: Pick<ApiServices, 'readerSync' | 'outputBaseUrl'>,
+) {
   app.use('/api/reader-access', async (c, next) => {
     c.header('Cache-Control', 'private, no-store');
     c.header('X-Robots-Tag', 'noindex, nofollow');

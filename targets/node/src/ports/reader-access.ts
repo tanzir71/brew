@@ -1,3 +1,8 @@
+import {
+  readerUsername,
+  readerSessionCredential,
+  readerWriteMessage,
+} from '../../../../packages/core/src/reader-access.js';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { BrewDatabase } from '../db/database.js';
 import {
@@ -30,20 +35,7 @@ export class NodeReaderAccess implements ReaderAccessPort {
     return { enabled: Boolean(row), username: row?.username ?? null };
   }
   configure(value: unknown) {
-    const input = value as { username?: unknown } | null;
-    if (
-      !input ||
-      typeof input !== 'object' ||
-      Array.isArray(input) ||
-      Object.keys(input).some((key) => key !== 'username') ||
-      typeof input.username !== 'string' ||
-      !/^[a-z\d@._+-]{1,100}$/i.test(input.username)
-    )
-      throw new ReaderSyncError(
-        400,
-        'Choose a username of 1–100 letters, digits, @, period, underscore, plus or hyphen.',
-      );
-    const username = input.username,
+    const username = readerUsername(value),
       password = randomBytes(24).toString('base64url'),
       salt = randomBytes(16).toString('hex');
     // This is a generated 192-bit app key; custom/human passwords are never accepted.
@@ -120,11 +112,9 @@ export class NodeReaderAccess implements ReaderAccessPort {
     return token;
   }
   session(authorization: string | null, writeToken?: string) {
-    const writeOnly = !authorization && Boolean(writeToken);
-    const token = writeOnly
-      ? writeToken
-      : /^(?:GoogleLogin\s+auth=|Bearer\s+)(brs_[a-z\d_-]{43})$/i.exec(authorization ?? '')?.[1];
-    if (!token) return null;
+    const credential = readerSessionCredential(authorization, writeToken);
+    if (!credential) return null;
+    const { token, writeOnly } = credential;
     const row = this.database.sqlite
       .prepare(
         `SELECT a.username,a.generation FROM reader_sessions s JOIN reader_access a ON a.generation=s.generation WHERE s.${writeOnly ? 'write_hash' : 'token_hash'}=? AND (s.expires_at=0 OR s.expires_at>?)`,
@@ -135,7 +125,7 @@ export class NodeReaderAccess implements ReaderAccessPort {
   writeToken(session: ReaderSession) {
     return session.writeOnly
       ? session.token
-      : createHmac('sha256', session.token).update('brew-reader-write-v1').digest('hex');
+      : createHmac('sha256', session.token).update(readerWriteMessage).digest('hex');
   }
   checkWrite(session: ReaderSession, token: string) {
     return equal(hash(token), hash(this.writeToken(session)));

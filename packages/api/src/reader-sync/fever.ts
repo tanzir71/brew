@@ -1,5 +1,5 @@
 import type { Hono } from 'hono';
-import type { ApiServices } from '../ports.js';
+import type { ReaderSyncServices } from './shared.js';
 import { documented, errors, response } from '../openapi.js';
 import { json } from '../http.js';
 import {
@@ -11,7 +11,7 @@ import {
 import { sanitizeArticleHtml } from '../../../core/src/html-sanitizer.js';
 import { integer, readerPort, syncBoundary, syncFailure, syncParameters } from './shared.js';
 
-export function registerFever(app: Hono, services: ApiServices) {
+export function registerFever(app: Hono, services: ReaderSyncServices) {
   for (const method of ['get', 'post'] as const)
     for (const path of ['/api/fever', '/api/fever/'])
       app[method](

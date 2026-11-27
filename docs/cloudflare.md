@@ -163,6 +163,39 @@ hashes and private outputs; exercise routing/concurrent edits/rollback/retention
 and drive native email into the actual newsletter API and twins. A D1 race check
 protects a letter starred by another invocation before retention commits.
 
+## Subscriptions and Reader sync
+
+OPML parsing, preview planning and XML export are shared with Node. D1 imports
+all subscriptions and any new folders in one atomic batch, including duplicate
+URL normalization and concurrent import protection. Preview performs no writes or
+external fetches, and exports exclude newsletter senders. Both targets enforce
+the existing 1 MB document limit before importing.
+
+The library graph also binds the shared Google Reader/Fever and app-password
+routes. D1 selectors share Node's visibility, stream unions/exclusions, stable
+cursor ordering, timestamps and labels. JSON bindings handle 10000 IDs and 100
+streams without exceeding D1's parameter limit. State/tag changes, label edits
+and revision updates use atomic batches; a revoked credential generation cannot
+commit a delayed write. Temporary transaction markers never survive a failed
+batch. These adapters do not yet enable the product's Reader capability:
+subscription add/remove/import still requires the unfinished durable action
+service and returns an explicit setup response in its absence.
+
+Worker app keys use native Web Crypto randomness, SHA-256, HMAC and timing-safe
+comparison. Fever's required MD5 value is stored only as a SHA-256 verifier.
+[Cloudflare documents MD5 support for legacy protocols](https://developers.cloudflare.com/workers/runtime-apis/web-crypto/).
+Sessions persist in D1, are bounded to 100, and rotation/disable revoke all prior
+sessions and Fever access. Login and Fever share an atomic per-instance attempt
+window so a new invocation cannot reset throttling. Owner authentication remains
+separate and unfinished.
+
+Ten workerd/D1 cases compare Node parsing, imports/exports, stream counts and all
+cursor pages; run actual Google Reader/Fever forms; verify bidirectional Node
+credential/session compatibility, no plaintext secrets, rotation, throttling and
+session bounds; and exercise forced rollback and revoked-generation writes.
+Subscription actions remain explicitly unavailable until their real adapter is
+connected. The fixture is not a product Worker or owner authentication boundary.
+
 ## Local verification
 
 Use Node.js 22 or newer for the official Cloudflare development tools. No remote
@@ -174,6 +207,7 @@ npm test -- targets/cloudflare/reader-api.test.ts
 npm test -- targets/cloudflare/brew-api.test.ts
 npm test -- targets/cloudflare/library-api.test.ts
 npm test -- targets/cloudflare/newsletter-api.test.ts
+npm test -- targets/cloudflare/reader-sync.test.ts
 npm run typecheck
 npm run build
 ```
@@ -194,7 +228,7 @@ MIME execution inside the product Worker remains part of the remaining handler
 integration.
 
 Still required: product Worker fetch/scheduled/email handlers, the remaining
-agent/Reader-sync/OPML API adapters, an interruptible regex
+owner/agent journal and subscription-action adapters, an interruptible regex
 executor, bounded polling, Email Routing/outbound mail, owner authentication, and
 the Cloudflare installer/deploy flow. These checks do not claim a working deployed
 Worker or completion of M14.

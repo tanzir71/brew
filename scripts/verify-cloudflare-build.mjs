@@ -207,8 +207,43 @@ try {
   );
   assert.equal(twin.status, 200);
   assert.equal(twin.headers.get('cache-control'), 'private, no-store');
+  const opmlXml =
+    '<opml><body><outline text="Compiled subscriptions"><outline text="Compiled RSS" xmlUrl="https://compiled.example.test/rss"/></outline></body></opml>';
+  const opmlReview = await reader.request('https://build.example.test/api/opml/preview', {
+    method: 'POST',
+    headers: { 'content-type': 'text/xml' },
+    body: opmlXml,
+  });
+  assert.equal(opmlReview.status, 200);
+  assert.equal((await opmlReview.json()).imported, 1);
+  const subscriptions = await reader.request('https://build.example.test/api/opml/import', {
+    method: 'POST',
+    headers: { 'content-type': 'text/xml' },
+    body: opmlXml,
+  });
+  assert.equal(subscriptions.status, 200);
+  assert.deepEqual(await subscriptions.json(), { imported: 1, skipped: 0, foldersCreated: 1 });
+  assert.match(
+    await (await reader.request('https://build.example.test/api/opml/export')).text(),
+    /Compiled RSS/,
+  );
+  assert.deepEqual(await services.readerSync.access.status(), { enabled: false, username: null });
+  assert.equal(
+    await services.readerSync.storage.change(
+      { ids: [imported.articleId] },
+      { starred: false, add: ['Compiled sync'] },
+    ),
+    1,
+  );
+  const synchronized = await services.readerSync.storage.items({ ids: [imported.articleId] });
+  assert.equal(synchronized.items[0].starred, false);
+  assert.deepEqual(synchronized.items[0].tags, ['Compiled sync']);
+  assert.equal(
+    (await storage.first("SELECT count(*) AS n FROM settings WHERE key LIKE 'reader_change:%'")).n,
+    0,
+  );
   process.stdout.write(
-    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion and atomic sender preferences passed outside the repository cwd. Full Worker handler integration remains pending.\n',
+    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML and Reader-sync state passed outside the repository cwd. Full Worker handler integration remains pending.\n',
   );
 } finally {
   await runtime.dispose();

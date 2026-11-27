@@ -6,6 +6,10 @@ import {
   type ReaderSyncPort,
 } from '../../../core/src/reader-sync.js';
 import { json } from '../http.js';
+export type ReaderSyncServices = Pick<
+  ApiServices,
+  'readerSync' | 'outputBaseUrl' | 'feeds' | 'opml' | 'actions'
+>;
 import { ActionError } from '../../../core/src/actions.js';
 
 export async function syncParameters(c: Context): Promise<URLSearchParams> {
@@ -58,7 +62,7 @@ export function syncBoundary(c: Context, publicUrl?: string, owner = false) {
   )
     throw new ReaderSyncError(403, 'Use reader access on this instance.');
 }
-export async function readerPort(services: ApiServices) {
+export async function readerPort(services: Pick<ApiServices, 'readerSync'>) {
   if (!services.readerSync)
     throw new ReaderSyncError(501, 'Reader sync needs setup on this instance.');
   return services.readerSync;
