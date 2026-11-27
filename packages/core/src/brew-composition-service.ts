@@ -8,6 +8,7 @@ import type {
 import { validateBrewSchedule, BREW_RETENTION_DAYS } from './composition-model.js';
 import { CompositionPreview, parsePreviewTime } from './composition-preview.js';
 import { nextBrewAt } from './brew-schedule.js';
+import { compositionScheduleReceipt } from './brew-scheduled-request.js';
 
 /** The same asynchronous composition and delivery policy runs on every target. */
 export class BrewCompositionService {
@@ -95,16 +96,8 @@ export class BrewCompositionService {
       await this.storage.pruneBefore(legacy.id, now.getTime() - BREW_RETENTION_DAYS * 86_400_000);
       if (!legacy.enabled) continue;
       const config = (await this.storage.composition(legacy.id))!;
-      const scheduled = nextBrewAt(
-        config.schedule,
-        config.timezone,
-        new Date(now.getTime() - 60_000),
-      );
-      if (scheduled.getTime() > now.getTime()) continue;
-      const receipt = {
-        key: `brew_composed_${legacy.id}_${scheduled.toISOString()}`,
-        value: scheduled.toISOString(),
-      };
+      const receipt = compositionScheduleReceipt(config, now);
+      if (!receipt) continue;
       if (await this.storage.setting(receipt.key)) continue;
       const preview = await this.previewComposition(config, config.id, receipt.value);
       const count = new Set(

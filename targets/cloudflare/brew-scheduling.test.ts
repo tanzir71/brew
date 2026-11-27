@@ -15,6 +15,13 @@ import {
   BREW_RETENTION_DAYS,
 } from '../../packages/core/src/composition-model.js';
 import type { BrewConfigDraft } from '../../packages/core/src/types/brew.js';
+import {
+  ScheduledBrewProcessor,
+  ScheduleLeaseLost,
+  SCHEDULE_LEASE_MS,
+} from '../../packages/core/src/brew-scheduled-processing.js';
+import { CloudflareScheduledBrewJobs } from './src/brew-scheduled-jobs.js';
+import { nodeRegex } from '../node/src/ports/runtime.js';
 
 const runtime = new Miniflare({
   modules: true,
@@ -44,11 +51,146 @@ beforeEach(async () => {
   await storage.batch(
     [
       'DROP TRIGGER IF EXISTS history_failure',
+      'DROP TRIGGER IF EXISTS freeze_failure',
       'DELETE FROM brew_configs',
       'DELETE FROM settings',
       "DELETE FROM sqlite_sequence WHERE name IN ('brew_configs','brews')",
     ].map((sql) => storage.statement(sql)),
   );
+});
+
+function pendingProcessor(value = storage, jobs = new CloudflareScheduledBrewJobs(value)) {
+  return new ScheduledBrewProcessor(jobs, new CloudflareBrewStorage(value), clock, nodeRegex);
+}
+it('atomically stores the frozen issue, receipt and delivery cursor after a lost native D1 acknowledgement', async () => {
+  await new CloudflareBrewStorage(storage).createComposition(
+    draft('Queued', { kind: 'daily', time: '12:00' }),
+  );
+  const jobs = new CloudflareScheduledBrewJobs(storage),
+    freeze = jobs.freeze.bind(jobs);
+  vi.spyOn(jobs, 'freeze').mockImplementationOnce(async (...args) => {
+    await freeze(...args);
+    throw new Error('lost native freeze response');
+  });
+  const work = pendingProcessor(storage, jobs);
+  await work.capture();
+  await expect(work.drain()).rejects.toThrow('lost native freeze');
+  const row = await storage.first<{ state_json: string }>(
+    'SELECT state_json FROM brew_schedule_jobs',
+  );
+  expect(JSON.parse(row!.state_json)).toMatchObject({
+    phase: 'delivery',
+    started: false,
+    issueId: 1,
+  });
+  expect(await storage.first('SELECT count(*) AS n FROM brews')).toEqual({ n: 1 });
+  await pendingProcessor().capture();
+  await pendingProcessor().drain();
+  expect(await storage.first('SELECT count(*) AS n FROM brew_schedule_jobs')).toEqual({ n: 0 });
+  expect(await storage.first('SELECT count(*) AS n FROM brews')).toEqual({ n: 1 });
+});
+
+it('rolls back a native freeze failure with its receipt, issue counter and pending cursor', async () => {
+  await new CloudflareBrewStorage(storage).createComposition(
+    draft('Rollback', { kind: 'daily', time: '12:00' }),
+  );
+  await pendingProcessor().capture();
+  await storage.run(
+    "CREATE TRIGGER freeze_failure BEFORE INSERT ON brews BEGIN SELECT RAISE(ABORT,'controlled freeze failure'); END",
+  );
+  await expect(pendingProcessor().drain()).rejects.toThrow('controlled freeze failure');
+  expect(await storage.first('SELECT count(*) AS n FROM brews')).toEqual({ n: 0 });
+  expect(
+    await storage.first(
+      "SELECT value FROM settings WHERE key LIKE 'brew_composed_%' OR key LIKE 'brew_issue_number_%'",
+    ),
+  ).toBeNull();
+  expect(await storage.first('SELECT count(*) AS n FROM brew_schedule_jobs')).toEqual({ n: 1 });
+  expect(await storage.first('SELECT count(*) AS n FROM brew_schedule_guard')).toEqual({ n: 0 });
+  await storage.run('DROP TRIGGER freeze_failure');
+  await pendingProcessor().drain();
+  expect(await storage.first('SELECT issue_number FROM brews')).toEqual({ issue_number: 1 });
+  expect(await storage.first('SELECT count(*) AS n FROM brew_schedule_jobs')).toEqual({ n: 0 });
+});
+
+it('fences native old runners before source, freeze and delivery writes', async () => {
+  await new CloudflareBrewStorage(storage).createComposition(
+    draft('Lease', { kind: 'daily', time: '12:00' }),
+  );
+  await pendingProcessor().capture();
+  const jobs = new CloudflareScheduledBrewJobs(storage);
+  const old = (await jobs.claim('old', now.getTime(), now.getTime() + SCHEDULE_LEASE_MS))!;
+  const later = now.getTime() + SCHEDULE_LEASE_MS + 1;
+  const replacement = (await jobs.claim('replacement', later, later + SCHEDULE_LEASE_MS))!;
+  await expect(jobs.checkpoint(old, old.state, later, later + SCHEDULE_LEASE_MS)).rejects.toThrow(
+    ScheduleLeaseLost,
+  );
+  await expect(
+    jobs.freeze(old, { configName: 'Stale', sections: [] }, later, later + SCHEDULE_LEASE_MS),
+  ).rejects.toThrow(ScheduleLeaseLost);
+  await expect(
+    jobs.claimDelivery(
+      old,
+      1,
+      {
+        version: 1,
+        email: { status: 'disabled', attempts: 0 },
+        webhook: { status: 'pending', attempts: 0 },
+      },
+      later,
+    ),
+  ).rejects.toThrow(ScheduleLeaseLost);
+  await jobs.release(old.id, old.runner);
+  expect(await storage.first('SELECT runner FROM brew_schedule_jobs')).toEqual({
+    runner: 'replacement',
+  });
+  await jobs.release(replacement.id, replacement.runner);
+  await pendingProcessor().drain();
+  expect(await storage.first('SELECT count(*) AS n FROM brews')).toEqual({ n: 1 });
+});
+
+it('marks an interrupted native delivery unknown without sending its claimed issue again', async () => {
+  const brew = new CloudflareBrewStorage(storage);
+  await brew.createComposition({
+    ...draft('Unknown', { kind: 'daily', time: '12:00' }),
+    delivery: { ...defaultDelivery(), webhook: { url: 'https://source.test/webhook' } },
+  });
+  await pendingProcessor().capture();
+  await pendingProcessor().drain(2);
+  const jobs = new CloudflareScheduledBrewJobs(storage),
+    at = now.getTime();
+  const job = (await jobs.claim('interrupted', at, at + SCHEDULE_LEASE_MS))!;
+  expect(job.state.phase).toBe('delivery');
+  if (job.state.phase !== 'delivery') throw new Error('Missing frozen issue.');
+  const state = { ...job.state, started: true };
+  await jobs.checkpoint(job, state, at, at + SCHEDULE_LEASE_MS);
+  job.version++;
+  job.state = state;
+  await jobs.claimDelivery(
+    job,
+    state.issueId,
+    {
+      version: 1,
+      email: { status: 'disabled', attempts: 0 },
+      webhook: { status: 'pending', attempts: 1, attemptedAt: now.toISOString() },
+    },
+    at,
+  );
+  await jobs.release(job.id, job.runner);
+  let sends = 0;
+  await new ScheduledBrewProcessor(jobs, brew, clock, nodeRegex, {
+    fetcher: async () => {
+      sends++;
+      throw new Error('Unexpected replay');
+    },
+  }).drain();
+  expect(sends).toBe(0);
+  expect((await brew.deliveryResults(state.issueId))!.webhook).toMatchObject({
+    status: 'failed',
+    error: 'interrupted',
+    attempts: 1,
+  });
+  expect(await storage.first('SELECT count(*) AS n FROM brew_schedule_jobs')).toEqual({ n: 0 });
 });
 afterAll(async () => runtime.dispose());
 

@@ -1,4 +1,5 @@
 import { BrewCompositionService } from './brew-composition-service.js';
+import { legacyScheduleReceipt } from './brew-scheduled-request.js';
 import type { BrewDeliveryOptions } from './types/delivery.js';
 import type {
   BrewConfig,
@@ -104,13 +105,12 @@ export class BrewService extends BrewCompositionService {
   }
   runScheduled(now = this.legacyClock.now()): number {
     let generated = 0;
-    const date = now.toISOString().slice(0, 10);
     for (const config of this.listConfigs().filter(
       (config) => config.enabled && !this.usesComposition(config.id),
     )) {
-      const [minute, hour] = config.scheduleCron.trim().split(/\s+/);
-      if (minute !== String(now.getMinutes()) || hour !== String(now.getHours())) continue;
-      const key = `brew_generated_${config.id}_${date}`;
+      const receipt = legacyScheduleReceipt(config, now);
+      if (!receipt) continue;
+      const key = receipt.key;
       if (this.legacyStorage.setting(key)) continue;
       this.generate(config.id);
       this.legacyStorage.setSetting(key, now.toISOString());

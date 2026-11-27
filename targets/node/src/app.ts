@@ -188,14 +188,14 @@ export async function createApp(
         const pruning = newsletters.prune();
         brewRuns.add(pruning);
         void pruning.catch((error) => app.log.error(error)).finally(() => brewRuns.delete(pruning));
-        brewService.runScheduled();
-        const pending = brewService.runCompositionScheduled();
+        const pending = brewService.runPendingScheduled();
         brewRuns.add(pending);
         void pending.catch((error) => app.log.error(error)).finally(() => brewRuns.delete(pending));
       }, 60_000)
     : null;
   if (options.startPoller) {
     await ingest.resumePending();
+    await brewService.runPendingScheduled(false);
     await newsletters.prune();
     poller.start();
     imap?.start();

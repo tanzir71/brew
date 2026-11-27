@@ -339,7 +339,41 @@ export const ingestJobGuard = sqliteTable(
   ],
 );
 
+export const brewScheduleJobs = sqliteTable(
+  'brew_schedule_jobs',
+  {
+    sequence: integer('sequence').primaryKey({ autoIncrement: true }),
+    id: text('id').notNull().unique(),
+    configId: integer('config_id')
+      .notNull()
+      .references(() => brewConfigs.id, { onDelete: 'cascade' }),
+    requestJson: text('request_json').notNull(),
+    stateJson: text('state_json').notNull(),
+    version: integer('version').notNull().default(0),
+    runner: text('runner'),
+    expiresAt: integer('expires_at').notNull().default(0),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [
+    index('brew_schedule_jobs_ready').on(table.expiresAt, table.sequence),
+    uniqueIndex('brew_schedule_jobs_runner').on(table.runner),
+  ],
+);
+export const brewScheduleGuard = sqliteTable(
+  'brew_schedule_guard',
+  {
+    id: integer('id').primaryKey(),
+    valid: integer('valid').notNull(),
+  },
+  (table) => [
+    check('brew_schedule_guard_id', sql`${table.id}=1`),
+    check('brew_schedule_lease', sql`${table.valid}=1`),
+  ],
+);
+
 export const schema = {
+  brewScheduleJobs,
+  brewScheduleGuard,
   ingestJobs,
   ingestJobItems,
   ingestJobGuard,

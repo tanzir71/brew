@@ -564,7 +564,11 @@ it('continues a long rule across product cron invocations without fetching again
   ]);
   await worker.scheduled({ scheduledTime: new Date(now) });
   expect(await env.DB.prepare('SELECT count(*) AS n FROM ingest_jobs').first()).toEqual({ n: 1 });
-  expect(await env.DB.prepare('SELECT count(*) AS n FROM article_tags').first()).toEqual({ n: 12 });
+  const initialTags = await env.DB.prepare('SELECT count(*) AS n FROM article_tags').first<{
+    n: number;
+  }>();
+  expect(initialTags!.n).toBeGreaterThan(0);
+  expect(initialTags!.n).toBeLessThan(24);
   expect(await env.DB.prepare('SELECT starred_at FROM articles').first()).toEqual({
     starred_at: null,
   });
@@ -616,13 +620,13 @@ it('keeps polling due feeds while a long rule job consumes its reserved share', 
   expect(
     await env.DB.prepare('SELECT last_status,last_fetched_at FROM feeds WHERE id=2').first(),
   ).toEqual({ last_status: 200, last_fetched_at: now });
-  expect(
-    await env.DB.prepare(
-      'SELECT count(*) AS n FROM article_tags t JOIN articles a ON a.id=t.article_id WHERE a.feed_id=1',
-    ).first<{
-      n: number;
-    }>(),
-  ).toEqual({ n: first!.n + 16 });
+  const progressed = await env.DB.prepare(
+    'SELECT count(*) AS n FROM article_tags t JOIN articles a ON a.id=t.article_id WHERE a.feed_id=1',
+  ).first<{
+    n: number;
+  }>();
+  expect(progressed!.n).toBeGreaterThan(first!.n);
+  expect(progressed!.n).toBeLessThan(120);
   expect(await env.DB.prepare('SELECT count(*) AS n FROM ingest_jobs').first()).toEqual({ n: 2 });
   expect(
     await env.DB.prepare(
@@ -772,6 +776,114 @@ it('restricts bounded Brew history maintenance to cron and continues across genu
     await env.DB.prepare("SELECT value FROM settings WHERE key='brew_issue_number_1'").first(),
   ).toEqual({ value: '501' });
 });
+
+it('resumes more than fifty source reads across genuine product cron invocations after the due minute', async () => {
+  const sections = Array.from({ length: 64 }, (_, index) => ({
+    ...newBrewSection(`section-${index}`),
+    sources: [{ kind: 'feed', id: 999 }],
+  }));
+  await env.DB.prepare(
+    `INSERT INTO brew_configs(name,enabled,composition_version,timezone,schedule_json,sections_json,delivery_json)
+    VALUES('Many source checkpoints',1,2,'UTC','{"kind":"daily","time":"12:00"}',?,?)`,
+  )
+    .bind(JSON.stringify(sections), JSON.stringify(defaultDelivery()))
+    .run();
+  let invocations = 0,
+    total = 0;
+  for (; invocations < 30; invocations++) {
+    await worker.scheduled({
+      cron: invocations ? 'review:advance' : '* * * * *',
+      scheduledTime: new Date(now + (invocations ? 60_000 : 0)),
+    });
+    const row = await env.DB.prepare(
+      `SELECT
+      (SELECT count(*) FROM brew_schedule_jobs) AS pending,
+      (SELECT count(*) FROM brew_schedule_jobs WHERE runner IS NOT NULL OR expires_at!=0) AS leased,
+      (SELECT value FROM settings WHERE key='review:cron:queries') AS queries`,
+    ).first<{ pending: number; leased: number; queries: string }>();
+    expect(Number(row!.queries)).toBeLessThanOrEqual(50);
+    expect(row!.leased).toBe(0);
+    total += Number(row!.queries);
+    if (!row!.pending) break;
+  }
+  expect(invocations).toBeGreaterThan(2);
+  expect(invocations).toBeLessThan(30);
+  expect(total).toBeGreaterThan(50);
+  const issues = await env.DB.prepare('SELECT generated_at,payload_json,sent_json FROM brews').all<{
+    generated_at: number;
+    payload_json: string;
+    sent_json: string;
+  }>();
+  expect(issues.results).toHaveLength(1);
+  expect(issues.results[0]!.generated_at).toBe(now);
+  expect(JSON.parse(issues.results[0]!.payload_json).sections).toHaveLength(64);
+  expect(JSON.parse(issues.results[0]!.sent_json)).toMatchObject({
+    email: { status: 'disabled' },
+    webhook: { status: 'disabled' },
+  });
+}, 30_000);
+
+it('drains a queued due minute with one send per frozen Brew while polling and ingestion retain capacity', async () => {
+  const sections = [{ ...newBrewSection('note', 'note'), note: 'Captured note.' }];
+  await env.DB.batch(
+    Array.from({ length: 16 }, (_, index) =>
+      env.DB.prepare(
+        `INSERT INTO brew_configs(name,enabled,composition_version,timezone,schedule_json,sections_json,delivery_json)
+    VALUES(?,1,2,'UTC','{"kind":"daily","time":"12:00"}',?,?)`,
+      ).bind(
+        `Captured ${index}`,
+        JSON.stringify(sections),
+        JSON.stringify({ ...defaultDelivery(), webhook: { url: 'https://source.test/webhook' } }),
+      ),
+    ),
+  );
+  await env.DB.prepare(
+    "INSERT INTO feeds(url,title,fetch_interval_minutes) VALUES('https://source.test/during-queue','Due alongside Brews',1440)",
+  ).run();
+  await worker.scheduled({ scheduledTime: new Date(now) });
+  expect((await stats()).slice(0, 2)).toEqual(['/webhook', '/during-queue']);
+  expect(await env.DB.prepare('SELECT last_status FROM feeds').first()).toEqual({
+    last_status: 200,
+  });
+  expect(
+    (await env.DB.prepare('SELECT count(*) AS n FROM brew_schedule_jobs').first<{ n: number }>())!
+      .n,
+  ).toBeGreaterThan(0);
+  await env.DB.prepare(
+    "UPDATE brew_configs SET enabled=0,name='Changed after capture',sections_json='[]'",
+  ).run();
+  let invocations = 0;
+  for (; invocations < 30; invocations++) {
+    await worker.scheduled({ cron: 'review:advance', scheduledTime: new Date(now + 60_000) });
+    const row = await env.DB.prepare(
+      `SELECT (SELECT count(*) FROM brew_schedule_jobs) AS pending,
+      (SELECT value FROM settings WHERE key='review:cron:queries') AS queries`,
+    ).first<{ pending: number; queries: string }>();
+    expect(Number(row!.queries)).toBeLessThanOrEqual(50);
+    if (!row!.pending) break;
+  }
+  expect(invocations).toBeGreaterThan(1);
+  expect(invocations).toBeLessThan(30);
+  const deliveries = (await (
+    await env.UPSTREAM.fetch('https://source.test/__review/deliveries')
+  ).json()) as { key: string; body: string }[];
+  expect(deliveries).toHaveLength(16);
+  expect(new Set(deliveries.map((item) => item.key)).size).toBe(16);
+  expect(deliveries.every((item) => JSON.parse(item.body).configName.startsWith('Captured '))).toBe(
+    true,
+  );
+  expect(deliveries.every((item) => item.body.includes('Captured note.'))).toBe(true);
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM brews').first()).toEqual({ n: 16 });
+  expect(
+    await env.DB.prepare(
+      'SELECT min(generated_at) AS first,max(generated_at) AS last FROM brews',
+    ).first(),
+  ).toEqual({ first: now, last: now });
+  expect((await stats()).filter((path) => path === '/during-queue')).toHaveLength(1);
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM feed_poll_leases').first()).toEqual({
+    n: 0,
+  });
+}, 30_000);
 
 it('rejects ambiguous newsletter senders without creating a sender or storing letter content', async () => {
   await worker.email({

@@ -235,9 +235,21 @@ export function createCloudflareWorker<E extends CloudflareWorkerEnv = Cloudflar
       // Freeze/deliver scheduled issues before polling can spend the allowance.
       await library.actions.cleanup();
       await maintainCloudflareNewsletters(storage, clock.now());
-      await library.brews.runScheduled();
-      await library.brews.runCompositionScheduled();
-      await library.pendingIngestion.resume();
+      await library.scheduledBrews.capture();
+      // Protect a due feed and at least one pending step before scheduled work
+      // can spend the remainder. Reservations never interrupt an admitted send.
+      const releasePolling = storage.queryBudget?.reserve(8);
+      const releaseIngestion = storage.queryBudget?.reserve(6);
+      try {
+        try {
+          await library.scheduledBrews.drain();
+        } finally {
+          releaseIngestion?.();
+        }
+        await library.pendingIngestion.resume();
+      } finally {
+        releasePolling?.();
+      }
       await library.poller.pollDue();
     },
     async email(message: ForwardableEmailMessage, env: E) {

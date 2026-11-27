@@ -16,7 +16,9 @@ export interface BrewDeliveryResult {
   completedAt?: string;
   messageId?: string;
   httpStatus?: number;
-  error?: 'unavailable' | 'configuration' | 'email' | 'http' | 'network' | 'timeout';
+  /** interrupted means an earlier started attempt has an unknown outcome and is not replayed. */
+  error?:
+    'unavailable' | 'configuration' | 'email' | 'http' | 'network' | 'timeout' | 'interrupted';
 }
 export interface BrewDeliveryResults {
   version: 1;

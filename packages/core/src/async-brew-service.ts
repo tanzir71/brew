@@ -1,4 +1,5 @@
 import { BrewCompositionService } from './brew-composition-service.js';
+import { legacyScheduleReceipt } from './brew-scheduled-request.js';
 import { validateComposition } from './composition-model.js';
 import {
   validateLegacyBrew,
@@ -108,12 +109,8 @@ export class AsyncBrewService extends BrewCompositionService {
     let generated = 0;
     for (const config of await this.listConfigs()) {
       if (!config.enabled || (await this.usesComposition(config.id))) continue;
-      const [minute, hour] = config.scheduleCron.trim().split(/\s+/);
-      if (minute !== String(now.getMinutes()) || hour !== String(now.getHours())) continue;
-      const receipt = {
-        key: `brew_generated_${config.id}_${now.toISOString().slice(0, 10)}`,
-        value: now.toISOString(),
-      };
+      const receipt = legacyScheduleReceipt(config, now);
+      if (!receipt) continue;
       if (await this.asyncStorage.setting(receipt.key)) continue;
       if (await this.generateLegacy(config, receipt)) generated++;
     }

@@ -486,7 +486,7 @@ Reserve lease claim/cleanup separately and keep those reservations until all
 concurrent work settles. Fewer feeds run when D1 capacity is the tighter limit.
 Unstarted due sources retain their health and validators for the next invocation.
 
-Pending processing gets at most 24 D1 calls and sixteen steps per invocation, so
+Pending ingestion gets at most 20 D1 calls and sixteen steps per invocation, so
 old rule jobs leave capacity for newly due feeds. Claim/release and each complete
 step reserve capacity before I/O, including both durable send markers and the
 actual notification write/result. Intentional yields release their leases.
@@ -501,15 +501,44 @@ prepared-statement and session/batch calls. Other cases cover a nearly spent
 allowance, rejected concurrent metadata writes, real notification/webhook results
 at the query boundary, and new polling alongside a long rule backlog.
 
-This admission currently bounds the polling and pending-processing phases. Due
-Brew generation/delivery and arbitrary owner operations still need resumable
-admission; a counter does not make those operations bounded. Large config/source
+Scheduled Brews use canonical migration 0017 and the same Node-first durable
+processor on both targets. Capture stores immutable configuration snapshots and
+receipt keys before doing source work. Its initial watermark is persisted before
+discovery; enqueue advances it atomically with the requests. A failed capture is
+retried from that watermark. Catch-up discovery advances one day per invocation
+and also admits the current minute, without backfilling before a configuration's
+creation minute. Repeated capture and overlapping invocations deduplicate receipts.
+Configuration deletion cancels its queued work; editing or pausing retains the
+configuration already captured for an accepted due occurrence.
+
+Each section/source has a durable cursor and candidate snapshot. Manual previews
+and queued generation share selectors, days, union/deduplication, filters,
+sorting, sanitization and rendering. The skip receipt or frozen issue, authoritative
+issue number, cached twins and delivery cursor commit atomically. Interrupted
+freeze responses cannot allocate a second issue. A recovered delivery records
+started but unacknowledged attempts as `interrupted`, an unknown outcome, without
+automatically resending. A zero-attempt pending receipt proves the provider was
+never called; that channel resumes safely. Both channels settle before the job lease is released.
+Expired leases recover after sixteen minutes; every checkpoint/provider receipt
+is fenced against superseded runners. Node resumes at startup and each background
+minute with at most 100 steps per recovery call.
+
+Scheduled work has a 24-query/sixteen-step share. Cron protects eight calls for
+polling and six for pending ingestion while scheduled work runs. Admitted delivery
+reserves all attempt/result writes and provider fetch slots before it starts;
+simple Brews still freeze/send before polling. Real product cron tests resume
+64 sources across fresh invocations and deliver sixteen queued Brews after their
+due minute with one captured payload/key per issue while RSS continues. The native
+counter includes the test transport's telemetry write when checking the 50-call
+product bound. Compiled installs recover queued work outside the repository cwd.
+
+Arbitrary owner operations still need resumable admission. Large config/source
 snapshots and SQL work also remain unbounded. Local workerd does not prove the
 deployed 10 ms Free CPU budget. M14 remains open until the complete runtime meets
 its resource limits. See the [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
 and [D1 limits](https://developers.cloudflare.com/d1/platform/limits/).
 
-Still required: durable resource continuation, optional outbound provider setup
+Still required: complete resource bounds, optional outbound provider setup
 and the Cloudflare installer/deploy flow. These checks do not claim a working deployed
 Worker or completion of M14.
 
@@ -597,9 +626,9 @@ history. The next invocation continues from the remaining expired rows. Kind and
 expiry are rechecked during deletion; failed transactions retain both history and
 counters for retry. Legacy history keeps its existing count-based retention.
 Metadata and cleanup use one read batch and, when expired rows exist, one write
-batch. This removes per-configuration metadata/pruning query growth; due issue
-generation and delivery still need resource continuation, and a large metadata
-snapshot is not evidence of compliance with deployed Free CPU limits.
+batch. This removes per-configuration metadata/pruning query growth. The queued
+processor above continues due generation and delivery; a large metadata snapshot
+is still not evidence of compliance with deployed Free CPU limits.
 
 For a live configuration, keep the private receiving address in a secret binding,
 rather than checking it into a repository. For Email Routing,

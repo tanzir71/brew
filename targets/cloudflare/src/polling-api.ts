@@ -15,6 +15,9 @@ import { CloudflareIngestJobs } from './ingest-jobs.js';
 import { CloudflareRuleStorage } from './rule-storage.js';
 import { CloudflareQueryBudget } from './query-budget.js';
 import { CloudflareEvents } from './events.js';
+import { ScheduledBrewProcessor } from '../../../packages/core/src/brew-scheduled-processing.js';
+import { CloudflareScheduledBrewJobs } from './brew-scheduled-jobs.js';
+import { CloudflareBrewStorage } from './brew-storage.js';
 
 /** Real polling graph; the product entrypoint still needs owner/email admission. */
 export function cloudflarePollingServices(
@@ -32,9 +35,11 @@ export function cloudflarePollingServices(
   });
   const storage = new CloudflareStorage(bindings.DB, queryBudget);
   // Leave capacity for due feeds even when older rule jobs keep arriving.
-  const processingQueries = queryBudget.share(24);
+  const processingQueries = queryBudget.share(20);
   const processingStorage = new CloudflareStorage(bindings.DB, processingQueries);
   const steps = options.processingBudget ?? { remaining: 16 };
+  const scheduledQueries = queryBudget.share(24);
+  const scheduledStorage = new CloudflareStorage(bindings.DB, scheduledQueries);
   const clock = options.clock ?? { now: () => new Date(), monotonic: () => performance.now() };
   const processor = new IngestProcessingService(
     new CloudflareIngestJobs(processingStorage),
@@ -87,6 +92,31 @@ export function cloudflarePollingServices(
   };
   return {
     ...library,
+    scheduledBrews: new ScheduledBrewProcessor(
+      new CloudflareScheduledBrewJobs(
+        scheduledStorage,
+        options.brewStorage instanceof CloudflareBrewStorage
+          ? options.brewStorage.withScheduledStorage(scheduledStorage)
+          : new CloudflareBrewStorage(scheduledStorage),
+      ),
+      new CloudflareBrewStorage(scheduledStorage),
+      clock,
+      options.regex ?? {
+        test: async () => ({ matched: false, timedOut: false, error: 'Regex is unavailable.' }),
+      },
+      { fetcher: options.budget.fetch, mail: options.outboundMail, baseUrl: options.outputBaseUrl },
+      () => crypto.randomUUID(),
+      {
+        remaining: 16,
+        reserve: (kind) =>
+          scheduledQueries.reserve(kind === 'job' ? 2 : kind === 'delivery' ? 12 : 3),
+        canDeliver: (request) =>
+          request.kind !== 'composition' ||
+          options.budget.remaining >=
+            (request.config.delivery.webhook ? 2 : 0) +
+              (request.config.delivery.email && options.outboundMail ? 1 : 0),
+      },
+    ),
     pendingIngestion,
     poller: new CloudflarePoller(
       storage,
@@ -106,6 +136,7 @@ export function cloudflarePollingServices(
     ),
   } satisfies Pick<ApiServices, keyof typeof library | 'poller'> & {
     pendingIngestion: typeof pendingIngestion;
+    scheduledBrews: ScheduledBrewProcessor;
   };
 }
 export function createCloudflarePollingApi(services: ReturnType<typeof cloudflarePollingServices>) {

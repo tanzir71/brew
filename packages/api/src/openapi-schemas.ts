@@ -508,7 +508,19 @@ export const schemas: Record<string, SchemaObject> = {
       completedAt: date,
       messageId: str,
       httpStatus: int,
-      error: values('unavailable', 'configuration', 'email', 'http', 'network', 'timeout'),
+      error: {
+        ...values(
+          'unavailable',
+          'configuration',
+          'email',
+          'http',
+          'network',
+          'timeout',
+          'interrupted',
+        ),
+        description:
+          'interrupted means a started attempt has an unknown delivery outcome and is not automatically replayed.',
+      },
     },
     ['status', 'attempts'],
   ),

@@ -15,8 +15,12 @@ export class BrewDeliveryRunner {
     private clock: ClockPort,
     private options: BrewDeliveryOptions = {},
   ) {}
-  async deliver(issue: BrewSnapshot, delivery: BrewDelivery): Promise<BrewDeliveryResults> {
-    const results: BrewDeliveryResults = {
+  async deliver(
+    issue: BrewSnapshot,
+    delivery: BrewDelivery,
+    interrupted = false,
+  ): Promise<BrewDeliveryResults> {
+    let results: BrewDeliveryResults = {
       version: 1,
       email: !delivery.email
         ? { status: 'disabled', attempts: 0 }
@@ -32,8 +36,27 @@ export class BrewDeliveryRunner {
           : { status: 'pending', attempts: 0 },
     };
     // Claim before any external I/O. Never silently resend a completed or interrupted issue.
-    if (!(await this.storage.claimDelivery(issue.id, results)))
-      return (await this.storage.deliveryResults(issue.id)) ?? results;
+    if (!(await this.storage.claimDelivery(issue.id, results))) {
+      const stored = await this.storage.deliveryResults(issue.id);
+      if (!interrupted || !stored) return stored ?? results;
+      const previous = structuredClone(stored);
+      if ([previous.email, previous.webhook].some((value) => value.status === 'pending')) {
+        for (const channel of ['email', 'webhook'] as const) {
+          const value = previous[channel];
+          if (value.status === 'pending' && value.attempts !== 0) {
+            value.status = 'failed';
+            value.error = 'interrupted';
+            value.completedAt = this.clock.now().toISOString();
+          } else if (value.status === 'pending' && results[channel].status === 'unavailable') {
+            previous[channel] = results[channel];
+          }
+        }
+        await this.storage.saveDelivery(issue.id, previous);
+      }
+      // Attempt markers commit before I/O. A zero-attempt receipt proves the
+      // provider was never called, so only these known unstarted calls resume.
+      results = previous;
+    }
     // Both channels mutate one receipt. Capture each state now and serialize
     // asynchronous writes so an older pending state cannot overwrite completion.
     let pending = Promise.resolve();
@@ -45,7 +68,7 @@ export class BrewDeliveryRunner {
     const key = this.options.baseUrl
       ? `${this.options.baseUrl}${brewIssuePath(issue)}`
       : `urn:brew:${issue.brewConfigId}:${issue.id}`;
-    await Promise.all([
+    const settled = await Promise.allSettled([
       (async () => {
         if (results.email.status !== 'pending') return;
         const result = results.email;
@@ -124,6 +147,8 @@ export class BrewDeliveryRunner {
         await save();
       })(),
     ]);
+    const failed = settled.find((value) => value.status === 'rejected');
+    if (failed?.status === 'rejected') throw failed.reason;
     return results;
   }
 }

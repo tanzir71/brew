@@ -76,11 +76,22 @@ const reviewWorker = {
   ...product,
   async scheduled(controller: Parameters<typeof product.scheduled>[0], env: ProductEnv) {
     const native = countD1(env.DB);
-    await product.scheduled(controller, { ...env, DB: native.database });
-    await env.DB.prepare(
-      "INSERT INTO settings(key,value) VALUES('review:cron:queries',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-    )
-      .bind(String(native.calls))
+    const invocation =
+      controller.cron === 'review:advance'
+        ? createCloudflareWorker<ProductEnv>({
+            clock: {
+              now: () => new Date(controller.scheduledTime),
+              monotonic: () => performance.now(),
+            },
+            fetcher: (env) => (input, init) => env.UPSTREAM.fetch(input, init),
+          })
+        : product;
+    await invocation.scheduled(controller, { ...env, DB: native.database });
+    await native.database
+      .prepare(
+        "INSERT INTO settings(key,value) VALUES('review:cron:queries',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+      )
+      .bind(String(native.calls + 1))
       .run();
   },
   async fetch(request: Request, env: ProductEnv): Promise<Response> {

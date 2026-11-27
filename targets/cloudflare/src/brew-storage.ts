@@ -34,6 +34,15 @@ import {
 } from '../../../packages/db/src/brew-queries.js';
 import { CloudflareStorage } from './storage.js';
 import { libraryRevision } from './events.js';
+import {
+  scheduledConfig,
+  scheduleFence,
+  clearScheduleFence,
+} from '../../../packages/db/src/brew-scheduled-queries.js';
+import type {
+  ScheduledBrewJob,
+  ScheduledPayload,
+} from '../../../packages/core/src/brew-scheduled-processing.js';
 
 const configColumns = `id,name,schedule_cron AS scheduleCron,enabled,sections_json AS sectionsJson,
   timezone,schedule_json AS scheduleJson,delivery_json AS deliveryJson,legacy_sections_json AS legacySectionsJson,
@@ -96,6 +105,19 @@ export class CloudflareBrewStorage implements AsyncBrewStoragePort {
       : await this.storage.all<BrewConfigRow>(`SELECT ${configColumns} FROM brew_configs`);
     return rows.map(legacyBrewConfig);
   }
+  async scheduledConfigs() {
+    const rows = this.scheduleRows
+      ? [...this.scheduleRows.values()]
+      : await this.storage.all<BrewConfigRow>(
+          `SELECT ${configColumns} FROM brew_configs ORDER BY id`,
+        );
+    return rows.map(scheduledConfig);
+  }
+  withScheduledStorage(storage: CloudflareStorage) {
+    const scoped = new CloudflareBrewStorage(storage, this.timezone);
+    scoped.scheduleRows = this.scheduleRows;
+    return scoped;
+  }
   private async writeConfig(draft: CompositionDraft, legacy?: BrewConfigDraft, id?: number) {
     const previous = id === undefined ? null : await this.composition(id);
     const cron =
@@ -156,17 +178,28 @@ export class CloudflareBrewStorage implements AsyncBrewStoragePort {
   async saveScheduled(configId: number, payload: Payload, receipt: { key: string; value: string }) {
     return this.freeze(configId, payload, receipt);
   }
+  async saveScheduledWork(
+    job: ScheduledBrewJob,
+    payload: ScheduledPayload,
+    now: number,
+    until: number,
+  ) {
+    return this.freeze(job.request.config.id, payload, job.request.receipt, { job, now, until });
+  }
   private async freeze(
     configId: number,
     payload: Payload,
     receipt?: { key: string; value: string },
+    work?: { job: ScheduledBrewJob; now: number; until: number },
   ) {
     const counter = `brew_issue_number_${configId}`;
     const guard = receipt ? 'NOT EXISTS(SELECT 1 FROM settings WHERE key=?)' : '1=1';
     const guardValues = receipt ? [receipt.key] : [];
     const number = '(SELECT CAST(value AS INTEGER) FROM settings WHERE key=?)';
     const modern = 'version' in payload;
+    const fence = work ? scheduleFence(work.job, work.now) : undefined;
     const statements = [
+      ...(fence ? [this.storage.statement(fence.sql, fence.values)] : []),
       this.storage.statement(
         `INSERT INTO settings(key,value) SELECT ?,CAST(${lastNumber}+1 AS TEXT) WHERE ${guard}
         ON CONFLICT(key) DO UPDATE SET value=excluded.value`,
@@ -180,7 +213,11 @@ export class CloudflareBrewStorage implements AsyncBrewStoragePort {
           JSON.stringify(payload),
           ...(modern ? [counter] : []),
           counter,
-          modern ? new Date(payload.generatedAt).getTime() : Date.now(),
+          modern
+            ? new Date(payload.generatedAt).getTime()
+            : work
+              ? new Date(work.job.request.receipt.value).getTime()
+              : Date.now(),
           ...guardValues,
         ],
       ),
@@ -204,6 +241,29 @@ export class CloudflareBrewStorage implements AsyncBrewStoragePort {
         ),
       );
     }
+    if (work) {
+      if (work.job.request.kind === 'composition')
+        statements.push(
+          this.storage.statement(
+            `UPDATE brew_schedule_jobs SET state_json=json_object('phase','delivery','issueId',
+          (SELECT id FROM brews WHERE brew_config_id=? AND issue_number=${number}),'started',json('false')),
+          version=version+1,expires_at=? WHERE id=? AND ${guard}`,
+            [configId, counter, work.until, work.job.id, ...guardValues],
+          ),
+          this.storage.statement(`DELETE FROM brew_schedule_jobs WHERE id=? AND NOT (${guard})`, [
+            work.job.id,
+            ...guardValues,
+          ]),
+        );
+      else
+        statements.push(
+          this.storage.statement('DELETE FROM brew_schedule_jobs WHERE id=?', [work.job.id]),
+          this.storage.statement(
+            `DELETE FROM brews WHERE id IN (SELECT id FROM brews WHERE brew_config_id=? ORDER BY generated_at DESC,id DESC LIMIT -1 OFFSET 30) AND ${guard}`,
+            [configId, ...guardValues],
+          ),
+        );
+    }
     if (receipt)
       statements.push(
         this.storage.statement('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)', [
@@ -211,9 +271,10 @@ export class CloudflareBrewStorage implements AsyncBrewStoragePort {
           receipt.value,
         ]),
       );
+    if (work) statements.push(this.storage.statement(clearScheduleFence.sql));
     statements.push(libraryRevision(this.storage));
     const result = await this.storage.batch(statements);
-    return (result[1]!.results[0]?.id as number | undefined) ?? null;
+    return (result[work ? 2 : 1]!.results[0]?.id as number | undefined) ?? null;
   }
   async prune(configId: number, keep: number) {
     await this.storage.run(

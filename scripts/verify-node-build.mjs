@@ -17,6 +17,11 @@ import { verifyReaderSyncBuild } from './verify-reader-sync-build.mjs';
 import { RulesService } from '../dist/targets/node/src/services/rules-service.js';
 import { NodeIngestStorage } from '../dist/targets/node/src/ports/ingest-storage.js';
 import { IngestPipeline } from '../dist/targets/node/src/services/ingest-pipeline.js';
+import { NodeBrewStorage } from '../dist/targets/node/src/ports/brew-storage.js';
+import { NodeScheduledBrewJobs } from '../dist/targets/node/src/ports/brew-scheduled-jobs.js';
+import { BrewService as ScheduledNodeService } from '../dist/targets/node/src/services/brew-service.js';
+import { ScheduledBrewProcessor } from '../dist/packages/core/src/brew-scheduled-processing.js';
+import { nodeRegex } from '../dist/targets/node/src/ports/runtime.js';
 
 // A built install must find migrations and the SPA outside the repository cwd.
 const previousDirectory = process.cwd();
@@ -664,6 +669,22 @@ try {
   } finally {
     ruleDatabase.close();
   }
+  const scheduleDatabase = openDatabase(':memory:');
+  try {
+    let time = Date.parse('2026-11-27T12:00:00Z');
+    const clock = { now: () => new Date(time), monotonic: () => globalThis.performance.now() };
+    const storage = new NodeBrewStorage(scheduleDatabase);
+    const id = storage.createComposition({name:'Compiled pending schedule',enabled:true,timezone:'UTC',schedule:{kind:'daily',time:'12:00'},delivery:{web:true,feed:false,publicCopy:false},sections:[{...newBrewSection('first','note'),note:'First compiled note.'},{...newBrewSection('second','note'),note:'Second compiled note.'}]});
+    const work = new ScheduledBrewProcessor(new NodeScheduledBrewJobs(scheduleDatabase),storage,clock,nodeRegex);
+    await work.capture(); await work.drain(1);
+    assert.equal(scheduleDatabase.sqlite.prepare('SELECT count(*) AS n FROM brew_schedule_jobs').get().n,1);
+    time += 60_000;
+    await new ScheduledNodeService(scheduleDatabase,clock).runPendingScheduled(false);
+    assert.equal(scheduleDatabase.sqlite.prepare('SELECT count(*) AS n FROM brew_schedule_jobs').get().n,0);
+    const issue = storage.snapshot(storage.historyIds(id)[0]);
+    assert.equal(issue.generatedAt,'2026-11-27T12:00:00.000Z'); assert.equal(issue.sections.length,2);
+    assert.equal(storage.deliveryResults(issue.id).webhook.status,'disabled');
+  } finally { scheduleDatabase.close(); }
   const posted = [];
   const deliveryApp = await createApp({
     database: openDatabase(':memory:'),

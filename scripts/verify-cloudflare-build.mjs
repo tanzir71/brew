@@ -40,6 +40,8 @@ import {
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { newBrewSection } from '../dist/packages/core/src/composition-model.js';
 import { renderBrewMarkdown } from '../dist/packages/core/src/brew-outputs.js';
+import { ScheduledBrewProcessor } from '../dist/packages/core/src/brew-scheduled-processing.js';
+import { CloudflareScheduledBrewJobs } from '../dist/targets/cloudflare/src/brew-scheduled-jobs.js';
 
 const originalDirectory = process.cwd();
 process.chdir(tmpdir());
@@ -654,6 +656,17 @@ try {
     0,
   );
   assert.equal(await new CloudflareBrewStorage(storage).nextIssueNumber(archived.id), 502);
+  const scheduledClock={now:()=>new Date('2026-11-27T12:00:00Z'),monotonic:()=>globalThis.performance.now()};
+  const queuedBrewStorage=new CloudflareBrewStorage(storage);
+  const queuedConfig=await queuedBrewStorage.createComposition({name:'Compiled queued schedule',enabled:true,timezone:'UTC',schedule:{kind:'daily',time:'12:00'},delivery:{web:true,feed:false,publicCopy:false},sections:[{...newBrewSection('first','note'),note:'First queued note.'},{...newBrewSection('second','note'),note:'Second queued note.'}]});
+  const queuedSchedule=new ScheduledBrewProcessor(new CloudflareScheduledBrewJobs(storage),queuedBrewStorage,scheduledClock,regex);
+  await queuedSchedule.capture();await queuedSchedule.drain(1);
+  assert.equal((await storage.first('SELECT count(*) AS n FROM brew_schedule_jobs WHERE config_id=?',[queuedConfig])).n,1);
+  await new ScheduledBrewProcessor(new CloudflareScheduledBrewJobs(new CloudflareStorage(database)),queuedBrewStorage,{...scheduledClock,now:()=>new Date('2026-11-27T12:01:00Z')},regex).drain();
+  assert.equal((await storage.first('SELECT count(*) AS n FROM brew_schedule_jobs WHERE config_id=?',[queuedConfig])).n,0);
+  const queuedIssue=await queuedBrewStorage.snapshot((await queuedBrewStorage.historyIds(queuedConfig))[0]);
+  assert.equal(queuedIssue.generatedAt,'2026-11-27T12:00:00.000Z');assert.equal(queuedIssue.sections.length,2);
+  assert.equal((await queuedBrewStorage.deliveryResults(queuedIssue.id)).webhook.status,'disabled');
   await storage.run(
     "INSERT INTO settings(key,value) VALUES('duplicate_filter_enabled','true') ON CONFLICT(key) DO UPDATE SET value='true'",
   );
