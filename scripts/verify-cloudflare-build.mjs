@@ -12,6 +12,7 @@ import { newQuickJSWASMModuleFromVariant, newVariant } from 'quickjs-emscripten-
 import { CloudflareRegex, regexWasmMemory } from '../dist/targets/cloudflare/src/regex.js';
 import { unstable_splitSqlQuery } from 'wrangler';
 import { CloudflareStorage } from '../dist/targets/cloudflare/src/storage.js';
+import { CloudflareIngestStorage } from '../dist/targets/cloudflare/src/ingest-storage.js';
 import { CloudflareBrewStorage } from '../dist/targets/cloudflare/src/brew-storage.js';
 import { CloudflareNewsletterStorage } from '../dist/targets/cloudflare/src/newsletter-storage.js';
 import { maintainCloudflareNewsletters } from '../dist/targets/cloudflare/src/newsletter-maintenance.js';
@@ -507,8 +508,21 @@ try {
   });
   assert.equal(pollBudget.used, 2);
   assert.equal(pollCalls, 2);
+  const pendingArticle={feedId:pollSource.id,guid:'compiled-pending',hash:'compiled-pending',url:'https://compiled.example.test/pending',title:'Compiled pending article',author:null,summaryHtml:null,contentHtml:'<p>Pending compiled processing.</p>',imageUrl:null,enclosureUrl:null,enclosureType:null,publishedAt:new Date()};
+  const [pendingId]=await new CloudflareIngestStorage(storage,undefined,true).insertBatch([{feedId:pollSource.id,guid:pendingArticle.guid,hash:pendingArticle.hash,prepare:()=>pendingArticle}]);
+  const pendingBindings={DB:database,IMAGES:await runtime.getR2Bucket('IMAGES')};
+  const pendingOptions=()=>({budget:new CloudflareFetchBudget(2),regex,capabilities:services.capabilities,processingBudget:{remaining:1}});
+  await cloudflarePollingServices(pendingBindings,pendingOptions()).pendingIngestion.resume();
+  assert.equal((await storage.first('SELECT count(*) AS n FROM ingest_jobs')).n,1);
+  const pendingQuery={onlyUnread:false,starred:false,featured:false,sort:'newest',feedId:pollSource.id};
+  assert.ok(!(await new CloudflareBrewStorage(storage).compositionItems(pendingQuery)).some(article=>article.id===pendingId));
+  for(let step=0;step<16&&(await storage.first('SELECT count(*) AS n FROM ingest_jobs')).n;step++)await cloudflarePollingServices(pendingBindings,pendingOptions()).pendingIngestion.resume();
+  assert.equal((await storage.first('SELECT count(*) AS n FROM ingest_jobs')).n,0);
+  assert.ok((await new CloudflareBrewStorage(storage).compositionItems(pendingQuery)).some(article=>article.id===pendingId));
+  assert.ok((await storage.first('SELECT starred_at FROM articles WHERE id=?',[pendingId])).starred_at);
+  assert.equal((await storage.first('SELECT count(*) AS n FROM rule_logs WHERE article_id=?',[pendingId])).n,1);
   assert.equal(
-    (await storage.first('SELECT content_html FROM articles WHERE feed_id=?', [pollSource.id]))
+    (await storage.first("SELECT content_html FROM articles WHERE feed_id=? AND guid='compiled-poll'", [pollSource.id]))
       .content_html,
     '<p>Compiled polling content.</p>',
   );

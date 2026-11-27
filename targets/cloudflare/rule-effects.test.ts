@@ -12,6 +12,17 @@ import { nodeRegex } from '../node/src/ports/runtime.js';
 import { AsyncRulesService } from '../../packages/core/src/async-rules-service.js';
 import type { AsyncRuleStoragePort } from '../../packages/core/src/ports.js';
 import type { RuleAction } from '../../packages/core/src/types/rules.js';
+import {
+  IngestProcessingService,
+  IngestLeaseLost,
+} from '../../packages/core/src/ingest-processing.js';
+import { CloudflareIngestJobs } from './src/ingest-jobs.js';
+import { CloudflareIngestStorage } from './src/ingest-storage.js';
+import { CloudflareNewsletterStorage } from './src/newsletter-storage.js';
+import { NodeIngestStorage } from '../node/src/ports/ingest-storage.js';
+import { NodeNewsletterStorage } from '../node/src/ports/newsletter-storage.js';
+import type { IngestCandidate } from '../../packages/core/src/ports.js';
+import { randomUUID } from 'node:crypto';
 
 const runtime = new Miniflare({
   modules: true,
@@ -54,10 +65,12 @@ beforeEach(async () => {
       'DROP TRIGGER IF EXISTS remove_failure',
       'DROP TRIGGER IF EXISTS log_failure',
       'DROP TRIGGER IF EXISTS field_failure',
+      'DROP TRIGGER IF EXISTS job_failure',
       'DELETE FROM feeds',
       'DELETE FROM rules',
       'DELETE FROM tags',
       'DELETE FROM settings',
+      "DELETE FROM sqlite_sequence WHERE name IN ('articles','tags','rules','ingest_jobs')",
     ].map((sql) => storage.statement(sql)),
   );
   node = openDatabase(':memory:');
@@ -381,4 +394,233 @@ it('uses the same commit path for manual apply and records empty action lists on
   calls.mockRestore();
   await parity();
   expect(await storage.first(logsSql)).toMatchObject({ actions_taken_json: '[]' });
+});
+
+function pendingCandidate(guid = 'pending'): IngestCandidate {
+  return {
+    feedId: 1,
+    guid,
+    hash: guid,
+    prepare: () => ({
+      feedId: 1,
+      guid,
+      hash: guid,
+      url: `https://feed.test/${guid}`,
+      title: 'Pending story',
+      author: null,
+      summaryHtml: null,
+      contentHtml: '<p>Pending.</p>',
+      imageUrl: null,
+      enclosureUrl: null,
+      enclosureType: null,
+      publishedAt: new Date(now),
+    }),
+  };
+}
+function pendingProcessor(source = storage, network = unavailableNetwork) {
+  return new IngestProcessingService(
+    new CloudflareIngestJobs(source),
+    new CloudflareIngestStorage(source),
+    new CloudflareRuleStorage(source),
+    nodeRegex,
+    network,
+    unavailableNotifications,
+    clock,
+    randomUUID,
+  );
+}
+async function pendingFixture(actions: RuleAction[]) {
+  await rule(actions);
+  expect(new NodeIngestStorage(node, true).insertBatch([pendingCandidate()])).toEqual([2]);
+  expect(
+    await new CloudflareIngestStorage(storage, undefined, true).insertBatch([pendingCandidate()]),
+  ).toEqual([2]);
+}
+
+it('atomically queues only new feed articles, including deduplication and insertion rollback in Node and native D1', async () => {
+  const nodeStorage = new NodeIngestStorage(node, true),
+    cloudStorage = new CloudflareIngestStorage(storage, undefined, true);
+  const items = [
+    pendingCandidate('queued-one'),
+    pendingCandidate('queued-one'),
+    pendingCandidate('queued-two'),
+  ];
+  expect(nodeStorage.insertBatch(items)).toEqual([2, 3]);
+  expect(await cloudStorage.insertBatch(items)).toEqual([2, 3]);
+  expect(nodeStorage.insertBatch(items)).toEqual([]);
+  expect(await cloudStorage.insertBatch(items)).toEqual([]);
+  for (const sql of [
+    'SELECT count(*) AS n FROM ingest_jobs',
+    'SELECT article_id FROM ingest_job_items ORDER BY article_id',
+  ])
+    expect(await storage.all(sql)).toEqual(node.sqlite.prepare(sql).all());
+  await both(
+    "CREATE TRIGGER job_failure BEFORE INSERT ON ingest_job_items BEGIN SELECT RAISE(ABORT,'queue fixture refusal'); END",
+  );
+  expect(() => nodeStorage.insertBatch([pendingCandidate('rejected')])).toThrow(
+    'queue fixture refusal',
+  );
+  await expect(cloudStorage.insertBatch([pendingCandidate('rejected')])).rejects.toThrow(
+    'queue fixture refusal',
+  );
+  expect(await storage.first('SELECT count(*) AS n FROM articles')).toEqual({ n: 3 });
+  expect(await storage.first('SELECT count(*) AS n FROM ingest_jobs')).toEqual({ n: 1 });
+});
+
+it('queues newsletter insertions in the same native transaction and does not enqueue blocked or repeated letters', async () => {
+  const nodeStorage = new NodeNewsletterStorage(node, true),
+    cloudStorage = new CloudflareNewsletterStorage(storage, undefined, true);
+  const sender = { address: 'queued@example.test', name: 'Queued' };
+  const local = await nodeStorage.ensureSender(sender),
+    cloud = await cloudStorage.ensureSender(sender);
+  expect(local.id).toBe(cloud.id);
+  const item = {
+    ...pendingCandidate().prepare(),
+    feedId: local.id,
+    url: '',
+    rawHtml: '<p>Original</p>',
+    cleaningJson: '{}',
+  };
+  expect(nodeStorage.insertLetter(item)).toEqual({ id: 2, inserted: true });
+  expect(await cloudStorage.insertLetter(item)).toEqual({ id: 2, inserted: true });
+  expect(nodeStorage.insertLetter(item)).toEqual({ id: 2, inserted: false });
+  expect(await cloudStorage.insertLetter(item)).toEqual({ id: 2, inserted: false });
+  expect(await storage.first('SELECT url FROM articles WHERE id=2')).toEqual({ url: '/a/2' });
+  await both('UPDATE feeds SET settings_json=\'{"blocked":true}\' WHERE id=?', [local.id]);
+  expect(nodeStorage.insertLetter({ ...item, guid: 'blocked', hash: 'blocked' })).toMatchObject({
+    blocked: true,
+  });
+  expect(
+    await cloudStorage.insertLetter({ ...item, guid: 'blocked', hash: 'blocked' }),
+  ).toMatchObject({ blocked: true });
+  expect(await storage.first('SELECT count(*) AS n FROM ingest_jobs')).toEqual({ n: 1 });
+  expect(await storage.all('SELECT article_id FROM ingest_job_items')).toEqual([{ article_id: 2 }]);
+});
+
+it('keeps an accepted article pending after its insertion response is lost, without enqueuing it twice on retry', async () => {
+  const adapter = new CloudflareIngestStorage(storage, undefined, true),
+    original = storage.batch.bind(storage);
+  vi.spyOn(storage, 'batch').mockImplementationOnce(async (statements) => {
+    await original(statements);
+    throw new Error('D1_ERROR: Network connection lost.');
+  });
+  await expect(adapter.insertBatch([pendingCandidate()])).rejects.toThrow(
+    'Network connection lost',
+  );
+  expect(
+    await new CloudflareIngestStorage(new CloudflareStorage(database), undefined, true).insertBatch(
+      [pendingCandidate()],
+    ),
+  ).toEqual([]);
+  expect(await storage.first('SELECT count(*) AS n FROM ingest_jobs')).toEqual({ n: 1 });
+  await pendingProcessor(new CloudflareStorage(database)).drain();
+  expect(await storage.first('SELECT count(*) AS n FROM articles')).toEqual({ n: 2 });
+  expect(await storage.all('SELECT * FROM ingest_jobs')).toEqual([]);
+});
+
+it.each(['tag', 'commit'] as const)(
+  'resumes native D1 after a lost %s checkpoint response without duplicate effects or logs',
+  async (kind) => {
+    await pendingFixture([{ type: 'add_tag', tag: 'Durable' }, { type: 'star' }]);
+    await pendingProcessor().drain(undefined, kind === 'tag' ? 3 : 5);
+    const original = storage.batch.bind(storage);
+    let calls = 0;
+    vi.spyOn(storage, 'batch').mockImplementation(async (statements) => {
+      const result = await original(statements);
+      if (++calls === 2) throw new Error('D1_ERROR: Network connection lost.');
+      return result;
+    });
+    await expect(pendingProcessor().drain()).rejects.toThrow('Network connection lost');
+    vi.restoreAllMocks();
+    await pendingProcessor(new CloudflareStorage(database)).drain();
+    expect(await storage.first('SELECT starred_at FROM articles WHERE id=2')).toEqual({
+      starred_at: now,
+    });
+    expect(await storage.first('SELECT count(*) AS n FROM rule_logs WHERE article_id=2')).toEqual({
+      n: 1,
+    });
+    expect(
+      await storage.all(
+        'SELECT t.name FROM article_tags a JOIN tags t ON t.id=a.tag_id WHERE a.article_id=2',
+      ),
+    ).toEqual([{ name: 'Durable' }]);
+    expect(await storage.all('SELECT * FROM ingest_jobs')).toEqual([]);
+    expect(await storage.all('SELECT * FROM ingest_job_guard')).toEqual([]);
+  },
+);
+
+it('fences an expired native runner and preserves the replacement lease', async () => {
+  await pendingFixture([]);
+  const jobs = new CloudflareIngestJobs(storage),
+    old = (await jobs.claim('old', now, now + 10))!;
+  expect(await jobs.claim('too-early', now + 9, now + 20)).toBeNull();
+  const replacement = (await jobs.claim('replacement', now + 10, now + 30))!;
+  await expect(
+    jobs.checkpoint(old, { phase: 'retention' }, { hidden: [2] }, now + 11, now + 50),
+  ).rejects.toBeInstanceOf(IngestLeaseLost);
+  await jobs.release(old.id, 'old');
+  expect(await storage.first('SELECT runner FROM ingest_jobs')).toEqual({ runner: 'replacement' });
+  await jobs.checkpoint(replacement, { phase: 'retention' }, {}, now + 11, now + 50);
+  expect(await storage.first('SELECT hidden FROM articles WHERE id=2')).toEqual({ hidden: 0 });
+  expect(await storage.all('SELECT * FROM ingest_job_guard')).toEqual([]);
+});
+
+it('records a native local constraint failure and continues through other actions with an atomic final log', async () => {
+  await pendingFixture([
+    { type: 'add_tag', tag: 'Refused' },
+    { type: 'add_tag', tag: 'Kept' },
+    { type: 'mark_read' },
+  ]);
+  await storage.run(
+    "CREATE TRIGGER tag_failure BEFORE INSERT ON tags WHEN NEW.name='Refused' BEGIN SELECT RAISE(ABORT,'pending tag refusal'); END",
+  );
+  await pendingProcessor().drain();
+  expect((await new CloudflareRuleStorage(storage).logs(1))[0]!.actions).toEqual([
+    { type: 'add_tag', ok: false, error: expect.stringContaining('pending tag refusal') },
+    { type: 'add_tag', ok: true },
+    { type: 'mark_read', ok: true },
+  ]);
+  expect(await storage.first('SELECT read_at FROM articles WHERE id=2')).toEqual({ read_at: now });
+  expect(await storage.all('SELECT * FROM ingest_job_guard')).toEqual([]);
+});
+
+it('resumes an unacknowledged real HTTP delivery as unknown and never sends it again', async () => {
+  let requests = 0;
+  const server = createServer(async (request, response) => {
+    for await (const chunk of request) void chunk;
+    requests++;
+    response.writeHead(204);
+    response.end();
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Expected HTTP port');
+    await pendingFixture([
+      { type: 'webhook', url: `http://127.0.0.1:${address.port}/hook` },
+      { type: 'star' },
+    ]);
+    await pendingProcessor().drain(undefined, 3);
+    const original = storage.batch.bind(storage);
+    let calls = 0;
+    vi.spyOn(storage, 'batch').mockImplementation(async (statements) => {
+      if (++calls === 3) throw new Error('D1_ERROR: Network connection lost.');
+      return original(statements);
+    });
+    await expect(pendingProcessor(storage, { fetch }).drain()).rejects.toThrow(
+      'Network connection lost',
+    );
+    vi.restoreAllMocks();
+    expect(requests).toBe(1);
+    await pendingProcessor(new CloudflareStorage(database), { fetch }).drain();
+    expect(requests).toBe(1);
+    expect((await new CloudflareRuleStorage(storage).logs(1))[0]!.actions).toEqual([
+      { type: 'webhook', ok: false, error: expect.stringContaining('outcome is unknown') },
+      { type: 'star', ok: true },
+    ]);
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
 });

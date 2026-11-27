@@ -44,8 +44,8 @@ export function ruleArticleQuery(id: number, changes: ArticleChanges): SqlQuery 
     sql: `UPDATE articles SET ${fields.map(([key]) => `${columns[key]}=?`).join(',')} WHERE id=?`,
     values: [
       ...fields.map(([, value]) =>
-        value instanceof Date
-          ? value.getTime()
+        value instanceof Date || Object.prototype.toString.call(value) === '[object Date]'
+          ? (value as Date).getTime()
           : typeof value === 'boolean'
             ? Number(value)
             : value,

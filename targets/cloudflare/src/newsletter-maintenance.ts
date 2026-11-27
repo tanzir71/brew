@@ -1,4 +1,5 @@
 import { CloudflareStorage } from './storage.js';
+import { pendingIngestArticle } from '../../../packages/db/src/ingest-job-queries.js';
 
 export const NEWSLETTER_MAINTENANCE_PAGE_SIZE = 500;
 const cursorKey = 'maintenance:newsletter-retention:cursor';
@@ -42,7 +43,7 @@ export async function maintainCloudflareNewsletters(storage: CloudflareStorage, 
     ),
     storage.statement(
       `DELETE FROM articles WHERE ${selected} AND ${expired} AND starred_at IS NULL
-       AND NOT EXISTS(SELECT 1 FROM article_tags WHERE article_id=articles.id) RETURNING 1 AS changed`,
+       AND NOT EXISTS(SELECT 1 FROM article_tags WHERE article_id=articles.id) AND ${pendingIngestArticle} RETURNING 1 AS changed`,
       [at],
     ),
     storage.statement(

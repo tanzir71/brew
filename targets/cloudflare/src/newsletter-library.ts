@@ -238,7 +238,7 @@ export class CloudflareNewsletterLibrary {
       );
       statements.push(
         statement(
-          `DELETE FROM articles WHERE feed_id=? AND published_at<? AND starred_at IS NULL AND NOT EXISTS(SELECT 1 FROM article_tags WHERE article_id=articles.id) AND ${marker}`,
+          `DELETE FROM articles WHERE feed_id=? AND published_at<? AND starred_at IS NULL AND NOT EXISTS(SELECT 1 FROM article_tags WHERE article_id=articles.id) AND NOT EXISTS(SELECT 1 FROM ingest_job_items p WHERE p.article_id=articles.id) AND ${marker}`,
           [id, cutoff, token],
         ),
       );

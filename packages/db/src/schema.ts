@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   index,
+  check,
   integer,
   primaryKey,
   sqliteTable,
@@ -294,7 +295,54 @@ export const feedPollLeases = sqliteTable(
   (table) => [index('feed_poll_leases_expiry').on(table.expiresAt)],
 );
 
+export const ingestJobs = sqliteTable(
+  'ingest_jobs',
+  {
+    sequence: integer('sequence').primaryKey({ autoIncrement: true }),
+    id: text('id').notNull().unique(),
+    feedId: integer('feed_id')
+      .notNull()
+      .references(() => feeds.id, { onDelete: 'cascade' }),
+    stateJson: text('state_json').notNull().default('{"phase":"duplicates"}'),
+    version: integer('version').notNull().default(0),
+    runner: text('runner'),
+    expiresAt: timestamp('expires_at')
+      .notNull()
+      .default(sql`0`),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .default(sql`(unixepoch()*1000)`),
+  },
+  (table) => [
+    index('ingest_jobs_ready').on(table.expiresAt, table.sequence),
+    uniqueIndex('ingest_jobs_runner').on(table.runner),
+  ],
+);
+export const ingestJobItems = sqliteTable(
+  'ingest_job_items',
+  {
+    articleId: integer('article_id')
+      .primaryKey()
+      .references(() => articles.id, { onDelete: 'cascade' }),
+    jobId: text('job_id')
+      .notNull()
+      .references(() => ingestJobs.id, { onDelete: 'cascade' }),
+  },
+  (table) => [index('ingest_job_items_job').on(table.jobId, table.articleId)],
+);
+export const ingestJobGuard = sqliteTable(
+  'ingest_job_guard',
+  { id: integer('id').primaryKey(), valid: integer('valid').notNull() },
+  (table) => [
+    check('ingest_guard_id', sql`${table.id}=1`),
+    check('brew_ingest_lease', sql`${table.valid}=1`),
+  ],
+);
+
 export const schema = {
+  ingestJobs,
+  ingestJobItems,
+  ingestJobGuard,
   feedPollLeases,
   instanceEvents,
   readerAccess,

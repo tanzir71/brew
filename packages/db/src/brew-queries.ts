@@ -67,7 +67,11 @@ export type BrewCandidateRow = Omit<BrewCandidate, 'content'> & {
   cleaningJson: string | null;
 };
 export function compositionItemsQuery(query: BrewItemQuery): SqlQuery | null {
-  const clauses = ['a.hidden=0', 'a.excluded_from_brew=0'];
+  const clauses = [
+    'a.hidden=0',
+    'a.excluded_from_brew=0',
+    'NOT EXISTS(SELECT 1 FROM ingest_job_items pending WHERE pending.article_id=a.id)',
+  ];
   if (query.searchQuery !== undefined && !compileFtsQuery(query.searchQuery)) return null;
   const params: Array<number | string> = [];
   if (query.newsletters) {
@@ -141,7 +145,11 @@ export function brewCandidates(rows: BrewCandidateRow[]): BrewCandidate[] {
 }
 
 export function legacyBrewItemsQuery(query: BrewItemQuery): SqlQuery {
-  const clauses = ['a.hidden = 0', 'a.excluded_from_brew = 0'];
+  const clauses = [
+    'a.hidden = 0',
+    'a.excluded_from_brew = 0',
+    'NOT EXISTS(SELECT 1 FROM ingest_job_items pending WHERE pending.article_id=a.id)',
+  ];
   const params: Array<number | string> = [];
   if (query.onlyUnread) clauses.push('a.read_at IS NULL');
   if (query.folderId !== undefined) {

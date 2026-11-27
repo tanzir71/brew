@@ -60,7 +60,16 @@ export class CloudflareNewsletterStorage
   async insertLetter(item: NewsletterArticle): Promise<NewsletterInsertResult> {
     const admission = this.admission?.();
     const guard = admission ? ` AND (${admission.predicate})` : '';
+    const job = this.queued ? crypto.randomUUID() : null;
     const results = await this.storage.batch([
+      ...(job
+        ? [
+            this.storage.statement('INSERT INTO ingest_jobs(id,feed_id) VALUES(?,?)', [
+              job,
+              item.feedId,
+            ]),
+          ]
+        : []),
       this.storage.statement(
         `INSERT INTO articles(feed_id,guid,url,title,author,content_html,image_url,published_at,hash,raw_html,cleaning_json)
          SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS
@@ -85,6 +94,14 @@ export class CloudflareNewsletterStorage
           ...(admission?.values ?? []),
         ],
       ),
+      ...(job
+        ? [
+            this.storage.statement(
+              'INSERT INTO ingest_job_items(article_id,job_id) SELECT id,? FROM articles WHERE feed_id=? AND guid=? AND changes()>0',
+              [job, item.feedId, item.guid],
+            ),
+          ]
+        : []),
       this.storage.statement(
         `UPDATE articles SET url='/a/'||id WHERE feed_id=? AND (guid=? OR hash=?) AND url='' AND coalesce((SELECT json_extract(settings_json,'$.blocked') FROM feeds WHERE id=?),0)<>1${guard}`,
         [item.feedId, item.guid, item.hash, item.feedId, ...(admission?.values ?? [])],
@@ -100,11 +117,21 @@ export class CloudflareNewsletterStorage
       ...(admission
         ? [this.storage.statement(`SELECT 1 WHERE ${admission.predicate}`, admission.values)]
         : []),
+      ...(job
+        ? [
+            this.storage.statement(
+              'DELETE FROM ingest_jobs WHERE id=? AND NOT EXISTS(SELECT 1 FROM ingest_job_items WHERE job_id=?)',
+              [job, job],
+            ),
+          ]
+        : []),
     ]);
-    if (admission && !results.at(-1)?.results.length) throw this.admissionError(admission);
-    if (results[3]!.results[0]?.blocked) return { id: null, inserted: false, blocked: true };
-    const row = results[2]!.results[0] as { id: number } | undefined;
+    const offset = job ? 2 : 0;
+    if (admission && !results[job ? 6 : 4]?.results.length) throw this.admissionError(admission);
+    if (results[3 + offset]!.results[0]?.blocked)
+      return { id: null, inserted: false, blocked: true };
+    const row = results[2 + offset]!.results[0] as { id: number } | undefined;
     if (!row) throw new Error('Could not store newsletter');
-    return { id: row.id, inserted: results[0]!.results.length === 1 };
+    return { id: row.id, inserted: results[job ? 1 : 0]!.results.length === 1 };
   }
 }

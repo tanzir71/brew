@@ -234,12 +234,19 @@ export function createCloudflareWorker<E extends CloudflareWorkerEnv = Cloudflar
       await maintainCloudflareNewsletters(storage, clock.now());
       await library.brews.runScheduled();
       await library.brews.runCompositionScheduled();
+      await library.pendingIngestion.resume();
       await library.poller.pollDue();
     },
     async email(message: ForwardableEmailMessage, env: E) {
       try {
         const { library, storage } = await services(env, budget(env), 'mail');
-        await receiveCloudflareMail(message, storage, clock, library.rules);
+        await receiveCloudflareMail(
+          message,
+          storage,
+          clock,
+          library.rules,
+          library.pendingIngestion.policy,
+        );
       } catch {
         await message.raw.cancel().catch(() => undefined);
         throw new Error('Newsletter storage is temporarily unavailable.');

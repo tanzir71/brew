@@ -7,12 +7,18 @@ import type {
 import { duplicateTitleQueries } from '../../../../packages/db/src/ingest-queries.js';
 import type { BrewDatabase } from '../db/database.js';
 import { articles } from '../db/schema.js';
+import { randomUUID } from 'node:crypto';
+import { pendingIngestArticle } from '../../../../packages/db/src/ingest-job-queries.js';
 
 export class NodeIngestStorage implements IngestStoragePort {
-  constructor(protected readonly database: BrewDatabase) {}
+  constructor(
+    protected readonly database: BrewDatabase,
+    protected readonly queued = false,
+  ) {}
   insertBatch(items: IngestCandidate[]): number[] {
     return this.database.sqlite.transaction(() => {
       const ids: number[] = [];
+      const jobs = new Map<number, string>();
       for (const item of items) {
         const duplicate = this.database.db
           .select({ id: articles.id })
@@ -25,13 +31,25 @@ export class NodeIngestStorage implements IngestStoragePort {
           )
           .get();
         if (duplicate) continue;
-        ids.push(
-          this.database.db
-            .insert(articles)
-            .values(item.prepare())
-            .returning({ id: articles.id })
-            .get().id,
-        );
+        const id = this.database.db
+          .insert(articles)
+          .values(item.prepare())
+          .returning({ id: articles.id })
+          .get().id;
+        ids.push(id);
+        if (this.queued) {
+          let job = jobs.get(item.feedId);
+          if (!job) {
+            job = randomUUID();
+            jobs.set(item.feedId, job);
+            this.database.sqlite
+              .prepare('INSERT INTO ingest_jobs(id,feed_id) VALUES(?,?)')
+              .run(job, item.feedId);
+          }
+          this.database.sqlite
+            .prepare('INSERT INTO ingest_job_items(article_id,job_id) VALUES(?,?)')
+            .run(id, job);
+        }
       }
       return ids;
     })();
@@ -68,7 +86,7 @@ export class NodeIngestStorage implements IngestStoragePort {
       .run(feedId, before);
     this.database.sqlite
       .prepare(
-        'DELETE FROM articles WHERE feed_id = ? AND published_at < ? AND starred_at IS NULL AND NOT EXISTS (SELECT 1 FROM article_tags WHERE article_id = articles.id)',
+        `DELETE FROM articles WHERE feed_id = ? AND published_at < ? AND starred_at IS NULL AND NOT EXISTS (SELECT 1 FROM article_tags WHERE article_id = articles.id) AND ${pendingIngestArticle}`,
       )
       .run(feedId, before);
   }

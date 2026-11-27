@@ -34,6 +34,7 @@ export class CloudflarePoller {
     private readonly budget: CloudflareFetchBudget,
     private readonly ingest: Ingest,
     private readonly now: () => Date = () => new Date(),
+    private readonly afterPolling?: () => Promise<unknown>,
   ) {}
   private async claim(runner: string, limit: number, id?: number): Promise<PollingFeed[]> {
     if (!limit) return [];
@@ -130,6 +131,7 @@ export class CloudflarePoller {
       );
       const failed = settled.find((result) => result.status === 'rejected');
       if (failed?.status === 'rejected') throw failed.reason;
+      await this.afterPolling?.();
       return results.sort((a, b) => a.feedId - b.feedId);
     } finally {
       await this.storage.run('DELETE FROM feed_poll_leases WHERE runner=?', [runner]);

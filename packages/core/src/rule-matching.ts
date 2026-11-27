@@ -1,7 +1,29 @@
 import type { ArticleContext, RegexPort } from './ports.js';
-import type { RuleCondition } from './types/rules.js';
+import type { RuleCondition, RuleScope } from './types/rules.js';
 import { safeRegexTest } from './safe-regex.js';
 const normalized = (value: string) => value.normalize('NFKC').toLocaleLowerCase();
+export function inRuleScope(context: ArticleContext, scope: RuleScope): boolean {
+  if (!scope.feedIds?.length && !scope.folderIds?.length) return true;
+  return Boolean(
+    scope.feedIds?.includes(context.feedId) ||
+    (context.folderId !== null && scope.folderIds?.includes(context.folderId)),
+  );
+}
+export async function matchesRule(
+  regex: RegexPort,
+  context: ArticleContext,
+  scope: RuleScope,
+  match: 'all' | 'any',
+  conditions: RuleCondition[],
+): Promise<boolean> {
+  if (!inRuleScope(context, scope)) return false;
+  const results = await Promise.all(
+    conditions.map((condition) => matchCondition(regex, context, condition)),
+  );
+  return (
+    conditions.length === 0 || (match === 'all' ? results.every(Boolean) : results.some(Boolean))
+  );
+}
 export async function matchCondition(
   regex: RegexPort,
   context: ArticleContext,

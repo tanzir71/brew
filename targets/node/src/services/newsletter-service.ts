@@ -11,6 +11,14 @@ export class NewsletterService extends NewsletterPipeline {
     clock: ClockPort = nodeClock,
     rules = new RulesService(database),
   ) {
-    super(new NodeNewsletterStorage(database), nodeHash, clock, rules);
+    const storage = new NodeNewsletterStorage(database, true),
+      processing = rules.ingestProcessor(storage, clock);
+    super(storage, nodeHash, clock, rules, {
+      processInserted: async (feed, ids) => {
+        await processing.drain(feed.id);
+        if (!ids.length)
+          await storage.prune(feed.id, clock.now().getTime() - feed.retentionDays * 86_400_000);
+      },
+    });
   }
 }

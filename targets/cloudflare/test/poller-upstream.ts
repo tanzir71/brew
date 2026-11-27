@@ -50,6 +50,7 @@ export async function pollerUpstream(request: Request) {
   if (path === '/cached' && request.headers.has('if-none-match'))
     return new Response(null, { status: 304 });
   if (path === '/webhook') return new Response(null, { status: 204 });
+  if (path === '/webhook-fail') return new Response('controlled failure', { status: 503 });
   if (path.startsWith('/slow/')) await new Promise((resolve) => setTimeout(resolve, 100));
   if (path === '/atom')
     return new Response(

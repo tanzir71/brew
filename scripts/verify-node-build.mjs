@@ -15,6 +15,8 @@ import { inboundConfigFromEnv } from '../dist/targets/node/src/inbound-config.js
 import { verifyMcpBuild } from './verify-mcp-build.mjs';
 import { verifyReaderSyncBuild } from './verify-reader-sync-build.mjs';
 import { RulesService } from '../dist/targets/node/src/services/rules-service.js';
+import { NodeIngestStorage } from '../dist/targets/node/src/ports/ingest-storage.js';
+import { IngestPipeline } from '../dist/targets/node/src/services/ingest-pipeline.js';
 
 // A built install must find migrations and the SPA outside the repository cwd.
 const previousDirectory = process.cwd();
@@ -651,6 +653,14 @@ try {
     assert.deepEqual(JSON.parse(ruleDatabase.sqlite.prepare('SELECT actions_taken_json FROM rule_logs WHERE rule_id=?').get(localRule.id).actions_taken_json), [
       { type: 'add_tag', ok: true }, { type: 'remove_tag', ok: true }, { type: 'add_tag', ok: true }, { type: 'star', ok: true },
     ]);
+    const queued=new NodeIngestStorage(ruleDatabase,true);
+    const pendingArticle={feedId:1,guid:'pending',hash:'pending',url:'https://compiled.test/pending',title:'Pending compiled actions',author:null,summaryHtml:null,contentHtml:'<p>Pending.</p>',imageUrl:null,enclosureUrl:null,enclosureType:null,publishedAt:new Date()};
+    assert.deepEqual(queued.insertBatch([{feedId:1,guid:'pending',hash:'pending',prepare:()=>pendingArticle}]),[2]);
+    assert.equal(ruleDatabase.sqlite.prepare('SELECT count(*) AS n FROM ingest_jobs').get().n,1);
+    await new IngestPipeline(ruleDatabase,ruleService).resumePending();
+    assert.equal(ruleDatabase.sqlite.prepare('SELECT count(*) AS n FROM ingest_jobs').get().n,0);
+    assert.ok(ruleDatabase.sqlite.prepare('SELECT starred_at FROM articles WHERE id=2').get().starred_at);
+    assert.equal(ruleDatabase.sqlite.prepare('SELECT count(*) AS n FROM rule_logs WHERE article_id=2').get().n,1);
   } finally {
     ruleDatabase.close();
   }

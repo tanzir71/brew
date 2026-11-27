@@ -378,17 +378,18 @@ The shared ingestion port reads duplicate-filter state, new titles and recent
 candidate titles in one consistent D1 batch. Node uses the same queries inside a
 SQLite transaction. The shared NFKC/trigram policy uses a bounded candidate cache and
 excludes each article's own ID; matching titles are hidden in one update before
-rules run. Cloudflare rechecks polling or receiving-address admission inside that
-update. A failed update rolls back all hides.
+rules run. Direct ingestion rechecks polling or receiving-address admission inside
+that update. Durable ingestion admits the article and its work atomically, then
+fences subsequent work by its processing lease. A failed update rolls back all hides.
 
-Ingestion snapshots rule definitions once per evaluation and reads contexts in
+Direct bulk rule evaluation snapshots definitions once per call and reads contexts in
 groups of 40, preserving input order, rule priority, stop-processing, action order,
 real webhook retries/results and notifications. An evaluation with no enabled
 rules loads no contexts; later evaluations read fresh definitions. Existing
 single-article evaluation remains available. These policies are shared by Node,
 feed polling and inbound newsletters.
 
-Matched rules group ordered tag actions into one atomic write per group, flushing
+Direct rule evaluation groups ordered tag actions into one atomic write per group, flushing
 before a webhook or notification can observe their state. Article fields remain
 deferred until the rule finishes; those changes and the completed action log now
 commit together in one batch. Node uses the same SQL helpers in SQLite
@@ -406,14 +407,53 @@ commit followed by response loss; a workerd ingest check verifies 24 tag adds,
 one removal and read/star changes in two write calls. External HTTP retries and
 notification failures keep their actual results and ordering. Tag groups and
 external effects are separate commits from the final field/log transaction;
-durable interruption recovery across those boundaries remains unfinished.
+direct evaluation itself does not provide interruption recovery.
 
-A native workerd check ingests 120 sanitized articles with inactive duplicate and
+Migration 0016 adds durable ingestion jobs and article membership. Production Node
+and Worker feed/mail insertion creates these records in the same transaction as
+new content. Repeated deliveries do not create duplicate jobs. A shared processor
+checkpoints duplicate hiding, a stable definition snapshot, article/rule/action
+cursors, deferred field changes and real action results. Local tag effects and
+their cursor commit together; final fields/logs commit with the next rule cursor.
+Definition/context/action policy and webhook retries use the same helpers as direct
+evaluation. Contexts freeze when first processed; a deleted article or rule cancels
+its remaining work. Later jobs use fresh definitions.
+
+External actions persist a start marker before sending. A resumed start without a
+durable result is logged as interrupted with an unknown outcome and is not sent
+again. Normal webhook execution retains its two attempts. This does not claim
+exactly-once remote delivery. Response loss after a committed result/cursor resumes
+from that cursor, preserving the recorded success/failure and original timestamps.
+Native SQL constraint failures become individual action failures; uncertain
+storage errors propagate. Lease/version fences prevent an expired runner from
+writing. Dead invocations become reclaimable after sixteen minutes; an intentional
+yield releases its lease immediately.
+
+Node drains inline work before returning, serializes it with background recovery,
+and resumes pending work at startup and each background minute (at most 100 steps
+per recovery call). Cloudflare shares sixteen processing steps per invocation.
+Scheduled delivery keeps its priority; pending ingestion then resumes before and
+after polling. Feed fetching settles before new rule sends, so its concurrent
+requests cannot consume a rule's retry allowance after admission. A webhook waits
+for two available fetch slots; notifications do not require external fetch slots.
+Email Routing accepts atomically stored mail while longer processing continues on
+later cron invocations. No queue product or paid service is required.
+
+Pending articles are protected from retention deletion while expired originals can
+still be cleared. Sender-retention previews reflect that protection. New Brews
+select an article only after its last rule commits and its pending membership is
+released. Feed/folder deletion and Undo journal pending jobs/items as well as the
+content. Restoration clears old leases; it cannot authorize the prior runner to
+continue. Small and bulk restores run through the real owner API in workerd.
+
+A direct-port workerd check ingests 120 sanitized articles with inactive duplicate and
 rule policy in five D1 calls: the existing deduplication lookup/insert, duplicate
 snapshot, rule-definition read and retention batch. Another actual product cron
 ingests a 120-item feed with a nonmatching rule. Matching actions and multiple
-feeds still add calls; durable processing/resource continuation and deployed CPU
-verification remain necessary before claiming complete Free compliance.
+feeds still add calls. The step allowance is not a bound on D1 calls, SQL rows,
+snapshot bytes, sanitization/regex CPU, or total invocation work. Overall query and
+due-generation resource continuation and deployed CPU verification remain necessary
+before claiming complete Free compliance.
 
 `cloudflarePollingServices` adds the real poller to the library graph. Node and
 Cloudflare now share conditional requests, parsing policy, adaptive intervals,

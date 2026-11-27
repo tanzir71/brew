@@ -538,6 +538,102 @@ it('continues bounded newsletter retention across real scheduled invocations whi
   ).toBeNull();
 });
 
+it('continues a long rule across product cron invocations without fetching again or replaying its external effects', async () => {
+  const actions = [
+    ...Array.from({ length: 24 }, (_, id) => ({ type: 'add_tag', tag: `Durable ${id}` })),
+    { type: 'webhook', url: 'https://source.test/webhook' },
+    { type: 'star' },
+    { type: 'notify' },
+  ];
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO feeds(id,url,title) VALUES(1,'https://source.test/durable','Durable feed')",
+    ),
+    env.DB.prepare(
+      "INSERT INTO rules(name,match_type,scope_json,conditions_json,actions_json) VALUES('Durable rule','all','{}','[]',?)",
+    ).bind(JSON.stringify(actions)),
+  ]);
+  await worker.scheduled({ scheduledTime: new Date(now) });
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM ingest_jobs').first()).toEqual({ n: 1 });
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM article_tags').first()).toEqual({ n: 13 });
+  expect(await env.DB.prepare('SELECT starred_at FROM articles').first()).toEqual({
+    starred_at: null,
+  });
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM rule_logs').first()).toEqual({ n: 0 });
+  for (let invocation = 0; invocation < 3; invocation++)
+    await worker.scheduled({ scheduledTime: new Date(now) });
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM ingest_jobs').first()).toEqual({ n: 0 });
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM article_tags').first()).toEqual({ n: 24 });
+  expect(await env.DB.prepare('SELECT starred_at FROM articles').first()).toEqual({
+    starred_at: now,
+  });
+  const logs = await env.DB.prepare('SELECT actions_taken_json FROM rule_logs').all<{
+    actions_taken_json: string;
+  }>();
+  expect(logs.results).toHaveLength(1);
+  expect(JSON.parse(logs.results[0]!.actions_taken_json)).toEqual(
+    actions.map(({ type }) => ({ type, ok: true })),
+  );
+  expect(
+    await env.DB.prepare(
+      "SELECT count(*) AS n FROM instance_events WHERE type='notification'",
+    ).first(),
+  ).toEqual({ n: 1 });
+  expect(await stats()).toEqual(['/durable', '/webhook']);
+});
+
+it('accepts a queued Email Routing letter and completes its long rule on a later cron without redelivery', async () => {
+  const actions = [
+    ...Array.from({ length: 24 }, (_, id) => ({ type: 'add_tag', tag: `Mail ${id}` })),
+    { type: 'star' },
+  ];
+  await env.DB.prepare(
+    "INSERT INTO rules(name,match_type,scope_json,conditions_json,actions_json) VALUES('Queued mail','all','{}','[]',?)",
+  )
+    .bind(JSON.stringify(actions))
+    .run();
+  await worker.email({
+    from: 'bounce@sender.example.test',
+    to: 'brew@letters.example.test',
+    raw: mime(),
+  });
+  const continued = await worker.fetch(`${base}/__review/resume-mail`);
+  expect(continued.status).toBe(200);
+  expect(await continued.json()).toMatchObject({
+    before: { jobs: 1, starred: 0, timestamps: [{ starred_at: null }] },
+    after: { jobs: 0, articles: 1, starred: 1, logs: 1, timestamps: [{ starred_at: now }] },
+  });
+});
+
+it.each([1, 30])(
+  'restores %i pending articles through the real owner deletion and Undo API, then resumes cron processing',
+  async (count) => {
+    const response = await request('/__review/queued-undo', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ count }),
+    });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      inserted: number;
+      removed: number;
+      restored: number;
+      deleted: { jobs: number };
+      recovered: { members: number; lease: { runner: string | null; expires_at: number } };
+      after: { starred: number; logs: number };
+    };
+    expect(report).toMatchObject({
+      inserted: 200,
+      removed: 200,
+      restored: 200,
+      deleted: { jobs: 0 },
+      recovered: { members: count, lease: { runner: null, expires_at: 0 } },
+    });
+    expect(report.after.starred).toBeGreaterThan(0);
+    expect(report.after.logs).toBe(report.after.starred);
+  },
+);
+
 it('freezes and delivers a scheduled composition before polling, and never sends its claimed minute twice', async () => {
   await env.DB.prepare(
     `WITH RECURSIVE numbers(id) AS

@@ -244,7 +244,7 @@ it('shares redirect capacity and defers local exhaustion without source failure 
   expect(next.results.every((result) => result.outcome === 'success')).toBe(true);
 });
 
-it('shares allowance with other work and records real rule delivery failures without exceeding it', async () => {
+it('defers rule delivery until its retry allowance is available and records real provider failures', async () => {
   await insert(1, '/rule');
   const saved = await worker.fetch('https://brew.test/api/rules', {
     method: 'POST',
@@ -259,15 +259,26 @@ it('shares allowance with other work and records real rule delivery failures wit
       actions: [
         { type: 'star' },
         { type: 'webhook', url: 'https://source.test/webhook' },
-        { type: 'webhook', url: 'https://source.test/webhook' },
+        { type: 'webhook', url: 'https://source.test/webhook-fail' },
       ],
     }),
   });
   expect(saved.status).toBe(201);
   const report = await poll(3, { 'x-review-prefetch': '1' });
-  expect(report.used).toBe(3);
+  expect(report.used).toBe(2);
   expect(report.results[0]).toMatchObject({ outcome: 'success', newItems: 1 });
-  expect((await calls()).map((call) => call.path)).toEqual(['/prefetch', '/rule', '/webhook']);
+  expect((await calls()).map((call) => call.path)).toEqual(['/prefetch', '/rule']);
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM rule_logs').first()).toEqual({ n: 0 });
+  expect(await env.DB.prepare('SELECT count(*) AS n FROM ingest_jobs').first()).toEqual({ n: 1 });
+  const resumed = await poll(3);
+  expect(resumed).toEqual({ results: [], used: 3 });
+  expect((await calls()).map((call) => call.path)).toEqual([
+    '/prefetch',
+    '/rule',
+    '/webhook',
+    '/webhook-fail',
+    '/webhook-fail',
+  ]);
   const logs = await env.DB.prepare('SELECT actions_taken_json FROM rule_logs').all<{
     actions_taken_json: string;
   }>();
@@ -276,7 +287,7 @@ it('shares allowance with other work and records real rule delivery failures wit
     error?: string;
   }>;
   expect(actions.map((action) => action.ok)).toEqual([true, true, false]);
-  expect(actions[2]!.error).toContain('allowance');
+  expect(actions[2]!.error).toBe('HTTP 503');
   expect(
     await env.DB.prepare('SELECT count(*) AS n FROM articles WHERE starred_at IS NOT NULL').first(),
   ).toEqual({ n: 1 });

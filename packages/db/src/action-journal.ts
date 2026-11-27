@@ -10,6 +10,8 @@ export const journalTables = [
   'rules',
   'rule_logs',
   'brew_configs',
+  'ingest_jobs',
+  'ingest_job_items',
 ] as const;
 export const quoteJournalName = (name: string) => `"${name.replace(/"/g, '""')}"`;
 
@@ -50,9 +52,13 @@ export function journalTriggers(
       table === 'tags'
         ? `AND (SELECT tool FROM agent_actions WHERE id=${activeId})='tag_item'`
         : '';
+    const pausePending =
+      table === 'ingest_job_items' && event === 'DELETE'
+        ? `UPDATE ingest_jobs SET runner=NULL,expires_at=(SELECT created_at+30000 FROM agent_actions WHERE id=${activeId}),version=version+1 WHERE id=OLD.job_id;`
+        : '';
     output.push(`CREATE ${temporary ? 'TEMP ' : ''}TRIGGER IF NOT EXISTS ${quoteJournalName(`${temporary ? 'brew_action' : 'brew_persistent_action'}_${table}_${event}`)} AFTER ${event} ON main.${quoteJournalName(table)} WHEN ${activeId} IS NOT NULL ${tagOwner} ${event === 'UPDATE' ? `AND (${changed})` : ''} BEGIN
           INSERT INTO agent_action_changes(action_id,table_name,key_json,before_json,after_json)
-          VALUES(${activeId},'${table}',${object(event === 'DELETE' ? 'OLD' : 'NEW', keys)},${before},${after}); END`);
+          VALUES(${activeId},'${table}',${object(event === 'DELETE' ? 'OLD' : 'NEW', keys)},${before},${after}); ${pausePending} END`);
   }
   return output;
 }

@@ -43,8 +43,11 @@ export class NewsletterPipeline {
     private readonly hash: AsyncHashPort,
     private readonly clock: ClockPort,
     rules?: IngestRulesPort,
+    processing?: {
+      processInserted(feed: { id: number; retentionDays: number }, ids: number[]): Promise<void>;
+    },
   ) {
-    this.articles = new IngestPipeline(storage, hash, clock, rules);
+    this.articles = new IngestPipeline(storage, hash, clock, rules, processing);
   }
 
   async ingest(raw: string | Uint8Array): Promise<NewsletterIngestResult> {

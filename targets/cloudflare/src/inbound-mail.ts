@@ -30,6 +30,9 @@ export async function receiveCloudflareMail(
   storage: CloudflareStorage,
   clock: ClockPort,
   rules: IngestRulesPort,
+  processing?: (storage: CloudflareNewsletterStorage) => {
+    processInserted(feed: { id: number; retentionDays: number }, ids: number[]): Promise<void>;
+  },
 ) {
   const stream = message.raw as unknown as ReadableStream<Uint8Array>;
   let consumed = false;
@@ -39,16 +42,22 @@ export async function receiveCloudflareMail(
     const address = await activeInboundAddress(storage);
     if (!address || recipient !== address.address)
       throw new NewsletterInputError('This receiving address is not active.');
-    const pipeline = new NewsletterPipeline(
-      new CloudflareNewsletterStorage(storage, () => ({
+    const ingestStorage = new CloudflareNewsletterStorage(
+      storage,
+      () => ({
         predicate:
           "EXISTS(SELECT 1 FROM inbound_addresses WHERE id=? AND address=? AND active=1 AND mechanism='cloudflare-email')",
         values: [address.id, recipient],
         error: () => new NewsletterInputError('This receiving address is not active.'),
-      })),
+      }),
+      Boolean(processing),
+    );
+    const pipeline = new NewsletterPipeline(
+      ingestStorage,
       cloudflareHash,
       clock,
       rules,
+      processing?.(ingestStorage),
     );
     consumed = true;
     await pipeline.ingest(await readNewsletterStream(stream, message.rawSize));

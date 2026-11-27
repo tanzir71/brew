@@ -1,5 +1,4 @@
 import type {
-  RuleAction,
   RuleCondition,
   RuleDraft,
   RulePreviewItem,
@@ -18,7 +17,8 @@ import type {
   RuleCandidate,
   RuleTagAction,
 } from './ports.js';
-import { matchCondition, matchingContexts } from './rule-matching.js';
+import { changeArticle, externalRuleAction } from './rule-actions.js';
+import { matchCondition, matchingContexts, inRuleScope, matchesRule } from './rule-matching.js';
 
 export class RuleExecutionService {
   constructor(
@@ -70,11 +70,7 @@ export class RuleExecutionService {
     }
   }
   private inScope(context: ArticleContext, scope: RuleScope): boolean {
-    if (!scope.feedIds?.length && !scope.folderIds?.length) return true;
-    return Boolean(
-      scope.feedIds?.includes(context.feedId) ||
-      (context.folderId !== null && scope.folderIds?.includes(context.folderId)),
-    );
+    return inRuleScope(context, scope);
   }
 
   private async definitionMatches(
@@ -83,14 +79,7 @@ export class RuleExecutionService {
     matchType: 'all' | 'any',
     conditions: RuleCondition[],
   ): Promise<boolean> {
-    if (!this.inScope(context, scope)) return false;
-    const matches = await Promise.all(
-      conditions.map((condition) => this.conditionMatches(context, condition)),
-    );
-    return (
-      conditions.length === 0 ||
-      (matchType === 'all' ? matches.every(Boolean) : matches.some(Boolean))
-    );
+    return matchesRule(this.regex, context, scope, matchType, conditions);
   }
 
   async conditionMatches(context: ArticleContext, condition: RuleCondition): Promise<boolean> {
@@ -128,44 +117,11 @@ export class RuleExecutionService {
       // remain deferred until the rule finishes, as in the single-action path.
       if (batched && (action.type === 'webhook' || action.type === 'notify')) await flush();
       try {
-        switch (action.type) {
-          case 'add_tag':
-            await this.storage.addTag(context.id, action.tag);
-            break;
-          case 'remove_tag':
-            await this.storage.removeTag(context.id, action.tag);
-            break;
-          case 'star':
-            changes.starredAt = this.clock.now();
-            break;
-          case 'mark_read':
-            changes.readAt = this.clock.now();
-            break;
-          case 'hide':
-            changes.hidden = true;
-            break;
-          case 'highlight':
-            changes.highlightColor = action.color;
-            break;
-          case 'feature_in_brew':
-            changes.featuredInBrew = true;
-            changes.excludedFromBrew = false;
-            break;
-          case 'exclude_from_brew':
-            changes.excludedFromBrew = true;
-            changes.featuredInBrew = false;
-            break;
-          case 'notify':
-            await this.notifications.notify({
-              id: context.id,
-              title: context.title,
-              url: context.url,
-            });
-            break;
-          case 'webhook':
-            await this.webhook(action, rule, context);
-            break;
-        }
+        if (action.type === 'add_tag') await this.storage.addTag(context.id, action.tag);
+        else if (action.type === 'remove_tag') await this.storage.removeTag(context.id, action.tag);
+        else if (action.type === 'notify' || action.type === 'webhook')
+          await externalRuleAction(action, rule, context, this.network, this.notifications);
+        else changeArticle(action, changes, this.clock);
         results.push({ type: action.type, ok: true });
       } catch (error) {
         results.push({
@@ -191,34 +147,6 @@ export class RuleExecutionService {
       if (Object.keys(changes).length) await this.storage.updateArticle(context.id, changes);
       await this.storage.log(rule.id, context.id, completed);
     }
-  }
-
-  private async webhook(
-    action: Extract<RuleAction, { type: 'webhook' }>,
-    rule: RuleRecord,
-    context: ArticleContext,
-  ): Promise<void> {
-    const payload = JSON.stringify({
-      article: { id: context.id, title: context.title, url: context.url },
-      rule: { id: rule.id, name: rule.name },
-    });
-    let lastError = 'Webhook failed';
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const response = await this.network.fetch(action.url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: payload,
-          signal: AbortSignal.timeout(5_000),
-        });
-        void response.body?.cancel().catch(() => {});
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return;
-      } catch (error) {
-        lastError = error instanceof Error ? error.message : 'Webhook failed';
-      }
-    }
-    throw new Error(lastError);
   }
 
   async evaluateArticle(articleId: number): Promise<number> {

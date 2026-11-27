@@ -177,6 +177,14 @@ export async function createApp(
   const brewRuns = new Set<Promise<unknown>>();
   const brewTimer = options.startPoller
     ? setInterval(() => {
+        const processing = ingest.resumePending().then((steps) => {
+          if (steps > 0) broker.publish('article:new', { count: 0, feeds: [] });
+          return steps;
+        });
+        brewRuns.add(processing);
+        void processing
+          .catch((error) => app.log.error(error))
+          .finally(() => brewRuns.delete(processing));
         const pruning = newsletters.prune();
         brewRuns.add(pruning);
         void pruning.catch((error) => app.log.error(error)).finally(() => brewRuns.delete(pruning));
@@ -187,6 +195,7 @@ export async function createApp(
       }, 60_000)
     : null;
   if (options.startPoller) {
+    await ingest.resumePending();
     await newsletters.prune();
     poller.start();
     imap?.start();

@@ -44,10 +44,10 @@ export const letterMetadataQuery =
 export const letterOriginalQuery =
   "SELECT a.raw_html AS html FROM articles a JOIN feeds f ON f.id=a.feed_id WHERE a.id=? AND f.kind='newsletter'";
 export const senderAffectedQuery =
-  'SELECT a.id,a.raw_html IS NOT NULL AS original,a.starred_at IS NULL AND NOT EXISTS(SELECT 1 FROM article_tags t WHERE t.article_id=a.id) AS discard FROM articles a WHERE a.feed_id=? AND a.published_at<? ORDER BY a.id';
+  'SELECT a.id,a.raw_html IS NOT NULL AS original,a.starred_at IS NULL AND NOT EXISTS(SELECT 1 FROM article_tags t WHERE t.article_id=a.id) AND NOT EXISTS(SELECT 1 FROM ingest_job_items p WHERE p.article_id=a.id) AS discard FROM articles a WHERE a.feed_id=? AND a.published_at<? ORDER BY a.id';
 export function senderAffectedSnapshotQuery(id: number, at: number, retention?: number) {
   return {
-    sql: `SELECT a.id,a.raw_html IS NOT NULL AS original,a.starred_at IS NULL AND NOT EXISTS(SELECT 1 FROM article_tags t WHERE t.article_id=a.id) AS discard
+    sql: `SELECT a.id,a.raw_html IS NOT NULL AS original,a.starred_at IS NULL AND NOT EXISTS(SELECT 1 FROM article_tags t WHERE t.article_id=a.id) AND NOT EXISTS(SELECT 1 FROM ingest_job_items p WHERE p.article_id=a.id) AS discard
       FROM articles a JOIN feeds f ON f.id=a.feed_id WHERE f.id=? AND a.published_at<?-coalesce(?,f.retention_days)*86400000
       AND coalesce(?,f.retention_days)<>f.retention_days ORDER BY a.id`,
     values: [id, at, retention ?? null, retention ?? null],

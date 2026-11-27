@@ -6,6 +6,7 @@ import type {
 import { duplicateTitleQueries } from '../../../packages/db/src/ingest-queries.js';
 import { CloudflareStorage } from './storage.js';
 import { PollInterruptedError } from '../../../packages/core/src/feed-polling.js';
+import { pendingIngestArticle } from '../../../packages/db/src/ingest-job-queries.js';
 
 /** Trusted adapter predicate, evaluated atomically with article insertion. */
 export type StorageAdmission = { predicate: string; values: unknown[]; error?: () => Error };
@@ -15,6 +16,7 @@ export class CloudflareIngestStorage implements IngestStoragePort {
   constructor(
     protected readonly storage: CloudflareStorage,
     protected readonly admission?: IngestAdmission,
+    protected readonly queued = false,
   ) {}
   protected admissionError(admission: StorageAdmission) {
     return admission.error?.() ?? new PollInterruptedError('Feed polling ownership changed.');
@@ -40,33 +42,60 @@ export class CloudflareIngestStorage implements IngestStoragePort {
       return true;
     });
     const admission = this.admission?.();
-    const statements = pending.map((candidate) => {
-      const item = candidate.prepare();
-      return this.storage.statement(
-        `INSERT INTO articles(feed_id,guid,hash,url,title,author,summary_html,content_html,image_url,enclosure_url,enclosure_type,published_at)
+    const jobs = this.queued
+      ? new Map(
+          [...new Set(pending.map((item) => item.feedId))].map((id) => [id, crypto.randomUUID()]),
+        )
+      : new Map<number, string>();
+    const statements = [...jobs].map(([feedId, id]) =>
+      this.storage.statement('INSERT INTO ingest_jobs(id,feed_id) VALUES(?,?)', [id, feedId]),
+    );
+    const offset = statements.length;
+    statements.push(
+      ...pending.flatMap((candidate) => {
+        const item = candidate.prepare();
+        const insert = this.storage.statement(
+          `INSERT INTO articles(feed_id,guid,hash,url,title,author,summary_html,content_html,image_url,enclosure_url,enclosure_type,published_at)
          SELECT ?,?,?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS
          (SELECT 1 FROM articles WHERE feed_id=? AND (guid=? OR hash=?))
          ${admission ? `AND (${admission.predicate})` : ''} RETURNING id`,
-        [
-          item.feedId,
-          item.guid,
-          item.hash,
-          item.url,
-          item.title,
-          item.author,
-          item.summaryHtml,
-          item.contentHtml,
-          item.imageUrl,
-          item.enclosureUrl,
-          item.enclosureType,
-          item.publishedAt.getTime(),
-          item.feedId,
-          item.guid,
-          item.hash,
-          ...(admission?.values ?? []),
-        ],
+          [
+            item.feedId,
+            item.guid,
+            item.hash,
+            item.url,
+            item.title,
+            item.author,
+            item.summaryHtml,
+            item.contentHtml,
+            item.imageUrl,
+            item.enclosureUrl,
+            item.enclosureType,
+            item.publishedAt.getTime(),
+            item.feedId,
+            item.guid,
+            item.hash,
+            ...(admission?.values ?? []),
+          ],
+        );
+        return this.queued
+          ? [
+              insert,
+              this.storage.statement(
+                'INSERT INTO ingest_job_items(article_id,job_id) SELECT id,? FROM articles WHERE feed_id=? AND guid=? AND changes()>0',
+                [jobs.get(item.feedId), item.feedId, item.guid],
+              ),
+            ]
+          : [insert];
+      }),
+    );
+    if (jobs.size)
+      statements.push(
+        this.storage.statement(
+          'DELETE FROM ingest_jobs WHERE id IN (SELECT value FROM json_each(?)) AND NOT EXISTS(SELECT 1 FROM ingest_job_items WHERE job_id=ingest_jobs.id)',
+          [JSON.stringify([...jobs.values()])],
+        ),
       );
-    });
     if (admission)
       statements.push(
         this.storage.statement(`SELECT 1 AS id WHERE ${admission.predicate}`, admission.values),
@@ -74,7 +103,8 @@ export class CloudflareIngestStorage implements IngestStoragePort {
     const results = await this.storage.batch<{ id: number }>(statements);
     if (admission && !results.at(-1)?.results.length) throw this.admissionError(admission);
     return results
-      .slice(0, pending.length)
+      .slice(offset, offset + pending.length * (this.queued ? 2 : 1))
+      .filter((_, index) => !this.queued || index % 2 === 0)
       .flatMap((result) => result.results.map((row) => Number(row.id)));
   }
   async duplicateTitles(ids: number[], since: number): Promise<DuplicateTitles | null> {
@@ -113,7 +143,7 @@ export class CloudflareIngestStorage implements IngestStoragePort {
         [feedId, before, ...(admission?.values ?? [])],
       ),
       this.storage.statement(
-        `DELETE FROM articles WHERE feed_id=? AND published_at<? AND starred_at IS NULL AND NOT EXISTS(SELECT 1 FROM article_tags WHERE article_id=articles.id)${guard}`,
+        `DELETE FROM articles WHERE feed_id=? AND published_at<? AND starred_at IS NULL AND NOT EXISTS(SELECT 1 FROM article_tags WHERE article_id=articles.id) AND ${pendingIngestArticle}${guard}`,
         [feedId, before, ...(admission?.values ?? [])],
       ),
     ];

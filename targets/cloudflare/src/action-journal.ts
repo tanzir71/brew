@@ -14,7 +14,14 @@ export interface JournalSql {
   values?: unknown[];
 }
 type Table = (typeof journalTables)[number];
-const keys = (table: Table) => (table === 'article_tags' ? ['article_id', 'tag_id'] : ['id']);
+const keys = (table: Table) =>
+  table === 'ingest_jobs'
+    ? ['sequence']
+    : table === 'ingest_job_items'
+      ? ['article_id']
+      : table === 'article_tags'
+        ? ['article_id', 'tag_id']
+        : ['id'];
 const identity = (table: Table, row: JournalRow) =>
   JSON.stringify(keys(table).map((key) => row[key]));
 const all = (conditions: JournalSql[]): JournalSql => ({
@@ -285,6 +292,8 @@ export class CloudflareActionJournal {
         'brew_configs',
         'article_tags',
         'rule_logs',
+        'ingest_jobs',
+        'ingest_job_items',
       ];
       const plans = new Map<
         Table,
@@ -349,6 +358,14 @@ export class CloudflareActionJournal {
             });
         }
     }
+    const jobs = changes
+      .filter((change) => change.table_name === 'ingest_jobs')
+      .map((change) => Number((JSON.parse(change.key_json) as JournalRow).sequence));
+    if (jobs.length)
+      queries.push({
+        sql: 'UPDATE ingest_jobs SET runner=NULL,expires_at=0,version=version+1 WHERE sequence IN (SELECT value FROM json_each(?))',
+        values: [JSON.stringify(jobs)],
+      });
     try {
       await this.transaction({
         actionId: null,

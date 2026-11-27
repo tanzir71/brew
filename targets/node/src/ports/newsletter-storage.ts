@@ -11,6 +11,7 @@ import type {
 } from '../../../../packages/core/src/newsletter-pipeline.js';
 import { feeds } from '../db/schema.js';
 import { NodeIngestStorage } from './ingest-storage.js';
+import { randomUUID } from 'node:crypto';
 
 export class NodeNewsletterStorage extends NodeIngestStorage implements NewsletterStoragePort {
   retentionFeeds(): Array<{ id: number; retentionDays: number }> {
@@ -82,6 +83,15 @@ export class NodeNewsletterStorage extends NodeIngestStorage implements Newslett
         this.database.sqlite
           .prepare('UPDATE articles SET url = ? WHERE id = ?')
           .run(`/a/${id}`, id);
+      if (this.queued) {
+        const job = randomUUID();
+        this.database.sqlite
+          .prepare('INSERT INTO ingest_jobs(id,feed_id) VALUES(?,?)')
+          .run(job, article.feedId);
+        this.database.sqlite
+          .prepare('INSERT INTO ingest_job_items(article_id,job_id) VALUES(?,?)')
+          .run(id, job);
+      }
       return { id, inserted: true };
     })();
   }

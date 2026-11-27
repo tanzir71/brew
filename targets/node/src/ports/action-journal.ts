@@ -119,5 +119,14 @@ export class ActionJournal {
         ).run(...Object.values(before), ...params);
       }
     }
+    const jobs = changes
+      .filter((change) => change.table_name === 'ingest_jobs')
+      .map((change) => Number((JSON.parse(change.key_json) as Row).sequence));
+    if (jobs.length)
+      sql
+        .prepare(
+          'UPDATE ingest_jobs SET runner=NULL,expires_at=0,version=version+1 WHERE sequence IN (SELECT value FROM json_each(?))',
+        )
+        .run(JSON.stringify(jobs));
   }
 }

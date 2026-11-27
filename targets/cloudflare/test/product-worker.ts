@@ -15,6 +15,8 @@ import type { ParsedArticle } from '../../../packages/core/src/feed-parser.js';
 import { CloudflareRuleStorage } from '../src/rule-storage.js';
 import { CloudflareIngestStorage } from '../src/ingest-storage.js';
 import { CloudflareEvents } from '../src/events.js';
+import { IngestProcessingService } from '../../../packages/core/src/ingest-processing.js';
+import { CloudflareIngestJobs } from '../src/ingest-jobs.js';
 
 export interface ProductEnv extends CloudflareWorkerEnv {
   UPSTREAM: { fetch: typeof fetch };
@@ -44,11 +46,113 @@ class CountedStorage extends CloudflareStorage {
     return super.batch<T>(statements);
   }
 }
-export default {
+async function processingSnapshot(env: ProductEnv) {
+  const result = await env.DB.batch<Record<string, unknown>>([
+    env.DB.prepare('SELECT count(*) AS n FROM ingest_jobs'),
+    env.DB.prepare('SELECT count(*) AS n FROM articles'),
+    env.DB.prepare('SELECT count(*) AS n FROM articles WHERE starred_at IS NOT NULL'),
+    env.DB.prepare('SELECT count(*) AS n FROM rule_logs'),
+    env.DB.prepare('SELECT count(*) AS n FROM ingest_job_items'),
+    env.DB.prepare('SELECT runner,expires_at FROM ingest_jobs ORDER BY sequence LIMIT 1'),
+    env.DB.prepare('SELECT starred_at FROM articles ORDER BY id'),
+  ]);
+  return {
+    jobs: Number(result[0]!.results[0]!.n),
+    articles: Number(result[1]!.results[0]!.n),
+    starred: Number(result[2]!.results[0]!.n),
+    logs: Number(result[3]!.results[0]!.n),
+    members: Number(result[4]!.results[0]!.n),
+    lease: result[5]!.results[0] ?? null,
+    timestamps: result[6]!.results,
+  };
+}
+const scheduledController = () => ({
+  cron: '* * * * *',
+  scheduledTime: clock.now().getTime(),
+  noRetry() {},
+});
+const reviewWorker = {
   ...product,
-  async fetch(request: Request, env: ProductEnv) {
+  async fetch(request: Request, env: ProductEnv): Promise<Response> {
     const path = new URL(request.url).pathname;
+    if (path === '/__review/resume-mail') {
+      const before = await processingSnapshot(env);
+      await product.scheduled(scheduledController(), env);
+      await product.scheduled(scheduledController(), env);
+      return Response.json({ before, after: await processingSnapshot(env) });
+    }
+    if (path === '/__review/queued-undo') {
+      const { count } = (await request.json()) as { count: number };
+      if (count !== 1 && count !== 30) throw new Error('Unsupported native fixture count');
+      await env.DB.batch([
+        env.DB.prepare(
+          "INSERT INTO feeds(id,url,title) VALUES(1,'https://source.test/quiet','Queued Undo')",
+        ),
+        env.DB.prepare(
+          "INSERT INTO rules(name,match_type,scope_json,conditions_json,actions_json) VALUES('Restored work','all','{}','[]','[{\"type\":\"star\"}]')",
+        ),
+      ]);
+      const inserted = await reviewWorker.fetch(
+        new Request(new URL('/__review/ingest-batch?defer=1', request.url), {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(
+            Array.from({ length: count }, (_, id) => ({
+              guid: `undo-${id}`,
+              url: `https://one.test/undo-${id}`,
+              title: `Queued Undo ${id}`,
+              author: null,
+              summaryHtml: null,
+              contentHtml: '<p>Queued.</p>',
+              publishedAt: clock.now().toISOString(),
+            })),
+          ),
+        }),
+        env,
+      );
+      await env.DB.prepare("UPDATE ingest_jobs SET runner='prior-runner',expires_at=?")
+        .bind(clock.now().getTime() + 60_000)
+        .run();
+      const headers = new Headers(request.headers);
+      headers.set('host', new URL(request.url).host);
+      headers.set('origin', new URL(request.url).origin);
+      headers.set('content-type', 'application/json');
+      headers.delete('x-review-host');
+      const removed = await product.fetch(
+        new Request(new URL('/api/actions', request.url), {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ kind: 'delete_feed', id: 1, confirm: true }),
+        }),
+        env,
+      );
+      if (removed.status !== 200)
+        return Response.json({ removed: removed.status, error: await removed.text() });
+      const receipt = (await removed.json()) as { id: number },
+        deleted = await processingSnapshot(env);
+      const restored = await product.fetch(
+        new Request(new URL(`/api/actions/${receipt.id}/undo`, request.url), {
+          method: 'POST',
+          headers,
+          body: '{}',
+        }),
+        env,
+      );
+      if (restored.status !== 200)
+        return Response.json({ restored: restored.status, error: await restored.text() });
+      const recovered = await processingSnapshot(env);
+      await product.scheduled(scheduledController(), env);
+      return Response.json({
+        inserted: inserted.status,
+        removed: removed.status,
+        restored: restored.status,
+        deleted,
+        recovered,
+        after: await processingSnapshot(env),
+      });
+    }
     if (path === '/__review/ingest-batch') {
+      const paused = new URL(request.url).searchParams.has('defer');
       const storage = new CountedStorage(env.DB),
         events = new CloudflareEvents(storage);
       const network = new CloudflareFetchBudget(40, (input, init) =>
@@ -61,11 +165,30 @@ export default {
         { notify: (article) => events.publish('notification', article) },
         clock,
       );
+      const ingestStorage = new CloudflareIngestStorage(storage, undefined, paused);
+      const pending = new IngestProcessingService(
+        new CloudflareIngestJobs(storage),
+        ingestStorage,
+        new CloudflareRuleStorage(storage),
+        cloudflareRegex,
+        { fetch: network.fetch },
+        { notify: (article) => events.publish('notification', article) },
+        clock,
+        () => crypto.randomUUID(),
+        { remaining: 0 },
+      );
       const inserted = await new IngestPipeline(
-        new CloudflareIngestStorage(storage),
+        ingestStorage,
         cloudflareHash,
         clock,
         rules,
+        paused
+          ? {
+              processInserted: async () => {
+                await pending.drain();
+              },
+            }
+          : undefined,
       ).ingest({ id: 1, retentionDays: 90 }, (await request.json()) as ParsedArticle[]);
       return Response.json({ inserted, calls: storage.calls });
     }
@@ -153,3 +276,4 @@ export default {
     return product.fetch(new Request(request, { headers }), env);
   },
 };
+export default reviewWorker;
