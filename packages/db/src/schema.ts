@@ -282,7 +282,20 @@ export const instanceEvents = sqliteTable('instance_events', {
     .default(sql`(unixepoch() * 1000)`),
 });
 
+export const feedPollLeases = sqliteTable(
+  'feed_poll_leases',
+  {
+    feedId: integer('feed_id')
+      .primaryKey()
+      .references(() => feeds.id, { onDelete: 'cascade' }),
+    runner: text('runner').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+  },
+  (table) => [index('feed_poll_leases_expiry').on(table.expiresAt)],
+);
+
 export const schema = {
+  feedPollLeases,
   instanceEvents,
   readerAccess,
   readerSessions,

@@ -4,7 +4,7 @@ import type { Hono } from 'hono';
 import type { ApiServices } from '../ports.js';
 import { json } from '../http.js';
 
-export function registerPollerRoutes(app: Hono, { poller }: ApiServices): void {
+export function registerPollerRoutes(app: Hono, { poller }: Pick<ApiServices, 'poller'>): void {
   app.post(
     '/api/feeds/:id/fetch',
     documented('Feeds', 'Fetch a subscription now', {

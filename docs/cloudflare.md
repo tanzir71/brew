@@ -372,7 +372,43 @@ rules and asynchronous hashing/ingestion outside the repository directory. Inbou
 MIME execution inside the product Worker remains part of the remaining handler
 integration.
 
-Still required: product Worker fetch/scheduled/email handlers,
-bounded polling, Email Routing/outbound mail, owner authentication, and
+## Polling prerequisite
+
+`cloudflarePollingServices` adds the real poller to the library graph. Node and
+Cloudflare now share conditional requests, parsing policy, adaptive intervals,
+failure backoff and health updates. The Worker parser supports RSS, Atom and JSON
+Feed and bounds response streams to 10 MiB, including misleading Content-Length.
+
+Canonical migration 0015 adds expiring per-feed leases. One atomic D1 batch claims
+at most the remaining fetch allowance in due-time/ID order; separate invocations
+and manual refreshes cannot claim an active lease. Unstarted claims are released
+after all concurrent work drains. Crashed runs recover after 16 minutes. Article
+insertion, retention and feed metadata check ownership and the original source URL
+inside their writes, so a superseded response cannot restore a deleted source or
+overwrite its replacement. Newsletter senders are never fetched as RSS.
+
+Create one `CloudflareFetchBudget` per invocation, with the capability's
+`limits.maxFetchesPerRun` (1–40). Pass it to the polling graph so feeds, rule
+webhooks and Brew webhooks share the same allowance. Every attempted request and
+redirect hop counts. Polling concurrency scales down for the maximum redirect
+cost so long chains can finish instead of repeatedly starving every due source. GET/HEAD redirects are followed manually; cross-origin hops
+remove credentials. Streaming writes require manual redirects. Discarded bodies
+are cancelled. Exhaustion before an input feed finishes leaves its validators and
+health unchanged so a later invocation can retry; it is not a remote-source error.
+
+The native scheduled integration fixture polls 200 feeds over five invocations,
+with 40 external requests each, and verifies overlap/expiry/deletion races, real
+ingestion, conditional refreshes, Node parity and shared rule-webhook accounting.
+The fixture is not the product Worker or its owner authentication boundary.
+
+This proves the external-fetch bound only. The current per-feed ingestion/rule
+calls can exceed the separate Free D1 query allowance; durable batching and full
+product scheduling still need work. Local workerd does not prove the deployed
+10 ms Free CPU budget. M14 remains open until the complete runtime meets its
+resource limits. See the [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
+and [D1 limits](https://developers.cloudflare.com/d1/platform/limits/).
+
+Still required: product Worker fetch/scheduled/email handlers, complete resource
+budgeting, Email Routing/outbound mail, owner authentication, and
 the Cloudflare installer/deploy flow. These checks do not claim a working deployed
 Worker or completion of M14.

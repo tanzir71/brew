@@ -21,6 +21,11 @@ import {
   createCloudflareLibraryApi,
 } from '../dist/targets/cloudflare/src/library-api.js';
 import { cloudflareIngestion } from '../dist/targets/cloudflare/src/ingestion.js';
+import {
+  cloudflarePollingServices,
+  createCloudflarePollingApi,
+} from '../dist/targets/cloudflare/src/polling-api.js';
+import { CloudflareFetchBudget } from '../dist/targets/cloudflare/src/fetch-budget.js';
 import { newBrewSection } from '../dist/packages/core/src/composition-model.js';
 import { renderBrewMarkdown } from '../dist/packages/core/src/brew-outputs.js';
 
@@ -425,8 +430,71 @@ try {
   } finally {
     await client.close();
   }
+  const pollSource = await storage.first(
+    "INSERT INTO feeds(url,title) VALUES('https://compiled.example.test/poll','Pending poll') RETURNING id",
+  );
+  let pollCalls = 0;
+  const pollBudget = new CloudflareFetchBudget(2, async () => {
+    pollCalls++;
+    if (pollCalls === 1)
+      return new globalThis.Response('redirect', {
+        status: 302,
+        headers: { location: '/resolved' },
+      });
+    return globalThis.Response.json(
+      {
+        version: 'https://jsonfeed.org/version/1.1',
+        title: 'Compiled polling',
+        items: [
+          {
+            id: 'compiled-poll',
+            url: 'https://compiled.example.test/article',
+            title: 'Compiled poll article',
+            content_html: '<p>Compiled polling content.</p><script>unsafe()</script>',
+            date_published: new Date().toISOString(),
+          },
+        ],
+      },
+      { headers: { etag: '"compiled-poll"' } },
+    );
+  });
+  const polling = createCloudflarePollingApi(
+    cloudflarePollingServices(
+      { DB: database, IMAGES: await runtime.getR2Bucket('IMAGES') },
+      { budget: pollBudget, regex, capabilities: services.capabilities },
+    ),
+  );
+  const fetched = await polling.request(
+    `https://build.example.test/api/feeds/${pollSource.id}/fetch`,
+    { method: 'POST' },
+  );
+  assert.equal(fetched.status, 200);
+  assert.deepEqual(await fetched.json(), {
+    feedId: pollSource.id,
+    status: 200,
+    newItems: 1,
+    outcome: 'success',
+  });
+  assert.equal(pollBudget.used, 2);
+  assert.equal(pollCalls, 2);
+  assert.equal(
+    (await storage.first('SELECT content_html FROM articles WHERE feed_id=?', [pollSource.id]))
+      .content_html,
+    '<p>Compiled polling content.</p>',
+  );
+  assert.equal(
+    (await storage.first('SELECT etag FROM feeds WHERE id=?', [pollSource.id])).etag,
+    '"compiled-poll"',
+  );
+  const noAllowance = await polling.request(
+    `https://build.example.test/api/feeds/${pollSource.id}/fetch`,
+    { method: 'POST' },
+  );
+  assert.equal((await noAllowance.json()).outcome, 'error');
+  assert.equal(pollCalls, 2);
+  assert.equal((await storage.first('SELECT count(*) AS count FROM feed_poll_leases')).count, 0);
   process.stdout.write(
-    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state, journal capture/restore, owner-action preview/commit/replay/Undo, scoped tokens with real MCP write/Undo/revocation and interruptible WASM regex with frozen-clock fuel/recovery and actual rule ingestion passed outside the repository cwd. Full Worker handler integration remains pending.\n',
+    'Built Cloudflare ports: shared D1 migrations, MIME cleaning/storage, private R2 images, Reader/Brew/rules/source/newsletter HTTP, frozen caches, private page twins, native hashing/ingestion, atomic sender preferences, OPML, Reader-sync state, journal capture/restore, owner-action preview/commit/replay/Undo, scoped tokens with real MCP write/Undo/revocation, interruptible WASM regex with frozen-clock fuel/recovery and actual rule ingestion, plus lease-fenced polling/redirect accounting and actual feed insertion passed outside the repository cwd. Full Worker handler integration and Free resource compliance remain pending.\n',
   );
 } finally {
   await runtime.dispose();

@@ -1,10 +1,17 @@
 import type { IngestCandidate, IngestStoragePort } from '../../../packages/core/src/ports.js';
 import { CloudflareStorage } from './storage.js';
+import { PollInterruptedError } from '../../../packages/core/src/feed-polling.js';
+
+/** Trusted adapter predicate, evaluated atomically with article insertion. */
+export type IngestAdmission = () => { predicate: string; values: unknown[] };
 
 export class CloudflareIngestStorage implements IngestStoragePort {
-  constructor(protected readonly storage: CloudflareStorage) {}
+  constructor(
+    protected readonly storage: CloudflareStorage,
+    private readonly admission?: IngestAdmission,
+  ) {}
   async insertBatch(items: IngestCandidate[]) {
-    if (!items.length) return [];
+    if (!items.length && !this.admission) return [];
     // Preserve lazy cleaning: a normal conditional refresh can repeat thousands
     // of old entries. Do not parse/sanitize their bodies again on Worker CPU.
     const previous = await this.storage.all<{ feed_id: number; guid: string; hash: string }>(
@@ -23,34 +30,44 @@ export class CloudflareIngestStorage implements IngestStoragePort {
       hashes.add(hash);
       return true;
     });
-    const results = await this.storage.batch<{ id: number }>(
-      pending.map((candidate) => {
-        const item = candidate.prepare();
-        return this.storage.statement(
-          `INSERT INTO articles(feed_id,guid,hash,url,title,author,summary_html,content_html,image_url,enclosure_url,enclosure_type,published_at)
+    const admission = this.admission?.();
+    const statements = pending.map((candidate) => {
+      const item = candidate.prepare();
+      return this.storage.statement(
+        `INSERT INTO articles(feed_id,guid,hash,url,title,author,summary_html,content_html,image_url,enclosure_url,enclosure_type,published_at)
          SELECT ?,?,?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS
-         (SELECT 1 FROM articles WHERE feed_id=? AND (guid=? OR hash=?)) RETURNING id`,
-          [
-            item.feedId,
-            item.guid,
-            item.hash,
-            item.url,
-            item.title,
-            item.author,
-            item.summaryHtml,
-            item.contentHtml,
-            item.imageUrl,
-            item.enclosureUrl,
-            item.enclosureType,
-            item.publishedAt.getTime(),
-            item.feedId,
-            item.guid,
-            item.hash,
-          ],
-        );
-      }),
-    );
-    return results.flatMap((result) => result.results.map((row) => Number(row.id)));
+         (SELECT 1 FROM articles WHERE feed_id=? AND (guid=? OR hash=?))
+         ${admission ? `AND (${admission.predicate})` : ''} RETURNING id`,
+        [
+          item.feedId,
+          item.guid,
+          item.hash,
+          item.url,
+          item.title,
+          item.author,
+          item.summaryHtml,
+          item.contentHtml,
+          item.imageUrl,
+          item.enclosureUrl,
+          item.enclosureType,
+          item.publishedAt.getTime(),
+          item.feedId,
+          item.guid,
+          item.hash,
+          ...(admission?.values ?? []),
+        ],
+      );
+    });
+    if (admission)
+      statements.push(
+        this.storage.statement(`SELECT 1 AS id WHERE ${admission.predicate}`, admission.values),
+      );
+    const results = await this.storage.batch<{ id: number }>(statements);
+    if (admission && !results.at(-1)?.results.length)
+      throw new PollInterruptedError('Feed polling ownership changed.');
+    return results
+      .slice(0, pending.length)
+      .flatMap((result) => result.results.map((row) => Number(row.id)));
   }
   async duplicateFilterEnabled() {
     return (
@@ -81,15 +98,24 @@ export class CloudflareIngestStorage implements IngestStoragePort {
     await this.storage.run('UPDATE articles SET hidden=1 WHERE id=?', [id]);
   }
   async prune(feedId: number, before: number) {
-    await this.storage.batch([
+    const admission = this.admission?.();
+    const guard = admission ? ` AND (${admission.predicate})` : '';
+    const statements = [
       this.storage.statement(
-        'UPDATE articles SET raw_html=NULL WHERE feed_id=? AND published_at<? AND raw_html IS NOT NULL',
-        [feedId, before],
+        `UPDATE articles SET raw_html=NULL WHERE feed_id=? AND published_at<? AND raw_html IS NOT NULL${guard}`,
+        [feedId, before, ...(admission?.values ?? [])],
       ),
       this.storage.statement(
-        'DELETE FROM articles WHERE feed_id=? AND published_at<? AND starred_at IS NULL AND NOT EXISTS(SELECT 1 FROM article_tags WHERE article_id=articles.id)',
-        [feedId, before],
+        `DELETE FROM articles WHERE feed_id=? AND published_at<? AND starred_at IS NULL AND NOT EXISTS(SELECT 1 FROM article_tags WHERE article_id=articles.id)${guard}`,
+        [feedId, before, ...(admission?.values ?? [])],
       ),
-    ]);
+    ];
+    if (admission)
+      statements.push(
+        this.storage.statement(`SELECT 1 AS id WHERE ${admission.predicate}`, admission.values),
+      );
+    const results = await this.storage.batch(statements);
+    if (admission && !results.at(-1)?.results.length)
+      throw new PollInterruptedError('Feed polling ownership changed.');
   }
 }

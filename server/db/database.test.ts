@@ -37,6 +37,7 @@ describe('database migrations', () => {
         'reader_access',
         'reader_sessions',
         'instance_events',
+        'feed_poll_leases',
       ]),
     );
     first.close();
@@ -44,7 +45,7 @@ describe('database migrations', () => {
     try {
       expect(
         second.sqlite.prepare('SELECT count(*) AS count FROM __brew_migrations').get(),
-      ).toEqual({ count: 14 });
+      ).toEqual({ count: 15 });
     } finally {
       second.close();
     }
