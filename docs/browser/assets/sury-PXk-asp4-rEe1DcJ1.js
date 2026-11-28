@@ -1,0 +1,1 @@
+import{n as e,r as t}from"./library.worker-B8NFyARK.js";async function n(){try{let e=await import(`./standard-json-CzVDZAI6.js`);if(`toJSONSchema`in e){let{reverse:n,toJSONSchema:r}=e;return(e,i)=>r(t(i)===`output`?n(e):e)}let{toInputJSONSchemaOrThrow:n,toOutputJSONSchemaOrThrow:r}=e;return(e,i)=>t(i)===`output`?r(e,i):n(e,i)}catch{throw new e(`sury`)}}export{n as default};

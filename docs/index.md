@@ -2,11 +2,11 @@
 
 > Your feeds and newsletters, made into one calm daily paper.
 
-Brew is an open-source, single-user reader. Run your own instance on Node or Cloudflare. The public website is a marketing page and sample demo, with no accounts, analytics or remote font requests.
+Brew is an open-source, single-user reader. Start in your browser or run your own instance on Node or Cloudflare. There are no accounts, analytics or remote font requests.
 
 Brews are frozen issues made from sections you choose in Compose. Each section has sources, layout, depth, filters and a length limit. Newsletters are cleaned before reading. The Reader offers titles, magazine and card views. Unlimited rules can tag, star, hide, highlight and feature incoming articles.
 
-Supported server instances offer scoped MCP tools, Markdown and JSON page twins, app sync through Google Reader and Fever, and optional configured email or webhook delivery. Browser, published/static and optional PHP editions are still in development. AI briefs are also in development.
+Supported server instances offer scoped MCP tools, Markdown and JSON page twins, app sync through Google Reader and Fever, and optional configured email or webhook delivery. Browser mode saves a real library on the device and fetches through an owner-managed relay while open. Complete .brew transfer, published/static and optional PHP editions, and AI briefs are still in development.
 
 ## Try Brew
 
@@ -25,3 +25,4 @@ Prices are in USD and were checked in November 2026. Vendor offers and tax can v
 - [Mailbrew](https://app.mailbrew.com/upgrade): Free with ads, or $59 per year.
 
 Brew itself is free. You pay for any infrastructure and optional services you choose for your own instance.
+- [Start in this browser](./browser/): Create a real local library with sample feeds, then connect your own feed relay.

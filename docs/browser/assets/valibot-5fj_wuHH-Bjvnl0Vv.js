@@ -1,0 +1,1 @@
+import{n as e,r as t}from"./library.worker-B8NFyARK.js";async function n(){try{let{toJsonSchema:e}=await import(`./standard-json-ig2t0wRt.js`);return((n,r)=>e(n,{typeMode:t(r)??`input`,...r}))}catch{throw new e(`@valibot/to-json-schema`)}}export{n as default};

@@ -1,14 +1,16 @@
 # Brew
 
-[Website](https://tanzir71.github.io/brew/) · [Interactive demo](https://tanzir71.github.io/brew/demo/) · [Deployment CLI](https://www.npmjs.com/package/brew-reader)
+[Website](https://tanzir71.github.io/brew/) · [Start in this browser](https://tanzir71.github.io/brew/browser/) · [Interactive demo](https://tanzir71.github.io/brew/demo/) · [Deployment CLI](https://www.npmjs.com/package/brew-reader)
 
-> A single-user RSS and newsletter reader with daily Brews, rules, app sync and agent tools. Run your own instance on **Node or Cloudflare**, with no telemetry.
+> A single-user RSS and newsletter reader with daily Brews, rules, app sync and agent tools. Start in **your browser** or run your own instance on **Node or Cloudflare**, with no telemetry.
 
 ## What is this?
 
 Brew fetches RSS/Atom feeds, cleans private newsletters, applies rules to triage articles, and produces daily Brews from your own subscriptions. Compose combines sources into sections with previews, schedules and optional delivery. Reader apps and scoped agent tools share the same library and read state.
 
 It is intentionally single-user: one person, their own instance. Node stores the library in a local SQLite file; the Cloudflare target uses D1 and private R2 storage behind an owner Access boundary. Features follow each target's capabilities.
+
+Browser mode stores the same SQLite schema in OPFS, with an IndexedDB fallback. Start with sample feeds, then connect your own feed relay in Settings. Fetching runs while the page is open. See the [browser guide](targets/browser/README.md) for hosting and limits; complete `.brew` transfer is still in development.
 
 Node also offers [Google Reader and Fever compatibility APIs](docs/reader-api.md)
 with a separate generated app password, shared read/star state and subscription

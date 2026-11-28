@@ -1,4 +1,9 @@
 import { isSqliteConstraint } from './errors.js';
+import {
+  sampleFeed,
+  sampleFeedUrl,
+  sampleGroups,
+} from '../../../packages/core/src/sample-library.js';
 import Parser from 'rss-parser/dist/rss-parser.min.js';
 import { parseFeedDocument } from '../../../packages/core/src/feed-parser.js';
 import { readFeedBody } from '../../../packages/core/src/feed-body.js';
@@ -41,12 +46,59 @@ export interface RelayStatus {
 
 /** Runs in its own worker; SQL goes through the library owner's serialized connection. */
 export class BrowserFetching {
+  private lifetime = new AbortController();
+  private queue = Promise.resolve();
+  readonly fetch: typeof fetch = (input, init) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
+    if (!['GET', 'HEAD'].includes(method.toUpperCase()))
+      return fetch(input, {
+        ...init,
+        credentials: 'omit',
+        signal: AbortSignal.any([
+          this.lifetime.signal,
+          init?.signal ?? AbortSignal.timeout(20_000),
+        ]),
+      });
+    if (this.sampleBase) {
+      const base = new URL(this.sampleBase);
+      if (
+        url.origin === base.origin &&
+        [new URL('figma/', base).pathname, new URL('samples/', base).pathname].some((path) =>
+          url.pathname.startsWith(path),
+        ) &&
+        !url.pathname.endsWith('.json')
+      )
+        return fetch(input, {
+          ...init,
+          credentials: 'omit',
+          signal: AbortSignal.any([
+            this.lifetime.signal,
+            init?.signal ?? AbortSignal.timeout(20_000),
+          ]),
+        });
+      const group = sampleGroups.find(
+        (group) => url.href === sampleFeedUrl(group.id, this.sampleBase!),
+      );
+      if (group) {
+        const response = Response.json(sampleFeed(group.id, this.sampleBase), {
+          headers: { 'Cache-Control': 'no-store' },
+        });
+        Object.defineProperty(response, 'url', { value: url.href });
+        return Promise.resolve(response);
+      }
+    }
+    if (!this.config)
+      return Promise.reject(new PollInterruptedError('Set up a feed relay in Where Brew runs.'));
+    return relayFetch(this.config, this.lifetime.signal)(input, init);
+  };
   private controller = new AbortController();
   private stopped = false;
   private config: RelayConfig | null = null;
   constructor(
     private storage: BrowserSqlStorage,
     private notifications: NotificationPort,
+    private sampleBase?: string,
   ) {}
   async initialize() {
     // The database's lifetime Web Lock proves no other runtime still owns these leases.
@@ -61,7 +113,11 @@ export class BrowserFetching {
   status(): RelayStatus {
     return { endpoint: this.config?.endpoint ?? null, configured: this.config !== null };
   }
-  async configure(value: RelayConfig | null) {
+  configure(value: RelayConfig | null) {
+    this.abort();
+    return this.enqueue(() => this.configureNow(value));
+  }
+  private async configureNow(value: RelayConfig | null) {
     const config = value === null ? null : relayConfig(value);
     if (config)
       await this.storage.run(
@@ -77,6 +133,7 @@ export class BrowserFetching {
   }
   close() {
     this.stopped = true;
+    this.lifetime.abort();
     this.abort();
   }
   private async update(feed: PollingFeed, values: PollUpdate) {
@@ -114,7 +171,18 @@ export class BrowserFetching {
       );
     }
   }
-  async refresh(feedId?: number): Promise<FetchCycle> {
+  private enqueue<T>(work: () => Promise<T>): Promise<T> {
+    const pending = this.queue.then(work);
+    this.queue = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+    return pending;
+  }
+  refresh(feedId?: number): Promise<FetchCycle> {
+    return this.enqueue(() => this.refreshNow(feedId));
+  }
+  private async refreshNow(feedId?: number): Promise<FetchCycle> {
     if (this.stopped) return { state: 'stopped', results: [], pending: 0 };
     this.controller = new AbortController();
     const signal = this.controller.signal;
@@ -161,7 +229,6 @@ export class BrowserFetching {
       { remaining: Infinity, reserve: () => (signal.aborted ? null : () => {}) },
     );
     await processing.drain();
-    if (!this.config) return { state: 'needs-relay', results: [], pending: await this.pending() };
     const config = this.config;
     const now = Date.now();
     const queue = (
@@ -210,7 +277,11 @@ export class BrowserFetching {
           );
           results.push(
             await pollFeed(feed, {
-              fetcher: relayFetch(config, signal),
+              fetcher: (input, init) =>
+                this.fetch(input, {
+                  ...init,
+                  signal: AbortSignal.any([signal, init?.signal ?? this.lifetime.signal]),
+                }),
               now: clock.now,
               readBody: readFeedBody,
               parse: (body, type) =>
@@ -240,7 +311,7 @@ export class BrowserFetching {
     );
     await processing.drain();
     return {
-      state: signal.aborted ? 'stopped' : 'ready',
+      state: signal.aborted ? 'stopped' : config ? 'ready' : 'needs-relay',
       results: results.sort((a, b) => a.feedId - b.feedId),
       pending: await this.pending(),
     };

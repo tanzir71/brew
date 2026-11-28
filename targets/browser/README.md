@@ -1,6 +1,12 @@
 # Browser runtime
 
-This target supplies persistent SQLite storage and relay-backed feed fetching. The browser product's first-run flow, complete API integration and portable `.brew` archive are still in development. The public demo remains a separate sample transport.
+Open [Brew in this browser](https://tanzir71.github.io/brew/browser/) and choose **Start here** to create a real private library with three sample feeds and a 13-story Morning issue. The same React interface, Hono routes and domain services run against local SQLite. The public [demo](https://tanzir71.github.io/brew/demo/) remains a separate sample transport.
+
+Add your own subscriptions after connecting an owner-managed relay in Settings → Where Brew runs → Feeds and full text → Set up. Relay settings never return the saved token. Browser mode catches up on open and checks due feeds while the page stays open; it cannot send email or expose a remote MCP/Reader server. A private email-to-feed URL can be subscribed through the relay. Portable `.brew` export/import is the next unfinished feature; do not treat the raw SQLite export primitive as a portable archive.
+
+`npm run browser:dev` starts the browser app locally. `npm run build:browser-app` emits the deployable app to `docs/browser/`; `npm run website:build` includes it. Serve that folder over HTTPS or localhost. A service worker forwards this tab's HTTP, private images and preview requests to the live library; it stores no library data, caches no private responses and performs no background fetching. Hash URLs keep navigation within a project-hosted path. One live tab owns each library, and another tab reports that it is already open. Reloading or reopening preserves committed data.
+
+For a different public host, set `BREW_BROWSER_PUBLIC_URL` to the complete browser app URL with a trailing slash before building. This sets the standalone sample feed/article links; a new local library derives its sample URLs from the actual app URL. The app, original Figma art, fonts and both WASM engines are self-hosted. `npm run browser:app:verify` exercises the built product in Chromium and Firefox, including cold start, real read/Compose state, persistent Undo, relay setup and local HTTP recovery.
 
 The worker loads the official pinned SQLite WASM build and runs all canonical migrations from `packages/db/migrations`, including the same legacy composition data step as Node. Drizzle uses `packages/db/src/schema.ts`; native FTS5 and its existing triggers maintain the search index.
 

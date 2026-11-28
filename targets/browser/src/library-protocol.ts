@@ -1,9 +1,11 @@
 import type { WireError } from './errors.js';
 import type { Query, QueryResult } from './protocol.js';
 import type { RelayConfig } from './relay.js';
+import type { BrowserApiOptions, BrowserHttpRequest } from './api.js';
 
 export type LibraryOperation =
-  | { kind: 'initialize' }
+  | { kind: 'initialize'; options: BrowserApiOptions }
+  | { kind: 'http'; request: BrowserHttpRequest }
   | { kind: 'configure'; config: RelayConfig | null }
   | { kind: 'refresh'; feedId?: number }
   | { kind: 'close' };

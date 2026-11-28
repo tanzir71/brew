@@ -1,0 +1,1 @@
+import{r as e}from"./library.worker-B8NFyARK.js";function t(){return(t,n)=>t[e(n)===`output`?`out`:`in`].toJsonSchema(n)}export{t as default};

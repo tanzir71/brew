@@ -1,0 +1,1 @@
+throw Error(`Could not resolve "@valibot/to-json-schema" imported by "@standard-community/standard-json". Is it installed?`);

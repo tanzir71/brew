@@ -1,0 +1,132 @@
+{
+  "fileKey": "NcqNdBhgeg6om2CCZwrYV8",
+  "nodeId": "15:1773",
+  "assets": [
+    {
+      "file": "figma/first-run/5088f.svg",
+      "export": "5088f.svg",
+      "width": 6,
+      "height": 6,
+      "sha256": "43ce0c11102808c5e1ed4b3c303bb65b2c8fa700694088d130a4f535811cf8de"
+    },
+    {
+      "file": "figma/first-run/71c53.svg",
+      "export": "71c53.svg",
+      "width": 6,
+      "height": 6,
+      "sha256": "cdada4e2862fdcacb264592a1bc87cb6da4167b76ac1d552f643cbf6db596a37"
+    },
+    {
+      "file": "figma/first-run/fb52b.svg",
+      "export": "fb52b.svg",
+      "width": 5,
+      "height": 10,
+      "sha256": "008e6b3ea198030f5f3b19942621aeb3b9e202ab28f4170070ae780da872d190"
+    },
+    {
+      "file": "figma/first-run/a2689.svg",
+      "export": "a2689.svg",
+      "width": 20,
+      "height": 20,
+      "sha256": "b29241ffd37daabc0ec18e8950382e458d662a22fb89a492760be8a3415b4d92"
+    },
+    {
+      "file": "figma/first-run/da726.svg",
+      "export": "da726.svg",
+      "width": 14,
+      "height": 14,
+      "sha256": "3d4d18508c5dcbb26bdb0046fe26be8d59081f00899ab95d2fe09790cbb096ed"
+    },
+    {
+      "file": "figma/first-run/153a1.svg",
+      "export": "153a1.svg",
+      "width": 14,
+      "height": 14,
+      "sha256": "30c18bad1e50a02f4d392417de21756df6cdac2fd723e14887f52ed319e8d664"
+    },
+    {
+      "file": "figma/first-run/bfd9e.svg",
+      "export": "bfd9e.svg",
+      "width": 20,
+      "height": 20,
+      "sha256": "170e29b9c6578de3fee36e3d4d1dd81c5c7325044785d7ae16261e263ec06305"
+    },
+    {
+      "file": "figma/first-run/bfcab.svg",
+      "export": "bfcab.svg",
+      "width": 14,
+      "height": 14,
+      "sha256": "4d5ffcaf6c99128660f6b8cf78a3c79f49fcc364b81d2dd16a53152adc692cec"
+    },
+    {
+      "file": "figma/first-run/543e5.svg",
+      "export": "543e5.svg",
+      "width": 16,
+      "height": 16,
+      "sha256": "c22b9d42079286f5363dedb4221ea8fb08210e09fdd70bafc30c07d6f9427437"
+    },
+    {
+      "file": "figma/first-run/6b174.svg",
+      "export": "6b174.svg",
+      "width": 20,
+      "height": 20,
+      "sha256": "b4bc487bfac1f1fb9ae574f6bfc6f291cf997c3410b7ded0b2dae6977fa41318"
+    },
+    {
+      "file": "figma/first-run/0b316.svg",
+      "export": "0b316.svg",
+      "width": 16,
+      "height": 16,
+      "sha256": "5473da53b604b5914459c8a0304a09cab6d215c9e06d0631bccbc7f6a8853c7e"
+    },
+    {
+      "file": "figma/first-run/8f114.svg",
+      "export": "8f114.svg",
+      "width": 20,
+      "height": 20,
+      "sha256": "d329724a36c365044b1b70fee26aad57f35614368dfa41459b27be6c00c02210"
+    },
+    {
+      "file": "figma/first-run/da22d.svg",
+      "export": "da22d.svg",
+      "width": 16,
+      "height": 16,
+      "sha256": "ef5f0be5da22288d2ea22a1097f5f8fa5f40b0f2ce6dab4e51975009b56c2357"
+    },
+    {
+      "file": "figma/first-run/3cf77.svg",
+      "export": "3cf77.svg",
+      "width": 20,
+      "height": 20,
+      "sha256": "a555b0b94b8cded10c0b696a8ef4fad31efd3f6b058cf91061252aa30841ee3e"
+    },
+    {
+      "file": "figma/first-run/e137f.svg",
+      "export": "e137f.svg",
+      "width": 16,
+      "height": 16,
+      "sha256": "c5a4176d18e06ac820d0a7b4b965f5a2fe1a0b8af56994c678fe758d7edebe05"
+    },
+    {
+      "file": "figma/first-run/c74db.svg",
+      "export": "c74db.svg",
+      "width": 13,
+      "height": 13,
+      "sha256": "beebf3c08b0e9cda8392d9d3de71b95a488fce6bcd0dc86d3f4831461139ca1b"
+    },
+    {
+      "file": "figma/first-run/1cc11.svg",
+      "export": "1cc11.svg",
+      "width": 13,
+      "height": 13,
+      "sha256": "ddea6d221234c07ffbe8b3ca7d9a1ce8fb0d619acf1f1a0c59c57715c38ac963"
+    },
+    {
+      "file": "figma/first-run/91ad9.svg",
+      "export": "91ad9.svg",
+      "width": 13,
+      "height": 13,
+      "sha256": "ca0a3506d19b141adfcdd74d16f463fa56c11feddb1c59180dfdf18124b2d31e"
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import type { Capabilities } from '@brew/core/types/capabilities';
 import { Badge } from '../components/Badge';
 import { AgentPreferences } from './AgentPreferences';
 import { agentPageHref } from '../agentLocation';
+import { RelaySettings } from './RelaySettings';
 
 const guides: Record<SetupTopic, { title: string; description: string; steps: string[] }> = {
   outputs: {
@@ -154,6 +155,7 @@ export function SetupDialog({
           <li key={step}>{step}</li>
         ))}
       </ol>
+      {topic === 'fetch' && capabilities?.fetch === 'relay' && <RelaySettings />}
       {topic === 'data' && capabilities?.readState === 'server' && (
         <a className="runs-button" href="/api/opml/export" download data-brew-action="export-opml">
           Export OPML

@@ -1,6 +1,7 @@
 export interface Capabilities {
   mode: 'browser' | 'node' | 'cloudflare' | 'php-lite' | 'static';
   fetch: 'direct' | 'relay' | 'extension' | 'build-time';
+  fetchConfigured?: boolean;
   backgroundFetch: {
     kind: 'always' | 'while-open' | 'cron' | 'build-time';
     everyMinutes?: number;
@@ -40,6 +41,7 @@ export function isCapabilities(value: unknown): value is Capabilities {
   return (
     oneOf(value.mode, ['browser', 'node', 'cloudflare', 'php-lite', 'static']) &&
     oneOf(value.fetch, ['direct', 'relay', 'extension', 'build-time']) &&
+    (value.fetchConfigured === undefined || typeof value.fetchConfigured === 'boolean') &&
     record(background) &&
     oneOf(background.kind, ['always', 'while-open', 'cron', 'build-time']) &&
     (background.everyMinutes === undefined || positive(background.everyMinutes)) &&

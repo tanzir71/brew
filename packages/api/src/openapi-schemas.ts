@@ -600,6 +600,7 @@ export const schemas: Record<string, SchemaObject> = {
     {
       mode: values('browser', 'node', 'cloudflare', 'php-lite', 'static'),
       fetch: values('direct', 'relay', 'extension', 'build-time'),
+      fetchConfigured: bool,
       backgroundFetch: object(
         {
           kind: values('always', 'while-open', 'cron', 'build-time'),

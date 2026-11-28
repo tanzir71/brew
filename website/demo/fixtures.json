@@ -64,7 +64,7 @@
           "sort": "newest"
         }
       ],
-      "createdAt": "2026-11-28T06:17:51.000Z"
+      "createdAt": "2026-11-28T11:05:49.000Z"
     },
     {
       "id": 2,
@@ -72,7 +72,7 @@
       "scheduleCron": "0 8 * * *",
       "enabled": true,
       "sections": [],
-      "createdAt": "2026-11-28T06:17:51.000Z"
+      "createdAt": "2026-11-28T11:05:49.000Z"
     }
   ],
   "/api/reader/navigation": {
@@ -1284,7 +1284,7 @@
     "id": 1,
     "name": "Morning",
     "enabled": true,
-    "createdAt": "2026-11-28T06:17:51.000Z",
+    "createdAt": "2026-11-28T11:05:49.000Z",
     "scheduleCron": "0 7 * * *",
     "sections": [
       {
@@ -1682,7 +1682,7 @@
     "id": 2,
     "name": "Weekend",
     "enabled": true,
-    "createdAt": "2026-11-28T06:17:51.000Z",
+    "createdAt": "2026-11-28T11:05:49.000Z",
     "scheduleCron": "0 8 * * *",
     "sections": [],
     "timezone": "UTC",

@@ -1,0 +1,429 @@
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(../fonts/geist-mono-latin-ext.woff2) format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(../fonts/geist-mono-latin.woff2) format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Instrument Sans';
+  font-style: normal;
+  font-weight: 400 600;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(../fonts/instrument-sans-latin-ext.woff2) format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Instrument Sans';
+  font-style: normal;
+  font-weight: 400 600;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(../fonts/instrument-sans-latin.woff2) format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url(../fonts/newsreader-latin-ext.woff2) format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url(../fonts/newsreader-latin.woff2) format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* Generated from design/tokens.json. Run npm run tokens:generate; do not edit.
+     Figma Brew / Color Light 22:2246 / Color Dark 22:2377. */
+:root {
+  --brew-text-primary: #1b1815;
+  --brew-bg-canvas: #f7f5f1;
+  --brew-border-default: #e5e0d8;
+  --brew-text-muted: #8a8279;
+  --brew-bg-surface: #ffffff;
+  --brew-bg-subtle: #f0ede7;
+  --brew-bg-sunken: #e9e5de;
+  --brew-bg-inverse: #1b1815;
+  --brew-border-strong: #d2cbc0;
+  --brew-text-soft: #4e4842;
+  --brew-text-inverse: #f7f5f1;
+  --brew-accent-default: #a0471d;
+  --brew-accent-soft: #f5e9e0;
+  --brew-accent-on: #ffffff;
+  --brew-status-positive: #3d6b4f;
+  --brew-status-positive-soft: #e6efe8;
+  --brew-status-warning: #8e600c;
+  --brew-status-warning-soft: #f6edd9;
+  --brew-status-danger: #a63a2b;
+  --brew-status-danger-soft: #f6e3df;
+  --brew-highlight-amber: #c98a1c;
+  --brew-highlight-sage: #6e9278;
+  --brew-highlight-plum: #8c6a9a;
+  --brew-highlight-sky: #5e86a8;
+  --brew-art-1: #dccdba;
+  --brew-art-2: #b8a38b;
+  --brew-art-3: #cbd3c6;
+  --brew-art-4: #9faf9e;
+  --brew-art-5: #d9cfdc;
+  --brew-art-6: #a99bb0;
+  --brew-art-7: #c9d5de;
+  --brew-art-8: #8ea3b4;
+  --brew-space-4: 4px;
+  --brew-space-8: 8px;
+  --brew-space-12: 12px;
+  --brew-space-16: 16px;
+  --brew-space-20: 20px;
+  --brew-space-24: 24px;
+  --brew-space-32: 32px;
+  --brew-space-40: 40px;
+  --brew-space-48: 48px;
+  --brew-space-64: 64px;
+  --brew-space-96: 96px;
+  --brew-radius-sm: 4px;
+  --brew-radius-md: 8px;
+  --brew-radius-lg: 12px;
+  --brew-radius-xl: 16px;
+  --brew-radius-full: 999px;
+  --brew-elevation-raised: 0 1px 2px 0 #1b18150f, 0 0 0 1px #1b18150a;
+  --brew-elevation-card: 0 2px 6px 0 #1b18150a, 0 12px 32px 0 #1b181512;
+  --brew-elevation-overlay: 0 4px 12px 0 #1b18150f, 0 28px 64px 0 #1b18152e;
+  --brew-font-ui: 'Instrument Sans', ui-sans-serif, sans-serif;
+  --brew-font-reading: 'Newsreader', Georgia, serif;
+  --brew-font-mono: 'Geist Mono', ui-monospace, monospace;
+  --brew-type-display-xl-size: 64px;
+  --brew-type-display-xl-line: 66px;
+  --brew-type-display-xl-weight: 400;
+  --brew-type-display-xl-tracking: -0.025em;
+  --brew-type-display-l-size: 44px;
+  --brew-type-display-l-line: 48px;
+  --brew-type-display-l-weight: 400;
+  --brew-type-display-l-tracking: -0.02em;
+  --brew-type-title-l-size: 30px;
+  --brew-type-title-l-line: 36px;
+  --brew-type-title-l-weight: 400;
+  --brew-type-title-l-tracking: -0.015em;
+  --brew-type-title-m-size: 22px;
+  --brew-type-title-m-line: 28px;
+  --brew-type-title-m-weight: 500;
+  --brew-type-title-m-tracking: -0.01em;
+  --brew-type-title-s-size: 18px;
+  --brew-type-title-s-line: 24px;
+  --brew-type-title-s-weight: 500;
+  --brew-type-title-s-tracking: -0.005em;
+  --brew-type-reading-body-size: 19px;
+  --brew-type-reading-body-line: 31px;
+  --brew-type-reading-body-weight: 400;
+  --brew-type-reading-body-tracking: 0em;
+  --brew-type-reading-lede-size: 20px;
+  --brew-type-reading-lede-line: 30px;
+  --brew-type-reading-lede-weight: 400;
+  --brew-type-reading-lede-tracking: -0.005em;
+  --brew-type-ui-heading-l-size: 24px;
+  --brew-type-ui-heading-l-line: 30px;
+  --brew-type-ui-heading-l-weight: 600;
+  --brew-type-ui-heading-l-tracking: -0.015em;
+  --brew-type-ui-heading-size: 17px;
+  --brew-type-ui-heading-line: 22px;
+  --brew-type-ui-heading-weight: 600;
+  --brew-type-ui-heading-tracking: -0.01em;
+  --brew-type-ui-body-size: 15px;
+  --brew-type-ui-body-line: 22px;
+  --brew-type-ui-body-weight: 400;
+  --brew-type-ui-body-tracking: 0em;
+  --brew-type-ui-body-s-size: 13px;
+  --brew-type-ui-body-s-line: 19px;
+  --brew-type-ui-body-s-weight: 400;
+  --brew-type-ui-body-s-tracking: 0em;
+  --brew-type-ui-label-size: 13px;
+  --brew-type-ui-label-line: 16px;
+  --brew-type-ui-label-weight: 500;
+  --brew-type-ui-label-tracking: 0em;
+  --brew-type-ui-label-s-size: 12px;
+  --brew-type-ui-label-s-line: 16px;
+  --brew-type-ui-label-s-weight: 500;
+  --brew-type-ui-label-s-tracking: 0em;
+  --brew-type-ui-caption-size: 12px;
+  --brew-type-ui-caption-line: 16px;
+  --brew-type-ui-caption-weight: 400;
+  --brew-type-ui-caption-tracking: 0em;
+  --brew-type-ui-overline-size: 11px;
+  --brew-type-ui-overline-line: 14px;
+  --brew-type-ui-overline-weight: 600;
+  --brew-type-ui-overline-tracking: 0.07em;
+  --brew-type-mono-s-size: 12px;
+  --brew-type-mono-s-line: 16px;
+  --brew-type-mono-s-weight: 400;
+  --brew-type-mono-s-tracking: 0em;
+  --brew-type-mono-xs-size: 11px;
+  --brew-type-mono-xs-line: 14px;
+  --brew-type-mono-xs-weight: 400;
+  --brew-type-mono-xs-tracking: 0em;
+  /* Derived caption ink meets AA on the canvas; raw Figma text/muted stays intact. */
+  --brew-text-caption: color-mix(
+    in srgb,
+    var(--brew-text-muted) 75%,
+    var(--brew-text-primary)
+  );
+  --brew-bg-scrim: #121110;
+  color-scheme: light;
+}
+:root[data-resolved-theme='dark'] {
+  --brew-text-primary: #f2eee8;
+  --brew-bg-canvas: #121110;
+  --brew-border-default: #2d2a26;
+  --brew-text-muted: #8d857b;
+  --brew-bg-surface: #1a1917;
+  --brew-bg-subtle: #22201d;
+  --brew-bg-sunken: #0d0c0b;
+  --brew-bg-inverse: #f2eee8;
+  --brew-border-strong: #423d37;
+  --brew-text-soft: #c5beb5;
+  --brew-text-inverse: #121110;
+  --brew-accent-default: #e1915f;
+  --brew-accent-soft: #33231a;
+  --brew-accent-on: #1a1210;
+  --brew-status-positive: #86b898;
+  --brew-status-positive-soft: #1d2b22;
+  --brew-status-warning: #d9a84a;
+  --brew-status-warning-soft: #2f2615;
+  --brew-status-danger: #e5806f;
+  --brew-status-danger-soft: #351d19;
+  --brew-highlight-amber: #d9a84a;
+  --brew-highlight-sage: #86b898;
+  --brew-highlight-plum: #b79ac4;
+  --brew-highlight-sky: #8db0ce;
+  --brew-art-1: #3a3029;
+  --brew-art-2: #54463a;
+  --brew-art-3: #2f3630;
+  --brew-art-4: #47534a;
+  --brew-art-5: #39323d;
+  --brew-art-6: #4f4555;
+  --brew-art-7: #2c3439;
+  --brew-art-8: #435160;
+  color-scheme: dark;
+}
+@theme inline {
+  --color-*: initial;
+  --color-canvas: var(--brew-bg-canvas);
+  --color-surface: var(--brew-bg-surface);
+  --color-subtle: var(--brew-bg-subtle);
+  --color-sunken: var(--brew-bg-sunken);
+  --color-inverse: var(--brew-bg-inverse);
+  --color-on-inverse: var(--brew-text-inverse);
+  --color-ink: var(--brew-text-primary);
+  --color-soft: var(--brew-text-soft);
+  --color-muted: var(--brew-text-caption);
+  --color-quiet: var(--brew-text-muted);
+  --color-line: var(--brew-border-default);
+  --color-line-strong: var(--brew-border-strong);
+  --color-accent: var(--brew-accent-default);
+  --color-accent-soft: var(--brew-accent-soft);
+  --color-on-accent: var(--brew-accent-on);
+  --color-positive: var(--brew-status-positive);
+  --color-positive-soft: var(--brew-status-positive-soft);
+  --color-warning: var(--brew-status-warning);
+  --color-warning-soft: var(--brew-status-warning-soft);
+  --color-danger: var(--brew-status-danger);
+  --color-danger-soft: var(--brew-status-danger-soft);
+  --color-scrim: var(--brew-bg-scrim);
+  --color-highlight-amber: var(--brew-highlight-amber);
+  --color-highlight-sage: var(--brew-highlight-sage);
+  --color-highlight-plum: var(--brew-highlight-plum);
+  --color-highlight-sky: var(--brew-highlight-sky);
+  --color-art-1: var(--brew-art-1);
+  --color-art-2: var(--brew-art-2);
+  --color-art-3: var(--brew-art-3);
+  --color-art-4: var(--brew-art-4);
+  --color-art-5: var(--brew-art-5);
+  --color-art-6: var(--brew-art-6);
+  --color-art-7: var(--brew-art-7);
+  --color-art-8: var(--brew-art-8);
+  --radius-sm: var(--brew-radius-sm);
+  --radius-md: var(--brew-radius-md);
+  --radius-lg: var(--brew-radius-lg);
+  --radius-xl: var(--brew-radius-xl);
+  --radius-full: var(--brew-radius-full);
+  --radius-2xl: var(--brew-radius-xl);
+  --radius-3xl: var(--brew-radius-xl);
+  --spacing: var(--brew-space-4);
+  --shadow-raised: var(--brew-elevation-raised);
+  --shadow-card: var(--brew-elevation-card);
+  --shadow-overlay: var(--brew-elevation-overlay);
+  --font-sans: var(--brew-font-ui);
+  --font-serif: var(--brew-font-reading);
+  --font-mono: var(--brew-font-mono);
+}
+@utility type-display-xl {
+  font-family: var(--brew-font-reading);
+  font-size: var(--brew-type-display-xl-size);
+  line-height: var(--brew-type-display-xl-line);
+  font-weight: var(--brew-type-display-xl-weight);
+  letter-spacing: var(--brew-type-display-xl-tracking);
+  font-style: normal;
+}
+@utility type-display-l {
+  font-family: var(--brew-font-reading);
+  font-size: var(--brew-type-display-l-size);
+  line-height: var(--brew-type-display-l-line);
+  font-weight: var(--brew-type-display-l-weight);
+  letter-spacing: var(--brew-type-display-l-tracking);
+  font-style: normal;
+}
+@utility type-title-l {
+  font-family: var(--brew-font-reading);
+  font-size: var(--brew-type-title-l-size);
+  line-height: var(--brew-type-title-l-line);
+  font-weight: var(--brew-type-title-l-weight);
+  letter-spacing: var(--brew-type-title-l-tracking);
+  font-style: normal;
+}
+@utility type-title-m {
+  font-family: var(--brew-font-reading);
+  font-size: var(--brew-type-title-m-size);
+  line-height: var(--brew-type-title-m-line);
+  font-weight: var(--brew-type-title-m-weight);
+  letter-spacing: var(--brew-type-title-m-tracking);
+  font-style: normal;
+}
+@utility type-title-s {
+  font-family: var(--brew-font-reading);
+  font-size: var(--brew-type-title-s-size);
+  line-height: var(--brew-type-title-s-line);
+  font-weight: var(--brew-type-title-s-weight);
+  letter-spacing: var(--brew-type-title-s-tracking);
+  font-style: normal;
+}
+@utility type-reading-body {
+  font-family: var(--brew-font-reading);
+  font-size: var(--brew-type-reading-body-size);
+  line-height: var(--brew-type-reading-body-line);
+  font-weight: var(--brew-type-reading-body-weight);
+  letter-spacing: var(--brew-type-reading-body-tracking);
+  font-style: normal;
+}
+@utility type-reading-lede {
+  font-family: var(--brew-font-reading);
+  font-size: var(--brew-type-reading-lede-size);
+  line-height: var(--brew-type-reading-lede-line);
+  font-weight: var(--brew-type-reading-lede-weight);
+  letter-spacing: var(--brew-type-reading-lede-tracking);
+  font-style: normal;
+}
+@utility type-ui-heading-l {
+  font-family: var(--brew-font-ui);
+  font-size: var(--brew-type-ui-heading-l-size);
+  line-height: var(--brew-type-ui-heading-l-line);
+  font-weight: var(--brew-type-ui-heading-l-weight);
+  letter-spacing: var(--brew-type-ui-heading-l-tracking);
+  font-style: normal;
+}
+@utility type-ui-heading {
+  font-family: var(--brew-font-ui);
+  font-size: var(--brew-type-ui-heading-size);
+  line-height: var(--brew-type-ui-heading-line);
+  font-weight: var(--brew-type-ui-heading-weight);
+  letter-spacing: var(--brew-type-ui-heading-tracking);
+  font-style: normal;
+}
+@utility type-ui-body {
+  font-family: var(--brew-font-ui);
+  font-size: var(--brew-type-ui-body-size);
+  line-height: var(--brew-type-ui-body-line);
+  font-weight: var(--brew-type-ui-body-weight);
+  letter-spacing: var(--brew-type-ui-body-tracking);
+  font-style: normal;
+}
+@utility type-ui-body-s {
+  font-family: var(--brew-font-ui);
+  font-size: var(--brew-type-ui-body-s-size);
+  line-height: var(--brew-type-ui-body-s-line);
+  font-weight: var(--brew-type-ui-body-s-weight);
+  letter-spacing: var(--brew-type-ui-body-s-tracking);
+  font-style: normal;
+}
+@utility type-ui-label {
+  font-family: var(--brew-font-ui);
+  font-size: var(--brew-type-ui-label-size);
+  line-height: var(--brew-type-ui-label-line);
+  font-weight: var(--brew-type-ui-label-weight);
+  letter-spacing: var(--brew-type-ui-label-tracking);
+  font-style: normal;
+}
+@utility type-ui-label-s {
+  font-family: var(--brew-font-ui);
+  font-size: var(--brew-type-ui-label-s-size);
+  line-height: var(--brew-type-ui-label-s-line);
+  font-weight: var(--brew-type-ui-label-s-weight);
+  letter-spacing: var(--brew-type-ui-label-s-tracking);
+  font-style: normal;
+}
+@utility type-ui-caption {
+  font-family: var(--brew-font-ui);
+  font-size: var(--brew-type-ui-caption-size);
+  line-height: var(--brew-type-ui-caption-line);
+  font-weight: var(--brew-type-ui-caption-weight);
+  letter-spacing: var(--brew-type-ui-caption-tracking);
+  font-style: normal;
+}
+@utility type-ui-overline {
+  font-family: var(--brew-font-ui);
+  font-size: var(--brew-type-ui-overline-size);
+  line-height: var(--brew-type-ui-overline-line);
+  font-weight: var(--brew-type-ui-overline-weight);
+  letter-spacing: var(--brew-type-ui-overline-tracking);
+  font-style: normal;
+  text-transform: uppercase;
+}
+@utility type-mono-s {
+  font-family: var(--brew-font-mono);
+  font-size: var(--brew-type-mono-s-size);
+  line-height: var(--brew-type-mono-s-line);
+  font-weight: var(--brew-type-mono-s-weight);
+  letter-spacing: var(--brew-type-mono-s-tracking);
+  font-style: normal;
+}
+@utility type-mono-xs {
+  font-family: var(--brew-font-mono);
+  font-size: var(--brew-type-mono-xs-size);
+  line-height: var(--brew-type-mono-xs-line);
+  font-weight: var(--brew-type-mono-xs-weight);
+  letter-spacing: var(--brew-type-mono-xs-tracking);
+  font-style: normal;
+}
+
+*{font-style:normal!important}body{margin:0;background:var(--brew-bg-canvas);color:var(--brew-text-primary);font:19px/31px var(--brew-font-reading)}main{max-width:42rem;margin:3rem auto;padding:0 1.5rem}h1{font:400 44px/48px var(--brew-font-reading)}p{margin:1rem 0}img{max-width:100%;height:auto}a{color:var(--brew-accent-default)}

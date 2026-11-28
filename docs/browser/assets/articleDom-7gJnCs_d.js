@@ -1,0 +1,1 @@
+function e(e,t=`article`){return{"data-brew-id":e.id,"data-brew-kind":t,"data-brew-state":[e.readAt?`read`:`unread`,e.starredAt?`starred`:``,e.highlightColor?`highlighted`:``].filter(Boolean).join(` `)}}export{e as t};

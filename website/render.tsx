@@ -51,7 +51,7 @@ const links: Record<string, string> = {
   'llms.txt': './llms.txt',
   Privacy: '#privacy',
   Changelog: github + '/commits/main/',
-  'In your browser': '#run',
+  'In your browser': './browser/',
   'Your server': setup,
   Cloudflare: github + '/blob/main/docs/cloudflare-install.md',
   'Shared hosting': '#run',
@@ -197,25 +197,23 @@ function pageNode(
   // The design includes future runtimes. Keep the visual cards and state release status.
   if (id === '18:28')
     children =
-      'Brew is an open-source reader that runs where you choose. Start on your own server or Cloudflare, with browser and published editions on the way. One file you own, and nobody watching.';
+      'Brew is an open-source reader that runs where you choose. Start in this browser, on your own server or Cloudflare. Your library is yours, and nobody is watching.';
   if (id === '19:926')
     children =
-      'Run on your own server or Cloudflare for background fetching and inbound mail. Browser, shared hosting and published editions are in development. Your data stays yours.';
+      'Start in this browser, or use your own server or Cloudflare for background fetching and inbound mail. Shared hosting and published editions are in development. Your data stays yours.';
   if (id === '21:603') children = 'Open the demo, or run your own Brew. No sign-up.';
   if (tag === 'p' && label === 'npx brew-reader') children = 'git clone …/brew';
-  if (id === '19:958') children = 'In development';
+  if (id === '19:958') children = 'Ready in 10 seconds';
   if (id === '19:959') {
-    props['aria-disabled'] = true;
-    props.href = '#run';
+    props.href = './browser/';
   }
-  if (tag === 'p' && label === 'Start here') children = 'Coming soon';
   if (name.startsWith('Button/') && (label === 'Download Lite' || label === 'Use template')) {
     props['aria-disabled'] = true;
     props.href = '#run';
   }
   if (tag === 'p' && (label === 'Rules run in your browser' || label === 'Good for a reading list'))
     children = 'In development';
-  if (tag === 'p' && label === 'Five ways') children = 'Node + Cloudflare';
+  if (tag === 'p' && label === 'Five ways') children = 'Browser + Node + Cloudflare';
   if (tag === 'p' && label === '$89.99/yr') children = '$90/yr';
   if (tag === 'p' && label === '$99 first year, then $144/yr')
     children = ['$144/yr', createElement('br', { key: 'price' }), 'First-year offers'];
@@ -226,11 +224,7 @@ function pageNode(
   if (tag === 'p' && label === 'OPML, Markdown, JSON or a single .brew file, whenever you like.')
     children = 'OPML, Markdown and JSON exports, whenever you like.';
   if (label === 'Start in this browser' && !isIllustration) {
-    if (tag === 'p') children = 'Browser edition · coming soon';
-    else {
-      props['aria-disabled'] = true;
-      props.href = '#run';
-    }
+    if (tag !== 'p') props.href = './browser/';
   }
   delete props.children;
   return createElement(tag, props, pageNode(children, section, isIllustration, name));
@@ -265,9 +259,15 @@ const css = await compile(await readFile('website/site.css', 'utf8'), {
 const candidates = [...html.matchAll(/class="([^"]+)"/g)].flatMap((match) =>
   match[1]!.split(/\s+/),
 );
-const stylesheet = optimize(css.build(candidates), { minify: true }).code.replaceAll('url(/fonts/', 'url(./fonts/');
+const stylesheet = optimize(css.build(candidates), { minify: true }).code.replaceAll(
+  'url(/fonts/',
+  'url(./fonts/',
+);
 const stylesheetVersion = createHash('sha256').update(stylesheet).digest('hex').slice(0, 12);
 await writeFile('docs/site.css', stylesheet);
-await writeFile('docs/index.html', html.replace('href="./site.css"', `href="./site.css?v=${stylesheetVersion}"`));
+await writeFile(
+  'docs/index.html',
+  html.replace('href="./site.css"', `href="./site.css?v=${stylesheetVersion}"`),
+);
 await copyFile('website/site.js', 'docs/site.js');
 console.log('Rendered Figma landing with shared app tokens, fonts and wordmark.');

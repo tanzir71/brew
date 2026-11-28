@@ -18,7 +18,7 @@ async function collect(directory) {
     } else if (
       /\.(?:[cm]?[jt]sx?|css|html|svg)$/.test(entry.name) &&
       !/\.(?:test|spec)\.[^.]+$/.test(entry.name) &&
-      !(filename.startsWith(path.join(root, 'docs/demo/assets') + path.sep) && entry.name.endsWith('.js'))
+      !(['docs/demo/assets', 'docs/browser/assets'].some(directory => filename.startsWith(path.join(root, directory) + path.sep)) && entry.name.endsWith('.js'))
     )
       files.push(filename);
   }

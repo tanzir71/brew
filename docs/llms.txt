@@ -14,10 +14,12 @@ Product facts:
 - A Brew is an immutable daily snapshot assembled from user-configured sections and rules.
 - Google Reader/Fever clients use a generated app password. MCP tools use scoped tokens and reviewed actions with Undo; experimental WebMCP stays opt-in.
 - The public demo uses canned data and does not fetch feeds or persist data.
+- The browser app at /brew/browser/ saves a real SQLite library on the device, starts with three sample feeds, and fetches subscriptions through an owner-configured relay while open. It has no outbound email or remote MCP/Reader server. Complete .brew transfer remains in development.
 
 ## Documentation
 
 - [Source and local setup](https://github.com/tanzir71/brew): Run a private Node instance and read the project documentation.
 - [Cloudflare installer](https://github.com/tanzir71/brew/blob/main/docs/cloudflare-install.md): Deploy a private Worker, D1 database and R2 bucket with owner Access.
 - [Public demo](https://tanzir71.github.io/brew/demo/): Explore the actual interface using canned data; changes stay in the tab.
+- [Browser app](https://tanzir71.github.io/brew/browser/): Start a real local library, then configure your own feed relay.
 - [Installer package](https://www.npmjs.com/package/brew-reader): Install and deploy with the published CLI.

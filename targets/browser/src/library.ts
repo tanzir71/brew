@@ -5,8 +5,12 @@ import type { FetchCycle, RelayStatus } from './fetching.js';
 import type { RelayConfig } from './relay.js';
 import type { LibraryOperation, LibraryReply, WorkerRequest } from './library-protocol.js';
 import type { NotificationPort } from '../../../packages/core/src/ports.js';
+import type { BrowserHttpResponse } from './api.js';
 
 export interface BrowserLibraryOptions extends OpenOptions {
+  assetBase?: string;
+  webmcp?: boolean;
+  timezone?: string;
   notifications?: NotificationPort;
   onCycle?(result: FetchCycle): void;
   onError?(message: string): void;
@@ -66,7 +70,15 @@ export class BrowserLibrary {
     let library: BrowserLibrary | undefined;
     try {
       library = new BrowserLibrary(storage, options);
-      await library.request<RelayStatus>({ kind: 'initialize' });
+      await library.request<RelayStatus>({
+        kind: 'initialize',
+        options: {
+          origin: window.location.origin,
+          assetBase: options.assetBase ?? new URL('./', window.location.href).href,
+          timezone: options.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+          webmcp: options.webmcp === true,
+        },
+      });
       library.timer = setInterval(() => library!.background(), 60_000);
       window.addEventListener('online', library.wake);
       window.addEventListener('pageshow', library.wake);
@@ -97,6 +109,54 @@ export class BrowserLibrary {
       void this.refreshDue().catch((error) =>
         this.options.onError?.(error instanceof Error ? error.message : 'Browser fetching failed.'),
       );
+  }
+  async fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    if (this.closing) throw new Error('Browser library is closed.');
+    const request =
+      input instanceof Request
+        ? new Request(input, init)
+        : new Request(new URL(String(input), window.location.origin), init);
+    if (request.signal.aborted) throw request.signal.reason;
+    const body = ['GET', 'HEAD'].includes(request.method)
+      ? undefined
+      : new Uint8Array(await request.arrayBuffer());
+    if (this.closing) throw new Error('Browser library is closed.');
+    const headers = new Headers(request.headers);
+    if (!['GET', 'HEAD'].includes(request.method) && !headers.has('Origin'))
+      headers.set('Origin', window.location.origin);
+    const pending = this.request<BrowserHttpResponse>({
+      kind: 'http',
+      request: {
+        url: request.url,
+        method: request.method,
+        headers: [...headers],
+        body,
+      },
+    });
+    const result = await new Promise<BrowserHttpResponse>((resolve, reject) => {
+      const abort = () => {
+        request.signal.removeEventListener('abort', abort);
+        reject(request.signal.reason);
+      };
+      request.signal.addEventListener('abort', abort, { once: true });
+      if (request.signal.aborted) abort();
+      pending.then(
+        (value) => {
+          request.signal.removeEventListener('abort', abort);
+          resolve(value);
+        },
+        (error) => {
+          request.signal.removeEventListener('abort', abort);
+          reject(error);
+        },
+      );
+    });
+    return new Response(
+      request.method === 'HEAD' || [204, 205, 304].includes(result.status)
+        ? null
+        : (result.body as BodyInit),
+      result,
+    );
   }
   refreshDue(): Promise<FetchCycle> {
     if (this.closing) return Promise.reject(new Error('Browser library is closed.'));

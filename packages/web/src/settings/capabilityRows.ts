@@ -65,7 +65,13 @@ export function capabilityRows(capabilities?: Capabilities, failed = false): Cap
             'build-time': 'Read the feeds included in the published copy',
           }[capabilities.fetch]
         : 'Feeds, articles and full-text reading',
-      ...(published ? readOnly : ready),
+      ...(published
+        ? readOnly
+        : capabilities?.fetch === 'relay'
+          ? capabilities.fetchConfigured
+            ? { ...ready, setup: 'Set up' as const }
+            : setup('Needs relay')
+          : ready),
     },
     {
       id: 'newsletters',

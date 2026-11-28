@@ -1,4 +1,8 @@
 /** Atomic SQL batches over a target-owned connection and durability boundary. */
+export interface SqlResult<T = Record<string, unknown>> {
+  results: T[];
+  meta: { changes: number };
+}
 export interface AsyncSqlStorage<Statement> {
   statement(sql: string, values?: unknown[]): Statement;
   first<T>(sql: string, values?: unknown[]): Promise<T | null>;

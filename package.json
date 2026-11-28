@@ -31,6 +31,9 @@
     "typography:check": "node scripts/verify-no-italics.mjs",
     "build:cli": "tsc -p packages/cli/tsconfig.json && node scripts/package-cloudflare-payload.mjs && node scripts/verify-cli-build.mjs",
     "build:browser": "vite build --config targets/browser/vite.config.ts",
+    "build:browser-app": "vite build --config targets/browser/app/vite.config.ts",
+    "browser:dev": "vite --config targets/browser/app/vite.config.ts",
+    "browser:app:verify": "node scripts/verify-browser-app.mjs",
     "browser:verify": "node scripts/verify-browser-build.mjs && node scripts/verify-browser-fetching.mjs",
     "deploy": "node scripts/deploy-cloudflare-button.mjs"
   },

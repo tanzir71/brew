@@ -13,7 +13,8 @@
     "@brew/core": "0.1.0",
     "rss-parser": "3.13.0",
     "@jitl/quickjs-wasmfile-release-sync": "0.32.0",
-    "quickjs-emscripten-core": "0.32.0"
+    "quickjs-emscripten-core": "0.32.0",
+    "@brew/api": "0.1.0"
   },
   "devDependencies": {
     "@jitl/quickjs-ffi-types": "0.32.0"

@@ -1,0 +1,1 @@
+function e(){return e=>{let t=e[`~standard`]?.jsonSchema,n=t?t.input({target:`draft-2020-12`}):e.Type();return JSON.parse(JSON.stringify(n))}}export{e as default};

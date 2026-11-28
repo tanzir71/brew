@@ -40,6 +40,7 @@ it.each([
   null,
   {},
   { ...browser, readerApi: 'false' },
+  { ...browser, fetchConfigured: 'yes' },
   { ...browser, outputs: { twins: 'yes', feed: true, webhook: false } },
   { ...browser, emailDelivery: undefined },
   { ...browser, mode: 'unknown' },

@@ -10,11 +10,17 @@ export function OpmlImportPicker({
   disabled = false,
   inputLabel = 'Import OPML',
   ghost = false,
+  label = 'Import OPML',
+  showIcon = true,
+  className,
 }: {
   flow: ReturnType<typeof useOpmlImport>;
   disabled?: boolean;
   inputLabel?: string;
   ghost?: boolean;
+  label?: string;
+  showIcon?: boolean;
+  className?: string;
 }) {
   const file = useRef<HTMLInputElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -32,11 +38,12 @@ export function OpmlImportPicker({
         buttonRef={trigger}
         size="sm"
         variant={ghost ? 'ghost' : 'secondary'}
-        icon={<Icon name="download" size={14} />}
+        icon={showIcon ? <Icon name="download" size={14} /> : undefined}
+        className={className}
         disabled={disabled || flow.preparing || !flow.capable}
         onClick={() => file.current?.click()}
       >
-        {flow.preparing ? 'Reading OPML…' : 'Import OPML'}
+        {flow.preparing ? 'Reading OPML…' : label}
       </Button>
       <input
         hidden

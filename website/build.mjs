@@ -27,3 +27,4 @@ await build({
 });
 await import('../data/website/render.mjs');
 await buildDemo({ configFile: path.resolve('website/demo/vite.config.ts') });
+await buildDemo({ configFile: path.resolve('targets/browser/app/vite.config.ts') });

@@ -1,4 +1,9 @@
 /* Figma 15:2010 layout; palette and dimensions come from the shared tokens. */
+.relay-settings { margin: 20px 0; display: grid; gap: 12px; }
+.relay-settings h3 { font: 600 15px/22px var(--brew-font-ui); }
+.relay-settings form { display: grid; gap: 12px; }
+.relay-settings label { display: grid; gap: 6px; }
+.relay-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .runs-app {
   --runs-canvas: var(--brew-bg-canvas);
   --runs-surface: var(--brew-bg-surface);

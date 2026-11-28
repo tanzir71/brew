@@ -10,6 +10,8 @@ const required = [
   'site.css',
   'site.js',
   'demo/index.html',
+  'browser/index.html',
+  'browser/sw.js',
   'favicon.svg',
   'og.png',
   'llms.txt',
@@ -20,13 +22,13 @@ for (const relative of required) {
   const info = await stat(path.join(root, relative));
   assert(info.isFile() && (relative === '.nojekyll' || info.size > 0), relative + ' is empty');
 }
-for (const relative of ['index.html', 'demo/index.html']) {
+for (const relative of ['index.html', 'demo/index.html', 'browser/index.html']) {
   const html = await readFile(path.join(root, relative), 'utf8');
   for (const token of ['<!doctype html>', '<title>', 'name="description"'])
     assert(html.toLowerCase().includes(token), relative + ': ' + token);
   assert(!/�|tanzir71\/rss|Morning Brew|figma\.com\/api\/mcp\/asset/.test(html));
   for (const prefix of ['/', '/brew/']) {
-    const page = new URL(relative === 'index.html' ? './' : 'demo/', 'https://site.test' + prefix);
+    const page = new URL(relative === 'index.html' ? './' : path.posix.dirname(relative) + '/', 'https://site.test' + prefix);
     for (const [, href] of html.matchAll(/(?:href|src)="([^"]+)"/g)) {
       if (/^(?:https?:|mailto:|data:|#)/.test(href)) continue;
       const target = new URL(href, page);

@@ -28,6 +28,15 @@ it('uses feature fields for availability regardless of the runtime name', () => 
     capabilityRows(capabilities),
   );
   const local = capabilityRows({ ...capabilities, readState: 'local', fetch: 'relay' });
+  expect(local.find((row) => row.id === 'fetch')).toMatchObject({
+    label: 'Needs relay',
+    setup: 'Set up',
+  });
+  expect(
+    capabilityRows({ ...capabilities, fetch: 'relay', fetchConfigured: true }).find(
+      (row) => row.id === 'fetch',
+    ),
+  ).toMatchObject({ label: 'Works here', setup: 'Set up' });
   expect(local.find((row) => row.id === 'delivery')).toMatchObject({
     tone: 'locked',
     label: 'Server modes',
