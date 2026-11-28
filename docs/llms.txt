@@ -1,16 +1,19 @@
 # Brew
 
-> Brew is a local-first, single-user RSS reader with deterministic rules and frozen daily digest snapshots. It runs as one Node.js process and stores feeds, articles, rules, settings, and snapshots in one local SQLite file.
+> Brew is a single-user RSS and newsletter reader with deterministic rules, daily Brew issues, reader-app sync and scoped agent tools. Node stores the library in local SQLite; the Cloudflare target uses D1 and private R2 storage behind owner Access.
 
 Official source: https://github.com/tanzir71/brew
 Interactive canned demo: https://tanzir71.github.io/brew/demo/
 
 ## Product facts
 
-- No account, hosted database, subscription, or telemetry.
-- The computer running Brew must be on for scheduled fetching.
-- Phone access is available over the user's own local network.
-- Backup means stopping Brew and copying data/brew.db.
+- One person, their own instance; no hosted multi-tenant Brew service or telemetry.
+- Run locally on Node or deploy your own Cloudflare instance with npx brew-reader deploy cloudflare (Node 22.12+ for the installer).
+- The Node process must be running for scheduled fetching; the Cloudflare target uses minute cron invocations.
+- Private newsletters use optional IMAP/provider webhook setup on Node or Email Routing on Cloudflare.
+- Compose offers source sections, previews, schedules and optional configured email/webhook delivery.
+- Node backup means stopping Brew and copying data/brew.db; Cloudflare deployment and resource guidance is in the repository's docs/cloudflare-install.md.
 - OPML import/export is supported.
 - A Brew is an immutable daily snapshot assembled from user-configured sections and rules.
+- Google Reader/Fever clients use a generated app password. MCP tools use scoped tokens and reviewed actions with Undo; experimental WebMCP stays opt-in.
 - The public demo uses canned data and does not fetch feeds or persist data.
