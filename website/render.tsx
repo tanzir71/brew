@@ -2,6 +2,7 @@ import { Children, createElement, isValidElement, type ReactNode, type ReactElem
 import { renderToStaticMarkup } from 'react-dom/server';
 import { readFile, writeFile, copyFile } from 'node:fs/promises';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { compile, optimize } from '@tailwindcss/node';
 import Nav from './sections/Nav';
 import Hero from './sections/Hero';
@@ -257,7 +258,6 @@ body =
   body.slice(footerStart);
 const html = `<!doctype html>
 <html lang="en" data-resolved-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Brew — Your calm daily paper</title><meta name="description" content="An open-source reader for feeds and newsletters. Daily Brews, unlimited rules, app sync and scoped agent tools. Run your own on Node or Cloudflare."><meta name="theme-color" content="#f7f5f1"><link rel="canonical" href="https://tanzir71.github.io/brew/"><link rel="describedby" href="./llms.txt" type="text/plain"><link rel="alternate" href="./index.md" type="text/markdown"><meta property="og:title" content="Brew — Your calm daily paper"><meta property="og:description" content="Your feeds and newsletters, made into one calm daily paper."><meta property="og:image" content="https://tanzir71.github.io/brew/og.png"><link rel="icon" href="./favicon.svg" type="image/svg+xml"><link rel="preload" href="./fonts/newsreader-latin.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="./fonts/instrument-sans-latin.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="./site.css"><script src="./site.js" defer></script></head><body><a class="skip-link" href="#main">Skip to content</a>${body}<dialog id="privacy" aria-labelledby="privacy-title"><h2 id="privacy-title">Your reading stays yours.</h2><p>This site has no analytics, cookies or third-party requests. The demo uses canned data; nothing is saved after you close it.</p><form method="dialog"><button class="brew-button brew-button--secondary brew-button--md">Close</button></form></dialog></body></html>`;
-await writeFile('docs/index.html', html);
 const css = await compile(await readFile('website/site.css', 'utf8'), {
   base: path.resolve('website'),
   onDependency() {},
@@ -265,9 +265,9 @@ const css = await compile(await readFile('website/site.css', 'utf8'), {
 const candidates = [...html.matchAll(/class="([^"]+)"/g)].flatMap((match) =>
   match[1]!.split(/\s+/),
 );
-await writeFile(
-  'docs/site.css',
-  optimize(css.build(candidates), { minify: true }).code.replaceAll('url(/fonts/', 'url(./fonts/'),
-);
+const stylesheet = optimize(css.build(candidates), { minify: true }).code.replaceAll('url(/fonts/', 'url(./fonts/');
+const stylesheetVersion = createHash('sha256').update(stylesheet).digest('hex').slice(0, 12);
+await writeFile('docs/site.css', stylesheet);
+await writeFile('docs/index.html', html.replace('href="./site.css"', `href="./site.css?v=${stylesheetVersion}"`));
 await copyFile('website/site.js', 'docs/site.js');
 console.log('Rendered Figma landing with shared app tokens, fonts and wordmark.');

@@ -59,6 +59,8 @@ assert.equal(
 const demo = await readFile(path.join(root, 'demo/index.html'), 'utf8');
 assert(demo.includes('canned data') && demo.includes('nothing is saved'));
 const home = await readFile(path.join(root, 'index.html'), 'utf8');
+const stylesheetVersion = createHash('sha256').update(await readFile(path.join(root, 'site.css'))).digest('hex').slice(0, 12);
+assert(home.includes(`href="./site.css?v=${stylesheetVersion}"`), 'The landing must request its current stylesheet version.');
 for (const phrase of ['on your own server or Cloudflare', 'in development', './demo/'])
   assert(home.includes(phrase), phrase);
 console.log(
