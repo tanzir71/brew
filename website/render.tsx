@@ -94,6 +94,8 @@ function pageNode(
   }
   let tag = node.type;
   const props = { ...node.props };
+  if (typeof props['data-figma-asset'] === 'string')
+    props['data-figma-asset'] = props['data-figma-asset'].replace(/^\/figma\//, './figma/');
   const id = String(props['data-node-id'] ?? '');
   const name = String(props['data-name'] ?? '');
   const label = textOf(props.children).trim();
@@ -131,7 +133,7 @@ function pageNode(
     props.style = Object.fromEntries(
       Object.entries(props.style).map(([key, value]) => [
         key,
-        typeof value === 'string' ? value.replace('/figma/', './figma/') : value,
+        typeof value === 'string' ? value.replace(/(url\(["']?)\/figma\//g, '$1./figma/') : value,
       ]),
     );
     // The font's default wdth axis is 100; do not repeat it on every text node.
@@ -245,9 +247,6 @@ for (const [Component, id] of sections) {
     ),
   );
 }
-body = body
-  .replaceAll('/figma/components/', './figma/components/')
-  .replaceAll('././figma/', './figma/');
 const navEnd = body.indexOf('</nav>') + 6;
 const footerStart = body.indexOf('<footer');
 body =

@@ -38,6 +38,10 @@ async function pageAt(base, viewport) {
       errors.push('Third-party request: ' + url);
       return route.abort();
     }
+    if (!url.pathname.startsWith(new URL(base).pathname)) {
+      errors.push('Request escapes site base: ' + url);
+      return route.abort();
+    }
     return route.continue();
   });
   const page = await context.newPage();
