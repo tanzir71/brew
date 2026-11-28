@@ -36,6 +36,18 @@ One Web Lock protects each named library for its worker's lifetime. A second tab
 
 `exportBytes()` returns a consistent SQLite image suitable for native SQLite; it is the storage primitive for the later portable archive, without that archive's manifest or import workflow.
 
+Portable archive primitives are in development. `archiveRows()` captures a coherent
+library snapshot; `createBrowserArchive()` and `inspectBrowserArchive()` construct
+and validate the `.brew` file in an isolated memory-only worker. The private
+`replaceArchive()` operation requires quiescing the owning services first and
+closing/reopening storage afterwards. It waits for persistence and rejects old
+service scopes after success. Product controls remain disabled until confirmation,
+durable Undo, content admission and all-target transfer are complete. See the
+[format and adapter contract](../../packages/db/ARCHIVES.md). The additional
+`npm run browser:archive:verify` check restores a real browser export into Node,
+exports it back, replaces persistent browser storage, and checks exact rows and
+FTS after reopening in Chromium and Firefox with both persistence backends.
+
 Run `npm run build:browser` to build the self-hosted module, workers and WASM assets in `targets/browser/dist`. The root build includes this target and compiles Node. After that build, install the test browsers with `npx playwright install chromium firefox` and run `npm run browser:verify`. Browser binaries are required for verification, rather than production builds. The verifiers use real Chromium and Firefox persistence, the compiled Node migration adapter and native SQLite to check reopening, FTS5, Drizzle mapping, transaction isolation and file compatibility. The fetching verifier also runs the actual relay Worker locally, covering RSS/Atom/JSON, conditional requests, rules, scheduling and interrupted processing.
 
 Use `openBrowserLibrary()` to own storage and fetching together:

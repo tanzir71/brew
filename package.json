@@ -34,7 +34,8 @@
     "build:browser-app": "vite build --config targets/browser/app/vite.config.ts",
     "browser:dev": "vite --config targets/browser/app/vite.config.ts",
     "browser:app:verify": "node scripts/verify-browser-app.mjs",
-    "browser:verify": "node scripts/verify-browser-build.mjs && node scripts/verify-browser-fetching.mjs",
+    "browser:verify": "node scripts/verify-browser-build.mjs && node scripts/verify-browser-fetching.mjs && node scripts/verify-browser-archives.mjs",
+    "browser:archive:verify": "node scripts/verify-browser-archives.mjs",
     "deploy": "node scripts/deploy-cloudflare-button.mjs"
   },
   "dependencies": {

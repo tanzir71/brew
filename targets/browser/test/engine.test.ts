@@ -40,7 +40,7 @@ test('the actual WASM engine runs every canonical migration and maintains FTS5 t
     await engine.migrate(migrations, 'Asia/Dhaka');
     expect(
       (await engine.execute([{ sql: 'SELECT count(*) FROM __brew_migrations' }]))[0]!.rows,
-    ).toEqual([[19]]);
+    ).toEqual([[20]]);
     await engine.execute([feed, article]);
     expect(
       (
@@ -199,7 +199,7 @@ test('Node and WASM migrate the same legacy SQLite bytes with identical composit
     await engine.migrate(migrations, 'UTC');
     expect(
       (await engine.execute([{ sql: 'SELECT count(*) FROM __brew_migrations' }]))[0]!.rows,
-    ).toEqual([[19]]);
+    ).toEqual([[20]]);
   } finally {
     engine?.close();
     node.close();
@@ -218,7 +218,7 @@ test('failed migration data and DDL roll back without advancing the durable migr
         [
           ...migrations,
           {
-            name: '0020_bad.sql',
+            name: '0021_bad.sql',
             sql: 'CREATE TABLE incomplete(x); INSERT INTO missing VALUES(1);',
           },
         ],
@@ -231,7 +231,7 @@ test('failed migration data and DDL roll back without advancing the durable migr
         persisted.prepare("SELECT name FROM sqlite_master WHERE name='incomplete'").get(),
       ).toBeUndefined();
       expect(
-        persisted.prepare("SELECT name FROM __brew_migrations WHERE name='0020_bad.sql'").get(),
+        persisted.prepare("SELECT name FROM __brew_migrations WHERE name='0021_bad.sql'").get(),
       ).toBeUndefined();
     } finally {
       persisted.close();
@@ -311,6 +311,122 @@ test('SQLite implicit rollback preserves the original error and requires rollbac
     await expect(engine.commit()).rejects.toThrow('already rolled back');
     engine.rollback();
     expect((await engine.execute([{ sql: 'SELECT count(*) FROM feeds' }]))[0]!.rows).toEqual([[1]]);
+  } finally {
+    engine.close();
+  }
+});
+
+test('archive replacement persists the complete library and fences the old WASM service scope until reopen', async () => {
+  let durable!: Uint8Array<ArrayBuffer>;
+  const source = memory();
+  const target = memory(async (image) => {
+    durable = image.slice();
+  });
+  let reopened: BrowserSqliteEngine | undefined;
+  try {
+    await source.migrate(migrations, 'UTC');
+    await source.execute([feed, article]);
+    await target.migrate(migrations, 'UTC');
+    await target.execute([{ sql: "INSERT INTO tags(name,color) VALUES('Old target','#123456')" }]);
+    const rows = source.archiveRows();
+    await target.replaceArchive(rows);
+    await expect(target.execute([{ sql: 'SELECT title FROM articles' }])).rejects.toThrow(/Reopen/);
+    await expect(target.execute([{ sql: "UPDATE articles SET title='stale'" }])).rejects.toThrow(
+      /Reopen/,
+    );
+    expect(() => target.image()).toThrow(/Reopen/);
+    expect(() => target.archiveRows()).toThrow(/Reopen/);
+    reopened = new BrowserSqliteEngine(sqlite3, BrowserSqliteEngine.memory(sqlite3, durable));
+    await reopened.migrate(migrations, 'UTC');
+    expect(reopened.archiveRows()).toEqual(rows);
+    expect(
+      (
+        await reopened.execute([
+          { sql: "SELECT rowid FROM articles_fts WHERE articles_fts MATCH 'cafe'" },
+        ])
+      )[0]!.rows,
+    ).toEqual([[1]]);
+  } finally {
+    source.close();
+    target.close();
+    reopened?.close();
+  }
+});
+
+test('failed archive persistence keeps the old acknowledged library and permits a later retry', async () => {
+  let durable!: Uint8Array<ArrayBuffer>;
+  let fail = false;
+  const source = memory();
+  const target = memory(async (image) => {
+    if (fail) throw new DOMException('Quota exceeded', 'QuotaExceededError');
+    durable = image.slice();
+  });
+  try {
+    await source.migrate(migrations, 'UTC');
+    await source.execute([feed, article]);
+    await target.migrate(migrations, 'UTC');
+    await target.execute([{ sql: "INSERT INTO tags(name,color) VALUES('Keep me','#123456')" }]);
+    const before = target.archiveRows();
+    const image = durable.slice();
+    fail = true;
+    await expect(target.replaceArchive(source.archiveRows())).rejects.toThrow('Quota exceeded');
+    expect(target.archiveRows()).toEqual(before);
+    expect(durable).toEqual(image);
+    fail = false;
+    await target.execute([{ sql: "UPDATE tags SET name='Still writable'" }]);
+    await target.replaceArchive(source.archiveRows());
+    await expect(target.execute([{ sql: 'SELECT title FROM articles' }])).rejects.toThrow(/Reopen/);
+  } finally {
+    source.close();
+    target.close();
+  }
+});
+
+test('a late archive constraint failure rolls back data, search and identity without invalidating current services', async () => {
+  const source = memory();
+  const target = memory();
+  try {
+    await source.migrate(migrations, 'UTC');
+    await source.execute([feed, article]);
+    await target.migrate(migrations, 'UTC');
+    await target.execute([feed, article]);
+    const before = target.archiveRows();
+    const rows = source.archiveRows();
+    rows.tables
+      .find((table) => table.name === 'settings')!
+      .rows.push(['duplicate', 'one'], ['duplicate', 'two']);
+    await expect(target.replaceArchive(rows)).rejects.toThrow(/UNIQUE/);
+    expect(target.archiveRows()).toEqual(before);
+    expect(
+      (
+        await target.execute([
+          { sql: "SELECT rowid FROM articles_fts WHERE articles_fts MATCH 'cafe'" },
+        ])
+      )[0]!.rows,
+    ).toEqual([[1]]);
+  } finally {
+    source.close();
+    target.close();
+  }
+});
+
+test('replacement rejects control tables and invalid row shapes before touching the library', async () => {
+  const engine = memory();
+  try {
+    await engine.migrate(migrations, 'UTC');
+    await engine.execute([feed, article]);
+    const before = engine.archiveRows();
+    const rows = engine.archiveRows();
+    rows.tables.push({
+      name: '__brew_library_identity',
+      columns: ['id', 'epoch'],
+      rows: [[1, '0'.repeat(32)]],
+    });
+    await expect(engine.replaceArchive(rows)).rejects.toThrow(/schema/);
+    const invalid = engine.archiveRows();
+    invalid.tables.find((table) => table.name === 'articles')!.rows[0]!.push('extra column');
+    await expect(engine.replaceArchive(invalid)).rejects.toThrow(/value/);
+    expect(engine.archiveRows()).toEqual(before);
   } finally {
     engine.close();
   }

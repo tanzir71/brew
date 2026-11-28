@@ -176,7 +176,7 @@ try {
             { name, persistence },
           );
           assert.equal(initial.persistence, persistence === 'auto' ? 'opfs' : 'indexeddb');
-          assert.equal(initial.migrations, 19);
+          assert.equal(initial.migrations, 20);
           assert.equal(initial.folder, 'Design');
           assert.equal(initial.dateMapped, true);
           assert.equal(initial.visibleAfterTransaction, 2);
@@ -242,7 +242,7 @@ try {
             migrateDatabase(sqlite);
             assert.equal(sqlite.pragma('integrity_check', { simple: true }), 'ok');
             assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(), []);
-            assert.equal(sqlite.prepare('SELECT count(*) AS n FROM __brew_migrations').get().n, 19);
+            assert.equal(sqlite.prepare('SELECT count(*) AS n FROM __brew_migrations').get().n, 20);
             assert.deepEqual(
               sqlite
                 .prepare("SELECT rowid FROM articles_fts WHERE articles_fts MATCH 'quiet'")

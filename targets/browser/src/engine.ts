@@ -1,6 +1,14 @@
 import type { Database, Sqlite3Static, SqlValue } from '@sqlite.org/sqlite-wasm';
 import { migrateSqlite, type Migration } from '../../../packages/db/src/migrate.js';
 import type { Query, QueryResult } from './protocol.js';
+import { openSqliteImage } from '../../../packages/db/src/sqlite-image.js';
+import {
+  captureArchiveRows,
+  replaceArchiveRows,
+  type ArchiveRows,
+} from '../../../packages/db/src/archive-sql.js';
+import { wasmArchiveSql } from '../../../packages/db/src/wasm-archive.js';
+import { LibraryFence } from '../../../packages/db/src/library-fence.js';
 
 export type SnapshotCommit = (image: Uint8Array<ArrayBuffer>) => Promise<void>;
 
@@ -10,6 +18,7 @@ export class BrowserSqliteEngine {
   private dirty = false;
   private checkpoint?: Uint8Array<ArrayBuffer>;
   private publicQuery = false;
+  private fence?: LibraryFence;
   constructor(
     readonly sqlite3: Sqlite3Static,
     private connection: Database,
@@ -66,31 +75,45 @@ export class BrowserSqliteEngine {
 
   image(): Uint8Array<ArrayBuffer> {
     if (this.transactionOpen) throw new Error('Cannot export an unfinished transaction.');
+    this.fence?.assertCurrent();
     return this.sqlite3.capi.sqlite3_js_db_export(this.connection);
   }
 
   static memory(sqlite3: Sqlite3Static, image?: Uint8Array): Database {
-    const db = new sqlite3.oo1.DB();
+    return openSqliteImage(sqlite3, image);
+  }
+
+  archiveRows() {
+    if (this.transactionOpen) throw new Error('Cannot archive an unfinished transaction.');
+    this.connection.exec('BEGIN');
     try {
-      if (image) {
-        const pointer = sqlite3.wasm.allocFromTypedArray(new Uint8Array(image));
-        const rc = sqlite3.capi.sqlite3_deserialize(
-          db,
-          'main',
-          pointer,
-          image.byteLength,
-          image.byteLength,
-          sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | sqlite3.capi.SQLITE_DESERIALIZE_RESIZEABLE,
-        );
-        if (rc) {
-          sqlite3.wasm.dealloc(pointer);
-          db.checkRc(rc);
-        }
-      }
-      db.exec('PRAGMA foreign_keys=ON');
-      return db;
+      const connection = wasmArchiveSql(this.connection);
+      this.fence?.assertCurrent();
+      const result = captureArchiveRows(connection, connection);
+      this.connection.exec('COMMIT');
+      return result;
     } catch (error) {
-      db.close();
+      if (!this.sqlite3.capi.sqlite3_get_autocommit(this.connection))
+        this.connection.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  /** Only validated rows enter this exclusive operation; old service scopes stay invalid afterwards. */
+  async replaceArchive(rows: ArchiveRows) {
+    if (this.transactionOpen) throw new Error('Cannot import during an unfinished transaction.');
+    this.fence?.assertCurrent();
+    try {
+      const replace = () => replaceArchiveRows(wasmArchiveSql(this.connection), rows, true);
+      if (this.fence) this.fence.privileged(replace);
+      else replace();
+      if (this.save) {
+        const image = this.sqlite3.capi.sqlite3_js_db_export(this.connection);
+        await this.save(image);
+        this.checkpoint = image;
+      }
+    } catch (error) {
+      this.restoreCheckpoint();
       throw error;
     }
   }
@@ -128,6 +151,7 @@ export class BrowserSqliteEngine {
         await this.save(image);
         this.checkpoint = image;
       }
+      this.fence ??= new LibraryFence(wasmArchiveSql(this.connection));
     } catch (error) {
       this.restoreCheckpoint();
       throw error;
@@ -137,6 +161,12 @@ export class BrowserSqliteEngine {
   begin() {
     if (this.transactionOpen) throw new Error('A transaction is already open.');
     this.connection.exec('BEGIN IMMEDIATE');
+    try {
+      this.fence?.assertCurrent();
+    } catch (error) {
+      this.connection.exec('ROLLBACK');
+      throw error;
+    }
     this.transactionOpen = true;
     this.dirty = false;
   }
@@ -206,9 +236,11 @@ export class BrowserSqliteEngine {
   }
   private restoreCheckpoint() {
     if (!this.save || !this.checkpoint) return;
+    const epoch = this.fence?.epoch;
     this.connection.close();
     this.connection = BrowserSqliteEngine.memory(this.sqlite3, this.checkpoint);
     this.configure();
+    this.fence = epoch ? new LibraryFence(wasmArchiveSql(this.connection), epoch) : undefined;
     this.transactionOpen = false;
     this.dirty = false;
   }

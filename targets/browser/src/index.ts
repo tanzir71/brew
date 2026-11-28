@@ -2,6 +2,7 @@ import { fromWire } from './errors.js';
 import { drizzle, type SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';
 import type { SqlValue } from '@sqlite.org/sqlite-wasm';
 import { schema } from '../../../packages/db/src/schema.js';
+import type { ArchiveRows } from '../../../packages/db/src/archive-sql.js';
 import type {
   OpenOptions,
   Operation,
@@ -17,6 +18,7 @@ export { schema };
 export { BrowserLibrary, openBrowserLibrary, type BrowserLibraryOptions } from './library.js';
 export type { RelayConfig } from './relay.js';
 export type { FetchCycle, RelayStatus } from './fetching.js';
+export { createBrowserArchive, inspectBrowserArchive } from './archive.js';
 
 class Channel {
   private nextId = 0;
@@ -141,6 +143,13 @@ export class BrowserDatabase {
   }
   exportBytes(): Promise<Uint8Array<ArrayBuffer>> {
     return this.enqueue(() => this.channel.request({ kind: 'export' }));
+  }
+  archiveRows(): Promise<ArchiveRows> {
+    return this.enqueue(() => this.channel.request({ kind: 'archive-snapshot' }));
+  }
+  /** Quiesce the owning services first, then close/reopen this connection before resuming them. */
+  replaceArchive(rows: ArchiveRows): Promise<void> {
+    return this.enqueue(() => this.channel.request({ kind: 'archive-replace', rows }));
   }
   close(): Promise<void> {
     if (this.closing) return this.queue;

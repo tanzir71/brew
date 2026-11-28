@@ -39,7 +39,7 @@ await copy(path.join(root, 'packages/db/migrations'), 'migrations');
 files.sort((a, b) => a.path.localeCompare(b.path, 'en'));
 assert.equal(
   files.filter((file) => file.path.startsWith('migrations/')).length,
-  19,
+  20,
   'All canonical migrations are packaged.',
 );
 await writeFile(

@@ -149,7 +149,7 @@ try {
     worker = await handle.getExport(),
     bindings = await handle.getEnv();
   const migrations = manifest.files.filter((file) => file.path.startsWith('migrations/'));
-  assert.equal(migrations.length, 19);
+  assert.equal(migrations.length, 20);
   for (const migration of migrations) {
     const sql = await readFile(path.join(payload, migration.path), 'utf8');
     await bindings.DB.batch(
@@ -190,5 +190,5 @@ assert.notEqual(code, 0);
 assert.match(message, /Configure your HTTPS origin/);
 assert(require.resolve('wrangler'), 'Repository build dependency remains available.');
 process.stdout.write(
-  `Packed CLI installed outside cwd; dry run, real Worker/WASM/assets, nineteen native D1 migrations, private R2 and owner denial pass. No account changes. Artifacts: ${temporary}\n`,
+  `Packed CLI installed outside cwd; dry run, real Worker/WASM/assets, twenty native D1 migrations, private R2 and owner denial pass. No account changes. Artifacts: ${temporary}\n`,
 );

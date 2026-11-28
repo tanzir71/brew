@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { schema } from './schema.js';
 import { migrateSqlite } from '../../../../packages/db/src/migrate.js';
+import { fenceLibrary } from './library-fence.js';
 
 export interface BrewDatabase {
   sqlite: Database.Database;
@@ -51,5 +52,6 @@ export function openDatabase(
   sqlite.pragma('journal_mode = WAL');
   sqlite.pragma('foreign_keys = ON');
   migrateDatabase(sqlite);
+  fenceLibrary(sqlite);
   return { sqlite, db: drizzle(sqlite, { schema }), close: () => sqlite.close() };
 }

@@ -133,6 +133,10 @@ async function operate(operation: Operation): Promise<unknown> {
       return engine.rollback();
     case 'export':
       return engine.image();
+    case 'archive-snapshot':
+      return engine.archiveRows();
+    case 'archive-replace':
+      return engine.replaceArchive(operation.rows);
   }
 }
 

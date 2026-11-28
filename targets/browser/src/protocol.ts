@@ -1,5 +1,6 @@
 import type { WireError } from './errors.js';
 import type { SqlValue } from '@sqlite.org/sqlite-wasm';
+import type { ArchiveRows } from '../../../packages/db/src/archive-sql.js';
 
 export type Persistence = 'opfs' | 'indexeddb';
 export interface OpenOptions {
@@ -18,7 +19,8 @@ export interface QueryResult {
 export type Operation =
   | { kind: 'open'; options: OpenOptions }
   | { kind: 'execute'; queries: Query[] }
-  | { kind: 'begin' | 'commit' | 'rollback' | 'export' | 'close' };
+  | { kind: 'archive-replace'; rows: ArchiveRows }
+  | { kind: 'begin' | 'commit' | 'rollback' | 'export' | 'archive-snapshot' | 'close' };
 export interface Request {
   id: number;
   operation: Operation;

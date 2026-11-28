@@ -7,6 +7,7 @@
     "./schema": "./src/schema.ts"
   },
   "dependencies": {
+    "@sqlite.org/sqlite-wasm": "3.54.1-build1",
     "drizzle-orm": "latest"
   }
 }
