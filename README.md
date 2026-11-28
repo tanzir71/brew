@@ -1,6 +1,6 @@
 # Brew
 
-[Website](https://brew-reader.vercel.app/) · [Interactive demo](https://brew-reader.vercel.app/demo)
+[Website](https://tanzir71.github.io/brew/) · [Interactive demo](https://tanzir71.github.io/brew/demo/) · [Deployment CLI](https://www.npmjs.com/package/brew-reader)
 
 > A local-first, single-user RSS reader. Your feeds, articles, and rules live in one SQLite file on your machine — **no account, no cloud, no telemetry.**
 
@@ -17,10 +17,11 @@ comes from protocol integration tests.
 
 ## Architecture
 
-Cloudflare's Worker target and a resumable deployment CLI are in development.
-See [installation and release status](docs/cloudflare-install.md) and
-[runtime limits](docs/cloudflare.md). The local CLI tarball includes the actual
-Worker/WASM, web assets and canonical migrations; public npm publication is pending.
+Cloudflare's Worker target and the resumable `brew-reader@0.1.0` deployment CLI
+are available. See [installation](docs/cloudflare-install.md) and
+[runtime limits](docs/cloudflare.md). Run `npx brew-reader deploy cloudflare`
+with Node 22.12+ to deploy your own instance; the package includes the actual
+Worker/WASM, web assets and canonical migrations.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2Ftanzir71%2Fbrew%2Ftree%2Fmain)
 
@@ -113,15 +114,15 @@ Environment knobs: `BREW_DB_PATH` points at a different SQLite file; set `NODE_E
 
 ## Project structure
 
-The [Cloudflare target](docs/cloudflare.md) is under implementation. Its D1 Reader
+The [Cloudflare target](docs/cloudflare.md) supplies D1 Reader
 and Brew APIs, rules, sources, newsletter management, OPML, Reader-sync state,
 durable actions, scoped MCP credentials/tools, interruptible WASM regex, lease-fenced
 polling with redirect accounting and native MIME ingestion run in bundled
 workerd tests alongside verified D1/R2 storage ports. The product Worker now
 connects fetch, scheduled and Email Routing handlers with Cloudflare Access and
 private assets. Optional Resend delivery shares the same mail port as Node and
-the invocation's fetch allowance. The installer and deploy-button template are
-implemented locally; M14 stays open for public release availability. Read the
+the invocation's fetch allowance. The installer is published on npm and the
+deploy-button template is on the public main branch. Read the
 [installation guide](docs/cloudflare-install.md) and resource bounds before deploying.
 
 ```

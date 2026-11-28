@@ -1,11 +1,12 @@
 # Install Brew on Cloudflare
 
-The installer and deploy-button template are implemented locally. Publication
-of `brew-reader` to npm and pushing this source are separate release steps;
-neither has been performed. Until release, build this checkout with Node 22.12+
-and `npm ci && npm run build`, then use `npx --no-install brew-reader deploy cloudflare`.
-`npm pack --workspace brew-reader` produces the self-contained CLI tarball with
-the actual Worker, WASM, web assets and all canonical SQL migrations.
+The [brew-reader@0.1.0 installer](https://www.npmjs.com/package/brew-reader)
+is published on npm, and the deploy-button template is on the public main branch.
+Use Node 22.12+ and `npx brew-reader deploy cloudflare`. The package includes the
+actual Worker, WASM, web assets and all canonical SQL migrations. For source
+development, run `npm ci && npm run build` in this checkout, then use
+`npx --no-install brew-reader deploy cloudflare`. `npm pack --workspace brew-reader`
+produces a self-contained local tarball.
 
 ## One command
 
@@ -17,7 +18,7 @@ Read and Identity Providers Read, plus zone Zone Read, DNS Read/Edit and Workers
 Routes Edit. Set `CLOUDFLARE_API_TOKEN` in the shell environment, never a command
 argument or a Worker secret. Set `CLOUDFLARE_ACCOUNT_ID` to skip that prompt.
 
-After publication:
+Run:
 
 ```sh
 npx brew-reader deploy cloudflare
@@ -85,9 +86,9 @@ no message is sent during installation. See the [runtime and mail guide](cloudfl
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2Ftanzir71%2Fbrew%2Ftree%2Fmain)
 
 The button uses the whole repository because shared packages are outside the
-Cloudflare target directory. The public source must first include this commit
-on `main`; the upstream default branch was `master` when checked. The explicit
-`tree/main` URL prevents silently cloning the older default branch.
+Cloudflare target directory. It uses the published `main` branch, which is now
+the repository's default branch. The explicit `tree/main` URL pins the source
+branch used for this deployment flow.
 
 This source-template route uses Cloudflare's account sign-in and automatic
 D1/R2 provisioning. Configure an owner self-hosted Access app for your hostname,
@@ -101,6 +102,7 @@ names/IDs. Placeholders fail before migration/upload. The CLI automates Access
 setup when you prefer to supply a scoped control-plane token yourself.
 
 See Cloudflare's [deploy-button contract](https://developers.cloudflare.com/workers/platform/deploy-buttons/).
-All verification so far is local. No live account has been provisioned or
-deployment measured. The [documented resource limits](cloudflare.md) still apply;
+The public package and source are verified; runtime checks use native local
+fixtures. No live Cloudflare account has been provisioned or deployment measured.
+The [documented resource limits](cloudflare.md) still apply;
 bounded polling does not establish Free CPU compliance for every library.

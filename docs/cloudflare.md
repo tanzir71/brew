@@ -1,10 +1,9 @@
 # Cloudflare target
 
-M14 is in progress. The Node target remains the completed deployment target.
-The product Worker now connects actual fetch, scheduled and email handlers to
+M14's Cloudflare implementation and installer are available. The product Worker connects actual fetch, scheduled and email handlers to
 the shared API and D1/R2 services, including optional Resend delivery. The
-[installer and deploy-button template](cloudflare-install.md) are implemented
-locally; public package/source release remains pending. The runtime, polling, Email Routing/mail and Access criteria
+[installer and deploy-button template](cloudflare-install.md) are published on npm
+and the public main branch. The runtime, polling, Email Routing/mail and Access criteria
 have native integration evidence; deployment/resource limits below remain explicit.
 
 ## D1
@@ -186,8 +185,8 @@ error. The Node executor retains its real worker-thread interruption.
 Real workerd tests exercise frozen clocks, catastrophic patterns, recovery,
 ordered 50000-value batches, resource refusal, concurrency and Node compatibility.
 The library, Brew, durable-action and MCP fixtures bind this executor through the
-actual services; rule ingestion and dry runs execute it too. These remain explicit
-integration fixtures, while product handler integration is still unfinished.
+actual services; rule ingestion and dry runs execute it too. Product handlers now
+use the same executor, with separate native product integration coverage.
 
 ## Newsletter library and private page twins
 
@@ -227,16 +226,16 @@ streams without exceeding D1's parameter limit. State/tag changes, label edits
 and revision updates use atomic batches; a revoked credential generation cannot
 commit a delayed write. Temporary transaction markers never survive a failed
 batch. Subscription add/remove/import now uses the actual durable action service
-and returns a receipt for Undo. The full product capability declaration still
-awaits its Worker entrypoint and owner authentication boundary.
+and returns a receipt for Undo. The product Worker supplies the complete capability
+declaration and owner Access boundary.
 
 Worker app keys use native Web Crypto randomness, SHA-256, HMAC and timing-safe
 comparison. Fever's required MD5 value is stored only as a SHA-256 verifier.
 [Cloudflare documents MD5 support for legacy protocols](https://developers.cloudflare.com/workers/runtime-apis/web-crypto/).
 Sessions persist in D1, are bounded to 100, and rotation/disable revoke all prior
 sessions and Fever access. Login and Fever share an atomic per-instance attempt
-window so a new invocation cannot reset throttling. Owner authentication remains
-separate and unfinished.
+window so a new invocation cannot reset throttling. Owner authentication uses the
+separate product Cloudflare Access boundary.
 
 Ten workerd/D1 cases compare Node parsing, imports/exports, stream counts and all
 cursor pages; run actual Google Reader/Fever forms; verify bidirectional Node
@@ -291,7 +290,8 @@ invocations, including after Undo; different arguments conflict. Token actions
 recheck a live write grant in D1, preserve the existing limited action kinds and
 scope Undo to the originating token. Reader generation is checked again in the commit transaction. Cancellation is
 rechecked after asynchronous authorization and before issuing the batch. This admission logic does not substitute for
-the still-unfinished production owner or scoped-token ingress.
+the production owner and scoped-token ingress checks; the product Worker now
+supplies both boundaries.
 
 Rule application uses the shared executor and actual rule adapter. Each local
 phase is journaled atomically; external operations hold no activation flag. A
@@ -576,8 +576,8 @@ deployed 10 ms Free CPU budget or arbitrary-input Free compliance. Large librari
 and content can require a paid Worker plan. See the [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
 and [D1 limits](https://developers.cloudflare.com/d1/platform/limits/).
 
-The [installer/deploy flow](cloudflare-install.md) is now implemented locally;
-the public npm/source release remains pending. These local native
+The [installer/deploy flow](cloudflare-install.md) is published on npm and the
+public main branch. The local native
 checks do not claim a provisioned or verified live Worker. Resource hardening above
 remains a deployment consideration, not a claim of universal Free CPU compliance.
 

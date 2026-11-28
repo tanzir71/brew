@@ -2,8 +2,8 @@
 
 > Brew is a local-first, single-user RSS reader with deterministic rules and frozen daily digest snapshots. It runs as one Node.js process and stores feeds, articles, rules, settings, and snapshots in one local SQLite file.
 
-Official source: https://github.com/tanzir71/rss
-Interactive canned demo: /demo/
+Official source: https://github.com/tanzir71/brew
+Interactive canned demo: https://tanzir71.github.io/brew/demo/
 
 ## Product facts
 
