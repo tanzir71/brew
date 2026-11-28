@@ -65,9 +65,10 @@ for (const [filename, source] of sources) {
     for (const link of source.matchAll(
       /<link\b[^>]*rel=['"]stylesheet['"][^>]*href=['"]([^'"]+)['"][^>]*>/gi,
     )) {
-      const cssPath = link[1].startsWith('/')
-        ? path.join(root, 'docs', link[1].slice(1))
-        : path.resolve(path.dirname(filename), link[1]);
+      const stylesheet = link[1].split(/[?#]/, 1)[0];
+      const cssPath = stylesheet.startsWith('/')
+        ? path.join(root, 'docs', stylesheet.slice(1))
+        : path.resolve(path.dirname(filename), stylesheet);
       if (await hasReset(cssPath)) reset = true;
     }
     if (!reset)

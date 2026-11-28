@@ -10,8 +10,8 @@
     "dev": "concurrently -k -n server,web \"node --watch --import tsx targets/node/src/index.ts\" \"vite --config packages/web/vite.config.ts\"",
     "start": "node dist/targets/node/src/index.js",
     "mcp": "node dist/targets/node/src/index.js mcp",
-    "build": "npm run typography:check && npm run tokens:check && npm run icons:check && npm run website:build && vite build --config packages/web/vite.config.ts && tsc -p tsconfig.server.json && node scripts/copy-build-assets.mjs && node scripts/verify-node-build.mjs && node scripts/verify-cloudflare-build.mjs && node scripts/build-cloudflare.mjs && npm run build:cli",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p targets/cloudflare/tsconfig.json && tsc --noEmit -p packages/cli/tsconfig.json && tsc --noEmit -p website/tsconfig.json",
+    "build": "npm run typography:check && npm run tokens:check && npm run icons:check && npm run website:build && vite build --config packages/web/vite.config.ts && tsc -p tsconfig.server.json && node scripts/copy-build-assets.mjs && node scripts/verify-node-build.mjs && node scripts/verify-cloudflare-build.mjs && node scripts/build-cloudflare.mjs && npm run build:cli && npm run build:browser",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p targets/cloudflare/tsconfig.json && tsc --noEmit -p packages/cli/tsconfig.json && tsc --noEmit -p website/tsconfig.json && tsc --noEmit -p targets/browser/tsconfig.json",
     "lint": "npm run typography:check && npm run tokens:check && npm run icons:check && eslint .",
     "tokens:generate": "node scripts/generate-tokens.mjs",
     "icons:generate": "node scripts/generate-icons.mjs",
@@ -30,6 +30,8 @@
     "website:og": "node scripts/capture-website-og.mjs",
     "typography:check": "node scripts/verify-no-italics.mjs",
     "build:cli": "tsc -p packages/cli/tsconfig.json && node scripts/package-cloudflare-payload.mjs && node scripts/verify-cli-build.mjs",
+    "build:browser": "vite build --config targets/browser/vite.config.ts",
+    "browser:verify": "node scripts/verify-browser-build.mjs",
     "deploy": "node scripts/deploy-cloudflare-button.mjs"
   },
   "dependencies": {
