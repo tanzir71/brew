@@ -300,6 +300,13 @@
   padding: 10px;
   margin: 0;
 }
+.compose-paper-section + .compose-paper-section {
+  margin-top: 20px;
+  padding-top: 0;
+}
+.compose-paper-section + .compose-paper-section[data-editing='true'] {
+  padding-top: 10px;
+}
 .compose-paper-section > header {
   display: flex;
   gap: 8px;
