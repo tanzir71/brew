@@ -207,9 +207,12 @@ globalThis.fetch = async (input, init) => {
           }),
         },
       );
-      return json(
-        await preview.build(body.draft as BrewConfigDraft, Number(pathname.split('/')[3])),
+      const result = await preview.build(
+        body.draft as BrewConfigDraft,
+        Number(pathname.split('/')[3]),
       );
+      result.outputs.email = result.outputs.email.replaceAll('src="/figma/', 'src="./figma/');
+      return json(result);
     } catch (error) {
       return json({ error: (error as Error).message }, 400);
     }

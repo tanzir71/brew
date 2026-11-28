@@ -47,10 +47,41 @@ async function assertModeCardActions(page, width) {
   );
   assert.equal(cards.length, 5);
   for (const card of cards) {
-    assert(Math.abs(card.inset - card.expectedInset) < 1, card.name + ' CTA bottom inset at ' + width);
+    assert(
+      Math.abs(card.inset - card.expectedInset) < 1,
+      card.name + ' CTA bottom inset at ' + width,
+    );
     for (const peer of cards.filter((peer) => Math.abs(peer.top - card.top) < 1))
       assert(Math.abs(peer.bottom - card.bottom) < 1, 'Mode card CTAs are misaligned at ' + width);
   }
+}
+async function assertPreferenceText(page) {
+  for (const name of ['Theme', 'Image privacy', 'Default landing page']) {
+    const size = await page.getByRole('combobox', { name, exact: true }).evaluate((node) => {
+      const style = getComputedStyle(node);
+      return {
+        available:
+          node.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom),
+        line: parseFloat(style.lineHeight),
+      };
+    });
+    assert(size.available >= size.line, name + ' has clipped text');
+  }
+}
+async function assertPreviewArtwork(page) {
+  const image = page.locator('.compose-preview-hero img[data-static="true"]').first();
+  await expect(image).toBeVisible();
+  const size = await image.evaluate((node) => {
+    const box = node.getBoundingClientRect();
+    return {
+      width: box.width,
+      height: box.height,
+      available: node.parentElement.clientWidth,
+      ratio: node.naturalWidth / node.naturalHeight,
+    };
+  });
+  assert(size.width <= size.available + 1, 'Preview artwork overflows its frame');
+  assert(Math.abs(size.width / size.height - size.ratio) < 0.01, 'Preview artwork is distorted');
 }
 async function pageAt(base, viewport) {
   const context = await browser.newContext({ viewport, reducedMotion: 'reduce' });
@@ -130,7 +161,10 @@ try {
       );
       for (const section of sections)
         assert(Math.abs(section.center - width / 2) < 1, section.id + ' is off-center at ' + width);
-      await page.screenshot({ path: output + '/home-wide-' + width + '-' + index + '.png', fullPage: true });
+      await page.screenshot({
+        path: output + '/home-wide-' + width + '-' + index + '.png',
+        fullPage: true,
+      });
     }
     await page.setViewportSize({ width: 1440, height: 960 });
     await page.getByRole('link', { name: 'Privacy', exact: true }).click();
@@ -166,11 +200,77 @@ try {
     );
     await expect(page.getByText(/Live demo · canned data/)).toBeVisible();
     await page.screenshot({ path: output + '/demo-brew-' + index + '.png', fullPage: true });
+    await page.getByRole('button', { name: 'More actions', exact: true }).click();
+    const options = page.getByRole('dialog', { name: 'Brew options', exact: true });
+    for (const theme of ['light', 'dark']) {
+      await options.getByRole('combobox', { name: 'Theme', exact: true }).selectOption(theme);
+      await assertPreferenceText(page);
+      await options.screenshot({ path: output + '/brew-options-' + theme + '-' + index + '.png' });
+    }
+    await options.getByRole('combobox', { name: 'Theme', exact: true }).selectOption('light');
+    await options.getByRole('button', { name: 'Close Brew options', exact: true }).click();
     await page.getByRole('radio', { name: 'Compose', exact: true }).click();
     await expect(
       page.getByRole('complementary', { name: 'Live preview', exact: true }),
     ).toBeVisible();
     await expect(page.locator('[role=alert]')).toHaveCount(0);
+    await assertPreviewArtwork(page);
+    for (const field of await page
+      .locator('.compose-editor .brew-field-value .brew-segmented')
+      .evaluateAll((nodes) =>
+        nodes.map((node) => ({
+          width: node.getBoundingClientRect().width,
+          available: node.parentElement.clientWidth,
+        })),
+      ))
+      assert(field.width <= field.available + 1, 'Editor choices overflow their field');
+    const paper = page.getByRole('article', { name: 'Web preview', exact: true });
+    const expandedWidth = (await paper.boundingBox()).width;
+    assert(expandedWidth > 560, 'Desktop web preview is still capped at its old narrow width');
+    await page.screenshot({ path: output + '/compose-desktop-' + index + '.png' });
+    await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Expand sidebar', exact: true })).toBeVisible();
+    assert(
+      (await paper.boundingBox()).width > expandedWidth,
+      'Collapsing the sidebar did not free preview space',
+    );
+    await page.screenshot({ path: output + '/compose-collapsed-' + index + '.png' });
+    await page.keyboard.press('/');
+    await expect(page.getByRole('textbox', { name: 'Search library', exact: true })).toBeFocused();
+    await page.getByRole('radio', { name: 'Email', exact: true }).click();
+    const email = page.locator('iframe[title="Email preview"]');
+    await expect(email).toBeVisible();
+    assert(
+      (await email.boundingBox()).width > 600,
+      'Desktop email preview has no room for its mail canvas',
+    );
+    await expect
+      .poll(() =>
+        page
+          .frameLocator('iframe[title="Email preview"]')
+          .locator('img')
+          .evaluateAll(
+            (nodes) =>
+              nodes.length > 0 && nodes.every((node) => node.complete && node.naturalWidth > 0),
+          ),
+      )
+      .toBe(true);
+    await page.screenshot({ path: output + '/compose-email-' + index + '.png' });
+    await page.getByRole('radio', { name: 'Web', exact: true }).click();
+    await page.getByRole('radio', { name: 'Phone', exact: true }).click();
+    await assertPreviewArtwork(page);
+    await page.locator('.compose-preview').evaluate((node) => {
+      node.scrollTop = 0;
+    });
+    await page.screenshot({ path: output + '/compose-phone-' + index + '.png' });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await assertPreviewArtwork(page);
+    assert(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
+      'Compose overflows the phone viewport',
+    );
+    await paper.screenshot({ path: output + '/compose-mobile-' + index + '.png' });
+    await page.setViewportSize({ width: 1440, height: 960 });
     await page.goto(base + 'demo/#/all?density=title', { waitUntil: 'networkidle' });
     await expect(page.getByRole('radio', { name: 'Titles', exact: true })).toBeChecked();
     await page.locator('summary[aria-label="Reader options"]').click();

@@ -80,6 +80,34 @@
 .runs-library-header .brew-mode-chip {
   margin-left: auto;
 }
+.runs-sidebar-toggle {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 4px;
+}
+@media (min-width: 801px) {
+  .runs-app:has(> .runs-library[data-collapsed='true']) {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+  .runs-library[data-collapsed='true'] {
+    padding-inline: 10px;
+  }
+  .runs-library[data-collapsed='true'] > :not(.runs-library-header):not(.runs-sidebar-notice),
+  .runs-library[data-collapsed='true'] .runs-library-header > :not(.runs-sidebar-toggle) {
+    display: none;
+  }
+  .runs-library[data-collapsed='true'] .runs-library-header {
+    justify-content: center;
+    padding-inline: 0;
+  }
+}
+@media (max-width: 800px) {
+  .runs-sidebar-toggle {
+    display: none;
+  }
+}
 .brew-mode-chip {
   display: inline-flex;
   align-items: center;

@@ -31,16 +31,19 @@ for (const theme of ['light', 'dark'])
       await document.fonts.ready;
       await Promise.all([...document.images].map((image) => image.decode()));
     });
-    expect(
-      await page.locator('.compose-preview-hero img').evaluate((element) => {
-        const image = element as HTMLImageElement;
-        return {
-          natural: [image.naturalWidth, image.naturalHeight],
-          rendered: [image.getBoundingClientRect().width, image.getBoundingClientRect().height],
-          filter: getComputedStyle(image).filter,
-        };
-      }),
-    ).toEqual({ natural: [468, 190], rendered: [468, 190], filter: 'none' });
+    const hero = await page.locator('.compose-preview-hero img').evaluate((element) => {
+      const image = element as HTMLImageElement;
+      return {
+        natural: [image.naturalWidth, image.naturalHeight],
+        rendered: [image.getBoundingClientRect().width, image.getBoundingClientRect().height],
+        available: image.parentElement!.clientWidth,
+        filter: getComputedStyle(image).filter,
+      };
+    });
+    expect(hero.natural).toEqual([468, 190]);
+    expect(hero.filter).toBe('none');
+    expect(hero.rendered[0]).toBeCloseTo(hero.available, 0);
+    expect(hero.rendered[0]! / hero.rendered[1]!).toBeCloseTo(468 / 190, 2);
     expect(
       await page.locator('.compose-preview-thumbnail img').evaluateAll((elements) =>
         elements.map((element) => {

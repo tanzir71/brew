@@ -1,7 +1,7 @@
 import { useWebMcpSurface } from '../webmcp/useWebMcpSurface';
 import { agentPageHref } from '../agentLocation';
 import { useQuery } from '@tanstack/react-query';
-import { useLayoutEffect, useRef, useState, type Ref } from 'react';
+import { useCallback, useId, useLayoutEffect, useRef, useState, type Ref } from 'react';
 import type { BrewConfig } from '@brew/core/types/legacy-brew';
 import type { ReaderNavigation } from '@brew/core/types/api';
 import type { NewsletterOverview } from '@brew/core/types/newsletters';
@@ -22,6 +22,14 @@ async function getJson<T>(url: string, signal: AbortSignal): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+function sidebarCollapsed() {
+  try {
+    return localStorage.getItem('brew:sidebar-collapsed') === 'true';
+  } catch {
+    return false;
+  }
+}
+
 export function AppSidebar({
   activeHref = location.pathname + location.search,
   label,
@@ -40,6 +48,20 @@ export function AppSidebar({
   activeHref = activeUrl.pathname + activeUrl.search;
   const readerRoute = parseReaderPage(activeUrl);
   const search = useRef<HTMLInputElement>(null);
+  const sidebarId = useId();
+  const [collapsed, setCollapsed] = useState(sidebarCollapsed);
+  const [sidebarNotice, setSidebarNotice] = useState('');
+  const changeSidebar = useCallback((value: boolean) => {
+    setCollapsed(value);
+    try {
+      localStorage.setItem('brew:sidebar-collapsed', String(value));
+      setSidebarNotice('');
+    } catch {
+      setSidebarNotice(
+        'Sidebar changed for this page. Browser storage could not save this choice.',
+      );
+    }
+  }, []);
   useLayoutEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -53,11 +75,20 @@ export function AppSidebar({
       )
         return;
       event.preventDefault();
-      search.current?.focus();
+      changeSidebar(false);
+      requestAnimationFrame(() => search.current?.focus());
+    };
+    const storage = (event: StorageEvent) => {
+      if (event.key === null || event.key === 'brew:sidebar-collapsed')
+        setCollapsed(sidebarCollapsed());
     };
     window.addEventListener('keydown', focusSearch);
-    return () => window.removeEventListener('keydown', focusSearch);
-  }, []);
+    window.addEventListener('storage', storage);
+    return () => {
+      window.removeEventListener('keydown', focusSearch);
+      window.removeEventListener('storage', storage);
+    };
+  }, [changeSidebar]);
   const capabilities = useCapabilities();
   const newsletterState = capabilityRows(capabilities.data, capabilities.isError).find(
     (row) => row.id === 'newsletters',
@@ -74,9 +105,11 @@ export function AppSidebar({
     queryKey: ['newsletter-overview'],
     queryFn: ({ signal }) => getJson<NewsletterOverview>('/api/newsletters/overview', signal),
   });
-  useWebMcpSurface(search, {
-    names: ['search_items', ...(!configs.isPending && !configs.isError ? ['list_brews'] : [])],
-  });
+  useWebMcpSurface(
+    search,
+    { names: ['search_items', ...(!configs.isPending && !configs.isError ? ['list_brews'] : [])] },
+    !collapsed,
+  );
   const localSaved = useSavedSearches();
   const saved = sharedSearches ?? localSaved;
   const newsletterFeedIds = new Set(newsletters.data?.senders?.map((sender) => sender.id) ?? []);
@@ -88,13 +121,26 @@ export function AppSidebar({
       <span className="runs-nav-count">{value}</span>
     ) : null;
   return (
-    <aside className="runs-library" aria-label={label}>
+    <aside className="runs-library" aria-label={label} data-collapsed={collapsed}>
       <header className="runs-library-header">
         <a className="runs-wordmark" href={agentPageHref('/?view=brew')} aria-label="Brew home">
           <Wordmark />
         </a>
         <ModeChip />
+        <IconButton
+          className="runs-sidebar-toggle"
+          icon={collapsed ? 'chevron-right' : 'chevron-left'}
+          label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!collapsed}
+          aria-controls={sidebarId}
+          data-brew-action="toggle-sidebar"
+          onClick={() => changeSidebar(!collapsed)}
+        />
       </header>
+      <p className="sr-only runs-sidebar-notice" role="status">
+        {sidebarNotice}
+      </p>
       <form
         className="runs-search"
         action="/"
@@ -121,6 +167,7 @@ export function AppSidebar({
         <Kbd>/</Kbd>
       </form>
       <nav
+        id={sidebarId}
         ref={navigationRef}
         tabIndex={navigationRef ? -1 : undefined}
         aria-label="Library"

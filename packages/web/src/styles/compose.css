@@ -25,7 +25,7 @@
 }
 .compose-split {
   display: grid;
-  grid-template-columns: 460px minmax(0, 1fr);
+  grid-template-columns: 400px minmax(0, 1fr);
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -154,7 +154,7 @@
   flex-wrap: nowrap;
 }
 .compose-editor .brew-segment {
-  padding-inline: 10px;
+  padding-inline: 8px;
 }
 .compose-editor .brew-section-card :is(h2, h3) input {
   height: 24px;
@@ -258,7 +258,7 @@
   white-space: nowrap;
 }
 .compose-paper {
-  width: min(560px, 100%);
+  width: min(960px, 100%);
   padding: 36px;
   margin: 0 auto;
   min-height: 900px;
@@ -332,8 +332,8 @@
   object-fit: cover;
 }
 .compose-preview-hero img[data-static='true'] {
-  width: auto;
-  max-width: none;
+  width: 100%;
+  max-width: 100%;
   height: auto;
 }
 .compose-preview-source {
@@ -466,7 +466,7 @@
 }
 .compose-email-preview {
   display: block;
-  width: min(600px, 100%);
+  width: min(720px, 100%);
   min-height: 900px;
   margin: auto;
   border: 1px solid var(--brew-border-default);
@@ -595,8 +595,10 @@
 }
 
 .compose-preview-hero:has(img[data-static='true']) {
-  width: 468px;
-  max-width: none;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 468 / 190;
 }
 .compose-paper-section {
   overflow: hidden;
@@ -609,6 +611,6 @@
   font-size: 12px;
 }
 .compose-preview-warnings {
-  width: min(560px, 100%);
+  width: min(960px, 100%);
   margin: 16px auto 0;
 }

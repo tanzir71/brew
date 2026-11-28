@@ -497,7 +497,7 @@
   display: grid;
   gap: 6px;
 }
-.brew-options select {
+.brew-options > label > select {
   padding: 8px;
   border: 1px solid var(--brew-border-strong);
   border-radius: 8px;
