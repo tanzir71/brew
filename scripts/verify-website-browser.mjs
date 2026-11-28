@@ -295,6 +295,7 @@ try {
     await expect(page.locator('html')).toHaveAttribute('data-resolved-theme', 'dark');
     await page.screenshot({ path: output + '/demo-rules-dark-' + index + '.png' });
     await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator('.runs-sidebar-toggle')).toBeHidden();
     await page.getByLabel('Demo navigation').selectOption('/letters');
     await expect(page.getByRole('heading', { name: 'Newsletters', exact: true })).toBeVisible();
     await page.screenshot({ path: output + '/demo-mobile-' + index + '.png' });

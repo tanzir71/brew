@@ -104,7 +104,7 @@
   }
 }
 @media (max-width: 800px) {
-  .runs-sidebar-toggle {
+  .runs-library-header .runs-sidebar-toggle {
     display: none;
   }
 }
