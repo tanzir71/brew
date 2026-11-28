@@ -17,12 +17,13 @@ async function collect(directory) {
         await collect(filename);
     } else if (
       /\.(?:[cm]?[jt]sx?|css|html|svg)$/.test(entry.name) &&
-      !/\.(?:test|spec)\.[^.]+$/.test(entry.name)
+      !/\.(?:test|spec)\.[^.]+$/.test(entry.name) &&
+      !(filename.startsWith(path.join(root, 'docs/demo/assets') + path.sep) && entry.name.endsWith('.js'))
     )
       files.push(filename);
   }
 }
-for (const directory of ['packages', 'targets', 'docs']) await collect(path.join(root, directory));
+for (const directory of ['packages', 'targets', 'docs', 'website']) await collect(path.join(root, directory));
 const sources = new Map(
   await Promise.all(files.map(async (filename) => [filename, await readFile(filename, 'utf8')])),
 );

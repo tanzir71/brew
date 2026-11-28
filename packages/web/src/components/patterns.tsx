@@ -192,6 +192,44 @@ export function SectionCard({
     </section>
   );
 }
+function SentenceTokenFrame({
+  label,
+  kind,
+  size,
+  children,
+}: {
+  label: string;
+  kind: 'field' | 'value';
+  size: 'sm' | 'md';
+  children: ReactNode;
+}) {
+  return (
+    <label className={`brew-token brew-token--${kind} brew-token--${size}`}>
+      <span className="sr-only">{label}</span>
+      {children}
+    </label>
+  );
+}
+export function SentenceTokenSelect({
+  'aria-label': label,
+  kind = 'field',
+  size = 'md',
+  children,
+  ...props
+}: Omit<SelectHTMLAttributes<HTMLSelectElement>, 'size'> & {
+  'aria-label': string;
+  kind?: 'field' | 'value';
+  size?: 'sm' | 'md';
+}) {
+  return (
+    <SentenceTokenFrame label={label} kind={kind} size={size}>
+      <select {...props} aria-label={label}>
+        {children}
+      </select>
+      <Icon name="chevron-down" size={size === 'sm' ? 11 : 12} />
+    </SentenceTokenFrame>
+  );
+}
 export function SentenceToken({
   label,
   value,
@@ -210,8 +248,7 @@ export function SentenceToken({
   disabled?: boolean;
 }) {
   return (
-    <label className={`brew-token brew-token--${kind} brew-token--${size}`}>
-      <span className="sr-only">{label}</span>
+    <SentenceTokenFrame label={label} kind={kind} size={size}>
       {options ? (
         <>
           <select
@@ -237,7 +274,7 @@ export function SentenceToken({
           style={{ width: `${Math.max(3, Array.from(value).length + 1)}ch` }}
         />
       )}
-    </label>
+    </SentenceTokenFrame>
   );
 }
 export function Stepper({

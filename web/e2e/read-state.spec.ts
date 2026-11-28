@@ -73,7 +73,7 @@ test('opening in either view and marking unread updates the other view and archi
   await expect(second.getByRole('button', { name: 'Mark unread', exact: true })).toBeVisible();
   await expect.poll(() => fixture.state(2).read_at).not.toBeNull();
   await second.getByRole('button', { name: 'Close article', exact: true }).click();
-  await page.getByRole('link', { name: 'The Brew', exact: true }).click();
+  await page.getByRole('link', { name: 'Brew home', exact: true }).click();
   await expect(page.getByRole('article', { name: title, exact: true })).toHaveAttribute(
     'data-brew-state',
     'unread',
@@ -183,7 +183,7 @@ test('Reader bulk read and Undo recover from failures and keep Brew state and fr
   expect(fixture.readCount()).toBe(5);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect.poll(fixture.readCount).toBe(0);
-  await page.getByRole('link', { name: 'The Brew', exact: true }).click();
+  await page.getByRole('link', { name: 'Brew home', exact: true }).click();
   await expect(page.getByRole('progressbar', { name: 'Brew reading progress' })).toHaveAttribute(
     'value',
     '0',
@@ -204,6 +204,13 @@ test('failed read-on-scroll updates roll back and retry into Brew without markin
   await page.setViewportSize({ width: 1280, height: 480 });
   await page.goto('/?view=reader&scope=all');
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+  if (
+    (await page
+      .locator('summary[aria-label="Reader options"]')
+      .locator('..')
+      .getAttribute('open')) === null
+  )
+    await page.locator('summary[aria-label="Reader options"]').click();
   await page.getByLabel('Read on scroll').check();
   await page.getByTestId('virtual-article-list').evaluate((element) => {
     element.scrollTop = element.scrollHeight;
@@ -217,7 +224,7 @@ test('failed read-on-scroll updates roll back and retry into Brew without markin
   const count = fixture.readCount();
   expect(count).toBeGreaterThan(0);
   expect(count).toBeLessThan(5);
-  await page.getByRole('link', { name: 'The Brew', exact: true }).click();
+  await page.getByRole('link', { name: 'Brew home', exact: true }).click();
   await expect(page.getByRole('progressbar', { name: 'Brew reading progress' })).toHaveAttribute(
     'value',
     String(count),

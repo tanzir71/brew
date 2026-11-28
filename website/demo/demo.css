@@ -1,0 +1,45 @@
+.demo-notice {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 24px;
+  border-bottom: 1px solid var(--brew-border-default);
+  background: var(--brew-bg-subtle);
+  color: var(--brew-text-soft);
+  font: 400 12px/18px var(--brew-font-ui);
+}
+.demo-notice a {
+  color: var(--brew-accent-default);
+}
+.demo-notice button {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.demo-navigation {
+  display: none;
+}
+.demo-notice :focus-visible {
+  outline: 2px solid var(--brew-text-primary);
+  outline-offset: 3px;
+}
+@media (max-width: 600px) {
+  .demo-navigation {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .demo-notice {
+    padding-inline: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 16px;
+  }
+  .demo-notice span {
+    order: 3;
+    width: 100%;
+    text-align: center;
+  }
+}

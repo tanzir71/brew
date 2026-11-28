@@ -57,6 +57,7 @@ for (const theme of ['light', 'dark'] as const) {
       await page.reload();
       await expect(range).toHaveText('Showing 51–100 of 126 executions');
       await page.goto('/rules?agent=1');
+      await page.getByRole('button', { name: 'New rule', exact: true }).click();
       const visible = (
         f.database.sqlite.prepare('SELECT count(*) AS n FROM articles WHERE hidden=0').get() as {
           n: number;
@@ -65,6 +66,7 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(
         page.getByRole('heading', { name: `Would match ${visible}`, exact: true }),
       ).toBeVisible();
+      await page.getByRole('button', { name: 'Show all matches', exact: true }).click();
       await expect(page.getByRole('status', { name: 'Preview range', exact: true })).toHaveText(
         `Showing 1–50 of ${visible} matching articles`,
       );
@@ -85,7 +87,12 @@ test('failed rules and execution reads retain known totals or offer retry withou
     await expect(range).toHaveText('Showing 1–50 of 126 executions');
     await page.getByLabel('Rule name', { exact: true }).fill('Retained draft');
     f.failNext('GET', '/api/rules');
+    await page.getByRole('button', { name: 'Templates', exact: true }).click();
     await page.getByRole('button', { name: 'Refresh rules', exact: true }).click();
+    await page
+      .getByRole('dialog', { name: 'Rule templates and settings', exact: true })
+      .getByRole('button', { name: 'Close Rule templates and settings', exact: true })
+      .click();
     await expect(page.getByRole('status', { name: 'Saved rule total', exact: true })).toHaveText(
       '1 saved rule · Last loaded',
     );
@@ -239,7 +246,7 @@ test('late feed Undo preserves newer toolbar focus while restoring the actual fe
     });
     await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await waiting;
-    const search = page.getByRole('searchbox', { name: 'Search', exact: true });
+    const search = page.getByRole('searchbox', { name: 'Search library', exact: true });
     await search.fill('Retain toolbar focus');
     release();
     await expect(page.getByRole('article', { name: feed.title, exact: true })).toBeVisible();

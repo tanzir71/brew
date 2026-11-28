@@ -42,6 +42,7 @@ test('temporary agent links survive Brew, Compose, Reader, newsletters and Rules
     await page.getByRole('link', { name: 'Logs', exact: true }).click();
     await expect(page).toHaveURL(/\/rules\/\d+\?tab=log&agent=1$/);
     expect(new URL(page.url()).searchParams.get('agent')).toBe('1');
+    await page.getByRole('button', { name: 'Templates', exact: true }).click();
     await page.getByRole('button', { name: 'Keyboard shortcuts', exact: true }).click();
     const help = page.getByRole('dialog', { name: 'Keyboard shortcuts', exact: true });
     await expect(help.getByRole('link', { name: 'Open Reader', exact: true })).toHaveAttribute(
@@ -298,7 +299,12 @@ test('agent lists render all densities and Today groups in the DOM and restore t
       list.getByRole('article', { name: 'Agent story 050', exact: true }),
     ).toBeInViewport();
     for (const density of ['magazine', 'cards', 'title']) {
-      await page.getByRole('button', { name: `${density} view`, exact: true }).click();
+      await page
+        .getByRole('radio', {
+          name: { title: 'Titles', magazine: 'Magazine', cards: 'Cards' }[density],
+          exact: true,
+        })
+        .click();
       await expect(list.getByRole('article')).toHaveCount(50);
       expect(await list.locator('[data-index]').count()).toBe(0);
     }

@@ -32,7 +32,12 @@ test('a stale Copy is rejected, and refreshing the saved list preserves the edit
     await expect(recovery.getByRole('alert')).toContainText('saved rule changed');
     expect(service.list()).toHaveLength(1);
     await recovery.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByRole('button', { name: 'Templates', exact: true }).click();
     await page.getByRole('button', { name: 'Refresh rules', exact: true }).click();
+    await page
+      .getByRole('dialog', { name: 'Rule templates and settings', exact: true })
+      .getByRole('button', { name: 'Close Rule templates and settings', exact: true })
+      .click();
     await expect(
       page.getByRole('article', { name: 'Changed in another client', exact: true }),
     ).toBeVisible();
@@ -185,7 +190,7 @@ test('a missing saved rule explains the unavailable editor and New opens a usabl
       page.getByRole('status', { name: 'Rule editor result', exact: true }),
     ).toContainText('Rule not found');
     await expect(page.getByLabel('Rule name', { exact: true })).toBeDisabled();
-    await page.getByRole('button', { name: 'New', exact: true }).click();
+    await page.getByRole('button', { name: 'New rule', exact: true }).click();
     await expect(page.getByLabel('Rule name', { exact: true })).toBeEnabled();
     await expect(page.getByLabel('Rule name', { exact: true })).toHaveValue('New rule');
     expect((await f.app.inject('/api/rules')).json()).toEqual([]);
@@ -221,6 +226,7 @@ test('late Copy and Save acknowledgements retain a newer editor draft and focus'
       await route.fulfill({ status: response.statusCode, json: response.json() });
     });
     await page.goto('/rules');
+    await page.getByRole('button', { name: 'New rule', exact: true }).click();
     await page
       .getByRole('article', { name: 'Saved design', exact: true })
       .getByRole('button', { name: 'Copy', exact: true })
@@ -295,6 +301,7 @@ test('duplicate filter waits for acknowledgement and retries the same persisted 
       await route.fulfill({ status: response.statusCode, json: response.json() });
     });
     await page.goto('/rules');
+    await page.getByRole('button', { name: 'Templates', exact: true }).click();
     const filter = page.getByLabel('Hide near-duplicate titles (3 days)', { exact: true });
     await expect(filter).toBeEnabled();
     await filter.click();
@@ -310,6 +317,7 @@ test('duplicate filter waits for acknowledgement and retries the same persisted 
     expect((await f.app.inject('/api/rules/duplicate-filter')).json()).toEqual({ enabled: true });
     expect(writes).toBe(2);
     await page.reload();
+    await page.getByRole('button', { name: 'Templates', exact: true }).click();
     await expect(filter).toBeChecked();
   } finally {
     release();
@@ -347,13 +355,21 @@ test('failed rules, filter, preview and logs reads show retry instead of false e
     await expect(page.getByText('No matches yet.', { exact: true })).toHaveCount(0);
     await expect(page.getByText('No executions yet.', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Retry executions', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Templates', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Retry duplicate filter read', exact: true }),
+    ).toBeVisible();
     failing = false;
-    await page.getByRole('button', { name: 'Retry rules', exact: true }).click();
-    await expect(page.getByLabel('Rule name', { exact: true })).toHaveValue('Saved design');
     await page.getByRole('button', { name: 'Retry duplicate filter read', exact: true }).click();
     await expect(
       page.getByLabel('Hide near-duplicate titles (3 days)', { exact: true }),
     ).toBeEnabled();
+    await page
+      .getByRole('dialog', { name: 'Rule templates and settings', exact: true })
+      .getByRole('button', { name: 'Close Rule templates and settings', exact: true })
+      .click();
+    await page.getByRole('button', { name: 'Retry rules', exact: true }).click();
+    await expect(page.getByLabel('Rule name', { exact: true })).toHaveValue('Saved design');
     await page.getByRole('button', { name: 'Retry executions', exact: true }).click();
     await expect(page.getByText('No executions yet.', { exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Would match 1', exact: true })).toBeVisible();
@@ -381,6 +397,7 @@ for (const outcome of ['granted', 'denied', 'default', 'failure', 'unsupported']
         });
       }, outcome);
       await page.goto('/rules');
+      await page.getByRole('button', { name: 'Templates', exact: true }).click();
       const status = page.getByRole('status', { name: 'Notification permission', exact: true });
       if (outcome === 'unsupported') {
         await expect(

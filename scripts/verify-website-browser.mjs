@@ -1,116 +1,170 @@
-/* global console, process, document */
-import { chromium } from '@playwright/test';
-import { mkdir, readFile, stat } from 'node:fs/promises';
-import { createServer } from 'node:http';
-import path from 'node:path';
-import { fileURLToPath, URL } from 'node:url';
-
+/* global console, process, document, getComputedStyle, innerWidth */
+import assert from 'node:assert/strict';
+import { chromium, expect } from '@playwright/test';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { serveWebsite } from './lib/website-server.mjs';
+import { URL } from 'node:url';
 const output = 'test-results/website';
 await mkdir(output, { recursive: true });
-const root = fileURLToPath(new URL('../docs/', import.meta.url));
-let server;
-let bases;
-if (process.env.BREW_SITE_URL) bases = [process.env.BREW_SITE_URL.replace(/\/?$/, '/')];
-else {
-  server = createServer(async (request, response) => {
-    try {
-      let pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
-      if (pathname.startsWith('/brew/')) pathname = pathname.slice('/brew'.length);
-      let file = path.resolve(root, '.' + pathname);
-      if (file !== path.resolve(root) && !file.startsWith(path.resolve(root) + path.sep))
-        throw new Error('Invalid path');
-      if ((await stat(file)).isDirectory()) file = path.join(file, 'index.html');
-      const types = {
-        '.html': 'text/html',
-        '.css': 'text/css',
-        '.js': 'application/javascript',
-        '.svg': 'image/svg+xml',
-        '.txt': 'text/plain',
-      };
-      response.writeHead(200, {
-        'Content-Type': types[path.extname(file)] ?? 'application/octet-stream',
-      });
-      response.end(await readFile(file));
-    } catch {
-      response.writeHead(404);
-      response.end('Not found');
-    }
-  });
-  await new Promise((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', resolve);
-  });
-  const base = `http://127.0.0.1:${server.address().port}`;
-  bases = [base + '/', base + '/brew/'];
-}
+const server = process.env.BREW_SITE_URL ? null : await serveWebsite();
+const bases = server
+  ? [server.origin + '/', server.origin + '/brew/']
+  : [process.env.BREW_SITE_URL.replace(/\/?$/, '/')];
 const browser = await chromium.launch();
+const manifest = JSON.parse(await readFile('website/assets.json', 'utf8'));
+const slots = JSON.parse(await readFile('website/asset-slots.json', 'utf8')).slots;
+const expected = [
+  ['navigation', 0, 72],
+  ['hero', 72, 1329],
+  ['reading', 1401, 721],
+  ['compose', 2122, 740],
+  ['newsletters', 2862, 720],
+  ['run', 3582, 825],
+  ['rules', 4407, 640],
+  ['agents', 5047, 629],
+  ['compare', 5676, 799],
+  ['open', 6475, 328],
+  ['faq', 6803, 486],
+  ['start', 7289, 474],
+  ['footer', 7763, 274],
+];
 const errors = [];
-async function pageAt(viewport, base) {
+const audits = [];
+async function pageAt(base, viewport) {
   const context = await browser.newContext({ viewport, reducedMotion: 'reduce' });
-  const page = await context.newPage();
-  page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(message.text());
+  await context.route('**/*', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.origin !== new URL(base).origin) {
+      errors.push('Third-party request: ' + url);
+      return route.abort();
+    }
+    return route.continue();
   });
-  page.on('pageerror', (error) => errors.push(error.message));
-  page.on('response', (response) => {
-    if (response.url().startsWith(base) && response.status() >= 400)
-      errors.push(`${response.status()} ${response.url()}`);
+  const page = await context.newPage();
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
+  page.on('response', (r) => {
+    if (r.status() >= 400) errors.push(r.status() + ' ' + r.url());
   });
   return { context, page };
 }
 try {
   for (const [index, base] of bases.entries()) {
-    const desktop = await pageAt({ width: 1440, height: 1000 }, base);
-    await desktop.page.goto(base, { waitUntil: 'networkidle' });
-    await desktop.page.getByRole('heading', { name: /Your feeds, brewed daily/ }).waitFor();
-    await desktop.page.screenshot({ path: `${output}/home-desktop-${index}.png`, fullPage: true });
-    await desktop.page.getByRole('link', { name: /^Open demo/ }).click();
-    const demo = new URL('demo/', base);
-    await desktop.page.waitForURL(
-      (url) =>
-        url.origin === demo.origin &&
-        url.pathname.replace(/\/$/, '') === demo.pathname.replace(/\/$/, ''),
+    const { context, page } = await pageAt(base, { width: 1440, height: 960 });
+    await page.goto(base, { waitUntil: 'networkidle' });
+    await page.evaluate(() => document.fonts.ready);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Your feeds and newsletters, made into one calm daily paper.',
     );
-    await desktop.page.getByText('canned data', { exact: false }).waitFor();
-    await desktop.page.getByRole('heading', { name: 'Morning', exact: true }).waitFor();
-    await desktop.page.screenshot({ path: `${output}/demo-brew-${index}.png`, fullPage: true });
-    await desktop.page.locator('.nav-item[data-filter="today"]').click();
-    await desktop.page.getByRole('heading', { name: 'Today', exact: true }).waitFor();
-    await desktop.page.locator('.article-row[data-id="quiet-systems"]').click();
-    await desktop.page.locator('.article-pane h1').waitFor();
-    await desktop.page.screenshot({ path: `${output}/demo-reader-${index}.png`, fullPage: false });
-    await desktop.page.locator('.nav-item[data-view="rules"]').click();
-    await desktop.page.getByRole('heading', { name: 'Rules', exact: true }).waitFor();
-    await desktop.page.getByRole('button', { name: 'Disable rule' }).first().click();
-    await desktop.page.getByText('Rule paused', { exact: true }).waitFor();
-    await desktop.page.getByRole('button', { name: 'Toggle dark mode' }).click();
-    await desktop.page.screenshot({
-      path: `${output}/demo-rules-dark-${index}.png`,
-      fullPage: true,
-    });
-    await desktop.context.close();
-    const mobile = await pageAt({ width: 390, height: 844 }, base);
-    await mobile.page.goto(demo.href, { waitUntil: 'networkidle' });
-    await mobile.page.getByRole('button', { name: 'Open navigation' }).click();
-    await mobile.page.locator('.sidebar.open').waitFor();
-    const overflow = await mobile.page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    const geometry = await page
+      .locator('.site-section')
+      .evaluateAll((nodes) => nodes.map((n) => [n.id, n.offsetTop, n.offsetHeight]));
+    assert.deepEqual(geometry, expected, 'Figma section geometry at 1440');
+    const assets = await page.locator('img').evaluateAll((nodes) =>
+      nodes.map((n) => ({
+        file: n.getAttribute('src').replace(/^\.\//, ''),
+        node: n.closest('[data-node-id]')?.getAttribute('data-node-id'),
+        section: n.closest('.site-section')?.id,
+        width: parseFloat(getComputedStyle(n).width),
+        height: parseFloat(getComputedStyle(n).height),
+        loaded: n.complete && n.naturalWidth > 0,
+      })),
     );
-    if (overflow > 1) errors.push(`mobile layout overflows by ${overflow}px`);
-    await mobile.page.screenshot({ path: `${output}/demo-mobile-${index}.png`, fullPage: false });
-    await mobile.context.close();
+    for (const asset of assets) {
+      assert(asset.loaded, 'Unloaded ' + asset.file);
+      const reference = manifest.assets.find((value) => value.file === asset.file);
+      assert(reference, 'Unregistered asset ' + asset.file);
+      assert(asset.node && asset.section, 'Missing design slot ' + asset.file);
+      assert(
+        slots.some((slot) => slot.node === asset.node && slot.file === asset.file),
+        'Incorrect asset in Figma slot ' + JSON.stringify(asset),
+      );
+      assert(
+        Math.abs(asset.width - reference.width) < 0.02 &&
+          Math.abs(asset.height - reference.height) < 0.02,
+        'Asset dimensions ' + JSON.stringify(asset),
+      );
+    }
+    audits.push({ base, geometry, assets });
+    await page.screenshot({ path: output + '/home-desktop-' + index + '.png', fullPage: true });
+    await page.getByRole('link', { name: 'Privacy', exact: true }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    assert(
+      (
+        await page
+          .getByRole('button', { name: 'Copy command', exact: true })
+          .getAttribute('data-copy')
+      ).startsWith('git clone https://github.com/tanzir71/brew.git'),
+    );
+    for (const width of [390, 768, 1024]) {
+      await page.setViewportSize({ width, height: 844 });
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+      assert(overflow <= 1, 'Landing overflows ' + overflow + 'px at ' + width);
+      await page.screenshot({
+        path: output + '/home-' + width + '-' + index + '.png',
+        fullPage: true,
+      });
+    }
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await page.getByRole('link', { name: 'Try the live demo', exact: true }).first().click();
+    await expect(page.getByRole('heading', { name: 'Morning', exact: true })).toBeVisible();
+    const point = page.locator('.brew-wordmark [data-figma-asset]').first();
+    assert.deepEqual(
+      await point.evaluate((n) => ({
+        width: n.getBoundingClientRect().width,
+        height: n.getBoundingClientRect().height,
+      })),
+      { width: 5, height: 10 },
+    );
+    await expect(page.getByText(/Live demo · canned data/)).toBeVisible();
+    await page.screenshot({ path: output + '/demo-brew-' + index + '.png', fullPage: true });
+    await page.getByRole('radio', { name: 'Compose', exact: true }).click();
+    await expect(
+      page.getByRole('complementary', { name: 'Live preview', exact: true }),
+    ).toBeVisible();
+    await expect(page.locator('[role=alert]')).toHaveCount(0);
+    await page.goto(base + 'demo/#/all?density=title', { waitUntil: 'networkidle' });
+    await expect(page.getByRole('radio', { name: 'Titles', exact: true })).toBeChecked();
+    await page.locator('summary[aria-label="Reader options"]').click();
+    await page.getByLabel('Open articles', { exact: true }).selectOption('pane');
+    await page.locator('summary[aria-label="Reader options"]').click();
+    await page.getByRole('button', { name: /Open article · Figma’s variables panel/ }).click();
+    await expect(page.getByRole('dialog', { name: 'Article reader' })).toBeVisible();
+    await page.screenshot({ path: output + '/demo-reader-' + index + '.png' });
+    await page.goto(base + 'demo/#/letters', { waitUntil: 'networkidle' });
+    await expect(page.getByRole('heading', { name: 'Newsletters', exact: true })).toBeVisible();
+    await page.screenshot({ path: output + '/demo-letters-' + index + '.png' });
+    await page.goto(base + 'demo/#/rules', { waitUntil: 'networkidle' });
+    await expect(page.getByLabel('Rule name', { exact: true })).toHaveValue('Figma mentions');
+    const toggle = page.getByRole('switch', { name: 'Enable Figma mentions', exact: true });
+    await toggle.click();
+    await expect(toggle).not.toBeChecked();
+    await toggle.click();
+    await expect(toggle).toBeChecked();
+    await expect(page.getByRole('heading', { name: 'Would match 1', exact: true })).toBeVisible();
+    await page.screenshot({ path: output + '/demo-rules-' + index + '.png' });
+    await page.getByRole('button', { name: 'Switch theme', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-resolved-theme', 'dark');
+    await page.screenshot({ path: output + '/demo-rules-dark-' + index + '.png' });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByLabel('Demo navigation').selectOption('/letters');
+    await expect(page.getByRole('heading', { name: 'Newsletters', exact: true })).toBeVisible();
+    await page.screenshot({ path: output + '/demo-mobile-' + index + '.png' });
+    await context.close();
   }
 } finally {
   await browser.close();
-  if (server)
-    await new Promise((resolve, reject) =>
-      server.close((error) => (error ? reject(error) : resolve())),
-    );
+  if (server) await server.close();
 }
-if (errors.length) {
-  console.error(errors.map((error) => `- ${error}`).join('\n'));
-  process.exit(1);
-}
+await writeFile(output + '/figma-asset-audit.json', JSON.stringify(audits, null, 2));
+assert.deepEqual(errors, []);
 console.log(
-  `Browser verification passed at ${bases.length} site base(s): home, Brew, Reader, Rules, dark theme and mobile navigation; zero failed assets.`,
+  'Website browser checks passed at ' +
+    bases.length +
+    ' bases: Figma geometry, ' +
+    audits[0].assets.length +
+    ' asset callsites, responsive landing, native demo screens, rules toggles and theme; zero third-party requests or page errors.',
 );

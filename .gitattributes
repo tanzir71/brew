@@ -1,2 +1,7 @@
 # Keep reviewed output bytes and their validator evidence stable across checkouts.
 targets/node/test/fixtures/outputs/* text eol=lf
+
+# Keep Figma exports byte-for-byte identical across Windows and Unix checkouts.
+**/figma/**/*.svg -text
+/docs/favicon.svg -text
+/packages/web/public/favicon.svg -text

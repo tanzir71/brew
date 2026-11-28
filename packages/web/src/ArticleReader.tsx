@@ -15,6 +15,9 @@ import { useTagEditor } from './hooks/useTagEditor';
 import { ArticleTags, TagFeedback } from './components/ArticleTags';
 import { useArticleActions } from './hooks/useArticleActions';
 import { ArticleActionFeedback } from './components/ArticleActionFeedback';
+import { Icon } from './components/Icon';
+import { Avatar, Button } from './components/controls';
+import { agentPageHref } from './agentLocation';
 
 async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(url, { signal });
@@ -76,8 +79,16 @@ function ArticleReaderBody({
   const preferences = useBrowserPreferences();
   const readingPrefs = preferences.values;
   const tagEditor = useTagEditor({ id, enabled: showTags });
-  useWebMcpSurface(contentRef, { names: ['get_item', 'star', 'tag'], ids: [id] }, Boolean(detail.data && !detail.isError));
-  useWebMcpSurface(contentRef, { names: ['mark_read'], fixed: { target: { kind: 'items', ids: [id] } } }, Boolean(detail.data && !detail.isError));
+  useWebMcpSurface(
+    contentRef,
+    { names: ['get_item', 'star', 'tag'], ids: [id] },
+    Boolean(detail.data && !detail.isError),
+  );
+  useWebMcpSurface(
+    contentRef,
+    { names: ['mark_read'], fixed: { target: { kind: 'items', ids: [id] } } },
+    Boolean(detail.data && !detail.isError),
+  );
   const actions = useArticleActions(id);
   const updateAction = actions.update;
   useEffect(() => {
@@ -238,81 +249,154 @@ function ArticleReaderBody({
         onBlurCapture={containDialogBlur}
       >
         <div className="article-reader-surface overflow-y-auto bg-surface shadow-overlay">
-          <div className="article-reader-toolbar sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-line bg-surface/95 px-6 py-3 backdrop-blur">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={onClose}
-                aria-label="Close article"
-                data-brew-action="close"
-                className="rounded-full px-3 py-2 text-soft hover:bg-subtle"
+          {!modal && detail.data && (
+            <div className="article-pane-toolbar">
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<Icon name="star" size={14} />}
+                data-shortcut="s"
+                data-brew-action="star"
+                aria-pressed={Boolean(detail.data.starredAt)}
+                onClick={() => void updateState({ starred: !detail.data!.starredAt })}
               >
-                ✕
-              </button>
-              {detail.data && (
-                <>
-                  <a
-                    href={detail.data.url}
-                    data-brew-action="view-original"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-lg px-3 py-2 text-xs font-medium hover:bg-subtle"
-                  >
-                    View original ↗
-                  </a>
-                  <button
-                    onClick={copy}
-                    className="rounded-lg px-3 py-2 text-xs font-medium hover:bg-subtle"
-                  >
-                    Copy link
-                  </button>
-                </>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-1" aria-label="Reading preferences">
-              <select
-                aria-label="Reader font"
-                data-brew-action="set-reader-font"
-                value={readingPrefs.font}
-                onChange={(event) => preferences.save('font', event.target.value, 'Reader font')}
-                className="rounded border px-2 py-1 text-xs"
+                {detail.data.starredAt ? 'Starred' : 'Star'}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<Icon name="tag" size={14} />}
+                data-shortcut="t"
+                data-brew-action="tag"
+                disabled={tagEditor.pending}
+                aria-expanded={showTags}
+                aria-controls={`article-tags-${id}`}
+                onClick={() => {
+                  focusTags.current = !showTags;
+                  setShowTags(!showTags);
+                }}
               >
-                <option value="sans">Sans</option>
-                <option value="serif">Serif</option>
-              </select>
-              <select
-                aria-label="Reader width"
-                data-brew-action="set-reader-width"
-                value={readingPrefs.width}
-                onChange={(event) => preferences.save('width', event.target.value, 'Reader width')}
-                className="rounded border px-2 py-1 text-xs"
+                Tag
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<Icon name="undo" size={14} />}
+                data-shortcut="m"
+                data-brew-action="mark-read"
+                onClick={() => void updateState({ read: !detail.data!.readAt })}
               >
-                <option value="narrow">Narrow</option>
-                <option value="wide">Wide</option>
-              </select>
-              <select
-                aria-label="Reader line height"
-                data-brew-action="set-reader-line-height"
-                value={readingPrefs.lineHeight}
-                onChange={(event) =>
-                  preferences.save('lineHeight', event.target.value, 'Reader line height')
-                }
-                className="rounded border px-2 py-1 text-xs"
+                {detail.data.readAt ? 'Mark unread' : 'Mark read'}
+              </Button>
+              <span className="brew-spacer" />
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Icon name="read" size={14} />}
+                disabled={extracting}
+                onClick={() => void extract()}
               >
-                <option value="compact">Compact</option>
-                <option value="relaxed">Relaxed</option>
-              </select>
-              <button
-                ref={moreRef}
-                type="button"
+                {extracting ? 'Loading…' : 'Full text'}
+              </Button>
+              <a
+                href={detail.data.url}
+                target="_blank"
+                rel="noreferrer"
+                data-brew-action="view-original"
+                aria-label="View original"
+                className="brew-icon-button"
+              >
+                <Icon name="external" size={15} />
+              </a>
+              <Button
+                variant="ghost"
+                size="sm"
                 aria-label="More article actions"
-                data-brew-action="more"
+                icon={<Icon name="more" size={16} />}
+                buttonRef={moreRef}
                 onClick={() => setMore(true)}
-                className="rounded border px-2 py-1 text-xs"
-              >
-                More
-              </button>
+              />
             </div>
-          </div>
+          )}
+          {modal && (
+            <div className="article-reader-toolbar sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-line bg-surface/95 px-6 py-3 backdrop-blur">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={onClose}
+                  aria-label="Close article"
+                  data-brew-action="close"
+                  className="rounded-full px-3 py-2 text-soft hover:bg-subtle"
+                >
+                  ✕
+                </button>
+                {detail.data && (
+                  <>
+                    <a
+                      href={detail.data.url}
+                      data-brew-action="view-original"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg px-3 py-2 text-xs font-medium hover:bg-subtle"
+                    >
+                      View original ↗
+                    </a>
+                    <button
+                      onClick={copy}
+                      className="rounded-lg px-3 py-2 text-xs font-medium hover:bg-subtle"
+                    >
+                      Copy link
+                    </button>
+                  </>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1" aria-label="Reading preferences">
+                <select
+                  aria-label="Reader font"
+                  data-brew-action="set-reader-font"
+                  value={readingPrefs.font}
+                  onChange={(event) => preferences.save('font', event.target.value, 'Reader font')}
+                  className="rounded border px-2 py-1 text-xs"
+                >
+                  <option value="sans">Sans</option>
+                  <option value="serif">Serif</option>
+                </select>
+                <select
+                  aria-label="Reader width"
+                  data-brew-action="set-reader-width"
+                  value={readingPrefs.width}
+                  onChange={(event) =>
+                    preferences.save('width', event.target.value, 'Reader width')
+                  }
+                  className="rounded border px-2 py-1 text-xs"
+                >
+                  <option value="narrow">Narrow</option>
+                  <option value="wide">Wide</option>
+                </select>
+                <select
+                  aria-label="Reader line height"
+                  data-brew-action="set-reader-line-height"
+                  value={readingPrefs.lineHeight}
+                  onChange={(event) =>
+                    preferences.save('lineHeight', event.target.value, 'Reader line height')
+                  }
+                  className="rounded border px-2 py-1 text-xs"
+                >
+                  <option value="compact">Compact</option>
+                  <option value="relaxed">Relaxed</option>
+                </select>
+                <button
+                  ref={moreRef}
+                  type="button"
+                  aria-label="More article actions"
+                  data-brew-action="more"
+                  onClick={() => setMore(true)}
+                  className="rounded border px-2 py-1 text-xs"
+                >
+                  More
+                </button>
+              </div>
+            </div>
+          )}
           <PreferenceFeedback preferences={preferences} name="Article preferences result" />
           {detail.isLoading ? (
             <p role="status" className="p-12 text-center text-sm text-soft">
@@ -341,11 +425,29 @@ function ArticleReaderBody({
               {...articleDom(detail.data)}
               className={`mx-auto break-words px-7 py-12 ${readingPrefs.width === 'wide' ? 'max-w-[880px]' : 'max-w-[680px]'}`}
             >
-              <p className="text-xs font-semibold uppercase tracking-wider text-soft">
-                {detail.data.feedTitle}
-              </p>
+              {!modal && detail.data.highlightColor && (
+                <div className="article-pane-rule">
+                  <Icon name="rules" size={14} />
+                  <span>A rule highlighted this article.</span>
+                  <a href={agentPageHref('/rules')}>View rules</a>
+                </div>
+              )}
+              {modal ? (
+                <p className="text-xs font-semibold uppercase tracking-wider text-soft">
+                  {detail.data.feedTitle}
+                </p>
+              ) : (
+                <div className="article-pane-byline">
+                  <Avatar id={detail.data.feedTitle} initial={detail.data.feedTitle} />
+                  <span>{detail.data.feedTitle}</span>
+                  <span>
+                    · {detail.data.author ? detail.data.author + ' · ' : ''}
+                    {detail.data.readTimeMinutes} min read
+                  </span>
+                </div>
+              )}
               <h1 className="mt-3 type-display-l">{detail.data.title}</h1>
-              <div className="mt-4 flex flex-wrap gap-2 text-sm text-soft">
+              <div hidden={!modal} className="mt-4 flex flex-wrap gap-2 text-sm text-soft">
                 {detail.data.author && <span>By {detail.data.author}</span>}
                 <span>{detail.data.readTimeMinutes} min read</span>
                 <time>
@@ -354,7 +456,7 @@ function ArticleReaderBody({
                   )}
                 </time>
               </div>
-              <div className="mt-6 flex flex-wrap gap-2">
+              <div hidden={!modal} className="mt-6 flex flex-wrap gap-2">
                 <button
                   data-shortcut="m"
                   data-brew-action="mark-read"
@@ -403,7 +505,7 @@ function ArticleReaderBody({
                   />
                 </div>
               )}{' '}
-              {!detail.data.fullTextHtml && (
+              {modal && !detail.data.fullTextHtml && (
                 <button
                   disabled={extracting}
                   onClick={extract}
@@ -413,6 +515,21 @@ function ArticleReaderBody({
                 </button>
               )}
               {!more && <ArticleActionFeedback actions={actions} message={message} />}
+              {!modal && detail.data.imageUrl && (
+                <img
+                  className="article-pane-image"
+                  alt=""
+                  src={
+                    preferences.values.images === 'direct'
+                      ? detail.data.imageUrl.startsWith('/api/img?src=')
+                        ? decodeURIComponent(detail.data.imageUrl.slice(13))
+                        : detail.data.imageUrl
+                      : detail.data.imageUrl.startsWith('/api/img?')
+                        ? detail.data.imageUrl
+                        : `/api/img?src=${encodeURIComponent(detail.data.imageUrl)}`
+                  }
+                />
+              )}
               {detail.data.enclosureUrl && detail.data.enclosureType?.startsWith('audio/') && (
                 <audio
                   aria-label={`Listen to ${detail.data.title}`}
@@ -446,6 +563,55 @@ function ArticleReaderBody({
       >
         {detail.data && (
           <div className="grid gap-3">
+            {!modal && (
+              <>
+                <Button variant="secondary" size="sm" onClick={onClose}>
+                  Close article
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => void copy()}>
+                  Copy link
+                </Button>
+                <label>
+                  Reader font
+                  <select
+                    aria-label="Reader font"
+                    value={readingPrefs.font}
+                    onChange={(event) =>
+                      preferences.save('font', event.target.value, 'Reader font')
+                    }
+                  >
+                    <option value="sans">Sans</option>
+                    <option value="serif">Serif</option>
+                  </select>
+                </label>
+                <label>
+                  Reader width
+                  <select
+                    aria-label="Reader width"
+                    value={readingPrefs.width}
+                    onChange={(event) =>
+                      preferences.save('width', event.target.value, 'Reader width')
+                    }
+                  >
+                    <option value="narrow">Narrow</option>
+                    <option value="wide">Wide</option>
+                  </select>
+                </label>
+                <label>
+                  Reader line height
+                  <select
+                    aria-label="Reader line height"
+                    value={readingPrefs.lineHeight}
+                    onChange={(event) =>
+                      preferences.save('lineHeight', event.target.value, 'Reader line height')
+                    }
+                  >
+                    <option value="compact">Compact</option>
+                    <option value="relaxed">Relaxed</option>
+                  </select>
+                </label>
+              </>
+            )}
             <ArticleActionFeedback actions={actions} message={message} />
             {(showTags || tagEditor.message || tagEditor.error || tagEditor.pending) && (
               <TagFeedback editor={tagEditor} />

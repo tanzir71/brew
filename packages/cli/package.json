@@ -1,6 +1,6 @@
 {
   "name": "brew-reader",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Deploy your own private Brew reader",
   "type": "module",
   "license": "UNLICENSED",

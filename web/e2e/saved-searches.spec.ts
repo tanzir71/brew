@@ -52,7 +52,7 @@ test('saved-search changes propagate between Reader and an already-open sidebar 
     await expect(shared).toBeVisible();
     await shared.click();
     await expect(sidebar).toHaveURL('/search?q=Design&sort=oldest');
-    await expect(sidebar.getByRole('link', { name: '⌕ Shared design', exact: true })).toBeVisible();
+    await expect(sidebar.getByRole('link', { name: 'Shared design', exact: true })).toBeVisible();
   } finally {
     await sidebar.close();
     await f.close();
@@ -89,7 +89,7 @@ test('storage failures retain the saved-search form, require recoverable deletio
     await page.evaluate(() => sessionStorage.removeItem('test:fail-search-write'));
     await save.getByRole('button', { name: 'Save search', exact: true }).click();
     await expect(save).not.toBeVisible();
-    const bookmark = page.getByRole('link', { name: '⌕ Retry design', exact: true });
+    const bookmark = page.getByRole('link', { name: 'Retry design', exact: true });
     await expect(bookmark).toBeVisible();
     await page
       .getByRole('button', { name: 'More actions for saved search Retry design', exact: true })
@@ -151,7 +151,7 @@ test('malformed saved-search storage reports a retryable error without crashing 
     await page.getByRole('button', { name: 'Save search', exact: true }).click();
     await save.getByLabel('Saved search name', { exact: true }).fill('Recovered');
     await save.getByRole('button', { name: 'Save search', exact: true }).click();
-    await expect(page.getByRole('link', { name: '⌕ Recovered', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Recovered', exact: true })).toBeVisible();
   } finally {
     await f.close();
   }

@@ -11,7 +11,9 @@ import { BrewService } from '../../targets/node/src/services/brew-service';
 import { agentModeFixture } from './agent-mode-fixture';
 import { seedRuleHistory } from './rule-history-fixture';
 
-test('an agent pages the complete execution history, follows matching twins and recovers keyboard focus after Undo', async ({ page }) => {
+test('an agent pages the complete execution history, follows matching twins and recovers keyboard focus after Undo', async ({
+  page,
+}) => {
   const f = await newslettersFixture(page);
   try {
     const { rule, service } = seedRuleHistory(f);
@@ -19,25 +21,44 @@ test('an agent pages the complete execution history, follows matching twins and 
     await page.context().route('**/rules/*.json*', async (route) => {
       const url = new URL(route.request().url());
       const response = await f.app.inject({ method: 'GET', url: url.pathname + url.search });
-      await route.fulfill({ status: response.statusCode, body: response.rawPayload, headers: { 'content-type': String(response.headers['content-type']) } });
+      await route.fulfill({
+        status: response.statusCode,
+        body: response.rawPayload,
+        headers: { 'content-type': String(response.headers['content-type']) },
+      });
     });
     await page.goto(`/rules/${rule.id}?tab=log&agent=1`);
     await expect(page.getByRole('main', { name: 'Rules', exact: true })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Library', exact: true })).toBeVisible();
     const log = page.getByRole('region', { name: 'Rule execution log', exact: true });
-    await expect(page.getByRole('status', { name: 'Saved rule total', exact: true })).toHaveText('1 saved rule');
-    await expect(log.getByRole('status', { name: 'Execution range', exact: true })).toHaveText('Showing 1–50 of 126 executions');
+    await expect(page.getByRole('status', { name: 'Saved rule total', exact: true })).toHaveText(
+      '1 saved rule',
+    );
+    await expect(log.getByRole('status', { name: 'Execution range', exact: true })).toHaveText(
+      'Showing 1–50 of 126 executions',
+    );
     await page.getByLabel('Rule name', { exact: true }).fill('Unsaved history draft');
-    await log.getByRole('link', { name: 'Next', exact: true }).focus(); await page.keyboard.press('Enter');
-    await expect(log.getByRole('status', { name: 'Execution range', exact: true })).toHaveText('Showing 51–100 of 126 executions');
-    await expect(log.getByRole('heading', { name: 'Recent executions', exact: true })).toBeFocused();
+    await log.getByRole('link', { name: 'Next', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    await expect(log.getByRole('status', { name: 'Execution range', exact: true })).toHaveText(
+      'Showing 51–100 of 126 executions',
+    );
+    await expect(
+      log.getByRole('heading', { name: 'Recent executions', exact: true }),
+    ).toBeFocused();
     await log.getByRole('link', { name: 'Page 3', exact: true }).click();
-    await expect(log.getByRole('status', { name: 'Execution range', exact: true })).toHaveText('Showing 101–126 of 126 executions');
+    await expect(log.getByRole('status', { name: 'Execution range', exact: true })).toHaveText(
+      'Showing 101–126 of 126 executions',
+    );
     await expect(log.getByRole('article')).toHaveCount(26);
-    await expect(page.getByLabel('Rule name', { exact: true })).toHaveValue('Unsaved history draft');
+    await expect(page.getByLabel('Rule name', { exact: true })).toHaveValue(
+      'Unsaved history draft',
+    );
     const [popup, response] = await Promise.all([
       page.waitForEvent('popup'),
-      page.context().waitForEvent('response', { predicate: (response) => new URL(response.url()).pathname === `/rules/${rule.id}.json` }),
+      page.context().waitForEvent('response', {
+        predicate: (response) => new URL(response.url()).pathname === `/rules/${rule.id}.json`,
+      }),
       log.getByRole('link', { name: 'JSON', exact: true }).click(),
     ]);
     const document = await response.json();
@@ -45,16 +66,30 @@ test('an agent pages the complete execution history, follows matching twins and 
     expect(document.sections[1].items).toHaveLength(26);
     await popup.close();
     expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
-    await page.getByRole('button', { name: 'More actions for rule History rule', exact: true }).click();
-    await page.getByRole('dialog', { name: 'Rule actions', exact: true }).getByRole('button', { name: 'Copy', exact: true }).click();
-    await expect(page.getByRole('status', { name: 'Saved rule total', exact: true })).toHaveText('2 saved rules');
+    await page
+      .getByRole('button', { name: 'More actions for rule History rule', exact: true })
+      .click();
+    await page
+      .getByRole('dialog', { name: 'Rule actions', exact: true })
+      .getByRole('button', { name: 'Copy', exact: true })
+      .click();
+    await expect(page.getByRole('status', { name: 'Saved rule total', exact: true })).toHaveText(
+      '2 saved rules',
+    );
     await page.reload();
-    await page.getByRole('button', { name: 'Undo', exact: true }).focus(); await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: 'Undo', exact: true }).focus();
+    await page.keyboard.press('Enter');
     await expect(page.getByRole('region', { name: 'Action result', exact: true })).toBeFocused();
-    await expect(page.getByRole('status', { name: 'Saved rule total', exact: true })).toHaveText('1 saved rule');
+    await expect(page.getByRole('status', { name: 'Saved rule total', exact: true })).toHaveText(
+      '1 saved rule',
+    );
     expect(service.list()).toHaveLength(1);
-    expect((await f.app.inject(`/api/rules/${rule.id}/executions?page=3`)).json().items).toHaveLength(26);
-  } finally { await f.close(); }
+    expect(
+      (await f.app.inject(`/api/rules/${rule.id}/executions?page=3`)).json().items,
+    ).toHaveLength(26);
+  } finally {
+    await f.close();
+  }
 });
 
 test('an agent recovers a copied rule through More, reloads Undo and saves the duplicate filter using native controls', async ({
@@ -109,6 +144,7 @@ test('an agent recovers a copied rule through More, reloads Undo and saves the d
     ).toHaveCount(0);
     expect(service.list()).toHaveLength(1);
     expect(new URL(page.url()).searchParams.get('agent')).toBe('1');
+    await page.getByRole('button', { name: 'Templates', exact: true }).click();
     const filter = page.getByLabel('Hide near-duplicate titles (3 days)', { exact: true });
     await expect(filter).toBeEnabled();
     await filter.click();
@@ -117,18 +153,28 @@ test('an agent recovers a copied rule through More, reloads Undo and saves the d
     ).toHaveText('Duplicate filter enabled.');
     expect((await f.app.inject('/api/rules/duplicate-filter')).json()).toEqual({ enabled: true });
     await page.reload();
+    await page.getByRole('button', { name: 'Templates', exact: true }).click();
     await expect(filter).toBeChecked();
   } finally {
     await f.close();
   }
 });
 
-
-test('an agent uses compact rule targets, edits native draft controls and cancels deletion without writes', async ({ page }) => {
+test('an agent uses compact rule targets, edits native draft controls and cancels deletion without writes', async ({
+  page,
+}) => {
   const f = await newslettersFixture(page);
   try {
     const service = new RulesService(f.database);
-    service.create({ name: 'Target rule', enabled: false, matchType: 'all', scope: {}, conditions: [{ field: 'title', operator: 'contains', value: 'Design' }], actions: [{ type: 'star' }], stopProcessing: false });
+    service.create({
+      name: 'Target rule',
+      enabled: false,
+      matchType: 'all',
+      scope: {},
+      conditions: [{ field: 'title', operator: 'contains', value: 'Design' }],
+      actions: [{ type: 'star' }],
+      stopProcessing: false,
+    });
     await page.goto('/rules');
     const original = page.getByRole('article', { name: 'Target rule', exact: true });
     const copy = original.getByRole('button', { name: 'Copy', exact: true });
@@ -139,10 +185,15 @@ test('an agent uses compact rule targets, edits native draft controls and cancel
     await page.mouse.click(box.x + box.width / 2, box.y + 1);
     const copied = page.getByRole('article', { name: 'Target rule copy', exact: true });
     await expect(copied).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'Rule name', exact: true })).toHaveValue('Target rule copy');
-    expect(f.database.sqlite.prepare('SELECT name,enabled FROM rules ORDER BY id').all()).toEqual([{ name: 'Target rule', enabled: 0 }, { name: 'Target rule copy', enabled: 0 }]);
+    await expect(page.getByRole('textbox', { name: 'Rule name', exact: true })).toHaveValue(
+      'Target rule copy',
+    );
+    expect(f.database.sqlite.prepare('SELECT name,enabled FROM rules ORDER BY id').all()).toEqual([
+      { name: 'Target rule', enabled: 0 },
+      { name: 'Target rule copy', enabled: 0 },
+    ]);
     const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
-    const enabled = page.getByRole('checkbox', { name: 'Enabled', exact: true });
+    const enabled = page.getByRole('switch', { name: 'Enabled', exact: true });
     await enabled.focus();
     await page.keyboard.press('Space');
     await expect(enabled).toBeChecked();
@@ -160,10 +211,14 @@ test('an agent uses compact rule targets, edits native draft controls and cancel
     await expect(remove).toBeFocused();
     expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
     expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM rules').get()).toEqual({ n: 2 });
-  } finally { await f.close(); }
+  } finally {
+    await f.close();
+  }
 });
 
-test('an agent enables saved agent mode, pages the full DOM by keyboard and reads an exact search item', async ({ page }) => {
+test('an agent enables saved agent mode, pages the full DOM by keyboard and reads an exact search item', async ({
+  page,
+}) => {
   const f = await agentModeFixture(page);
   try {
     const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
@@ -174,7 +229,10 @@ test('an agent enables saved agent mode, pages the full DOM by keyboard and read
     await page.keyboard.press('Space');
     await expect(toggle).toBeChecked();
     await page.keyboard.press('Escape');
-    await page.getByRole('navigation', { name: 'Library', exact: true }).getByRole('link', { name: /^All articles/ }).click();
+    await page
+      .getByRole('navigation', { name: 'Library', exact: true })
+      .getByRole('link', { name: /^All articles/ })
+      .click();
     const list = page.getByRole('region', { name: 'Article results', exact: true });
     await expect(list.getByRole('article')).toHaveCount(50);
     await list.getByRole('button', { name: 'Open article · Agent story 050', exact: true }).focus();
@@ -183,40 +241,61 @@ test('an agent enables saved agent mode, pages the full DOM by keyboard and read
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: 'All articles', exact: true })).toBeFocused();
     await expect(list.getByRole('article')).toHaveCount(50);
-    await expect(page.getByRole('region', { name: 'Reader page', exact: true })).toContainText('Showing 51–100 of 121');
+    await expect(page.getByRole('region', { name: 'Reader page', exact: true })).toContainText(
+      'Showing 51–100 of 121',
+    );
     await page.getByRole('link', { name: 'Page 3', exact: true }).click();
     await expect(list.getByRole('article')).toHaveCount(21);
     await page.goBack();
     await expect(list.getByRole('article')).toHaveCount(50);
     await page.reload();
     await expect(list.getByRole('article')).toHaveCount(50);
-    const search = page.getByLabel('Search', { exact: true });
+    const search = page.getByLabel('Search library', { exact: true });
     await search.fill('Agent');
     await search.press('Enter');
     const results = page.getByRole('region', { name: 'Search results', exact: true });
     await expect(results.getByRole('article')).toHaveCount(50);
     await page.getByRole('link', { name: 'Page 2', exact: true }).click();
     await expect(results.getByRole('article')).toHaveCount(50);
-    await expect(page.getByRole('navigation', { name: 'Reader text formats', exact: true }).getByRole('link', { name: 'JSON', exact: true })).toHaveAttribute('href', '/search.json?q=Agent&page=2&agent=1');
+    await expect(
+      page
+        .getByRole('navigation', { name: 'Reader text formats', exact: true })
+        .getByRole('link', { name: 'JSON', exact: true }),
+    ).toHaveAttribute('href', '/search.json?q=Agent&page=2&agent=1');
     expect(new URL(page.url()).searchParams.has('agent')).toBe(false);
     expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
-    const opener = results.getByRole('button', { name: 'Open article · Agent story 100', exact: true });
+    const opener = results.getByRole('button', {
+      name: 'Open article · Agent story 100',
+      exact: true,
+    });
     await opener.focus();
     await page.keyboard.press('Enter');
     const reader = page.getByRole('dialog', { name: 'Article reader', exact: true });
-    await expect(reader.getByRole('article', { name: 'Agent story 100', exact: true })).toBeFocused();
+    await expect(
+      reader.getByRole('article', { name: 'Agent story 100', exact: true }),
+    ).toBeFocused();
     await expect(reader.getByRole('button', { name: 'Mark unread', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(opener).toBeFocused();
-    expect(f.database.sqlite.prepare('SELECT id FROM articles WHERE read_at IS NOT NULL').all()).toEqual([{ id: 100 }]);
-    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({ n: 0 });
-  } finally { await f.close(); }
+    expect(
+      f.database.sqlite.prepare('SELECT id FROM articles WHERE read_at IS NOT NULL').all(),
+    ).toEqual([{ id: 100 }]);
+    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({
+      n: 0,
+    });
+  } finally {
+    await f.close();
+  }
 });
 
-test('an agent opens native shortcut help and recovers changed Reader and search pages without writes', async ({ page }) => {
+test('an agent opens native shortcut help and recovers changed Reader and search pages without writes', async ({
+  page,
+}) => {
   const f = await newslettersFixture(page);
   let failing = true;
-  await page.route('**/api/articles?**', (route) => failing ? route.fulfill({ status: 503, json: {} }) : route.fallback());
+  await page.route('**/api/articles?**', (route) =>
+    failing ? route.fulfill({ status: 503, json: {} }) : route.fallback(),
+  );
   try {
     const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
     await page.goto('/all?page=2&density=title&unread=true&sort=oldest');
@@ -225,7 +304,9 @@ test('an agent opens native shortcut help and recovers changed Reader and search
     await retry.focus();
     await page.keyboard.press('?');
     const help = page.getByRole('dialog', { name: 'Keyboard shortcuts', exact: true });
-    await expect(help.getByRole('button', { name: 'Close Keyboard shortcuts', exact: true })).toBeFocused();
+    await expect(
+      help.getByRole('button', { name: 'Close Keyboard shortcuts', exact: true }),
+    ).toBeFocused();
     await page.keyboard.press('Shift+Tab');
     await expect(help.getByRole('button', { name: 'Done', exact: true })).toBeFocused();
     await page.keyboard.press('Escape');
@@ -238,38 +319,67 @@ test('an agent opens native shortcut help and recovers changed Reader and search
     await first.focus();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/\/all\?density=title&unread=true&sort=oldest$/);
-    await expect(page.getByRole('button', { name: 'Open article · Design story', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Unread', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(
+      page.getByRole('button', { name: 'Open article · Design story', exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole('radio', { name: 'Unread', exact: true })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
     await expect(page.getByLabel('Sort articles', { exact: true })).toHaveValue('oldest');
     await page.goto('/search?q=story&page=2&density=title&unread=true&sort=oldest');
-    await expect(first).toHaveAttribute('href', '/search?q=story&density=title&unread=true&sort=oldest');
+    await expect(first).toHaveAttribute(
+      'href',
+      '/search?q=story&density=title&unread=true&sort=oldest',
+    );
     await first.click();
-    await expect(page.getByRole('button', { name: 'Open article · Design story', exact: true })).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Reader page', exact: true })).toContainText('Showing 1–4 of 4');
+    await expect(
+      page.getByRole('button', { name: 'Open article · Design story', exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Reader page', exact: true })).toContainText(
+      'Showing 1–4 of 4',
+    );
     expect(f.database.sqlite.prepare('SELECT total_changes() AS n').get()).toEqual(before);
-  } finally { await f.close(); }
+  } finally {
+    await f.close();
+  }
 });
 
-test('an agent creates an article tag, cancels a letter tag draft and submits the native form by keyboard', async ({ page }) => {
+test('an agent creates an article tag, cancels a letter tag draft and submits the native form by keyboard', async ({
+  page,
+}) => {
   const f = await newslettersFixture(page);
   try {
-    f.brews.updateComposition(f.morning.id, { ...f.morning, sections: [{ ...newBrewSection('letters'), sources: [{ kind: 'newsletters' }] }] });
+    f.brews.updateComposition(f.morning.id, {
+      ...f.morning,
+      sections: [{ ...newBrewSection('letters'), sources: [{ kind: 'newsletters' }] }],
+    });
     await f.brews.generateComposition(f.morning.id);
     const frozen = f.database.sqlite.prepare('SELECT payload_json FROM brews ORDER BY id').all();
     expect(JSON.stringify(frozen)).toContain('Forms should declare their tools');
     await page.goto('/a/1');
     const reader = page.getByRole('dialog', { name: 'Article reader', exact: true });
-    await expect(reader.getByRole('article', { name: 'Forms should declare their tools', exact: true })).toBeFocused();
+    await expect(
+      reader.getByRole('article', { name: 'Forms should declare their tools', exact: true }),
+    ).toBeFocused();
     await page.keyboard.press('t');
     const input = reader.getByLabel('New tag', { exact: true });
     await input.fill('Agent tag');
     await expect(reader.getByRole('button', { name: 'Add', exact: true })).toBeEnabled();
     await input.press('Enter');
-    await expect(reader.getByRole('status', { name: 'Tag result', exact: true })).toHaveText('Tags saved.');
-    await expect(reader.getByRole('button', { name: 'Agent tag', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(reader.getByRole('status', { name: 'Tag result', exact: true })).toHaveText(
+      'Tags saved.',
+    );
+    await expect(reader.getByRole('button', { name: 'Agent tag', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     await page.keyboard.press('Escape');
     await page.goto('/letters/1/1');
-    const letter = page.getByRole('article', { name: 'Letter from Interface Letters', exact: true });
+    const letter = page.getByRole('article', {
+      name: 'Letter from Interface Letters',
+      exact: true,
+    });
     const trigger = letter.getByRole('button', { name: 'Tag', exact: true });
     await trigger.click();
     const dialog = page.getByRole('dialog', { name: 'Tag this letter', exact: true });
@@ -287,44 +397,84 @@ test('an agent creates an article tag, cancels a letter tag draft and submits th
     await expect(dialog).toHaveCount(0);
     await expect(trigger).toBeFocused();
     await expect(letter.getByLabel('Letter tags', { exact: true })).toHaveText('Letter tag');
-    await expect(letter.getByRole('status', { name: 'Letter result', exact: true })).toHaveText('Tags saved.');
-    expect(f.database.sqlite.prepare('SELECT t.name FROM article_tags a JOIN tags t ON t.id=a.tag_id WHERE article_id=1').all()).toEqual([{ name: 'Letter tag' }]);
-    expect(f.database.sqlite.prepare('SELECT name FROM tags WHERE name=?').all('Cancelled tag')).toEqual([]);
-    expect(f.database.sqlite.prepare('SELECT payload_json FROM brews ORDER BY id').all()).toEqual(frozen);
-  } finally { await f.close(); }
+    await expect(letter.getByRole('status', { name: 'Letter result', exact: true })).toHaveText(
+      'Tags saved.',
+    );
+    expect(
+      f.database.sqlite
+        .prepare(
+          'SELECT t.name FROM article_tags a JOIN tags t ON t.id=a.tag_id WHERE article_id=1',
+        )
+        .all(),
+    ).toEqual([{ name: 'Letter tag' }]);
+    expect(
+      f.database.sqlite.prepare('SELECT name FROM tags WHERE name=?').all('Cancelled tag'),
+    ).toEqual([]);
+    expect(f.database.sqlite.prepare('SELECT payload_json FROM brews ORDER BY id').all()).toEqual(
+      frozen,
+    );
+  } finally {
+    await f.close();
+  }
 });
 
-test('an agent opens unread articles with native focus, returns to the next row and closes a one-item search at its heading', async ({ page }) => {
+test('an agent opens unread articles with native focus, returns to the next row and closes a one-item search at its heading', async ({
+  page,
+}) => {
   const f = await newslettersFixture(page);
   try {
-    const stories = f.database.sqlite.prepare("SELECT a.id,a.title FROM articles a JOIN feeds f ON f.id=a.feed_id WHERE f.kind='rss' ORDER BY a.id DESC LIMIT 2").all() as { id: number; title: string }[];
+    const stories = f.database.sqlite
+      .prepare(
+        "SELECT a.id,a.title FROM articles a JOIN feeds f ON f.id=a.feed_id WHERE f.kind='rss' ORDER BY a.id DESC LIMIT 2",
+      )
+      .all() as { id: number; title: string }[];
     await page.goto('/all?density=title&unread=true');
-    const first = page.getByRole('button', { name: `Open article · ${stories[0]!.title}`, exact: true });
+    const first = page.getByRole('button', {
+      name: `Open article · ${stories[0]!.title}`,
+      exact: true,
+    });
     await first.focus();
     await page.keyboard.press('Enter');
     const reader = page.getByRole('dialog', { name: 'Article reader', exact: true });
-    await expect(reader.getByRole('article', { name: stories[0]!.title, exact: true })).toBeFocused();
+    await expect(
+      reader.getByRole('article', { name: stories[0]!.title, exact: true }),
+    ).toBeFocused();
     await expect(reader.getByRole('button', { name: 'Mark unread', exact: true })).toBeVisible();
     await reader.getByRole('button', { name: 'More article actions', exact: true }).click();
     await page.keyboard.press('Escape');
-    await expect(reader.getByRole('button', { name: 'More article actions', exact: true })).toBeFocused();
+    await expect(
+      reader.getByRole('button', { name: 'More article actions', exact: true }),
+    ).toBeFocused();
     await page.keyboard.press('Escape');
-    const next = page.getByRole('button', { name: `Open article · ${stories[1]!.title}`, exact: true });
+    const next = page.getByRole('button', {
+      name: `Open article · ${stories[1]!.title}`,
+      exact: true,
+    });
     await expect(next).toBeFocused();
     await expect(first).toHaveCount(0);
-    expect(f.database.sqlite.prepare('SELECT read_at FROM articles WHERE id=?').get(stories[0]!.id)).not.toEqual({ read_at: null });
-    const search = page.getByLabel('Search', { exact: true });
+    expect(
+      f.database.sqlite.prepare('SELECT read_at FROM articles WHERE id=?').get(stories[0]!.id),
+    ).not.toEqual({ read_at: null });
+    const search = page.getByLabel('Search library', { exact: true });
     await search.fill(stories[1]!.title);
     await search.press('Enter');
     await next.focus();
     await page.keyboard.press('Enter');
-    await expect(reader.getByRole('article', { name: stories[1]!.title, exact: true })).toBeFocused();
+    await expect(
+      reader.getByRole('article', { name: stories[1]!.title, exact: true }),
+    ).toBeFocused();
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('heading', { name: `“${stories[1]!.title}”`, exact: true })).toBeFocused();
+    await expect(
+      page.getByRole('heading', { name: `“${stories[1]!.title}”`, exact: true }),
+    ).toBeFocused();
     await expect(next).toHaveCount(0);
     await expect(page).toHaveURL(/\/search\?.*unread=true/);
-    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({ n: 0 });
-  } finally { await f.close(); }
+    expect(f.database.sqlite.prepare('SELECT count(*) AS n FROM agent_actions').get()).toEqual({
+      n: 0,
+    });
+  } finally {
+    await f.close();
+  }
 });
 
 test('an agent reviews the full paged Reader scope, cancels without writes and recovers a lost bulk acknowledgement and reload Undo', async ({
@@ -529,10 +679,14 @@ test('an agent changes browser settings through native links, reloads reading ch
     await expect(page.getByLabel('Read on scroll', { exact: true })).not.toBeChecked();
     await page.getByRole('button', { name: 'Open article · Design story', exact: true }).click();
     const article = page.getByRole('dialog', { name: 'Article reader', exact: true });
-    await expect(article.getByLabel('Reader font', { exact: true })).toHaveValue('sans');
-    await expect(article.getByLabel('Reader width', { exact: true })).toHaveValue('wide');
-    await expect(article.getByLabel('Reader line height', { exact: true })).toHaveValue('compact');
-    await article.getByRole('button', { name: 'Close article', exact: true }).click();
+    await article.getByRole('button', { name: 'More article actions', exact: true }).click();
+    const articleActions = page.getByRole('dialog', { name: 'Article actions', exact: true });
+    await expect(articleActions.getByLabel('Reader font', { exact: true })).toHaveValue('sans');
+    await expect(articleActions.getByLabel('Reader width', { exact: true })).toHaveValue('wide');
+    await expect(articleActions.getByLabel('Reader line height', { exact: true })).toHaveValue(
+      'compact',
+    );
+    await articleActions.getByRole('button', { name: 'Close article', exact: true }).click();
     await page.goto('/');
     await expect(
       page.getByRole('complementary', { name: 'Reader navigation', exact: true }),
@@ -1274,7 +1428,7 @@ test('an agent saves scoped search bookmarks by keyboard, cancels deletion, then
     await page.keyboard.press('Enter');
     await expect(dialog).not.toBeVisible();
     await expect(saveButton).toBeFocused();
-    await expect(page.getByRole('link', { name: '⌕ Cancelled bookmark', exact: true })).toHaveCount(
+    await expect(page.getByRole('link', { name: 'Cancelled bookmark', exact: true })).toHaveCount(
       0,
     );
     await page.keyboard.press('Enter');
@@ -1285,7 +1439,7 @@ test('an agent saves scoped search bookmarks by keyboard, cancels deletion, then
     await page.keyboard.press('Enter');
     await expect(dialog).not.toBeVisible();
     await expect(saveButton).toBeFocused();
-    const bookmark = page.getByRole('link', { name: '⌕ Design picks', exact: true });
+    const bookmark = page.getByRole('link', { name: 'Design picks', exact: true });
     await expect(bookmark).toHaveAttribute('href', href);
     await expect(
       page.getByRole('region', { name: 'Saved search result', exact: true }),
@@ -1488,9 +1642,13 @@ test('an agent reloads saved rule selection and log state and navigates feed aud
     ).toContainText('No executions yet.');
     await page.goBack();
     await expect(page).toHaveURL(`/rules/${rule.id}`);
-    await page.getByRole('button', { name: 'New', exact: true }).click();
+    await page.getByRole('button', { name: 'New rule', exact: true }).click();
     await expect(page).toHaveURL('/rules');
     await expect(page.getByLabel('Rule name', { exact: true })).toHaveValue('New rule');
+    if (!(await page.getByRole('link', { name: 'Manage feeds', exact: true }).count())) {
+      await page.getByRole('link', { name: 'Brew home', exact: true }).click();
+      await page.getByRole('button', { name: 'More actions', exact: true }).click();
+    }
     await page.getByRole('link', { name: 'Manage feeds', exact: true }).click();
     await page.getByRole('link', { name: 'Feed health', exact: true }).click();
     await expect(page).toHaveURL('/feeds?section=health');
@@ -1503,6 +1661,10 @@ test('an agent reloads saved rule selection and log state and navigates feed aud
     await expect(
       page.getByRole('heading', { name: 'Forms should declare their tools', exact: true }),
     ).toBeVisible();
+    if (!(await page.getByRole('link', { name: 'Manage feeds', exact: true }).count())) {
+      await page.getByRole('link', { name: 'Brew home', exact: true }).click();
+      await page.getByRole('button', { name: 'More actions', exact: true }).click();
+    }
     await page.getByRole('link', { name: 'Manage feeds', exact: true }).click();
     await expect(page).toHaveURL('/feeds');
   } finally {
@@ -1569,11 +1731,11 @@ test('an agent reloads and navigates paged Reader and search filters and opens m
     await page.reload();
     await expect(footer).toContainText('Showing 51–100');
     await expect(page.getByLabel('Sort articles', { exact: true })).toHaveValue('oldest');
-    await expect(page.getByRole('button', { name: 'title view', exact: true })).toHaveAttribute(
-      'aria-pressed',
+    await expect(page.getByRole('radio', { name: 'Titles', exact: true })).toHaveAttribute(
+      'aria-checked',
       'true',
     );
-    await page.getByRole('button', { name: 'Unread', exact: true }).click();
+    await page.getByRole('radio', { name: 'Unread', exact: true }).click();
     await expect(page).toHaveURL(/density=title&unread=true&sort=oldest$/);
     await expect(footer).toContainText('Showing 1–50');
     const open = page.context().waitForEvent('page');
@@ -1591,12 +1753,12 @@ test('an agent reloads and navigates paged Reader and search filters and opens m
     await page.goBack();
     await expect(footer).toContainText('Showing 51–100');
     await page.goForward();
-    await expect(page.getByRole('button', { name: 'Unread', exact: true })).toHaveAttribute(
-      'aria-pressed',
+    await expect(page.getByRole('radio', { name: 'Unread', exact: true })).toHaveAttribute(
+      'aria-checked',
       'true',
     );
-    await page.getByLabel('Search', { exact: true }).fill('Paginationneedle');
-    await page.getByLabel('Search', { exact: true }).press('Enter');
+    await page.getByLabel('Search library', { exact: true }).fill('Paginationneedle');
+    await page.getByLabel('Search library', { exact: true }).press('Enter');
     await expect(page).toHaveURL(/\/search\?q=Paginationneedle/);
     await expect(footer).toContainText('Showing 1–50 of 60');
     await expect(
@@ -1627,8 +1789,8 @@ test('an agent reloads and navigates paged Reader and search filters and opens m
     await searchTwin.close();
     await page.getByRole('link', { name: 'Rules', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Rules', exact: true })).toBeVisible();
-    await page.getByLabel('Search', { exact: true }).fill('Paginationneedle');
-    await page.getByLabel('Search', { exact: true }).press('Enter');
+    await page.getByLabel('Search library', { exact: true }).fill('Paginationneedle');
+    await page.getByLabel('Search library', { exact: true }).press('Enter');
     await expect(page).toHaveURL(/\/search\?q=Paginationneedle/);
     await page.goBack();
     await expect(page.getByRole('heading', { name: 'Rules', exact: true })).toBeVisible();
@@ -1743,6 +1905,10 @@ test('an agent confirms and undoes rule application, rule deletion, feed deletio
     await result.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(row).toBeVisible();
     expect(service.list().some((value) => value.id === rule.id)).toBe(true);
+    if (!(await page.getByRole('link', { name: 'Manage feeds', exact: true }).count())) {
+      await page.getByRole('link', { name: 'Brew home', exact: true }).click();
+      await page.getByRole('button', { name: 'More actions', exact: true }).click();
+    }
     await page.getByRole('link', { name: 'Manage feeds', exact: true }).click();
     const feed = page.getByRole('article', { name: 'Interface Letters', exact: true });
     await feed.getByRole('button', { name: 'Delete', exact: true }).click();

@@ -82,7 +82,10 @@ for (const theme of ['light', 'dark'])
               .maximum,
         ),
       ).toBe(1);
-      await page.getByRole('link', { name: 'Settings · Where Brew runs', exact: true }).click();
+      await page
+        .getByRole('navigation', { name: 'Library', exact: true })
+        .getByRole('link', { name: 'Settings', exact: true })
+        .click();
       await page.getByRole('link', { name: 'Agent access', exact: true }).click();
       await expect(page.getByRole('heading', { name: 'Agent access', exact: true })).toBeVisible();
       expect(

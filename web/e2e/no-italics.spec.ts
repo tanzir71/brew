@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { serveWebsite } from '../../scripts/lib/website-server.mjs';
 import { sanitizeArticleHtml } from '../../packages/core/src/html-sanitizer.js';
 
 async function expectNormalText(page: Page) {
@@ -108,49 +110,43 @@ for (const theme of ['light', 'dark']) {
 test('landing, interactive demo and social artwork use only normal typography', async ({
   page,
 }) => {
-  const files: Record<string, [string, string]> = {
-    '/': ['index.html', 'text/html'],
-    '/site.css': ['site.css', 'text/css'],
-    '/site.js': ['site.js', 'text/javascript'],
-    '/demo/': ['demo/index.html', 'text/html'],
-    '/demo/demo.css': ['demo/demo.css', 'text/css'],
-    '/demo/demo.js': ['demo/demo.js', 'text/javascript'],
-    '/favicon.svg': ['favicon.svg', 'image/svg+xml'],
-    '/og.svg': ['og.svg', 'image/svg+xml'],
-  };
-  const fontRequests: string[] = [];
-  // The legacy marketing fonts are outside the app. Make this style check deterministic.
-  await page.route('https://fonts.googleapis.com/**', (route) => {
-    fontRequests.push(route.request().url());
-    return route.fulfill({ contentType: 'text/css', body: '' });
+  const server = await serveWebsite();
+  const thirdParty: string[] = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (/^https?:$/.test(url.protocol) && url.origin !== server.origin) thirdParty.push(url.href);
   });
-  await page.route('http://brew-site.test/**', async (route) => {
-    const file = files[new URL(route.request().url()).pathname];
-    if (!file) return route.fulfill({ status: 404, body: '' });
-    return route.fulfill({
-      contentType: file[1],
-      body: await readFile(new URL(`../../docs/${file[0]}`, import.meta.url)),
-    });
-  });
-  await page.goto('http://brew-site.test/');
-  await expect(page.locator('h1 em')).toHaveText('you own.');
-  await expectNormalText(page);
-  await page.goto('http://brew-site.test/demo/');
-  await expect(page.locator('.demo-notice')).toBeVisible();
-  await expectNormalText(page);
-  await page.getByRole('button', { name: 'Toggle dark mode' }).click();
-  await expectNormalText(page);
-  await page.locator('[data-view="reader"]').first().click();
-  await expectNormalText(page);
-  expect(fontRequests).toHaveLength(2);
-  expect(fontRequests.every((url) => !url.includes('ital'))).toBe(true);
-  await page.goto('http://brew-site.test/og.svg');
-  await expect(page.locator('text')).not.toHaveCount(0);
-  expect(
-    await page
-      .locator('text')
-      .evaluateAll((elements) =>
-        elements.every((element) => getComputedStyle(element).fontStyle === 'normal'),
-      ),
-  ).toBe(true);
+  try {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(server.origin + '/brew/', { waitUntil: 'networkidle' });
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Your feeds and newsletters, made into one calm daily paper.',
+    );
+    await expectNormalText(page);
+    await page.goto(server.origin + '/brew/demo/', { waitUntil: 'networkidle' });
+    await expect(page.locator('.demo-notice')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Morning', exact: true })).toBeVisible();
+    await expectNormalText(page);
+    await page.getByRole('button', { name: 'Switch theme', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-resolved-theme', 'dark');
+    await expectNormalText(page);
+    await page.getByRole('link', { name: /^All articles/ }).click();
+    await expect(page.getByRole('heading', { name: 'All articles', exact: true })).toBeVisible();
+    await expectNormalText(page);
+    await page.setViewportSize({ width: 1200, height: 630 });
+    await page.goto(server.origin + '/brew/', { waitUntil: 'networkidle' });
+    await page.evaluate(() => document.fonts.ready);
+    await expectNormalText(page);
+    const social = await readFile(new URL('../../docs/og.png', import.meta.url));
+    expect(social.readUInt32BE(16)).toBe(1200);
+    expect(social.readUInt32BE(20)).toBe(630);
+    const painted = await page.screenshot();
+    expect(createHash('sha256').update(painted).digest('hex')).toBe(
+      createHash('sha256').update(social).digest('hex'),
+    );
+    expect(thirdParty).toEqual([]);
+  } finally {
+    await server.close();
+  }
 });

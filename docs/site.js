@@ -1,12 +1,20 @@
-/* global document, window, IntersectionObserver */
-const reveals = document.querySelectorAll('.reveal');
-if ('IntersectionObserver' in window) {
-  const observer = new IntersectionObserver((entries) => entries.forEach((entry) => {
-    if (entry.isIntersecting) { entry.target.classList.add('visible'); observer.unobserve(entry.target); }
-  }), { threshold: .12 });
-  reveals.forEach((element) => observer.observe(element));
-} else reveals.forEach((element) => element.classList.add('visible'));
-
-document.querySelectorAll('details').forEach((detail) => detail.addEventListener('toggle', () => {
-  if (detail.open) document.querySelectorAll('details[open]').forEach((other) => { if (other !== detail) other.open = false; });
-}));
+/* global document, navigator, setTimeout, window */
+document.querySelector('a[href="#privacy"]').addEventListener('click', (event) => {
+  event.preventDefault();
+  document.querySelector('#privacy').showModal();
+});
+document.querySelector('#privacy').addEventListener('click', (event) => {
+  if (event.target === event.currentTarget) event.currentTarget.close();
+});
+document.querySelector('[data-copy]').addEventListener('click', async (event) => {
+  const button = event.currentTarget;
+  try {
+    await navigator.clipboard.writeText(button.dataset.copy);
+    button.querySelector('p').textContent = 'Copied';
+    setTimeout(() => {
+      button.querySelector('p').textContent = 'Copy command';
+    }, 1800);
+  } catch {
+    window.prompt('Run this command in your terminal:', button.dataset.copy);
+  }
+});

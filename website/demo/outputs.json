@@ -1,0 +1,114 @@
+{
+  "/b/1/1.md": {
+    "body": "# Morning\n\nWednesday, 25 November 2026 · No. 1\n\n## Design & craft\n\n### [The quiet structure behind interfaces that feel inevitable](<https://example.test/1>)\n\nQuiet Systems · 1 min\n\n![](<http://localhost/figma/read/lead-light.svg>)\n\nGood products rarely announce their structure. They make the next move obvious, and that takes more editing than invention.\n\n### [Why the best local-first apps still ship a server](<https://example.test/2>)\n\nSmall Tools Journal · 1 min\n\n![](<http://localhost/figma/read/lines-light.png>)\n\nA file you own is the start, not the end. Sync, backups and sharing still need somewhere to live.\n\n### [Figma’s variables panel, a month in](<https://example.test/3>)\n\nInterface Letters · 1 min\n\n![](<http://localhost/figma/read/variables-light.svg>)\n\nModes finally feel like a first-class idea. Aliasing across collections is still the sharp edge.\n\n### [A field guide to calm notification design](<https://example.test/4>)\n\nPaperwork · 1 min\n\n![](<http://localhost/figma/read/notifications-light.svg>)\n\nInterruptions should earn their place. Most of them can wait for the next Brew.\n\n## From your newsletters\n\n### [Forms should declare their tools](<http://localhost/a/1>)\n\nInterface Letters · 1 min\n\nIf an agent can fill your checkout, it shouldn’t have to guess what each field means. A short case for declaring intent in markup.\n\n### [The consent prompt is the product](<http://localhost/a/2>)\n\nLow Tide · 1 min\n\nEvery agent API meets the same question: who said yes? How browsers are designing the permission moment.\n\n### [Twelve links, one long read](<http://localhost/a/3>)\n\nField Notes Weekly · 1 min\n\nPaper prototypes, an ode to the status bar, and a long interview on designing for slowness.\n\n### [Pricing pages are getting quieter](<http://localhost/a/4>)\n\nThe Margin · 1 min\n\nFewer tiers, more honest defaults. Forty pricing pages from this year, three patterns.\n\n## Engineering\n\n### [SQLite in the browser is finally boring](<https://example.test/9>)\n\nNorthwind Dispatch · 1 min\n\n### [Cron, queues and the 10 ms budget](<https://example.test/10>)\n\nThe Platform Desk · 1 min\n\n### [Shipping one codebase to five runtimes](<https://example.test/11>)\n\nSmall Tools Journal · 1 min\n\n### [What we learned rewriting our feed parser](<https://example.test/12>)\n\nAfterglow · 1 min\n\n### [Readable diffs for configuration files](<https://example.test/13>)\n\nPaperwork · 1 min\n",
+    "type": "text/markdown; charset=utf-8"
+  },
+  "/b/1/1.json": {
+    "body": "{\n  \"version\": 2,\n  \"id\": 1,\n  \"brewConfigId\": 1,\n  \"issueNumber\": 1,\n  \"configName\": \"Morning\",\n  \"generatedAt\": \"2026-11-25T01:00:00.000Z\",\n  \"timezone\": \"Asia/Dhaka\",\n  \"sections\": [\n    {\n      \"id\": \"design\",\n      \"kind\": \"items\",\n      \"title\": \"Design & craft\",\n      \"layout\": \"lead\",\n      \"depth\": \"excerpt\",\n      \"images\": true,\n      \"items\": [\n        {\n          \"id\": 5,\n          \"title\": \"The quiet structure behind interfaces that feel inevitable\",\n          \"url\": \"https://example.test/1\",\n          \"author\": null,\n          \"publishedAt\": \"2026-11-25T00:59:00.000Z\",\n          \"feedTitle\": \"Quiet Systems\",\n          \"readTimeMinutes\": 1,\n          \"imageUrl\": \"http://localhost/figma/read/lead-light.svg\",\n          \"summaryHtml\": \"<p>Good products rarely announce their structure. They make the next move obvious, and that takes more editing than invention.</p>\"\n        },\n        {\n          \"id\": 6,\n          \"title\": \"Why the best local-first apps still ship a server\",\n          \"url\": \"https://example.test/2\",\n          \"author\": null,\n          \"publishedAt\": \"2026-11-25T00:58:00.000Z\",\n          \"feedTitle\": \"Small Tools Journal\",\n          \"readTimeMinutes\": 1,\n          \"imageUrl\": \"http://localhost/figma/read/lines-light.png\",\n          \"summaryHtml\": \"<p>A file you own is the start, not the end. Sync, backups and sharing still need somewhere to live.</p>\"\n        },\n        {\n          \"id\": 7,\n          \"title\": \"Figma’s variables panel, a month in\",\n          \"url\": \"https://example.test/3\",\n          \"author\": null,\n          \"publishedAt\": \"2026-11-25T00:57:00.000Z\",\n          \"feedTitle\": \"Interface Letters\",\n          \"readTimeMinutes\": 1,\n          \"imageUrl\": \"http://localhost/figma/read/variables-light.svg\",\n          \"summaryHtml\": \"<p>Modes finally feel like a first-class idea. Aliasing across collections is still the sharp edge.</p>\"\n        },\n        {\n          \"id\": 8,\n          \"title\": \"A field guide to calm notification design\",\n          \"url\": \"https://example.test/4\",\n          \"author\": null,\n          \"publishedAt\": \"2026-11-25T00:56:00.000Z\",\n          \"feedTitle\": \"Paperwork\",\n          \"readTimeMinutes\": 1,\n          \"imageUrl\": \"http://localhost/figma/read/notifications-light.svg\",\n          \"summaryHtml\": \"<p>Interruptions should earn their place. Most of them can wait for the next Brew.</p>\"\n        }\n      ]\n    },\n    {\n      \"id\": \"letters\",\n      \"kind\": \"items\",\n      \"title\": \"From your newsletters\",\n      \"layout\": \"grid\",\n      \"depth\": \"excerpt\",\n      \"images\": true,\n      \"items\": [\n        {\n          \"id\": 1,\n          \"title\": \"Forms should declare their tools\",\n          \"url\": \"http://localhost/a/1\",\n          \"author\": \"Interface Letters\",\n          \"publishedAt\": \"2026-11-25T00:12:00.000Z\",\n          \"feedTitle\": \"Interface Letters\",\n          \"readTimeMinutes\": 1,\n          \"imageUrl\": null,\n          \"summaryHtml\": \"<p>If an agent can fill your checkout, it shouldn’t have to guess what each field means. A short case for declaring intent in markup.</p>\"\n        },\n        {\n          \"id\": 2,\n          \"title\": \"The consent prompt is the product\",\n          \"url\": \"http://localhost/a/2\",\n          \"author\": \"Low Tide\",\n          \"publishedAt\": \"2026-11-24T23:40:00.000Z\",\n          \"feedTitle\": \"Low Tide\",\n          \"readTimeMinutes\": 1,\n          \"imageUrl\": null,\n          \"summaryHtml\": \"<p>Every agent API meets the same question: who said yes? How browsers are designing the permission moment.</p>\"\n        },\n        {\n          \"id\": 3,\n          \"title\": \"Twelve links, one long read\",\n          \"url\": \"http://localhost/a/3\",\n          \"author\": \"Field Notes Weekly\",\n          \"publishedAt\": \"2026-11-24T03:00:00.000Z\",\n          \"feedTitle\": \"Field Notes Weekly\",\n          \"readTimeMinutes\": 1,\n          \"imageUrl\": null,\n          \"summaryHtml\": \"<p>Paper prototypes, an ode to the status bar, and a long interview on designing for slowness.</p>\"\n        },\n        {\n          \"id\": 4,\n          \"title\": \"Pricing pages are getting quieter\",\n          \"url\": \"http://localhost/a/4\",\n          \"author\": \"The Margin\",\n          \"publishedAt\": \"2026-11-24T02:00:00.000Z\",\n          \"feedTitle\": \"The Margin\",\n          \"readTimeMinutes\": 1,\n          \"imageUrl\": null,\n          \"summaryHtml\": \"<p>Fewer tiers, more honest defaults. Forty pricing pages from this year, three patterns.</p>\"\n        }\n      ]\n    },\n    {\n      \"id\": \"engineering\",\n      \"kind\": \"items\",\n      \"title\": \"Engineering\",\n      \"layout\": \"headlines\",\n      \"depth\": \"title\",\n      \"images\": true,\n      \"items\": [\n        {\n          \"id\": 9,\n          \"title\": \"SQLite in the browser is finally boring\",\n          \"url\": \"https://example.test/9\",\n          \"author\": null,\n          \"publishedAt\": \"2026-11-25T00:55:00.000Z\",\n          \"feedTitle\": \"Northwind Dispatch\",\n          \"readTimeMinutes\": 1,\n          \"imageUrl\": null,\n          \"summaryHtml\": null\n        },\n        {\n          \"id\": 10,\n          \"title\": \"Cron, queues and the 10 ms budget\",\n          \"url\": \"https://example.test/10\",\n          \"author\": null,\n          \"publishedAt\": \"2026-11-25T00:54:00.000Z\",\n          \"feedTitle\": \"The Platform Desk\",\n          \"readTimeMinutes\": 1,\n          \"imageUrl\": null,\n          \"summaryHtml\": null\n        },\n        {\n          \"id\": 11,\n          \"title\": \"Shipping one codebase to five runtimes\",\n          \"url\": \"https://example.test/11\",\n          \"author\": null,\n          \"publishedAt\": \"2026-11-25T00:53:00.000Z\",\n          \"feedTitle\": \"Small Tools Journal\",\n          \"readTimeMinutes\": 1,\n          \"imageUrl\": null,\n          \"summaryHtml\": null\n        },\n        {\n          \"id\": 12,\n          \"title\": \"What we learned rewriting our feed parser\",\n          \"url\": \"https://example.test/12\",\n          \"author\": null,\n          \"publishedAt\": \"2026-11-25T00:52:00.000Z\",\n          \"feedTitle\": \"Afterglow\",\n          \"readTimeMinutes\": 1,\n          \"imageUrl\": null,\n          \"summaryHtml\": null\n        },\n        {\n          \"id\": 13,\n          \"title\": \"Readable diffs for configuration files\",\n          \"url\": \"https://example.test/13\",\n          \"author\": null,\n          \"publishedAt\": \"2026-11-25T00:51:00.000Z\",\n          \"feedTitle\": \"Paperwork\",\n          \"readTimeMinutes\": 1,\n          \"imageUrl\": null,\n          \"summaryHtml\": null\n        }\n      ]\n    }\n  ]\n}\n",
+    "type": "application/json; charset=utf-8"
+  },
+  "/a/1.md": {
+    "body": "# Forms should declare their tools\n\nInterface Letters · Interface Letters\n\n2026-11-25T00:12:00.000Z\n\n[Original](<http://localhost/a/1>)\n\nIf an agent can fill your checkout, it shouldn’t have to guess what each field means. A short case for declaring intent in markup.\n",
+    "type": "text/markdown; charset=utf-8"
+  },
+  "/a/1.json": {
+    "body": "{\n  \"version\": 1,\n  \"id\": 1,\n  \"title\": \"Forms should declare their tools\",\n  \"url\": \"http://localhost/a/1\",\n  \"author\": \"Interface Letters\",\n  \"publishedAt\": \"2026-11-25T00:12:00.000Z\",\n  \"feedTitle\": \"Interface Letters\",\n  \"readTimeMinutes\": 1,\n  \"imageUrl\": null,\n  \"contentHtml\": \"<p>If an agent can fill your checkout, it shouldn’t have to guess what each field means. A short case for declaring intent in markup.</p>\"\n}\n",
+    "type": "application/json; charset=utf-8"
+  },
+  "/a/2.md": {
+    "body": "# The consent prompt is the product\n\nLow Tide · Low Tide\n\n2026-11-24T23:40:00.000Z\n\n[Original](<http://localhost/a/2>)\n\nEvery agent API meets the same question: who said yes? How browsers are designing the permission moment.\n",
+    "type": "text/markdown; charset=utf-8"
+  },
+  "/a/2.json": {
+    "body": "{\n  \"version\": 1,\n  \"id\": 2,\n  \"title\": \"The consent prompt is the product\",\n  \"url\": \"http://localhost/a/2\",\n  \"author\": \"Low Tide\",\n  \"publishedAt\": \"2026-11-24T23:40:00.000Z\",\n  \"feedTitle\": \"Low Tide\",\n  \"readTimeMinutes\": 1,\n  \"imageUrl\": null,\n  \"contentHtml\": \"<p>Every agent API meets the same question: who said yes? How browsers are designing the permission moment.</p>\"\n}\n",
+    "type": "application/json; charset=utf-8"
+  },
+  "/a/3.md": {
+    "body": "# Twelve links, one long read\n\nField Notes Weekly · Field Notes Weekly\n\n2026-11-24T03:00:00.000Z\n\n[Original](<http://localhost/a/3>)\n\nPaper prototypes, an ode to the status bar, and a long interview on designing for slowness.\n",
+    "type": "text/markdown; charset=utf-8"
+  },
+  "/a/3.json": {
+    "body": "{\n  \"version\": 1,\n  \"id\": 3,\n  \"title\": \"Twelve links, one long read\",\n  \"url\": \"http://localhost/a/3\",\n  \"author\": \"Field Notes Weekly\",\n  \"publishedAt\": \"2026-11-24T03:00:00.000Z\",\n  \"feedTitle\": \"Field Notes Weekly\",\n  \"readTimeMinutes\": 1,\n  \"imageUrl\": null,\n  \"contentHtml\": \"<p>Paper prototypes, an ode to the status bar, and a long interview on designing for slowness.</p>\"\n}\n",
+    "type": "application/json; charset=utf-8"
+  },
+  "/a/4.md": {
+    "body": "# Pricing pages are getting quieter\n\nThe Margin · The Margin\n\n2026-11-24T02:00:00.000Z\n\n[Original](<http://localhost/a/4>)\n\nFewer tiers, more honest defaults. Forty pricing pages from this year, three patterns.\n",
+    "type": "text/markdown; charset=utf-8"
+  },
+  "/a/4.json": {
+    "body": "{\n  \"version\": 1,\n  \"id\": 4,\n  \"title\": \"Pricing pages are getting quieter\",\n  \"url\": \"http://localhost/a/4\",\n  \"author\": \"The Margin\",\n  \"publishedAt\": \"2026-11-24T02:00:00.000Z\",\n  \"feedTitle\": \"The Margin\",\n  \"readTimeMinutes\": 1,\n  \"imageUrl\": null,\n  \"contentHtml\": \"<p>Fewer tiers, more honest defaults. Forty pricing pages from this year, three patterns.</p>\"\n}\n",
+    "type": "application/json; charset=utf-8"
+  },
+  "/a/5.md": {
+    "body": "# The quiet structure behind interfaces that feel inevitable\n\nQuiet Systems\n\n2026-11-25T00:59:00.000Z\n\n[Original](<https://example.test/1>)\n\nGood products rarely announce their structure. They make the next move obvious, and that takes more editing than invention.\n",
+    "type": "text/markdown; charset=utf-8"
+  },
+  "/a/5.json": {
+    "body": "{\n  \"version\": 1,\n  \"id\": 5,\n  \"title\": \"The quiet structure behind interfaces that feel inevitable\",\n  \"url\": \"https://example.test/1\",\n  \"author\": null,\n  \"publishedAt\": \"2026-11-25T00:59:00.000Z\",\n  \"feedTitle\": \"Quiet Systems\",\n  \"readTimeMinutes\": 1,\n  \"imageUrl\": \"http://localhost/figma/read/lead-light.svg\",\n  \"contentHtml\": \"<p>Good products rarely announce their structure. They make the next move obvious, and that takes more editing than invention.</p>\"\n}\n",
+    "type": "application/json; charset=utf-8"
+  },
+  "/a/6.md": {
+    "body": "# Why the best local-first apps still ship a server\n\nSmall Tools Journal\n\n2026-11-25T00:58:00.000Z\n\n[Original](<https://example.test/2>)\n\nA file you own is the start, not the end. Sync, backups and sharing still need somewhere to live.\n",
+    "type": "text/markdown; charset=utf-8"
+  },
+  "/a/6.json": {
+    "body": "{\n  \"version\": 1,\n  \"id\": 6,\n  \"title\": \"Why the best local-first apps still ship a server\",\n  \"url\": \"https://example.test/2\",\n  \"author\": null,\n  \"publishedAt\": \"2026-11-25T00:58:00.000Z\",\n  \"feedTitle\": \"Small Tools Journal\",\n  \"readTimeMinutes\": 1,\n  \"imageUrl\": \"http://localhost/figma/read/lines-light.png\",\n  \"contentHtml\": \"<p>A file you own is the start, not the end. Sync, backups and sharing still need somewhere to live.</p>\"\n}\n",
+    "type": "application/json; charset=utf-8"
+  },
+  "/a/7.md": {
+    "body": "# Figma’s variables panel, a month in\n\nInterface Letters\n\n2026-11-25T00:57:00.000Z\n\n[Original](<https://example.test/3>)\n\nModes finally feel like a first-class idea. Aliasing across collections is still the sharp edge.\n",
+    "type": "text/markdown; charset=utf-8"
+  },
+  "/a/7.json": {
+    "body": "{\n  \"version\": 1,\n  \"id\": 7,\n  \"title\": \"Figma’s variables panel, a month in\",\n  \"url\": \"https://example.test/3\",\n  \"author\": null,\n  \"publishedAt\": \"2026-11-25T00:57:00.000Z\",\n  \"feedTitle\": \"Interface Letters\",\n  \"readTimeMinutes\": 1,\n  \"imageUrl\": \"http://localhost/figma/read/variables-light.svg\",\n  \"contentHtml\": \"<p>Modes finally feel like a first-class idea. Aliasing across collections is still the sharp edge.</p>\"\n}\n",
+    "type": "application/json; charset=utf-8"
+  },
+  "/a/13.md": {
+    "body": "# Readable diffs for configuration files\n\nPaperwork\n\n2026-11-25T00:51:00.000Z\n\n[Original](<https://example.test/13>)\n\nA quiet engineering story.\n",
+    "type": "text/markdown; charset=utf-8"
+  },
+  "/a/13.json": {
+    "body": "{\n  \"version\": 1,\n  \"id\": 13,\n  \"title\": \"Readable diffs for configuration files\",\n  \"url\": \"https://example.test/13\",\n  \"author\": null,\n  \"publishedAt\": \"2026-11-25T00:51:00.000Z\",\n  \"feedTitle\": \"Paperwork\",\n  \"readTimeMinutes\": 1,\n  \"imageUrl\": null,\n  \"contentHtml\": \"<p>A quiet engineering story.</p>\"\n}\n",
+    "type": "application/json; charset=utf-8"
+  },
+  "/a/8.md": {
+    "body": "# A field guide to calm notification design\n\nPaperwork\n\n2026-11-25T00:56:00.000Z\n\n[Original](<https://example.test/4>)\n\nInterruptions should earn their place. Most of them can wait for the next Brew.\n",
+    "type": "text/markdown; charset=utf-8"
+  },
+  "/a/8.json": {
+    "body": "{\n  \"version\": 1,\n  \"id\": 8,\n  \"title\": \"A field guide to calm notification design\",\n  \"url\": \"https://example.test/4\",\n  \"author\": null,\n  \"publishedAt\": \"2026-11-25T00:56:00.000Z\",\n  \"feedTitle\": \"Paperwork\",\n  \"readTimeMinutes\": 1,\n  \"imageUrl\": \"http://localhost/figma/read/notifications-light.svg\",\n  \"contentHtml\": \"<p>Interruptions should earn their place. Most of them can wait for the next Brew.</p>\"\n}\n",
+    "type": "application/json; charset=utf-8"
+  },
+  "/a/9.md": {
+    "body": "# SQLite in the browser is finally boring\n\nNorthwind Dispatch\n\n2026-11-25T00:55:00.000Z\n\n[Original](<https://example.test/9>)\n\nA quiet engineering story.\n",
+    "type": "text/markdown; charset=utf-8"
+  },
+  "/a/9.json": {
+    "body": "{\n  \"version\": 1,\n  \"id\": 9,\n  \"title\": \"SQLite in the browser is finally boring\",\n  \"url\": \"https://example.test/9\",\n  \"author\": null,\n  \"publishedAt\": \"2026-11-25T00:55:00.000Z\",\n  \"feedTitle\": \"Northwind Dispatch\",\n  \"readTimeMinutes\": 1,\n  \"imageUrl\": null,\n  \"contentHtml\": \"<p>A quiet engineering story.</p>\"\n}\n",
+    "type": "application/json; charset=utf-8"
+  },
+  "/a/10.md": {
+    "body": "# Cron, queues and the 10 ms budget\n\nThe Platform Desk\n\n2026-11-25T00:54:00.000Z\n\n[Original](<https://example.test/10>)\n\nA quiet engineering story.\n",
+    "type": "text/markdown; charset=utf-8"
+  },
+  "/a/10.json": {
+    "body": "{\n  \"version\": 1,\n  \"id\": 10,\n  \"title\": \"Cron, queues and the 10 ms budget\",\n  \"url\": \"https://example.test/10\",\n  \"author\": null,\n  \"publishedAt\": \"2026-11-25T00:54:00.000Z\",\n  \"feedTitle\": \"The Platform Desk\",\n  \"readTimeMinutes\": 1,\n  \"imageUrl\": null,\n  \"contentHtml\": \"<p>A quiet engineering story.</p>\"\n}\n",
+    "type": "application/json; charset=utf-8"
+  },
+  "/a/11.md": {
+    "body": "# Shipping one codebase to five runtimes\n\nSmall Tools Journal\n\n2026-11-25T00:53:00.000Z\n\n[Original](<https://example.test/11>)\n\nA quiet engineering story.\n",
+    "type": "text/markdown; charset=utf-8"
+  },
+  "/a/11.json": {
+    "body": "{\n  \"version\": 1,\n  \"id\": 11,\n  \"title\": \"Shipping one codebase to five runtimes\",\n  \"url\": \"https://example.test/11\",\n  \"author\": null,\n  \"publishedAt\": \"2026-11-25T00:53:00.000Z\",\n  \"feedTitle\": \"Small Tools Journal\",\n  \"readTimeMinutes\": 1,\n  \"imageUrl\": null,\n  \"contentHtml\": \"<p>A quiet engineering story.</p>\"\n}\n",
+    "type": "application/json; charset=utf-8"
+  },
+  "/a/12.md": {
+    "body": "# What we learned rewriting our feed parser\n\nAfterglow\n\n2026-11-25T00:52:00.000Z\n\n[Original](<https://example.test/12>)\n\nA quiet engineering story.\n",
+    "type": "text/markdown; charset=utf-8"
+  },
+  "/a/12.json": {
+    "body": "{\n  \"version\": 1,\n  \"id\": 12,\n  \"title\": \"What we learned rewriting our feed parser\",\n  \"url\": \"https://example.test/12\",\n  \"author\": null,\n  \"publishedAt\": \"2026-11-25T00:52:00.000Z\",\n  \"feedTitle\": \"Afterglow\",\n  \"readTimeMinutes\": 1,\n  \"imageUrl\": null,\n  \"contentHtml\": \"<p>A quiet engineering story.</p>\"\n}\n",
+    "type": "application/json; charset=utf-8"
+  }
+}

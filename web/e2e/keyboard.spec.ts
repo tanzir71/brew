@@ -65,20 +65,14 @@ test('supports the complete Reader keyboard map and cheat sheet', async ({ page 
   await expect(page.locator('article[data-focused="true"]')).toContainText('First keyboard story');
 
   await page.keyboard.press('1');
-  await expect(page.getByRole('button', { name: 'title view' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  await expect(page.getByRole('radio', { name: 'Titles' })).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('2');
-  await expect(page.getByRole('button', { name: 'magazine view' })).toHaveAttribute(
-    'aria-pressed',
+  await expect(page.getByRole('radio', { name: 'Magazine' })).toHaveAttribute(
+    'aria-checked',
     'true',
   );
   await page.keyboard.press('3');
-  await expect(page.getByRole('button', { name: 'cards view' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  await expect(page.getByRole('radio', { name: 'Cards' })).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Shift+A');
   await page
     .getByRole('dialog', { name: 'Mark all articles read?' })
@@ -101,7 +95,10 @@ test('supports the complete Reader keyboard map and cheat sheet', async ({ page 
     .poll(() => page.evaluate(() => localStorage.getItem('brew:reading-prefs')))
     .toContain('compact');
   await expect(page.getByRole('button', { name: '☆ Star' })).toBeVisible();
-  await page.getByRole('dialog', { name: 'Article reader' }).getByRole('article', { name: 'First keyboard story', exact: true }).focus();
+  await page
+    .getByRole('dialog', { name: 'Article reader' })
+    .getByRole('article', { name: 'First keyboard story', exact: true })
+    .focus();
   await page.keyboard.press('s');
   await expect(page.getByRole('button', { name: '★ Starred' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mark unread' })).toBeVisible();
@@ -131,7 +128,7 @@ test('supports the complete Reader keyboard map and cheat sheet', async ({ page 
   await expect(page.getByText('Next / previous article')).toBeVisible();
   await page.keyboard.press('Escape');
   await page.keyboard.press('/');
-  await expect(page.getByLabel('Search', { exact: true })).toBeFocused();
+  await expect(page.getByLabel('Search library', { exact: true })).toBeFocused();
   await page.keyboard.press('Escape');
 
   await page.locator('body').click({ position: { x: 500, y: 500 } });

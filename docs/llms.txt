@@ -2,10 +2,7 @@
 
 > Brew is a single-user RSS and newsletter reader with deterministic rules, daily Brew issues, reader-app sync and scoped agent tools. Node stores the library in local SQLite; the Cloudflare target uses D1 and private R2 storage behind owner Access.
 
-Official source: https://github.com/tanzir71/brew
-Interactive canned demo: https://tanzir71.github.io/brew/demo/
-
-## Product facts
+Product facts:
 
 - One person, their own instance; no hosted multi-tenant Brew service or telemetry.
 - Run locally on Node or deploy your own Cloudflare instance with npx brew-reader deploy cloudflare (Node 22.12+ for the installer).
@@ -17,3 +14,10 @@ Interactive canned demo: https://tanzir71.github.io/brew/demo/
 - A Brew is an immutable daily snapshot assembled from user-configured sections and rules.
 - Google Reader/Fever clients use a generated app password. MCP tools use scoped tokens and reviewed actions with Undo; experimental WebMCP stays opt-in.
 - The public demo uses canned data and does not fetch feeds or persist data.
+
+## Documentation
+
+- [Source and local setup](https://github.com/tanzir71/brew): Run a private Node instance and read the project documentation.
+- [Cloudflare installer](https://github.com/tanzir71/brew/blob/main/docs/cloudflare-install.md): Deploy a private Worker, D1 database and R2 bucket with owner Access.
+- [Public demo](https://tanzir71.github.io/brew/demo/): Explore the actual interface using canned data; changes stay in the tab.
+- [Installer package](https://www.npmjs.com/package/brew-reader): Install and deploy with the published CLI.

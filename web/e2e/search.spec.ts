@@ -54,7 +54,7 @@ test('searches with virtualized all, current-folder, and starred scopes', async 
     .first()
     .click();
   await page.keyboard.press('/');
-  const search = page.getByLabel('Search', { exact: true });
+  const search = page.getByLabel('Search library', { exact: true });
   await expect(search).toBeFocused();
   await search.fill('needle');
   const allRequest = page.waitForRequest(
@@ -99,7 +99,7 @@ test('searches with virtualized all, current-folder, and starred scopes', async 
   await expect(save).not.toBeVisible();
   await page.getByRole('button', { name: 'Close search' }).click();
   await expect(page.getByRole('heading', { name: 'Design' })).toBeVisible();
-  await page.getByRole('link', { name: '⌕ Needles' }).click();
+  await page.getByRole('link', { name: 'Needles' }).click();
   await expect(page.getByRole('heading', { name: '“needle”', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Starred', exact: true })).toHaveAttribute(
     'aria-pressed',
@@ -114,7 +114,7 @@ test('searches with virtualized all, current-folder, and starred scopes', async 
     .getByRole('dialog', { name: 'Delete saved search “Needles”?', exact: true })
     .getByRole('button', { name: 'Delete saved search', exact: true })
     .click();
-  await expect(page.getByRole('link', { name: '⌕ Needles' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Needles' })).toHaveCount(0);
 });
 
 function article(id: number, title: string, starred = false) {

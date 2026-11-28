@@ -129,6 +129,7 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
   await expect(page.getByText('Fresh research story')).toBeVisible();
   await page.getByRole('link', { name: /Starred/ }).click();
   await expect(page.getByText('Saved essay')).toBeVisible();
+  await page.getByRole('button', { name: 'Expand Design folder', exact: true }).click();
   await page
     .getByRole('complementary', { name: 'Reader navigation' })
     .getByRole('link', { name: /Design Notes/ })
@@ -145,6 +146,13 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
   await expect(page.getByRole('status').filter({ hasText: 'Marked 60 read.' })).toBeVisible();
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Marked 60 read.' })).toBeHidden();
+  if (
+    (await page
+      .locator('summary[aria-label="Reader options"]')
+      .locator('..')
+      .getAttribute('open')) === null
+  )
+    await page.locator('summary[aria-label="Reader options"]').click();
   await page.getByLabel('Read on scroll').check();
   expect(await page.evaluate(() => localStorage.getItem('brew:mark-read-on-scroll'))).toBe('true');
   await page
@@ -172,6 +180,13 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
   await expect(page.getByText('The complete extracted article body.')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'Article reader' })).toBeHidden();
+  if (
+    (await page
+      .locator('summary[aria-label="Reader options"]')
+      .locator('..')
+      .getAttribute('open')) === null
+  )
+    await page.locator('summary[aria-label="Reader options"]').click();
   await page.getByLabel('Open articles').selectOption('pane');
   expect(await page.evaluate(() => localStorage.getItem('brew:article-open-mode'))).toBe('pane');
   await page
@@ -187,7 +202,11 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
     'href',
     /example\.test/,
   );
-  await page.getByRole('button', { name: 'Close article' }).click();
+  await pane.getByRole('button', { name: 'More article actions', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'Article actions', exact: true })
+    .getByRole('button', { name: 'Close article', exact: true })
+    .click();
   const readsBeforeScroll = readPatches.length;
   await page.getByTestId('virtual-article-list').evaluate((element) => {
     element.scrollTop = element.scrollHeight;
@@ -195,16 +214,13 @@ test('navigates Today, All, Starred, folders, and feeds from the sidebar', async
   });
   await expect(page.getByText('Next page story')).toBeVisible();
   await expect.poll(() => readPatches.length).toBeGreaterThan(readsBeforeScroll);
-  await page.getByRole('button', { name: 'cards view' }).click();
-  await expect(page.getByRole('button', { name: 'cards view' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  await page.getByRole('radio', { name: 'Cards' }).click();
+  await expect(page.getByRole('radio', { name: 'Cards' })).toHaveAttribute('aria-checked', 'true');
   expect(await page.evaluate(() => localStorage.getItem('brew:density:feed:1'))).toBe('cards');
   const unreadRequest = page.waitForRequest(
     (request) => request.url().includes('/api/articles?') && request.url().includes('unread=true'),
   );
-  await page.getByRole('button', { name: 'Unread' }).click();
+  await page.getByRole('radio', { name: 'Unread', exact: true }).click();
   await unreadRequest;
   const oldestRequest = page.waitForRequest(
     (request) => request.url().includes('/api/articles?') && request.url().includes('sort=oldest'),

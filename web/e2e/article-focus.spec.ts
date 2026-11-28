@@ -76,6 +76,13 @@ test('desktop pane docks beside usable rows, opens the next item and leaves navi
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/all?density=title');
+    if (
+      (await page
+        .locator('summary[aria-label="Reader options"]')
+        .locator('..')
+        .getAttribute('open')) === null
+    )
+      await page.locator('summary[aria-label="Reader options"]').click();
     await page.getByLabel('Open articles', { exact: true }).selectOption('pane');
     const first = page.getByRole('button', { name: 'Open article · Design story', exact: true });
     await first.click();
@@ -116,6 +123,13 @@ test('pane preference becomes a native modal on phones and returns to a docked p
   try {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/all?density=title');
+    if (
+      (await page
+        .locator('summary[aria-label="Reader options"]')
+        .locator('..')
+        .getAttribute('open')) === null
+    )
+      await page.locator('summary[aria-label="Reader options"]').click();
     await page.getByLabel('Open articles', { exact: true }).selectOption('pane');
     await page.getByRole('button', { name: 'Open article · Design story', exact: true }).click();
     const reader = page.getByRole('dialog', { name: 'Article reader', exact: true });
@@ -254,7 +268,7 @@ test('a late unread refresh repairs a removed opener without taking focus from a
       await expect.poll(() => pending.length).toBeGreaterThan(0);
       await page.keyboard.press('Escape');
       await expect(opener).toBeFocused();
-      const search = page.getByLabel('Search', { exact: true });
+      const search = page.getByLabel('Search library', { exact: true });
       if (index === 1) await search.focus();
       hold = false;
       const releases = pending;

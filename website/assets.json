@@ -1,0 +1,852 @@
+{
+  "fileKey": "NcqNdBhgeg6om2CCZwrYV8",
+  "frame": "18:2",
+  "assets": [
+    {
+      "node": "18:3",
+      "variable": "imgPointWrap",
+      "export": "fb52b.svg",
+      "file": "assets/figma/008e6b3ea198030f.svg",
+      "sha256": "008e6b3ea198030f5f3b19942621aeb3b9e202ab28f4170070ae780da872d190",
+      "width": 5,
+      "height": 10
+    },
+    {
+      "node": "18:21",
+      "variable": "imgEllipse",
+      "export": "b8262.svg",
+      "file": "assets/figma/e6bbcd6ad278d78e.svg",
+      "sha256": "e6bbcd6ad278d78eaf844855a81804bdb80eab56cef370c5f5c987f7b474a38e",
+      "width": 6,
+      "height": 6
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon",
+      "export": "600c8.svg",
+      "file": "assets/figma/938df8eae30925b7.svg",
+      "sha256": "938df8eae30925b70c0d13ddcffc285d45b27ed8c34ba4e0fd5045aa1445cd8b",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "node": "18:21",
+      "variable": "imgPointWrap",
+      "export": "37d71.svg",
+      "file": "assets/figma/1c440102786852e5.svg",
+      "sha256": "1c440102786852e557584e2032958ab67c6136adb99cec7b329b5da240293650",
+      "width": 4.16667,
+      "height": 8.33333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon1",
+      "export": "9bb2b.svg",
+      "file": "assets/figma/a17cb1a7a2a056d2.svg",
+      "sha256": "a17cb1a7a2a056d2048dbb5be937c8b55f67cf4fcd23986bb09e081f2952d3be",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconSearch",
+      "export": "7ffdf.svg",
+      "file": "assets/figma/6bcd6f26b7d556aa.svg",
+      "sha256": "6bcd6f26b7d556aae1fdffef7c5529aa4441d20649bc24f133be2fde8a1edbf3",
+      "width": 12.5,
+      "height": 12.5
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon2",
+      "export": "cff7e.svg",
+      "file": "assets/figma/68a6d77847b27da9.svg",
+      "sha256": "68a6d77847b27da9f669a8fdbf4112d179fadf2e8551cdefd0f7e9fddb1574c2",
+      "width": 13.3333,
+      "height": 13.3333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon3",
+      "export": "5f837.svg",
+      "file": "assets/figma/e3543c11a736d75b.svg",
+      "sha256": "e3543c11a736d75b2e743ec5ff22805d5725f239cba60da864cb40f0a00698fa",
+      "width": 13.3333,
+      "height": 13.3333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon4",
+      "export": "1f045.svg",
+      "file": "assets/figma/0932692ed028a071.svg",
+      "sha256": "0932692ed028a071af9011187e26b5fefcb880deac8d0383fd1e61416e0ed148",
+      "width": 13.3333,
+      "height": 13.3333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon5",
+      "export": "007fa.svg",
+      "file": "assets/figma/e7646c4485e77097.svg",
+      "sha256": "e7646c4485e770971357ded60f1fce8d1e89176e73b2094016e6e52daebf34bc",
+      "width": 13.3333,
+      "height": 13.3333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon6",
+      "export": "11b37.svg",
+      "file": "assets/figma/0b4969c6441a56a2.svg",
+      "sha256": "0b4969c6441a56a204dafd5497c10cc428a3d627d7e35fbc7647032abd5ecaa7",
+      "width": 13.3333,
+      "height": 13.3333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon7",
+      "export": "d7c35.svg",
+      "file": "assets/figma/939d6639ca76c1d2.svg",
+      "sha256": "939d6639ca76c1d2f02e0fa68d677dcc202364ccea9742d6ef2f689409021e8c",
+      "width": 13.3333,
+      "height": 13.3333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon8",
+      "export": "321e8.svg",
+      "file": "assets/figma/7eff0d3dee5e4bd8.svg",
+      "sha256": "7eff0d3dee5e4bd88b38ce84460f2cd2dee764b52351df46cc304b282a0a2f9b",
+      "width": 13.3333,
+      "height": 13.3333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon9",
+      "export": "22712.svg",
+      "file": "assets/figma/e9bdb89ebbb9efdc.svg",
+      "sha256": "e9bdb89ebbb9efdc4cc83776098150b3e331ceb46850614dd0cc4b183d71e22c",
+      "width": 13.3333,
+      "height": 13.3333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon10",
+      "export": "e2625.svg",
+      "file": "assets/figma/d20aebc950913830.svg",
+      "sha256": "d20aebc95091383099b7e9db5f514d9b74bd7eaf2a3774c43023edbb1a68da49",
+      "width": 13.3333,
+      "height": 13.3333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon11",
+      "export": "c28e2.svg",
+      "file": "assets/figma/4a66e2be109aed0b.svg",
+      "sha256": "4a66e2be109aed0bf593258ce25bd34f11695d78674db362f2af67dfdbbe13c5",
+      "width": 13.3333,
+      "height": 13.3333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgEllipse1",
+      "export": "ba624.svg",
+      "file": "assets/figma/f1a931abbd6ffeda.svg",
+      "sha256": "f1a931abbd6ffeda34420c02ddf08f10f5f2f761d9b96629abe6c44c13c746c8",
+      "width": 5,
+      "height": 5
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconBrew",
+      "export": "76c9d.svg",
+      "file": "assets/figma/3d72681362d6e385.svg",
+      "sha256": "3d72681362d6e38516fd13d25a1a61aca0ac3c37005708cc456d2c3ebd22a909",
+      "width": 15,
+      "height": 15
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconChevronDown",
+      "export": "17620.svg",
+      "file": "assets/figma/9b37c2df8c5e8ced.svg",
+      "sha256": "9b37c2df8c5e8ced1fc4cc6d6d112083afa1ba7c23ff69260d4bb188b1c69249",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconChevronLeft",
+      "export": "5fd0f.svg",
+      "file": "assets/figma/9825b85a730c3e9d.svg",
+      "sha256": "9825b85a730c3e9dea5e7ab59329d63aff9bf578d8c8fe43cc278d14e5900fc2",
+      "width": 13.3333,
+      "height": 13.3333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconChevronRight",
+      "export": "65cea.svg",
+      "file": "assets/figma/68dc4c9c52223bb5.svg",
+      "sha256": "68dc4c9c52223bb52e07cb389dd12f9a4690a2519d987740272ee35fb386796b",
+      "width": 13.3333,
+      "height": 13.3333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon12",
+      "export": "0b81a.svg",
+      "file": "assets/figma/a207d0f066c4406c.svg",
+      "sha256": "a207d0f066c4406ca1ef5ab0e7b2e25555c08d01c682acd44b692332b2570888",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconMore",
+      "export": "01346.svg",
+      "file": "assets/figma/aeec4eaec7e886f6.svg",
+      "sha256": "aeec4eaec7e886f6d3d8f886b6190ea795ffd153a2ea8c370266991ceac3f769",
+      "width": 13.3333,
+      "height": 13.3333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconClock",
+      "export": "a1a78.svg",
+      "file": "assets/figma/fa4405fc00fe7359.svg",
+      "sha256": "fa4405fc00fe73598fb6fb2add9105d91e66009b8765897e2425ad9cb81e4c7a",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconCheck",
+      "export": "c50f1.svg",
+      "file": "assets/figma/a4a499cff6acc863.svg",
+      "sha256": "a4a499cff6acc863f8a5ba2e2f33643b0e0fe2b29d8d2bd555cd06a5a46d484a",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconFilter",
+      "export": "26f08.svg",
+      "file": "assets/figma/b76014d0203f99ec.svg",
+      "sha256": "b76014d0203f99ec135cf85d815cc48c339928f877e20639f62beefad3a3edd0",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgImage",
+      "export": "b445d.svg",
+      "file": "assets/figma/1d894cdbf1b580df.svg",
+      "sha256": "1d894cdbf1b580df7eb0bb7218feb7474e59db2acf3dde2e8330184063aca34b",
+      "width": 566.667,
+      "height": 283.333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgImage1",
+      "export": "5b7c8.svg",
+      "file": "assets/figma/8596d7647fff4617.svg",
+      "sha256": "8596d7647fff461773ea163c55468543cd8bfff1b28a6e16a7a5e6f0ac3c89d6",
+      "width": 100,
+      "height": 70
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon13",
+      "export": "744bf.svg",
+      "file": "assets/figma/728ac27707ac2d71.svg",
+      "sha256": "728ac27707ac2d71904e4ad507bb6a42c6ed86d4de1ca4c6b030a8dcaebf2be3",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon14",
+      "export": "4281f.svg",
+      "file": "assets/figma/2876d0b7d6f04e76.svg",
+      "sha256": "2876d0b7d6f04e764ebcd9c779c8d2f72b0360f8b6fb46de80ebe524654c2529",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon15",
+      "export": "9df88.svg",
+      "file": "assets/figma/bd3195e611cb204a.svg",
+      "sha256": "bd3195e611cb204a2678a283c09abfa343418953727ac21316c2e8d1ebaf17f1",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon16",
+      "export": "a7209.svg",
+      "file": "assets/figma/155ee437c73c0cee.svg",
+      "sha256": "155ee437c73c0cee80693f9284ce4a9cd50e5e3ae3edd8d6b3aa2519e8dd11e6",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconCheck1",
+      "export": "75cee.svg",
+      "file": "assets/figma/9e5b9a9be8ad5f45.svg",
+      "sha256": "9e5b9a9be8ad5f45d2290cf4e69662dfb9b1ecb251331174f4a26ecce4b175b1",
+      "width": 10,
+      "height": 10
+    },
+    {
+      "node": "18:21",
+      "variable": "imgImage2",
+      "export": "99a0b.svg",
+      "file": "assets/figma/e4d98f7e47928738.svg",
+      "sha256": "e4d98f7e47928738ce7d4b84a32b0ff2d049bf07dc3e7ebc1df96cbc5aa428cd",
+      "width": 100,
+      "height": 70
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon17",
+      "export": "1ff3c.svg",
+      "file": "assets/figma/fe2a5a7b367178dc.svg",
+      "sha256": "fe2a5a7b367178dcf232983cd211b710cd31ef59a1095d2bb55a78bd88c95447",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconSparkle",
+      "export": "e66b8.svg",
+      "file": "assets/figma/3a872b48c96d918e.svg",
+      "sha256": "3a872b48c96d918e00ba7230cfa2bbdfa2693555631deea24069f8ddb66797e0",
+      "width": 13.3333,
+      "height": 13.3333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconX",
+      "export": "56fc7.svg",
+      "file": "assets/figma/99711f7b66b561f5.svg",
+      "sha256": "99711f7b66b561f55f1bb6042a42dda11f4c8506348b21f06e162dd822b264eb",
+      "width": 13.3333,
+      "height": 13.3333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon18",
+      "export": "51a87.svg",
+      "file": "assets/figma/5669fa588407922c.svg",
+      "sha256": "5669fa588407922ca1fcc7fa47be4c1a7668ab7752aa5b361c3b46299d591f9c",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconShield",
+      "export": "b769c.svg",
+      "file": "assets/figma/c3ae21397a13d748.svg",
+      "sha256": "c3ae21397a13d74866e3cb5c82f534940240a7163e6a0e79154a272fafae65a3",
+      "width": 10.8333,
+      "height": 10.8333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconBrew1",
+      "export": "00e64.svg",
+      "file": "assets/figma/16e90f82556410ce.svg",
+      "sha256": "16e90f82556410ce1671bddbb9b16408728f27d7242276df100fff7921464a3d",
+      "width": 18.3333,
+      "height": 18.3333
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon19",
+      "export": "935a5.svg",
+      "file": "assets/figma/b03deaebaa871c5f.svg",
+      "sha256": "b03deaebaa871c5f0197e5c89617a2ae88d273a2471d736ee81e651b4623c8d8",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIcon20",
+      "export": "fa51a.svg",
+      "file": "assets/figma/f9befc2fd8d7b0ec.svg",
+      "sha256": "f9befc2fd8d7b0ec5e288f81185ae8cd49e49eb143a7680157473fd81978a69c",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconFile",
+      "export": "5558c.svg",
+      "file": "assets/figma/64690155c68884c9.svg",
+      "sha256": "64690155c68884c9da3b4fe5be7eeba3831013cf8a678a984010acc4f14bd4ba",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconCode",
+      "export": "85160.svg",
+      "file": "assets/figma/07d48810c714b8da.svg",
+      "sha256": "07d48810c714b8da3448c3aadb238e63abd370cad0856e67a9d0d4137025898b",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgIconRss",
+      "export": "7319a.svg",
+      "file": "assets/figma/5efda105a32e72c0.svg",
+      "sha256": "5efda105a32e72c0b16fdeaff5cd7430cb82d54107d1573b0de5691dd459fc0e",
+      "width": 11.6667,
+      "height": 11.6667
+    },
+    {
+      "node": "18:21",
+      "variable": "imgFrame",
+      "export": "e7e2c.svg",
+      "file": "assets/figma/b5a8e5924c8bc227.svg",
+      "sha256": "b5a8e5924c8bc227a9b732237e41a77d28d7d9fc06b3905dedf4d90187f47af5",
+      "width": 35,
+      "height": 3
+    },
+    {
+      "node": "18:312",
+      "variable": "imgEllipse",
+      "export": "5336d.svg",
+      "file": "assets/figma/44e2a5573abd528a.svg",
+      "sha256": "44e2a5573abd528a4ab7c6c054cc12b70c90aefc010292da784ffab713ddea29",
+      "width": 5,
+      "height": 5
+    },
+    {
+      "node": "19:283",
+      "variable": "imgStateOn",
+      "export": "7ef28.svg",
+      "file": "assets/figma/eeec80cc6a8fb3f9.svg",
+      "sha256": "eeec80cc6a8fb3f99e67aab21a1cb41be76921114b71a3b21ac340609569bdec",
+      "width": 32,
+      "height": 18
+    },
+    {
+      "node": "19:283",
+      "variable": "imgIconChevronDown",
+      "export": "510d1.svg",
+      "file": "assets/figma/354a9be3db6547c4.svg",
+      "sha256": "354a9be3db6547c4280575c4df1c3a5b954a637b13b5705e543b5230d80c686e",
+      "width": 20,
+      "height": 20
+    },
+    {
+      "node": "19:283",
+      "variable": "imgIconArrowDown",
+      "export": "d057f.svg",
+      "file": "assets/figma/744bb62d05f5ad28.svg",
+      "sha256": "744bb62d05f5ad28544a2af636c72b2c74b9485374ab08c6977a6bb80b2b1423",
+      "width": 20,
+      "height": 20
+    },
+    {
+      "node": "19:283",
+      "variable": "imgIconArrowUp",
+      "export": "93541.svg",
+      "file": "assets/figma/b6997eb5b4fbfa8b.svg",
+      "sha256": "b6997eb5b4fbfa8b794ca13c47c822cdac0ee40e1762fa271af0aea27f67385d",
+      "width": 20,
+      "height": 20
+    },
+    {
+      "node": "19:283",
+      "variable": "imgIconCheck",
+      "export": "2821a.svg",
+      "file": "assets/figma/6b81d0904bfbd751.svg",
+      "sha256": "6b81d0904bfbd75134d5ca64b8dc06fe1d2b52d54849c65711004b282a98036b",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "node": "19:283",
+      "variable": "imgLead",
+      "export": "90296.svg",
+      "file": "assets/figma/a3164d8aff1594bb.svg",
+      "sha256": "a3164d8aff1594bb909f62e0a4ca8dba9f62781fe432c92698bd45d31c1353b5",
+      "width": 4.32,
+      "height": 4.32
+    },
+    {
+      "node": "19:283",
+      "variable": "imgImage",
+      "export": "98501.svg",
+      "file": "assets/figma/f16e8deb4b098d63.svg",
+      "sha256": "f16e8deb4b098d63b08ac71436e29a6ef18d0add0f581850c2e6ae9ad1d0a5bd",
+      "width": 336.96,
+      "height": 136.8
+    },
+    {
+      "node": "19:283",
+      "variable": "imgImage1",
+      "export": "fba5c.svg",
+      "file": "assets/figma/761907a116e9689c.svg",
+      "sha256": "761907a116e9689c61dd1cdc52ddb00852e35fb48991071b2681243b6cbcef5c",
+      "width": 60.48,
+      "height": 41.76
+    },
+    {
+      "node": "19:283",
+      "variable": "imgIconSparkle",
+      "export": "060d9.svg",
+      "file": "assets/figma/86638de70e8f6ded.svg",
+      "sha256": "86638de70e8f6ded1212af3afa16adbd6c132980e8ecc6c34211e8ad12984591",
+      "width": 9.36,
+      "height": 9.36
+    },
+    {
+      "node": "19:283",
+      "variable": "imgIconGrip",
+      "export": "9dbfb.svg",
+      "file": "assets/figma/925bb0644f74c1c9.svg",
+      "sha256": "925bb0644f74c1c955d867e22cf30027c9fb05b3fecd3e41373108c3bcd8dcc8",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "node": "19:283",
+      "variable": "imgIconFolder",
+      "export": "82232.svg",
+      "file": "assets/figma/ff807e4fe7fb5a94.svg",
+      "sha256": "ff807e4fe7fb5a94feb9fffb5dee8cbe5a8a20a5292b953550a7cf0af7ed1d0a",
+      "width": 14,
+      "height": 14
+    },
+    {
+      "node": "19:283",
+      "variable": "imgIconChevronDown1",
+      "export": "2ca4f.svg",
+      "file": "assets/figma/1f7e27ab42890ed8.svg",
+      "sha256": "1f7e27ab42890ed8c3c72c45a95df7c421dc7b45aa3fd4da8054ecb1b5b8edbd",
+      "width": 14,
+      "height": 14
+    },
+    {
+      "node": "19:283",
+      "variable": "imgIconChevronDown2",
+      "export": "b6610.svg",
+      "file": "assets/figma/6ffd0ba83cb12b60.svg",
+      "sha256": "6ffd0ba83cb12b606467c1b5d09a64fdf4fd2c72fc3ea098704dce55ed8c681a",
+      "width": 11,
+      "height": 11
+    },
+    {
+      "node": "19:668",
+      "variable": "imgIconSparkle",
+      "export": "3add9.svg",
+      "file": "assets/figma/18bd2eddfa9e84c6.svg",
+      "sha256": "18bd2eddfa9e84c6c35f8b3e33c9b090af41726c168fc6191870e13efb32dd0d",
+      "width": 13.76,
+      "height": 13.76
+    },
+    {
+      "node": "19:668",
+      "variable": "imgIconX",
+      "export": "d42c8.svg",
+      "file": "assets/figma/58c4228d5f29cb4c.svg",
+      "sha256": "58c4228d5f29cb4cc6024069827054be26394cc3d1ae0e77e8a2b0c2fc8b7ec4",
+      "width": 13.76,
+      "height": 13.76
+    },
+    {
+      "node": "19:668",
+      "variable": "imgIcon",
+      "export": "1ad0c.svg",
+      "file": "assets/figma/1d0505ce803dcb20.svg",
+      "sha256": "1d0505ce803dcb2011333c8f3a0d99f34b42e97d0e04b99dd9d8d4d7fbde0ac6",
+      "width": 12.04,
+      "height": 12.04
+    },
+    {
+      "node": "19:668",
+      "variable": "imgIconShield",
+      "export": "ffd1a.svg",
+      "file": "assets/figma/6076443052450a0f.svg",
+      "sha256": "6076443052450a0f226572451cc02af5ceb84fadbfd77686e9d70c3c654e210f",
+      "width": 10.92,
+      "height": 10.92
+    },
+    {
+      "node": "19:668",
+      "variable": "imgIconCheck",
+      "export": "2821a.svg",
+      "file": "assets/figma/6b81d0904bfbd751.svg",
+      "sha256": "6b81d0904bfbd75134d5ca64b8dc06fe1d2b52d54849c65711004b282a98036b",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "node": "19:921",
+      "variable": "imgLead",
+      "export": "5088f.svg",
+      "file": "assets/figma/43ce0c11102808c5.svg",
+      "sha256": "43ce0c11102808c5e1ed4b3c303bb65b2c8fa700694088d130a4f535811cf8de",
+      "width": 6,
+      "height": 6
+    },
+    {
+      "node": "19:921",
+      "variable": "imgLead1",
+      "export": "71c53.svg",
+      "file": "assets/figma/cdada4e2862fdcac.svg",
+      "sha256": "cdada4e2862fdcacb264592a1bc87cb6da4167b76ac1d552f643cbf6db596a37",
+      "width": 6,
+      "height": 6
+    },
+    {
+      "node": "19:921",
+      "variable": "imgIconBrowser",
+      "export": "a2689.svg",
+      "file": "assets/figma/b29241ffd37daabc.svg",
+      "sha256": "b29241ffd37daabc0ec18e8950382e458d662a22fb89a492760be8a3415b4d92",
+      "width": 20,
+      "height": 20
+    },
+    {
+      "node": "19:921",
+      "variable": "imgIconPlus",
+      "export": "da726.svg",
+      "file": "assets/figma/3d4d18508c5dcbb2.svg",
+      "sha256": "3d4d18508c5dcbb26bdb0046fe26be8d59081f00899ab95d2fe09790cbb096ed",
+      "width": 14,
+      "height": 14
+    },
+    {
+      "node": "19:921",
+      "variable": "imgIconX",
+      "export": "153a1.svg",
+      "file": "assets/figma/30c18bad1e50a02f.svg",
+      "sha256": "30c18bad1e50a02f4d392417de21756df6cdac2fd723e14887f52ed319e8d664",
+      "width": 14,
+      "height": 14
+    },
+    {
+      "node": "19:921",
+      "variable": "imgIconServer",
+      "export": "bfd9e.svg",
+      "file": "assets/figma/170e29b9c6578de3.svg",
+      "sha256": "170e29b9c6578de3fee36e3d4d1dd81c5c7325044785d7ae16261e263ec06305",
+      "width": 20,
+      "height": 20
+    },
+    {
+      "node": "19:921",
+      "variable": "imgIconCheck",
+      "export": "bfcab.svg",
+      "file": "assets/figma/4d5ffcaf6c991286.svg",
+      "sha256": "4d5ffcaf6c99128660f6b8cf78a3c79f49fcc364b81d2dd16a53152adc692cec",
+      "width": 14,
+      "height": 14
+    },
+    {
+      "node": "19:921",
+      "variable": "imgIcon",
+      "export": "543e5.svg",
+      "file": "assets/figma/c22b9d42079286f5.svg",
+      "sha256": "c22b9d42079286f5363dedb4221ea8fb08210e09fdd70bafc30c07d6f9427437",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "node": "19:921",
+      "variable": "imgIconCloud",
+      "export": "6b174.svg",
+      "file": "assets/figma/b4bc487bfac1f1fb.svg",
+      "sha256": "b4bc487bfac1f1fb9ae574f6bfc6f291cf997c3410b7ded0b2dae6977fa41318",
+      "width": 20,
+      "height": 20
+    },
+    {
+      "node": "19:921",
+      "variable": "imgIcon1",
+      "export": "0b316.svg",
+      "file": "assets/figma/5473da53b604b591.svg",
+      "sha256": "5473da53b604b5914459c8a0304a09cab6d215c9e06d0631bccbc7f6a8853c7e",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "node": "19:921",
+      "variable": "imgIconGlobe",
+      "export": "8f114.svg",
+      "file": "assets/figma/d329724a36c36504.svg",
+      "sha256": "d329724a36c365044b1b70fee26aad57f35614368dfa41459b27be6c00c02210",
+      "width": 20,
+      "height": 20
+    },
+    {
+      "node": "19:921",
+      "variable": "imgIcon2",
+      "export": "da22d.svg",
+      "file": "assets/figma/ef5f0be5da22288d.svg",
+      "sha256": "ef5f0be5da22288d2ea22a1097f5f8fa5f40b0f2ce6dab4e51975009b56c2357",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "node": "19:921",
+      "variable": "imgIconFile",
+      "export": "3cf77.svg",
+      "file": "assets/figma/a555b0b94b8cded1.svg",
+      "sha256": "a555b0b94b8cded10c0b696a8ef4fad31efd3f6b058cf91061252aa30841ee3e",
+      "width": 20,
+      "height": 20
+    },
+    {
+      "node": "19:921",
+      "variable": "imgIcon3",
+      "export": "e137f.svg",
+      "file": "assets/figma/c5a4176d18e06ac8.svg",
+      "sha256": "c5a4176d18e06ac820d0a7b4b965f5a2fe1a0b8af56994c678fe758d7edebe05",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "node": "19:921",
+      "variable": "imgIconCheck1",
+      "export": "c74db.svg",
+      "file": "assets/figma/beebf3c08b0e9cda.svg",
+      "sha256": "beebf3c08b0e9cda8392d9d3de71b95a488fce6bcd0dc86d3f4831461139ca1b",
+      "width": 13,
+      "height": 13
+    },
+    {
+      "node": "19:921",
+      "variable": "imgIconPlus1",
+      "export": "1cc11.svg",
+      "file": "assets/figma/ddea6d221234c07f.svg",
+      "sha256": "ddea6d221234c07ffbe8b3ca7d9a1ce8fb0d619acf1f1a0c59c57715c38ac963",
+      "width": 13,
+      "height": 13
+    },
+    {
+      "node": "19:921",
+      "variable": "imgIconX1",
+      "export": "91ad9.svg",
+      "file": "assets/figma/ca0a3506d19b141a.svg",
+      "sha256": "ca0a3506d19b141adfcdd74d16f463fa56c11feddb1c59180dfdf18124b2d31e",
+      "width": 13,
+      "height": 13
+    },
+    {
+      "node": "19:1142",
+      "variable": "imgIconCheck",
+      "export": "2821a.svg",
+      "file": "assets/figma/6b81d0904bfbd751.svg",
+      "sha256": "6b81d0904bfbd75134d5ca64b8dc06fe1d2b52d54849c65711004b282a98036b",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "node": "19:1142",
+      "variable": "imgIconChevronDown",
+      "export": "930f4.svg",
+      "file": "assets/figma/ab9dbbca114c5332.svg",
+      "sha256": "ab9dbbca114c533287848406bc32fabd39328b7d0c8163167ed294d413fe3fcd",
+      "width": 9.36,
+      "height": 9.36
+    },
+    {
+      "node": "19:1142",
+      "variable": "imgIconX",
+      "export": "babd4.svg",
+      "file": "assets/figma/2ca7e1ff5f28f77a.svg",
+      "sha256": "2ca7e1ff5f28f77af61ba55f032339acd6584134f5738a85ac1a28631b89a33a",
+      "width": 11.7,
+      "height": 11.7
+    },
+    {
+      "node": "19:1142",
+      "variable": "imgToggle",
+      "export": "3a779.svg",
+      "file": "assets/figma/1aad331d52813709.svg",
+      "sha256": "1aad331d52813709b7ad1e2c8b740bdfed6db1fcd1b9e991985b89c5e5cbda6f",
+      "width": 24.96,
+      "height": 14.04
+    },
+    {
+      "node": "21:430",
+      "variable": "imgIconCheck",
+      "export": "bcee9.svg",
+      "file": "assets/figma/56e9d35d86bfd28f.svg",
+      "sha256": "56e9d35d86bfd28ff85f69f4f917945fd9ec59058a331b6153675dcbca3a6697",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "node": "21:468",
+      "variable": "imgPointWrap",
+      "export": "fb52b.svg",
+      "file": "assets/figma/008e6b3ea198030f.svg",
+      "sha256": "008e6b3ea198030f5f3b19942621aeb3b9e202ab28f4170070ae780da872d190",
+      "width": 5,
+      "height": 10
+    },
+    {
+      "node": "21:569",
+      "variable": "imgIconCode",
+      "export": "7ff79.svg",
+      "file": "assets/figma/beafe0796bb13148.svg",
+      "sha256": "beafe0796bb131481a57293f5a9354cd3f1b73448bba71d2d3cd9bbd29d033c3",
+      "width": 22,
+      "height": 22
+    },
+    {
+      "node": "21:569",
+      "variable": "imgIconShield",
+      "export": "9367c.svg",
+      "file": "assets/figma/53a468c166568607.svg",
+      "sha256": "53a468c1665686073b9778e514797f8850a2007e695be6cc69a244311fb4b45d",
+      "width": 22,
+      "height": 22
+    },
+    {
+      "node": "21:569",
+      "variable": "imgIconDownload",
+      "export": "64e33.svg",
+      "file": "assets/figma/bcae9029a4f64c1b.svg",
+      "sha256": "bcae9029a4f64c1b339aa2706acedf679127663ac5872e03560ae0aedc551f9b",
+      "width": 22,
+      "height": 22
+    },
+    {
+      "node": "21:600",
+      "variable": "imgIcon",
+      "export": "600c8.svg",
+      "file": "assets/figma/938df8eae30925b7.svg",
+      "sha256": "938df8eae30925b70c0d13ddcffc285d45b27ed8c34ba4e0fd5045aa1445cd8b",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "node": "21:600",
+      "variable": "imgIcon1",
+      "export": "d5eea.svg",
+      "file": "assets/figma/e8c5b10f8a665e98.svg",
+      "sha256": "e8c5b10f8a665e9829c328fc8dd08ac127f768dd4081307f158c20747478bd86",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "node": "21:619",
+      "variable": "imgPointWrap",
+      "export": "fb52b.svg",
+      "file": "assets/figma/008e6b3ea198030f.svg",
+      "sha256": "008e6b3ea198030f5f3b19942621aeb3b9e202ab28f4170070ae780da872d190",
+      "width": 5,
+      "height": 10
+    }
+  ]
+}

@@ -17,7 +17,9 @@ test('builds a sentence rule with live dry-run preview', async ({ page }) => {
       );
       return route.fulfill({
         json: {
-          total: match ? 1 : 0, limit: 50, items: match
+          total: match ? 1 : 0,
+          limit: 50,
+          items: match
             ? [
                 {
                   id: 7,
@@ -34,14 +36,19 @@ test('builds a sentence rule with live dry-run preview', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('link', { name: 'Rules', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Rules' })).toBeVisible();
+    await page.getByRole('button', { name: 'Templates', exact: true }).click();
     await page.getByRole('button', { name: 'Mute keyword' }).click();
     await expect(page.getByLabel('Rule name')).toHaveValue('Mute a keyword');
     await expect(page.getByLabel('Action 1', { exact: true })).toHaveValue('hide');
-    await page.getByRole('button', { name: 'New' }).click();
+    await page.getByRole('button', { name: 'New rule' }).click();
     await expect(page.getByText('When an article in')).toBeVisible();
     await page.getByLabel('Rule name').fill('Figma tools');
-    await page.getByLabel('Rule scope').selectOption('folder');
-    await page.getByLabel('Scope folder').selectOption('1');
+    await page.getByRole('button', { name: 'Rule scope', exact: true }).click();
+    await page
+      .getByRole('dialog', { name: 'Rule sources', exact: true })
+      .getByRole('checkbox', { name: 'Design', exact: true })
+      .check();
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
     await page.getByLabel('Condition 1 field').selectOption('title');
     await page.getByLabel('Condition 1 operator').selectOption('contains');
     await page.getByLabel('Condition 1 value').fill('figma');
@@ -50,7 +57,9 @@ test('builds a sentence rule with live dry-run preview', async ({ page }) => {
     await page.getByRole('button', { name: '+ Add action' }).click();
     await page.getByLabel('Action 2', { exact: true }).selectOption('add_tag');
     await page.getByLabel('Tag name').fill('Tools');
-    await page.getByText('Stop processing later rules').click();
+    await page
+      .getByRole('switch', { name: 'Stop here: later rules skip matched articles', exact: true })
+      .click();
     await page.getByRole('button', { name: 'Save rule' }).click();
     await expect(page.getByRole('status', { name: 'Rule editor result' })).toContainText(
       'Rule saved.',

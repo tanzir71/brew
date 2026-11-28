@@ -2,6 +2,7 @@ import { useWebMcpSurface } from './webmcp/useWebMcpSurface';
 import { useReaderSyncEvents } from './hooks/useReaderSyncEvents';
 import { agentPageHref } from './agentLocation';
 import { ReaderHelp } from './components/ReaderHelp';
+import { Button, Wordmark } from './components/controls';
 import { AgentMode } from './components/AgentMode';
 import { WebMcpProvider } from './webmcp/WebMcpProvider';
 import { FeedManager } from './FeedManager';
@@ -9,32 +10,53 @@ import { Component, type ReactNode, lazy, Suspense, useEffect, useRef, useState 
 const Reader = lazy(() => import('./Reader').then((module) => ({ default: module.Reader })));
 import { RulesPage } from './RulesPage';
 import { BrewPage } from './BrewPage';
-import { runAssets } from './components/figmaAssets';
 import { initialBrowserPreferences, useBrowserPreferences } from './hooks/useBrowserPreferences';
 import { GeneralPreferences, PreferenceFeedback } from './settings/BrowserPreferences';
 import { articleRouteId } from './articleRoute';
 import { closeSearchHref, isReaderLocation, navigateReader, searchHref } from './readerLocation';
-const WhereBrewRuns = lazy(() => import('./settings/WhereBrewRuns').then((module) => ({ default: module.WhereBrewRuns })));
-const AgentAccess = lazy(() => import('./settings/AgentAccess').then((module) => ({ default: module.AgentAccess })));
-const AppsSync = lazy(() => import('./settings/AppsSync').then((module) => ({ default: module.AppsSync })));
-const NewslettersPage = lazy(() => import('./NewslettersPage').then((module) => ({ default: module.NewslettersPage })));
+const WhereBrewRuns = lazy(() =>
+  import('./settings/WhereBrewRuns').then((module) => ({ default: module.WhereBrewRuns })),
+);
+const AgentAccess = lazy(() =>
+  import('./settings/AgentAccess').then((module) => ({ default: module.AgentAccess })),
+);
+const AppsSync = lazy(() =>
+  import('./settings/AppsSync').then((module) => ({ default: module.AppsSync })),
+);
+const NewslettersPage = lazy(() =>
+  import('./NewslettersPage').then((module) => ({ default: module.NewslettersPage })),
+);
 
 export function App() {
-  return <ErrorBoundary><AgentMode><WebMcpProvider><AppContent /></WebMcpProvider></AgentMode></ErrorBoundary>;
+  return (
+    <ErrorBoundary>
+      <AgentMode>
+        <WebMcpProvider>
+          <AppContent />
+        </WebMcpProvider>
+      </AgentMode>
+    </ErrorBoundary>
+  );
 }
 function AppContent() {
   useReaderSyncEvents();
-  const [mode, setMode] = useState<'brew' | 'reader' | 'feeds' | 'rules'>(()=>{
+  const [mode, setMode] = useState<'brew' | 'reader' | 'feeds' | 'rules'>(() => {
     if (/^\/rules(?:\/[1-9]\d*)?$/.test(location.pathname)) return 'rules';
     if (location.pathname === '/feeds') return 'feeds';
     if (location.pathname === '/reader') return 'reader';
     if (articleRouteId(location.pathname) !== null || isReaderLocation()) return 'reader';
     if (location.pathname.startsWith('/b/')) return 'brew';
     const view = new URLSearchParams(location.search).get('view');
-    return view === 'brew' || view === 'reader' || view === 'feeds' || view === 'rules' ? view : initialBrowserPreferences().landing;
+    return view === 'brew' || view === 'reader' || view === 'feeds' || view === 'rules'
+      ? view
+      : initialBrowserPreferences().landing;
   });
-  const [searchDraft, setSearchDraft] = useState(() => new URLSearchParams(location.search).get('q') ?? '');
-  const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(location.search).get('q')?.trim() ?? '');
+  const [searchDraft, setSearchDraft] = useState(
+    () => new URLSearchParams(location.search).get('q') ?? '',
+  );
+  const [searchQuery, setSearchQuery] = useState(
+    () => new URLSearchParams(location.search).get('q')?.trim() ?? '',
+  );
   useEffect(() => {
     const restore = () => {
       const view = new URLSearchParams(location.search).get('view');
@@ -45,7 +67,8 @@ function AppContent() {
       else if (view === 'rules' || view === 'feeds' || view === 'brew') setMode(view);
       else if (location.pathname.startsWith('/b/')) setMode('brew');
       const q = new URLSearchParams(location.search).get('q') ?? '';
-      setSearchDraft(q); setSearchQuery(q.trim());
+      setSearchDraft(q);
+      setSearchQuery(q.trim());
     };
     window.addEventListener('popstate', restore);
     return () => window.removeEventListener('popstate', restore);
@@ -55,9 +78,13 @@ function AppContent() {
   const isRuns = location.pathname === '/settings/runs' || isAgents || isApps;
   const isLetters = /^\/letters(?:\/|$)/.test(location.pathname);
   const globalSearch = useRef<HTMLInputElement>(null);
-  useWebMcpSurface(globalSearch, { names: ['search_items'] }, !isRuns && !isLetters && mode !== 'brew');
+  useWebMcpSurface(
+    globalSearch,
+    { names: ['search_items'] },
+    !isRuns && !isLetters && mode === 'feeds',
+  );
   const preferences = useBrowserPreferences();
-  const { theme, images, landing } = preferences.values;
+  const { theme } = preferences.values;
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const apply = () => {
@@ -69,20 +96,69 @@ function AppContent() {
     media.addEventListener('change', apply);
     return () => media.removeEventListener('change', apply);
   }, [theme]);
-  useEffect(() => { document.title = `${isLetters ? 'Newsletters' : isApps ? 'Apps & sync' : isAgents ? 'Agent access' : isRuns ? 'Where Brew runs' : mode === 'brew' ? 'The Brew' : mode === 'reader' ? 'Reader' : mode === 'rules' ? 'Rules' : 'Feeds'} · Brew`; }, [mode, isRuns, isAgents, isApps, isLetters]);
-  if (isLetters) return <Suspense fallback={<main role="status" className="p-8">Loading newsletters…</main>}><NewslettersPage /></Suspense>;
-  if (isRuns) return <Suspense fallback={<main role="status" className="p-8">Loading settings…</main>}>{isApps ? <AppsSync /> : isAgents ? <AgentAccess /> : <WhereBrewRuns />}</Suspense>;
+  useEffect(() => {
+    document.title = `${isLetters ? 'Newsletters' : isApps ? 'Apps & sync' : isAgents ? 'Agent access' : isRuns ? 'Where Brew runs' : mode === 'brew' ? 'The Brew' : mode === 'reader' ? 'Reader' : mode === 'rules' ? 'Rules' : 'Feeds'} · Brew`;
+  }, [mode, isRuns, isAgents, isApps, isLetters]);
+  if (isLetters)
+    return (
+      <Suspense
+        fallback={
+          <main role="status" className="p-8">
+            Loading newsletters…
+          </main>
+        }
+      >
+        <NewslettersPage />
+      </Suspense>
+    );
+  if (isRuns)
+    return (
+      <Suspense
+        fallback={
+          <main role="status" className="p-8">
+            Loading settings…
+          </main>
+        }
+      >
+        {isApps ? <AppsSync /> : isAgents ? <AgentAccess /> : <WhereBrewRuns />}
+      </Suspense>
+    );
   if (mode === 'brew') return <BrewPage preferences={<GeneralPreferences />} />;
-  const LibraryHeader = mode === 'reader' ? 'header' : 'nav';
+  if (mode === 'rules')
+    return (
+      <>
+        <RulesPage />
+        <ReaderHelp reader={false} />
+      </>
+    );
+  if (mode === 'reader')
+    return (
+      <>
+        <Suspense fallback={<main role="status">Loading library…</main>}>
+          <Reader
+            searchQuery={searchQuery}
+            onClearSearch={() => navigateReader(closeSearchHref())}
+          />
+        </Suspense>
+        <ReaderHelp reader />
+      </>
+    );
   return (
-    <main aria-label={mode === 'rules' ? 'Rules' : mode === 'feeds' ? 'Manage feeds' : 'Reader'} data-brew-view={mode} className="min-h-screen bg-canvas text-ink">
-      <LibraryHeader aria-label={mode === 'reader' ? undefined : 'Library'} className="flex h-16 items-center justify-between border-b border-line px-8">
-        <div className="flex items-center gap-3"><a href={agentPageHref('/')} aria-label="Brew home" className="brew-compact-control font-semibold tracking-tight">
-          Brew
-        </a><a href={agentPageHref('/settings/runs')} className="legacy-settings-link" aria-label="Settings · Where Brew runs"><img src={runAssets.settings} alt="" /></a></div>
+    <main
+      aria-label="Manage feeds"
+      data-brew-view="feeds"
+      className="min-h-screen bg-canvas text-ink"
+    >
+      <nav
+        aria-label="Library"
+        className="flex h-16 items-center justify-between border-b border-line px-8"
+      >
+        <a href={agentPageHref('/')} aria-label="Brew home">
+          <Wordmark />
+        </a>
         <div className="flex items-center gap-3">
           <label className="sr-only" htmlFor="global-search">
-            Search
+            Search library
           </label>
           <input
             ref={globalSearch}
@@ -92,85 +168,63 @@ function AppContent() {
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                navigateReader(searchDraft.trim() ? searchHref(searchDraft.trim()) : closeSearchHref());
-                setMode('reader');
-              }
-              if (event.key === 'Escape') {
-                setSearchDraft('');
-                setSearchQuery('');
-                if (location.pathname === '/search') navigateReader(closeSearchHref());
-                event.currentTarget.blur();
-              }
+              if (event.key === 'Enter')
+                navigateReader(
+                  searchDraft.trim() ? searchHref(searchDraft.trim()) : closeSearchHref(),
+                );
             }}
             placeholder="Search  /"
-            className="w-36 rounded-full border border-line-strong bg-surface px-4 py-2 text-xs outline-none focus:w-56 focus:border-ink"
+            className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm"
           />
-          <a
-            href={agentPageHref(mode === 'reader' ? '/' : '/?view=reader&scope=all')}
-            className="rounded-full border border-line-strong px-4 py-2 text-sm font-medium"
-          >
-            {mode === 'reader' ? 'The Brew' : 'Reader'}
+          <a className="brew-compact-control" href={agentPageHref('/?view=reader&scope=all')}>
+            Reader
           </a>
-          <button
-            aria-label="Keyboard shortcuts"
-            data-brew-action="show-shortcuts"
-            title="Keyboard shortcuts (?)"
+          <a className="brew-compact-control" href={agentPageHref('/rules')}>
+            Rules
+          </a>
+          <a className="brew-compact-control" href={agentPageHref('/settings/runs')}>
+            Settings
+          </a>
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
             onClick={() => window.dispatchEvent(new Event('brew:show-shortcuts'))}
-            className="grid h-9 w-9 place-items-center rounded-full border border-line-strong text-sm font-semibold"
           >
-            ?
-          </button>
-          <label className="sr-only" htmlFor="theme-picker">
-            Theme
-          </label>
-          <select
-            id="theme-picker"
-            data-brew-action="set-theme"
-            value={theme}
-            onChange={(event) => {
-              preferences.save('theme', event.target.value, 'Theme');
-            }}
-            className="rounded-full border border-line-strong bg-surface px-3 py-2 text-xs font-medium"
-          >
-            <option value="system">System theme</option>
-            <option value="light">Light theme</option>
-            <option value="dark">Dark theme</option>
-          </select>
-          <label className="sr-only" htmlFor="image-privacy">Image privacy</label>
-          <select id="image-privacy" data-brew-action="set-image-privacy" value={images} onChange={(event)=>preferences.save('images', event.target.value, 'Image privacy')} className="rounded-full border border-line-strong bg-surface px-3 py-2 text-xs font-medium">
-            <option value="proxy">Private images</option><option value="direct">Load images directly</option>
-          </select>
-          <label className="sr-only" htmlFor="landing-picker">Default landing page</label><select id="landing-picker" data-brew-action="set-landing" aria-label="Default landing page" value={landing} onChange={(event)=>preferences.save('landing', event.target.value, 'Default landing page')} className="rounded-full border border-line-strong bg-surface px-3 py-2 text-xs font-medium"><option value="brew">Start at Brew</option><option value="reader">Start at Reader</option></select>
-          <a
-            href={agentPageHref(mode === 'rules' ? '/' : '/?view=rules')}
-            className="rounded-full border border-line-strong px-4 py-2 text-sm font-medium hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-          >
-            {mode === 'rules' ? 'Back to Brew' : 'Rules'}
-          </a>
-          <a
-            href={agentPageHref(mode === 'feeds' ? '/' : '/?view=feeds')}
-            className="rounded-full border border-line-strong px-4 py-2 text-sm font-medium hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-          >
-            {mode === 'feeds' ? 'Back to Brew' : 'Manage feeds'}
-          </a>
+            Keyboard shortcuts
+          </Button>
+          <GeneralPreferences />
         </div>
-      </LibraryHeader>
+      </nav>
       <PreferenceFeedback preferences={preferences} name="General preferences result" />
-      {mode === 'feeds' ? (
-        <FeedManager />
-      ) : mode === 'rules' ? (
-        <RulesPage />
-      ) : (
-        <Suspense fallback={<div role="status" className="p-8">Loading library…</div>}><Reader
-          searchQuery={searchQuery}
-          onClearSearch={() => navigateReader(closeSearchHref())}
-        /></Suspense>
-      )}
-      <ReaderHelp reader={mode === 'reader'} />
+      <FeedManager />
+      <ReaderHelp reader={false} />
     </main>
   );
 }
 
-class ErrorBoundary extends Component<{children:ReactNode},{error:boolean}>{state={error:false};static getDerivedStateFromError(){return{error:true}}render(){return this.state.error?<main className="grid min-h-screen place-items-center bg-canvas p-8 text-center"><div><p className="text-xs font-semibold uppercase tracking-wider text-soft">Brew</p><h1 className="mt-2 text-3xl font-semibold">Something went wrong.</h1><p className="mt-2 text-soft">Your local data is safe. Reload to try again.</p><button onClick={()=>location.reload()} className="mt-6 rounded-full bg-inverse px-5 py-2 text-on-inverse">Reload Brew</button></div></main>:this.props.children}}
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: boolean }> {
+  state = { error: false };
+  static getDerivedStateFromError() {
+    return { error: true };
+  }
+  render() {
+    return this.state.error ? (
+      <main className="grid min-h-screen place-items-center bg-canvas p-8 text-center">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-soft">Brew</p>
+          <h1 className="mt-2 text-3xl font-semibold">Something went wrong.</h1>
+          <p className="mt-2 text-soft">Your local data is safe. Reload to try again.</p>
+          <button
+            onClick={() => location.reload()}
+            className="mt-6 rounded-full bg-inverse px-5 py-2 text-on-inverse"
+          >
+            Reload Brew
+          </button>
+        </div>
+      </main>
+    ) : (
+      this.props.children
+    );
+  }
+}

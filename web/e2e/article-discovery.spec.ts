@@ -35,8 +35,8 @@ test('Reader alternate links preserve query filters and return after closing an 
       'href',
       `/feed/${story.feedId}.md?density=title&unread=true&sort=oldest`,
     );
-    await page.getByLabel('Search', { exact: true }).fill('Design');
-    await page.getByLabel('Search', { exact: true }).press('Enter');
+    await page.getByLabel('Search library', { exact: true }).fill('Design');
+    await page.getByLabel('Search library', { exact: true }).press('Enter');
     await expect(md).toHaveAttribute(
       'href',
       `/search.md?q=Design&feedId=${story.feedId}&density=title&unread=true&sort=oldest`,

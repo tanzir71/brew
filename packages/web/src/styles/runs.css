@@ -139,7 +139,7 @@
   flex-direction: column;
   gap: 2px;
 }
-.runs-library-nav :is(a, button),
+.runs-library-nav :is(a, button):not(dialog *),
 .runs-settings-nav a {
   display: flex;
   align-items: center;
@@ -150,10 +150,10 @@
   text-align: left;
   color: var(--runs-soft);
 }
-.runs-library-nav button:disabled {
+.runs-library-nav button:disabled:not(dialog *) {
   color: var(--runs-muted);
 }
-.runs-library-nav a:hover,
+.runs-library-nav a:hover:not(dialog *),
 .runs-settings-nav a:hover {
   background: var(--runs-subtle);
   text-decoration: none;

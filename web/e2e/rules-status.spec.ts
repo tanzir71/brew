@@ -35,7 +35,9 @@ test('a late preview preserves the rule save confirmation', async ({ page }) => 
     await blocked;
     await route.fulfill({
       json: {
-        total: 1, limit: 50, items: [
+        total: 1,
+        limit: 50,
+        items: [
           {
             id: 1,
             title: 'Late preview result',
@@ -47,6 +49,7 @@ test('a late preview preserves the rule save confirmation', async ({ page }) => 
     });
   });
   await page.goto('/?view=rules');
+  await page.getByRole('button', { name: 'Templates', exact: true }).click();
   await page.getByRole('button', { name: 'Mute keyword' }).click();
   await page.getByLabel('Condition 1 value').fill('spam');
   await started;

@@ -1,0 +1,1824 @@
+{
+  "/api/capabilities": {
+    "mode": "node",
+    "fetch": "direct",
+    "backgroundFetch": {
+      "kind": "always",
+      "everyMinutes": 1
+    },
+    "inboundMail": "webhook",
+    "emailDelivery": null,
+    "readerApi": false,
+    "mcp": "stdio+http",
+    "agentAccess": true,
+    "webmcp": false,
+    "ai": {
+      "available": [],
+      "configured": false
+    },
+    "readState": "server",
+    "publicCopy": false,
+    "outputs": {
+      "twins": true,
+      "feed": true,
+      "webhook": true
+    },
+    "actions": {
+      "undo": true
+    }
+  },
+  "/api/brew-configs": [
+    {
+      "id": 1,
+      "name": "Morning",
+      "scheduleCron": "0 7 * * *",
+      "enabled": true,
+      "sections": [
+        {
+          "id": "design",
+          "title": "Design & craft",
+          "source": "feed",
+          "sourceId": 11,
+          "maxItems": 4,
+          "layout": "hero",
+          "onlyUnread": false,
+          "sort": "newest"
+        },
+        {
+          "id": "letters",
+          "title": "From your newsletters",
+          "source": "today",
+          "maxItems": 4,
+          "layout": "grid",
+          "onlyUnread": false,
+          "sort": "newest"
+        },
+        {
+          "id": "engineering",
+          "title": "Engineering",
+          "source": "feed",
+          "sourceId": 15,
+          "maxItems": 5,
+          "layout": "list",
+          "onlyUnread": false,
+          "sort": "newest"
+        }
+      ],
+      "createdAt": "2026-11-28T06:17:51.000Z"
+    },
+    {
+      "id": 2,
+      "name": "Weekend",
+      "scheduleCron": "0 8 * * *",
+      "enabled": true,
+      "sections": [],
+      "createdAt": "2026-11-28T06:17:51.000Z"
+    }
+  ],
+  "/api/reader/navigation": {
+    "counts": {
+      "all": 8,
+      "today": 8,
+      "starred": 0
+    },
+    "folders": [
+      {
+        "id": 1,
+        "title": "Design",
+        "unreadCount": 3,
+        "feeds": [
+          {
+            "id": 13,
+            "folderId": 1,
+            "title": "Interface Letters",
+            "muted": false,
+            "unreadCount": 1
+          },
+          {
+            "id": 14,
+            "folderId": 1,
+            "title": "Paperwork",
+            "muted": false,
+            "unreadCount": 0
+          },
+          {
+            "id": 11,
+            "folderId": 1,
+            "title": "Quiet Systems",
+            "muted": false,
+            "unreadCount": 1
+          },
+          {
+            "id": 12,
+            "folderId": 1,
+            "title": "Small Tools Journal",
+            "muted": false,
+            "unreadCount": 1
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Engineering",
+        "unreadCount": 1,
+        "feeds": [
+          {
+            "id": 18,
+            "folderId": 2,
+            "title": "Afterglow",
+            "muted": false,
+            "unreadCount": 0
+          },
+          {
+            "id": 15,
+            "folderId": 2,
+            "title": "Northwind Dispatch",
+            "muted": false,
+            "unreadCount": 0
+          },
+          {
+            "id": 19,
+            "folderId": 2,
+            "title": "Paperwork",
+            "muted": false,
+            "unreadCount": 1
+          },
+          {
+            "id": 17,
+            "folderId": 2,
+            "title": "Small Tools Journal",
+            "muted": false,
+            "unreadCount": 0
+          },
+          {
+            "id": 16,
+            "folderId": 2,
+            "title": "The Platform Desk",
+            "muted": false,
+            "unreadCount": 0
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Independent",
+        "unreadCount": 0,
+        "feeds": []
+      },
+      {
+        "id": 4,
+        "title": "Video",
+        "unreadCount": 0,
+        "feeds": []
+      }
+    ],
+    "unfiled": [
+      {
+        "id": 5,
+        "folderId": null,
+        "title": "Field Notes Weekly",
+        "muted": false,
+        "unreadCount": 1
+      },
+      {
+        "id": 1,
+        "folderId": null,
+        "title": "Interface Letters",
+        "muted": false,
+        "unreadCount": 1
+      },
+      {
+        "id": 7,
+        "folderId": null,
+        "title": "Low Tide",
+        "muted": false,
+        "unreadCount": 1
+      },
+      {
+        "id": 3,
+        "folderId": null,
+        "title": "The Margin",
+        "muted": false,
+        "unreadCount": 1
+      }
+    ]
+  },
+  "/api/tags": [],
+  "/api/feeds": [
+    {
+      "id": 18,
+      "folderId": 2,
+      "url": "https://rss.fixture.test/7",
+      "siteUrl": null,
+      "title": "Afterglow",
+      "description": null,
+      "fetchIntervalMinutes": 30,
+      "retentionDays": 90,
+      "lastFetchedAt": null,
+      "lastStatus": null,
+      "consecutiveFailures": 0,
+      "failingSince": null,
+      "healthWarning": false
+    },
+    {
+      "id": 5,
+      "folderId": null,
+      "url": "mailto:letters5@journal.test",
+      "siteUrl": null,
+      "title": "Field Notes Weekly",
+      "description": null,
+      "fetchIntervalMinutes": 30,
+      "retentionDays": 90,
+      "lastFetchedAt": null,
+      "lastStatus": null,
+      "consecutiveFailures": 0,
+      "failingSince": null,
+      "healthWarning": false
+    },
+    {
+      "id": 1,
+      "folderId": null,
+      "url": "mailto:letters1@journal.test",
+      "siteUrl": null,
+      "title": "Interface Letters",
+      "description": null,
+      "fetchIntervalMinutes": 30,
+      "retentionDays": 90,
+      "lastFetchedAt": null,
+      "lastStatus": null,
+      "consecutiveFailures": 0,
+      "failingSince": null,
+      "healthWarning": false
+    },
+    {
+      "id": 13,
+      "folderId": 1,
+      "url": "https://rss.fixture.test/2",
+      "siteUrl": null,
+      "title": "Interface Letters",
+      "description": null,
+      "fetchIntervalMinutes": 30,
+      "retentionDays": 90,
+      "lastFetchedAt": null,
+      "lastStatus": null,
+      "consecutiveFailures": 0,
+      "failingSince": null,
+      "healthWarning": false
+    },
+    {
+      "id": 7,
+      "folderId": null,
+      "url": "mailto:letters7@journal.test",
+      "siteUrl": null,
+      "title": "Low Tide",
+      "description": null,
+      "fetchIntervalMinutes": 30,
+      "retentionDays": 90,
+      "lastFetchedAt": null,
+      "lastStatus": null,
+      "consecutiveFailures": 0,
+      "failingSince": null,
+      "healthWarning": false
+    },
+    {
+      "id": 15,
+      "folderId": 2,
+      "url": "https://rss.fixture.test/4",
+      "siteUrl": null,
+      "title": "Northwind Dispatch",
+      "description": null,
+      "fetchIntervalMinutes": 30,
+      "retentionDays": 90,
+      "lastFetchedAt": null,
+      "lastStatus": null,
+      "consecutiveFailures": 0,
+      "failingSince": null,
+      "healthWarning": false
+    },
+    {
+      "id": 14,
+      "folderId": 1,
+      "url": "https://rss.fixture.test/3",
+      "siteUrl": null,
+      "title": "Paperwork",
+      "description": null,
+      "fetchIntervalMinutes": 30,
+      "retentionDays": 90,
+      "lastFetchedAt": null,
+      "lastStatus": null,
+      "consecutiveFailures": 0,
+      "failingSince": null,
+      "healthWarning": false
+    },
+    {
+      "id": 19,
+      "folderId": 2,
+      "url": "https://rss.fixture.test/8",
+      "siteUrl": null,
+      "title": "Paperwork",
+      "description": null,
+      "fetchIntervalMinutes": 30,
+      "retentionDays": 90,
+      "lastFetchedAt": null,
+      "lastStatus": null,
+      "consecutiveFailures": 0,
+      "failingSince": null,
+      "healthWarning": false
+    },
+    {
+      "id": 11,
+      "folderId": 1,
+      "url": "https://rss.fixture.test/0",
+      "siteUrl": null,
+      "title": "Quiet Systems",
+      "description": null,
+      "fetchIntervalMinutes": 30,
+      "retentionDays": 90,
+      "lastFetchedAt": null,
+      "lastStatus": null,
+      "consecutiveFailures": 0,
+      "failingSince": null,
+      "healthWarning": false
+    },
+    {
+      "id": 12,
+      "folderId": 1,
+      "url": "https://rss.fixture.test/1",
+      "siteUrl": null,
+      "title": "Small Tools Journal",
+      "description": null,
+      "fetchIntervalMinutes": 30,
+      "retentionDays": 90,
+      "lastFetchedAt": null,
+      "lastStatus": null,
+      "consecutiveFailures": 0,
+      "failingSince": null,
+      "healthWarning": false
+    },
+    {
+      "id": 17,
+      "folderId": 2,
+      "url": "https://rss.fixture.test/6",
+      "siteUrl": null,
+      "title": "Small Tools Journal",
+      "description": null,
+      "fetchIntervalMinutes": 30,
+      "retentionDays": 90,
+      "lastFetchedAt": null,
+      "lastStatus": null,
+      "consecutiveFailures": 0,
+      "failingSince": null,
+      "healthWarning": false
+    },
+    {
+      "id": 3,
+      "folderId": null,
+      "url": "mailto:letters3@journal.test",
+      "siteUrl": null,
+      "title": "The Margin",
+      "description": null,
+      "fetchIntervalMinutes": 30,
+      "retentionDays": 90,
+      "lastFetchedAt": null,
+      "lastStatus": null,
+      "consecutiveFailures": 0,
+      "failingSince": null,
+      "healthWarning": false
+    },
+    {
+      "id": 16,
+      "folderId": 2,
+      "url": "https://rss.fixture.test/5",
+      "siteUrl": null,
+      "title": "The Platform Desk",
+      "description": null,
+      "fetchIntervalMinutes": 30,
+      "retentionDays": 90,
+      "lastFetchedAt": null,
+      "lastStatus": null,
+      "consecutiveFailures": 0,
+      "failingSince": null,
+      "healthWarning": false
+    }
+  ],
+  "/api/folders": [
+    {
+      "id": 1,
+      "title": "Design",
+      "position": 0
+    },
+    {
+      "id": 2,
+      "title": "Engineering",
+      "position": 1
+    },
+    {
+      "id": 3,
+      "title": "Independent",
+      "position": 2
+    },
+    {
+      "id": 4,
+      "title": "Video",
+      "position": 3
+    }
+  ],
+  "/api/newsletters/overview": {
+    "senders": [
+      {
+        "id": 1,
+        "title": "Interface Letters",
+        "address": "letters1@journal.test",
+        "settings": {
+          "favorite": false,
+          "skipInbox": false,
+          "blocked": false,
+          "onlyInBrew": false,
+          "retentionDays": 90
+        },
+        "unreadCount": 1,
+        "letterCount": 1,
+        "latestAt": "2026-11-25T00:12:00.000Z"
+      },
+      {
+        "id": 7,
+        "title": "Low Tide",
+        "address": "letters7@journal.test",
+        "settings": {
+          "favorite": false,
+          "skipInbox": false,
+          "blocked": false,
+          "onlyInBrew": false,
+          "retentionDays": 90
+        },
+        "unreadCount": 1,
+        "letterCount": 1,
+        "latestAt": "2026-11-24T23:40:00.000Z"
+      },
+      {
+        "id": 5,
+        "title": "Field Notes Weekly",
+        "address": "letters5@journal.test",
+        "settings": {
+          "favorite": false,
+          "skipInbox": false,
+          "blocked": false,
+          "onlyInBrew": false,
+          "retentionDays": 90
+        },
+        "unreadCount": 1,
+        "letterCount": 1,
+        "latestAt": "2026-11-24T03:00:00.000Z"
+      },
+      {
+        "id": 3,
+        "title": "The Margin",
+        "address": "letters3@journal.test",
+        "settings": {
+          "favorite": false,
+          "skipInbox": false,
+          "blocked": false,
+          "onlyInBrew": false,
+          "retentionDays": 90
+        },
+        "unreadCount": 1,
+        "letterCount": 1,
+        "latestAt": "2026-11-24T02:00:00.000Z"
+      }
+    ],
+    "unreadCount": 4,
+    "counts": {
+      "inbox": 4,
+      "favorites": 0,
+      "skipped": 0,
+      "blocked": 0
+    },
+    "brews": [
+      {
+        "id": 1,
+        "name": "Morning"
+      },
+      {
+        "id": 2,
+        "name": "Weekend"
+      }
+    ]
+  },
+  "/api/sources/mailbox": {
+    "address": "k7f3@in.example.test"
+  },
+  "/api/newsletters/letters?view=inbox&page=1": {
+    "page": 1,
+    "pageSize": 50,
+    "total": 4,
+    "items": [
+      {
+        "id": 1,
+        "feedId": 1,
+        "feedTitle": "Interface Letters",
+        "title": "Forms should declare their tools",
+        "excerpt": "If an agent can fill your checkout, it shouldn’t have to guess what each field means. A short case for declaring intent in markup.",
+        "publishedAt": "2026-11-25T00:12:00.000Z",
+        "readAt": null,
+        "starredAt": null
+      },
+      {
+        "id": 2,
+        "feedId": 7,
+        "feedTitle": "Low Tide",
+        "title": "The consent prompt is the product",
+        "excerpt": "Every agent API meets the same question: who said yes? How browsers are designing the permission moment.",
+        "publishedAt": "2026-11-24T23:40:00.000Z",
+        "readAt": null,
+        "starredAt": null
+      },
+      {
+        "id": 3,
+        "feedId": 5,
+        "feedTitle": "Field Notes Weekly",
+        "title": "Twelve links, one long read",
+        "excerpt": "Paper prototypes, an ode to the status bar, and a long interview on designing for slowness.",
+        "publishedAt": "2026-11-24T03:00:00.000Z",
+        "readAt": null,
+        "starredAt": null
+      },
+      {
+        "id": 4,
+        "feedId": 3,
+        "feedTitle": "The Margin",
+        "title": "Pricing pages are getting quieter",
+        "excerpt": "Fewer tiers, more honest defaults. Forty pricing pages from this year, three patterns.",
+        "publishedAt": "2026-11-24T02:00:00.000Z",
+        "readAt": null,
+        "starredAt": null
+      }
+    ]
+  },
+  "/api/articles?limit=50": {
+    "items": [
+      {
+        "id": 5,
+        "url": "https://example.test/1",
+        "title": "The quiet structure behind interfaces that feel inevitable",
+        "author": null,
+        "summaryHtml": "<p>Good products rarely announce their structure. They make the next move obvious, and that takes more editing than invention.</p>",
+        "imageUrl": "/figma/read/lead-light.svg",
+        "highlightColor": null,
+        "enclosureUrl": null,
+        "enclosureType": null,
+        "publishedAt": "2026-11-25T00:59:00.000Z",
+        "readAt": null,
+        "starredAt": null,
+        "feedId": 11,
+        "feedTitle": "Quiet Systems",
+        "folderId": 1,
+        "folderTitle": "Design"
+      },
+      {
+        "id": 6,
+        "url": "https://example.test/2",
+        "title": "Why the best local-first apps still ship a server",
+        "author": null,
+        "summaryHtml": "<p>A file you own is the start, not the end. Sync, backups and sharing still need somewhere to live.</p>",
+        "imageUrl": "/figma/read/lines-light.png",
+        "highlightColor": null,
+        "enclosureUrl": null,
+        "enclosureType": null,
+        "publishedAt": "2026-11-25T00:58:00.000Z",
+        "readAt": null,
+        "starredAt": null,
+        "feedId": 12,
+        "feedTitle": "Small Tools Journal",
+        "folderId": 1,
+        "folderTitle": "Design"
+      },
+      {
+        "id": 7,
+        "url": "https://example.test/3",
+        "title": "Figma’s variables panel, a month in",
+        "author": null,
+        "summaryHtml": "<p>Modes finally feel like a first-class idea. Aliasing across collections is still the sharp edge.</p>",
+        "imageUrl": "/figma/read/variables-light.svg",
+        "highlightColor": null,
+        "enclosureUrl": null,
+        "enclosureType": null,
+        "publishedAt": "2026-11-25T00:57:00.000Z",
+        "readAt": null,
+        "starredAt": null,
+        "feedId": 13,
+        "feedTitle": "Interface Letters",
+        "folderId": 1,
+        "folderTitle": "Design"
+      },
+      {
+        "id": 8,
+        "url": "https://example.test/4",
+        "title": "A field guide to calm notification design",
+        "author": null,
+        "summaryHtml": "<p>Interruptions should earn their place. Most of them can wait for the next Brew.</p>",
+        "imageUrl": "/figma/read/notifications-light.svg",
+        "highlightColor": null,
+        "enclosureUrl": null,
+        "enclosureType": null,
+        "publishedAt": "2026-11-25T00:56:00.000Z",
+        "readAt": "2026-11-25T01:00:00.000Z",
+        "starredAt": null,
+        "feedId": 14,
+        "feedTitle": "Paperwork",
+        "folderId": 1,
+        "folderTitle": "Design"
+      },
+      {
+        "id": 9,
+        "url": "https://example.test/9",
+        "title": "SQLite in the browser is finally boring",
+        "author": null,
+        "summaryHtml": null,
+        "imageUrl": null,
+        "highlightColor": null,
+        "enclosureUrl": null,
+        "enclosureType": null,
+        "publishedAt": "2026-11-25T00:55:00.000Z",
+        "readAt": "2026-11-25T01:00:00.000Z",
+        "starredAt": null,
+        "feedId": 15,
+        "feedTitle": "Northwind Dispatch",
+        "folderId": 2,
+        "folderTitle": "Engineering"
+      },
+      {
+        "id": 10,
+        "url": "https://example.test/10",
+        "title": "Cron, queues and the 10 ms budget",
+        "author": null,
+        "summaryHtml": null,
+        "imageUrl": null,
+        "highlightColor": null,
+        "enclosureUrl": null,
+        "enclosureType": null,
+        "publishedAt": "2026-11-25T00:54:00.000Z",
+        "readAt": "2026-11-25T01:00:00.000Z",
+        "starredAt": null,
+        "feedId": 16,
+        "feedTitle": "The Platform Desk",
+        "folderId": 2,
+        "folderTitle": "Engineering"
+      },
+      {
+        "id": 11,
+        "url": "https://example.test/11",
+        "title": "Shipping one codebase to five runtimes",
+        "author": null,
+        "summaryHtml": null,
+        "imageUrl": null,
+        "highlightColor": null,
+        "enclosureUrl": null,
+        "enclosureType": null,
+        "publishedAt": "2026-11-25T00:53:00.000Z",
+        "readAt": "2026-11-25T01:00:00.000Z",
+        "starredAt": null,
+        "feedId": 17,
+        "feedTitle": "Small Tools Journal",
+        "folderId": 2,
+        "folderTitle": "Engineering"
+      },
+      {
+        "id": 12,
+        "url": "https://example.test/12",
+        "title": "What we learned rewriting our feed parser",
+        "author": null,
+        "summaryHtml": null,
+        "imageUrl": null,
+        "highlightColor": null,
+        "enclosureUrl": null,
+        "enclosureType": null,
+        "publishedAt": "2026-11-25T00:52:00.000Z",
+        "readAt": "2026-11-25T01:00:00.000Z",
+        "starredAt": null,
+        "feedId": 18,
+        "feedTitle": "Afterglow",
+        "folderId": 2,
+        "folderTitle": "Engineering"
+      },
+      {
+        "id": 13,
+        "url": "https://example.test/13",
+        "title": "Readable diffs for configuration files",
+        "author": null,
+        "summaryHtml": null,
+        "imageUrl": null,
+        "highlightColor": null,
+        "enclosureUrl": null,
+        "enclosureType": null,
+        "publishedAt": "2026-11-25T00:51:00.000Z",
+        "readAt": null,
+        "starredAt": null,
+        "feedId": 19,
+        "feedTitle": "Paperwork",
+        "folderId": 2,
+        "folderTitle": "Engineering"
+      },
+      {
+        "id": 1,
+        "url": "/a/1",
+        "title": "Forms should declare their tools",
+        "author": "Interface Letters",
+        "summaryHtml": null,
+        "imageUrl": null,
+        "highlightColor": null,
+        "enclosureUrl": null,
+        "enclosureType": null,
+        "publishedAt": "2026-11-25T00:12:00.000Z",
+        "readAt": null,
+        "starredAt": null,
+        "feedId": 1,
+        "feedTitle": "Interface Letters",
+        "folderId": null,
+        "folderTitle": null
+      },
+      {
+        "id": 2,
+        "url": "/a/2",
+        "title": "The consent prompt is the product",
+        "author": "Low Tide",
+        "summaryHtml": null,
+        "imageUrl": null,
+        "highlightColor": null,
+        "enclosureUrl": null,
+        "enclosureType": null,
+        "publishedAt": "2026-11-24T23:40:00.000Z",
+        "readAt": null,
+        "starredAt": null,
+        "feedId": 7,
+        "feedTitle": "Low Tide",
+        "folderId": null,
+        "folderTitle": null
+      },
+      {
+        "id": 3,
+        "url": "/a/3",
+        "title": "Twelve links, one long read",
+        "author": "Field Notes Weekly",
+        "summaryHtml": null,
+        "imageUrl": null,
+        "highlightColor": null,
+        "enclosureUrl": null,
+        "enclosureType": null,
+        "publishedAt": "2026-11-24T03:00:00.000Z",
+        "readAt": null,
+        "starredAt": null,
+        "feedId": 5,
+        "feedTitle": "Field Notes Weekly",
+        "folderId": null,
+        "folderTitle": null
+      },
+      {
+        "id": 4,
+        "url": "/a/4",
+        "title": "Pricing pages are getting quieter",
+        "author": "The Margin",
+        "summaryHtml": null,
+        "imageUrl": null,
+        "highlightColor": null,
+        "enclosureUrl": null,
+        "enclosureType": null,
+        "publishedAt": "2026-11-24T02:00:00.000Z",
+        "readAt": null,
+        "starredAt": null,
+        "feedId": 3,
+        "feedTitle": "The Margin",
+        "folderId": null,
+        "folderTitle": null
+      }
+    ],
+    "nextCursor": null
+  },
+  "/api/rules": [
+    {
+      "id": 1,
+      "name": "Figma mentions",
+      "enabled": true,
+      "position": 0,
+      "matchType": "any",
+      "scope": {
+        "folderIds": [],
+        "feedIds": []
+      },
+      "conditions": [
+        {
+          "field": "title",
+          "operator": "contains",
+          "value": "Figma"
+        }
+      ],
+      "actions": [
+        {
+          "type": "highlight",
+          "color": "#6e9278"
+        }
+      ],
+      "stopProcessing": false,
+      "hits24h": 0,
+      "hits30d": 0
+    }
+  ],
+  "/api/articles/1": {
+    "id": 1,
+    "title": "Forms should declare their tools",
+    "author": "Interface Letters",
+    "summaryHtml": null,
+    "contentHtml": "<p>If an agent can fill your checkout, it shouldn’t have to guess what each field means. A short case for declaring intent in markup.</p>",
+    "fullTextHtml": null,
+    "imageUrl": null,
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "/a/1",
+    "publishedAt": "2026-11-25T00:12:00.000Z",
+    "readAt": null,
+    "starredAt": null,
+    "feedId": 1,
+    "feedTitle": "Interface Letters",
+    "folderId": null,
+    "folderTitle": null,
+    "readTimeMinutes": 1,
+    "tags": []
+  },
+  "/api/newsletters/letters/1": {
+    "id": 1,
+    "title": "Forms should declare their tools",
+    "author": "Interface Letters",
+    "summaryHtml": null,
+    "contentHtml": "<p>If an agent can fill your checkout, it shouldn’t have to guess what each field means. A short case for declaring intent in markup.</p>",
+    "fullTextHtml": null,
+    "imageUrl": null,
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "/a/1",
+    "publishedAt": "2026-11-25T00:12:00.000Z",
+    "readAt": null,
+    "starredAt": null,
+    "feedId": 1,
+    "feedTitle": "Interface Letters",
+    "folderId": null,
+    "folderTitle": null,
+    "readTimeMinutes": 1,
+    "tags": [],
+    "sender": {
+      "id": 1,
+      "title": "Interface Letters",
+      "address": "letters1@journal.test",
+      "settings": {
+        "favorite": false,
+        "skipInbox": false,
+        "blocked": false,
+        "onlyInBrew": false,
+        "retentionDays": 90
+      },
+      "unreadCount": 1,
+      "letterCount": 1,
+      "latestAt": "2026-11-25T00:12:00.000Z"
+    },
+    "cleaning": {
+      "trackers": 3,
+      "sponsorBlocks": 0,
+      "footerTrimmed": false
+    },
+    "originalAvailable": true
+  },
+  "/api/articles/2": {
+    "id": 2,
+    "title": "The consent prompt is the product",
+    "author": "Low Tide",
+    "summaryHtml": null,
+    "contentHtml": "<p>Every agent API meets the same question: who said yes? How browsers are designing the permission moment.</p>",
+    "fullTextHtml": null,
+    "imageUrl": null,
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "/a/2",
+    "publishedAt": "2026-11-24T23:40:00.000Z",
+    "readAt": null,
+    "starredAt": null,
+    "feedId": 7,
+    "feedTitle": "Low Tide",
+    "folderId": null,
+    "folderTitle": null,
+    "readTimeMinutes": 1,
+    "tags": []
+  },
+  "/api/newsletters/letters/2": {
+    "id": 2,
+    "title": "The consent prompt is the product",
+    "author": "Low Tide",
+    "summaryHtml": null,
+    "contentHtml": "<p>Every agent API meets the same question: who said yes? How browsers are designing the permission moment.</p>",
+    "fullTextHtml": null,
+    "imageUrl": null,
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "/a/2",
+    "publishedAt": "2026-11-24T23:40:00.000Z",
+    "readAt": null,
+    "starredAt": null,
+    "feedId": 7,
+    "feedTitle": "Low Tide",
+    "folderId": null,
+    "folderTitle": null,
+    "readTimeMinutes": 1,
+    "tags": [],
+    "sender": {
+      "id": 7,
+      "title": "Low Tide",
+      "address": "letters7@journal.test",
+      "settings": {
+        "favorite": false,
+        "skipInbox": false,
+        "blocked": false,
+        "onlyInBrew": false,
+        "retentionDays": 90
+      },
+      "unreadCount": 1,
+      "letterCount": 1,
+      "latestAt": "2026-11-24T23:40:00.000Z"
+    },
+    "cleaning": {
+      "trackers": 0,
+      "sponsorBlocks": 1,
+      "footerTrimmed": false
+    },
+    "originalAvailable": true
+  },
+  "/api/articles/3": {
+    "id": 3,
+    "title": "Twelve links, one long read",
+    "author": "Field Notes Weekly",
+    "summaryHtml": null,
+    "contentHtml": "<p>Paper prototypes, an ode to the status bar, and a long interview on designing for slowness.</p>",
+    "fullTextHtml": null,
+    "imageUrl": null,
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "/a/3",
+    "publishedAt": "2026-11-24T03:00:00.000Z",
+    "readAt": null,
+    "starredAt": null,
+    "feedId": 5,
+    "feedTitle": "Field Notes Weekly",
+    "folderId": null,
+    "folderTitle": null,
+    "readTimeMinutes": 1,
+    "tags": []
+  },
+  "/api/newsletters/letters/3": {
+    "id": 3,
+    "title": "Twelve links, one long read",
+    "author": "Field Notes Weekly",
+    "summaryHtml": null,
+    "contentHtml": "<p>Paper prototypes, an ode to the status bar, and a long interview on designing for slowness.</p>",
+    "fullTextHtml": null,
+    "imageUrl": null,
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "/a/3",
+    "publishedAt": "2026-11-24T03:00:00.000Z",
+    "readAt": null,
+    "starredAt": null,
+    "feedId": 5,
+    "feedTitle": "Field Notes Weekly",
+    "folderId": null,
+    "folderTitle": null,
+    "readTimeMinutes": 1,
+    "tags": [],
+    "sender": {
+      "id": 5,
+      "title": "Field Notes Weekly",
+      "address": "letters5@journal.test",
+      "settings": {
+        "favorite": false,
+        "skipInbox": false,
+        "blocked": false,
+        "onlyInBrew": false,
+        "retentionDays": 90
+      },
+      "unreadCount": 1,
+      "letterCount": 1,
+      "latestAt": "2026-11-24T03:00:00.000Z"
+    },
+    "cleaning": {
+      "trackers": 5,
+      "sponsorBlocks": 0,
+      "footerTrimmed": false
+    },
+    "originalAvailable": true
+  },
+  "/api/articles/4": {
+    "id": 4,
+    "title": "Pricing pages are getting quieter",
+    "author": "The Margin",
+    "summaryHtml": null,
+    "contentHtml": "<p>Fewer tiers, more honest defaults. Forty pricing pages from this year, three patterns.</p>",
+    "fullTextHtml": null,
+    "imageUrl": null,
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "/a/4",
+    "publishedAt": "2026-11-24T02:00:00.000Z",
+    "readAt": null,
+    "starredAt": null,
+    "feedId": 3,
+    "feedTitle": "The Margin",
+    "folderId": null,
+    "folderTitle": null,
+    "readTimeMinutes": 1,
+    "tags": []
+  },
+  "/api/newsletters/letters/4": {
+    "id": 4,
+    "title": "Pricing pages are getting quieter",
+    "author": "The Margin",
+    "summaryHtml": null,
+    "contentHtml": "<p>Fewer tiers, more honest defaults. Forty pricing pages from this year, three patterns.</p>",
+    "fullTextHtml": null,
+    "imageUrl": null,
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "/a/4",
+    "publishedAt": "2026-11-24T02:00:00.000Z",
+    "readAt": null,
+    "starredAt": null,
+    "feedId": 3,
+    "feedTitle": "The Margin",
+    "folderId": null,
+    "folderTitle": null,
+    "readTimeMinutes": 1,
+    "tags": [],
+    "sender": {
+      "id": 3,
+      "title": "The Margin",
+      "address": "letters3@journal.test",
+      "settings": {
+        "favorite": false,
+        "skipInbox": false,
+        "blocked": false,
+        "onlyInBrew": false,
+        "retentionDays": 90
+      },
+      "unreadCount": 1,
+      "letterCount": 1,
+      "latestAt": "2026-11-24T02:00:00.000Z"
+    },
+    "cleaning": {
+      "trackers": 0,
+      "sponsorBlocks": 0,
+      "footerTrimmed": true
+    },
+    "originalAvailable": true
+  },
+  "/api/articles/5": {
+    "id": 5,
+    "title": "The quiet structure behind interfaces that feel inevitable",
+    "author": null,
+    "summaryHtml": "<p>Good products rarely announce their structure. They make the next move obvious, and that takes more editing than invention.</p>",
+    "contentHtml": "<p>Good products rarely announce their structure. They make the next move obvious, and that takes more editing than invention.</p>",
+    "fullTextHtml": null,
+    "imageUrl": "/figma/read/lead-light.svg",
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "https://example.test/1",
+    "publishedAt": "2026-11-25T00:59:00.000Z",
+    "readAt": null,
+    "starredAt": null,
+    "feedId": 11,
+    "feedTitle": "Quiet Systems",
+    "folderId": 1,
+    "folderTitle": "Design",
+    "readTimeMinutes": 1,
+    "tags": []
+  },
+  "/api/articles/6": {
+    "id": 6,
+    "title": "Why the best local-first apps still ship a server",
+    "author": null,
+    "summaryHtml": "<p>A file you own is the start, not the end. Sync, backups and sharing still need somewhere to live.</p>",
+    "contentHtml": "<p>A file you own is the start, not the end. Sync, backups and sharing still need somewhere to live.</p>",
+    "fullTextHtml": null,
+    "imageUrl": "/figma/read/lines-light.png",
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "https://example.test/2",
+    "publishedAt": "2026-11-25T00:58:00.000Z",
+    "readAt": null,
+    "starredAt": null,
+    "feedId": 12,
+    "feedTitle": "Small Tools Journal",
+    "folderId": 1,
+    "folderTitle": "Design",
+    "readTimeMinutes": 1,
+    "tags": []
+  },
+  "/api/articles/7": {
+    "id": 7,
+    "title": "Figma’s variables panel, a month in",
+    "author": null,
+    "summaryHtml": "<p>Modes finally feel like a first-class idea. Aliasing across collections is still the sharp edge.</p>",
+    "contentHtml": "<p>Modes finally feel like a first-class idea. Aliasing across collections is still the sharp edge.</p>",
+    "fullTextHtml": null,
+    "imageUrl": "/figma/read/variables-light.svg",
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "https://example.test/3",
+    "publishedAt": "2026-11-25T00:57:00.000Z",
+    "readAt": null,
+    "starredAt": null,
+    "feedId": 13,
+    "feedTitle": "Interface Letters",
+    "folderId": 1,
+    "folderTitle": "Design",
+    "readTimeMinutes": 1,
+    "tags": []
+  },
+  "/api/articles/13": {
+    "id": 13,
+    "title": "Readable diffs for configuration files",
+    "author": null,
+    "summaryHtml": null,
+    "contentHtml": "<p>A quiet engineering story.</p>",
+    "fullTextHtml": null,
+    "imageUrl": null,
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "https://example.test/13",
+    "publishedAt": "2026-11-25T00:51:00.000Z",
+    "readAt": null,
+    "starredAt": null,
+    "feedId": 19,
+    "feedTitle": "Paperwork",
+    "folderId": 2,
+    "folderTitle": "Engineering",
+    "readTimeMinutes": 1,
+    "tags": []
+  },
+  "/api/articles/8": {
+    "id": 8,
+    "title": "A field guide to calm notification design",
+    "author": null,
+    "summaryHtml": "<p>Interruptions should earn their place. Most of them can wait for the next Brew.</p>",
+    "contentHtml": "<p>Interruptions should earn their place. Most of them can wait for the next Brew.</p>",
+    "fullTextHtml": null,
+    "imageUrl": "/figma/read/notifications-light.svg",
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "https://example.test/4",
+    "publishedAt": "2026-11-25T00:56:00.000Z",
+    "readAt": "2026-11-25T01:00:00.000Z",
+    "starredAt": null,
+    "feedId": 14,
+    "feedTitle": "Paperwork",
+    "folderId": 1,
+    "folderTitle": "Design",
+    "readTimeMinutes": 1,
+    "tags": []
+  },
+  "/api/articles/9": {
+    "id": 9,
+    "title": "SQLite in the browser is finally boring",
+    "author": null,
+    "summaryHtml": null,
+    "contentHtml": "<p>A quiet engineering story.</p>",
+    "fullTextHtml": null,
+    "imageUrl": null,
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "https://example.test/9",
+    "publishedAt": "2026-11-25T00:55:00.000Z",
+    "readAt": "2026-11-25T01:00:00.000Z",
+    "starredAt": null,
+    "feedId": 15,
+    "feedTitle": "Northwind Dispatch",
+    "folderId": 2,
+    "folderTitle": "Engineering",
+    "readTimeMinutes": 1,
+    "tags": []
+  },
+  "/api/articles/10": {
+    "id": 10,
+    "title": "Cron, queues and the 10 ms budget",
+    "author": null,
+    "summaryHtml": null,
+    "contentHtml": "<p>A quiet engineering story.</p>",
+    "fullTextHtml": null,
+    "imageUrl": null,
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "https://example.test/10",
+    "publishedAt": "2026-11-25T00:54:00.000Z",
+    "readAt": "2026-11-25T01:00:00.000Z",
+    "starredAt": null,
+    "feedId": 16,
+    "feedTitle": "The Platform Desk",
+    "folderId": 2,
+    "folderTitle": "Engineering",
+    "readTimeMinutes": 1,
+    "tags": []
+  },
+  "/api/articles/11": {
+    "id": 11,
+    "title": "Shipping one codebase to five runtimes",
+    "author": null,
+    "summaryHtml": null,
+    "contentHtml": "<p>A quiet engineering story.</p>",
+    "fullTextHtml": null,
+    "imageUrl": null,
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "https://example.test/11",
+    "publishedAt": "2026-11-25T00:53:00.000Z",
+    "readAt": "2026-11-25T01:00:00.000Z",
+    "starredAt": null,
+    "feedId": 17,
+    "feedTitle": "Small Tools Journal",
+    "folderId": 2,
+    "folderTitle": "Engineering",
+    "readTimeMinutes": 1,
+    "tags": []
+  },
+  "/api/articles/12": {
+    "id": 12,
+    "title": "What we learned rewriting our feed parser",
+    "author": null,
+    "summaryHtml": null,
+    "contentHtml": "<p>A quiet engineering story.</p>",
+    "fullTextHtml": null,
+    "imageUrl": null,
+    "highlightColor": null,
+    "enclosureUrl": null,
+    "enclosureType": null,
+    "url": "https://example.test/12",
+    "publishedAt": "2026-11-25T00:52:00.000Z",
+    "readAt": "2026-11-25T01:00:00.000Z",
+    "starredAt": null,
+    "feedId": 18,
+    "feedTitle": "Afterglow",
+    "folderId": 2,
+    "folderTitle": "Engineering",
+    "readTimeMinutes": 1,
+    "tags": []
+  },
+  "/api/brew-configs/1/composition": {
+    "id": 1,
+    "name": "Morning",
+    "enabled": true,
+    "createdAt": "2026-11-28T06:17:51.000Z",
+    "scheduleCron": "0 7 * * *",
+    "sections": [
+      {
+        "id": "design",
+        "kind": "items",
+        "title": "Design & craft",
+        "sources": [
+          {
+            "kind": "feed",
+            "id": 11
+          },
+          {
+            "kind": "feed",
+            "id": 12
+          },
+          {
+            "kind": "feed",
+            "id": 13
+          },
+          {
+            "kind": "feed",
+            "id": 14
+          }
+        ],
+        "maxItems": 4,
+        "layout": "lead",
+        "depth": "excerpt",
+        "images": true,
+        "onlyUnread": false,
+        "sort": "newest"
+      },
+      {
+        "id": "letters",
+        "kind": "items",
+        "title": "From your newsletters",
+        "sources": [
+          {
+            "kind": "newsletters"
+          }
+        ],
+        "maxItems": 4,
+        "layout": "grid",
+        "depth": "excerpt",
+        "images": true,
+        "onlyUnread": false,
+        "sort": "newest"
+      },
+      {
+        "id": "engineering",
+        "kind": "items",
+        "title": "Engineering",
+        "sources": [
+          {
+            "kind": "feed",
+            "id": 15
+          },
+          {
+            "kind": "feed",
+            "id": 16
+          },
+          {
+            "kind": "feed",
+            "id": 17
+          },
+          {
+            "kind": "feed",
+            "id": 18
+          },
+          {
+            "kind": "feed",
+            "id": 19
+          }
+        ],
+        "maxItems": 5,
+        "layout": "headlines",
+        "depth": "title",
+        "images": true,
+        "onlyUnread": false,
+        "sort": "newest"
+      }
+    ],
+    "timezone": "Asia/Dhaka",
+    "schedule": {
+      "kind": "daily",
+      "time": "07:00"
+    },
+    "delivery": {
+      "web": true,
+      "feed": false,
+      "publicCopy": false
+    }
+  },
+  "/api/brew-configs/1/history": [
+    {
+      "id": 1,
+      "brewConfigId": 1,
+      "generatedAt": "2026-11-25T01:00:00.000Z",
+      "scrollPosition": 0,
+      "version": 2,
+      "issueNumber": 1,
+      "configName": "Morning",
+      "timezone": "Asia/Dhaka",
+      "sections": [
+        {
+          "id": "design",
+          "kind": "items",
+          "title": "Design & craft",
+          "sources": [
+            {
+              "kind": "feed",
+              "id": 11
+            },
+            {
+              "kind": "feed",
+              "id": 12
+            },
+            {
+              "kind": "feed",
+              "id": 13
+            },
+            {
+              "kind": "feed",
+              "id": 14
+            }
+          ],
+          "maxItems": 4,
+          "layout": "lead",
+          "depth": "excerpt",
+          "images": true,
+          "onlyUnread": false,
+          "sort": "newest",
+          "eligibleItems": 4,
+          "matchingItems": 4,
+          "items": [
+            {
+              "id": 5,
+              "feedId": 11,
+              "title": "The quiet structure behind interfaces that feel inevitable",
+              "url": "https://example.test/1",
+              "author": null,
+              "summaryHtml": "<p>Good products rarely announce their structure. They make the next move obvious, and that takes more editing than invention.</p>",
+              "imageUrl": "/figma/read/lead-light.svg",
+              "publishedAt": "2026-11-25T00:59:00.000Z",
+              "readAt": null,
+              "feedTitle": "Quiet Systems",
+              "readTimeMinutes": 1
+            },
+            {
+              "id": 6,
+              "feedId": 12,
+              "title": "Why the best local-first apps still ship a server",
+              "url": "https://example.test/2",
+              "author": null,
+              "summaryHtml": "<p>A file you own is the start, not the end. Sync, backups and sharing still need somewhere to live.</p>",
+              "imageUrl": "/figma/read/lines-light.png",
+              "publishedAt": "2026-11-25T00:58:00.000Z",
+              "readAt": null,
+              "feedTitle": "Small Tools Journal",
+              "readTimeMinutes": 1
+            },
+            {
+              "id": 7,
+              "feedId": 13,
+              "title": "Figma’s variables panel, a month in",
+              "url": "https://example.test/3",
+              "author": null,
+              "summaryHtml": "<p>Modes finally feel like a first-class idea. Aliasing across collections is still the sharp edge.</p>",
+              "imageUrl": "/figma/read/variables-light.svg",
+              "publishedAt": "2026-11-25T00:57:00.000Z",
+              "readAt": null,
+              "feedTitle": "Interface Letters",
+              "readTimeMinutes": 1
+            },
+            {
+              "id": 8,
+              "feedId": 14,
+              "title": "A field guide to calm notification design",
+              "url": "https://example.test/4",
+              "author": null,
+              "summaryHtml": "<p>Interruptions should earn their place. Most of them can wait for the next Brew.</p>",
+              "imageUrl": "/figma/read/notifications-light.svg",
+              "publishedAt": "2026-11-25T00:56:00.000Z",
+              "readAt": "2026-11-25T01:00:00.000Z",
+              "feedTitle": "Paperwork",
+              "readTimeMinutes": 1
+            }
+          ]
+        },
+        {
+          "id": "letters",
+          "kind": "items",
+          "title": "From your newsletters",
+          "sources": [
+            {
+              "kind": "newsletters"
+            }
+          ],
+          "maxItems": 4,
+          "layout": "grid",
+          "depth": "excerpt",
+          "images": true,
+          "onlyUnread": false,
+          "sort": "newest",
+          "eligibleItems": 4,
+          "matchingItems": 4,
+          "items": [
+            {
+              "id": 1,
+              "feedId": 1,
+              "newsletter": {
+                "cleaning": {
+                  "trackers": 3,
+                  "sponsorBlocks": 0,
+                  "footerTrimmed": false
+                }
+              },
+              "title": "Forms should declare their tools",
+              "url": "/a/1",
+              "author": "Interface Letters",
+              "summaryHtml": "<p>If an agent can fill your checkout, it shouldn’t have to guess what each field means. A short case for declaring intent in markup.</p>",
+              "imageUrl": null,
+              "publishedAt": "2026-11-25T00:12:00.000Z",
+              "readAt": null,
+              "feedTitle": "Interface Letters",
+              "readTimeMinutes": 1
+            },
+            {
+              "id": 2,
+              "feedId": 7,
+              "newsletter": {
+                "cleaning": {
+                  "trackers": 0,
+                  "sponsorBlocks": 1,
+                  "footerTrimmed": false
+                }
+              },
+              "title": "The consent prompt is the product",
+              "url": "/a/2",
+              "author": "Low Tide",
+              "summaryHtml": "<p>Every agent API meets the same question: who said yes? How browsers are designing the permission moment.</p>",
+              "imageUrl": null,
+              "publishedAt": "2026-11-24T23:40:00.000Z",
+              "readAt": null,
+              "feedTitle": "Low Tide",
+              "readTimeMinutes": 1
+            },
+            {
+              "id": 3,
+              "feedId": 5,
+              "newsletter": {
+                "cleaning": {
+                  "trackers": 5,
+                  "sponsorBlocks": 0,
+                  "footerTrimmed": false
+                }
+              },
+              "title": "Twelve links, one long read",
+              "url": "/a/3",
+              "author": "Field Notes Weekly",
+              "summaryHtml": "<p>Paper prototypes, an ode to the status bar, and a long interview on designing for slowness.</p>",
+              "imageUrl": null,
+              "publishedAt": "2026-11-24T03:00:00.000Z",
+              "readAt": null,
+              "feedTitle": "Field Notes Weekly",
+              "readTimeMinutes": 1
+            },
+            {
+              "id": 4,
+              "feedId": 3,
+              "newsletter": {
+                "cleaning": {
+                  "trackers": 0,
+                  "sponsorBlocks": 0,
+                  "footerTrimmed": true
+                }
+              },
+              "title": "Pricing pages are getting quieter",
+              "url": "/a/4",
+              "author": "The Margin",
+              "summaryHtml": "<p>Fewer tiers, more honest defaults. Forty pricing pages from this year, three patterns.</p>",
+              "imageUrl": null,
+              "publishedAt": "2026-11-24T02:00:00.000Z",
+              "readAt": null,
+              "feedTitle": "The Margin",
+              "readTimeMinutes": 1
+            }
+          ]
+        },
+        {
+          "id": "engineering",
+          "kind": "items",
+          "title": "Engineering",
+          "sources": [
+            {
+              "kind": "feed",
+              "id": 15
+            },
+            {
+              "kind": "feed",
+              "id": 16
+            },
+            {
+              "kind": "feed",
+              "id": 17
+            },
+            {
+              "kind": "feed",
+              "id": 18
+            },
+            {
+              "kind": "feed",
+              "id": 19
+            }
+          ],
+          "maxItems": 5,
+          "layout": "headlines",
+          "depth": "title",
+          "images": true,
+          "onlyUnread": false,
+          "sort": "newest",
+          "eligibleItems": 5,
+          "matchingItems": 5,
+          "items": [
+            {
+              "id": 9,
+              "feedId": 15,
+              "title": "SQLite in the browser is finally boring",
+              "url": "https://example.test/9",
+              "author": null,
+              "summaryHtml": null,
+              "imageUrl": null,
+              "publishedAt": "2026-11-25T00:55:00.000Z",
+              "readAt": "2026-11-25T01:00:00.000Z",
+              "feedTitle": "Northwind Dispatch",
+              "readTimeMinutes": 1
+            },
+            {
+              "id": 10,
+              "feedId": 16,
+              "title": "Cron, queues and the 10 ms budget",
+              "url": "https://example.test/10",
+              "author": null,
+              "summaryHtml": null,
+              "imageUrl": null,
+              "publishedAt": "2026-11-25T00:54:00.000Z",
+              "readAt": "2026-11-25T01:00:00.000Z",
+              "feedTitle": "The Platform Desk",
+              "readTimeMinutes": 1
+            },
+            {
+              "id": 11,
+              "feedId": 17,
+              "title": "Shipping one codebase to five runtimes",
+              "url": "https://example.test/11",
+              "author": null,
+              "summaryHtml": null,
+              "imageUrl": null,
+              "publishedAt": "2026-11-25T00:53:00.000Z",
+              "readAt": "2026-11-25T01:00:00.000Z",
+              "feedTitle": "Small Tools Journal",
+              "readTimeMinutes": 1
+            },
+            {
+              "id": 12,
+              "feedId": 18,
+              "title": "What we learned rewriting our feed parser",
+              "url": "https://example.test/12",
+              "author": null,
+              "summaryHtml": null,
+              "imageUrl": null,
+              "publishedAt": "2026-11-25T00:52:00.000Z",
+              "readAt": "2026-11-25T01:00:00.000Z",
+              "feedTitle": "Afterglow",
+              "readTimeMinutes": 1
+            },
+            {
+              "id": 13,
+              "feedId": 19,
+              "title": "Readable diffs for configuration files",
+              "url": "https://example.test/13",
+              "author": null,
+              "summaryHtml": null,
+              "imageUrl": null,
+              "publishedAt": "2026-11-25T00:51:00.000Z",
+              "readAt": null,
+              "feedTitle": "Paperwork",
+              "readTimeMinutes": 1
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "/api/brew-configs/2/composition": {
+    "id": 2,
+    "name": "Weekend",
+    "enabled": true,
+    "createdAt": "2026-11-28T06:17:51.000Z",
+    "scheduleCron": "0 8 * * *",
+    "sections": [],
+    "timezone": "UTC",
+    "schedule": {
+      "kind": "daily",
+      "time": "08:00"
+    },
+    "delivery": {
+      "web": true,
+      "feed": false,
+      "publicCopy": false
+    }
+  },
+  "/api/brew-configs/2/history": [],
+  "/api/brews/1/state": {
+    "timeZone": "Asia/Dhaka",
+    "nextAt": "2026-11-26T01:00:00.000Z",
+    "scheduleLabel": "Daily",
+    "articles": [
+      {
+        "id": 5,
+        "feedId": 11,
+        "available": true,
+        "readAt": null,
+        "starredAt": null,
+        "highlightColor": null,
+        "rules": []
+      },
+      {
+        "id": 6,
+        "feedId": 12,
+        "available": true,
+        "readAt": null,
+        "starredAt": null,
+        "highlightColor": null,
+        "rules": []
+      },
+      {
+        "id": 7,
+        "feedId": 13,
+        "available": true,
+        "readAt": null,
+        "starredAt": null,
+        "highlightColor": null,
+        "rules": []
+      },
+      {
+        "id": 8,
+        "feedId": 14,
+        "available": true,
+        "readAt": "2026-11-25T01:00:00.000Z",
+        "starredAt": null,
+        "highlightColor": null,
+        "rules": []
+      },
+      {
+        "id": 1,
+        "feedId": 1,
+        "available": true,
+        "readAt": null,
+        "starredAt": null,
+        "highlightColor": null,
+        "rules": []
+      },
+      {
+        "id": 2,
+        "feedId": 7,
+        "available": true,
+        "readAt": null,
+        "starredAt": null,
+        "highlightColor": null,
+        "rules": []
+      },
+      {
+        "id": 3,
+        "feedId": 5,
+        "available": true,
+        "readAt": null,
+        "starredAt": null,
+        "highlightColor": null,
+        "rules": []
+      },
+      {
+        "id": 4,
+        "feedId": 3,
+        "available": true,
+        "readAt": null,
+        "starredAt": null,
+        "highlightColor": null,
+        "rules": []
+      },
+      {
+        "id": 9,
+        "feedId": 15,
+        "available": true,
+        "readAt": "2026-11-25T01:00:00.000Z",
+        "starredAt": null,
+        "highlightColor": null,
+        "rules": []
+      },
+      {
+        "id": 10,
+        "feedId": 16,
+        "available": true,
+        "readAt": "2026-11-25T01:00:00.000Z",
+        "starredAt": null,
+        "highlightColor": null,
+        "rules": []
+      },
+      {
+        "id": 11,
+        "feedId": 17,
+        "available": true,
+        "readAt": "2026-11-25T01:00:00.000Z",
+        "starredAt": null,
+        "highlightColor": null,
+        "rules": []
+      },
+      {
+        "id": 12,
+        "feedId": 18,
+        "available": true,
+        "readAt": "2026-11-25T01:00:00.000Z",
+        "starredAt": null,
+        "highlightColor": null,
+        "rules": []
+      },
+      {
+        "id": 13,
+        "feedId": 19,
+        "available": true,
+        "readAt": null,
+        "starredAt": null,
+        "highlightColor": null,
+        "rules": []
+      }
+    ]
+  }
+}

@@ -14,6 +14,7 @@ for (const theme of ['light', 'dark'] as const) {
         page.getByRole('button', { name: 'Open article · Design story', exact: true }),
       ).toBeVisible();
       const before = f.database.sqlite.prepare('SELECT total_changes() AS n').get();
+      await page.locator('summary[aria-label="Reader options"]').click();
       const trigger = page.getByRole('button', { name: 'Keyboard shortcuts', exact: true });
       await trigger.focus();
       await page.keyboard.press('Enter');
@@ -76,6 +77,8 @@ test('legacy Feeds and Rules help buttons open the native Reader guide', async (
   try {
     for (const path of ['/feeds', '/rules']) {
       await page.goto(path);
+      if (path === '/rules')
+        await page.getByRole('button', { name: 'Templates', exact: true }).click();
       const trigger = page.getByRole('button', { name: 'Keyboard shortcuts', exact: true });
       await trigger.click();
       const dialog = page.getByRole('dialog', { name: 'Keyboard shortcuts', exact: true });
@@ -85,6 +88,11 @@ test('legacy Feeds and Rules help buttons open the native Reader guide', async (
       );
       await page.keyboard.press('Escape');
       await expect(trigger).toBeFocused();
+      if (path === '/rules')
+        await page
+          .getByRole('dialog', { name: 'Rule templates and settings', exact: true })
+          .getByRole('button', { name: 'Close Rule templates and settings', exact: true })
+          .click();
     }
     await page.keyboard.press('?');
     await page
@@ -252,6 +260,7 @@ for (const search of [false, true]) {
       const failedAttempts = attempts.length;
       expect(failedAttempts).toBe(2);
       // Keep interacting while the retry backoff would have fired in the old loop.
+      if (!search) await page.locator('summary[aria-label="Reader options"]').click();
       await page.getByRole('button', { name: 'Keyboard shortcuts', exact: true }).click();
       for (let i = 0; i < 12; i++) await page.keyboard.press('Tab');
       await page.keyboard.press('Escape');

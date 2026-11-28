@@ -1,0 +1,14 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="120" height="84" viewBox="0 0 120 84" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Image">
+<g clip-path="url(#clip0_0_580)">
+<rect width="120" height="84" rx="8" fill="#39323D"/>
+<path id="Rectangle" d="M39.6 45.6C39.6 34.3334 48.7334 25.2 60 25.2V25.2C71.2666 25.2 80.4 34.3334 80.4 45.6V100.8H39.6V45.6Z" fill="#4F4555"/>
+<circle id="Ellipse" opacity="0.6" cx="93.96" cy="19.32" r="7.56" fill="#4F4555"/>
+</g>
+</g>
+<defs>
+<clipPath id="clip0_0_580">
+<rect width="120" height="84" rx="8" fill="white"/>
+</clipPath>
+</defs>
+</svg>

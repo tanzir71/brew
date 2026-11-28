@@ -80,6 +80,7 @@ export function NewslettersPage() {
   }, []);
   useEffect(() => {
     const pop = () => {
+      if (!/^\/letters(?:\/|$)/.test(location.pathname)) return;
       const next = currentLocation();
       routeRef.current = next;
       setRoute(next);

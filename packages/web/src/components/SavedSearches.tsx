@@ -6,6 +6,7 @@ import type { useSavedSearches } from '../hooks/useSavedSearches';
 import { ModalSheet } from './Sheet';
 import { Button, IconButton, Input } from './controls';
 import { agentPageHref } from '../agentLocation';
+import { runAssets } from './figmaAssets';
 
 type Searches = ReturnType<typeof useSavedSearches>;
 const follow = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -54,7 +55,10 @@ export function SavedSearchList({ action }: { action: Searches }) {
                   data-brew-action="open-search"
                   className={`min-w-0 flex-1 rounded-lg px-3 py-2 text-left text-sm ${selected ? 'bg-subtle font-semibold text-ink' : 'text-soft hover:bg-subtle hover:text-ink'}`}
                 >
-                  <span className="block truncate">⌕ {search.name}</span>
+                  <span className="block truncate">
+                    <img src={runAssets.savedSearch} alt="" />
+                    {search.name}
+                  </span>
                 </a>
                 <IconButton
                   icon="more"

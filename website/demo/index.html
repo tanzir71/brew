@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Brew · Live demo</title>
+    <meta
+      name="description"
+      content="Explore the real Brew interface with sample feeds and newsletters. Demo changes stay in this tab."
+    />
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <div class="demo-notice">
+      <a href="../">Brew home</a
+      ><span>Live demo · canned data · nothing is saved after you close this tab</span
+      ><label class="demo-navigation"
+        >Explore
+        <select id="demo-navigation" aria-label="Demo navigation">
+          <option value="">Choose a view</option>
+          <option value="/">Brews</option>
+          <option value="/letters">Newsletters</option>
+          <option value="/today">Today</option>
+          <option value="/all">Library</option>
+          <option value="/rules">Rules</option>
+          <option value="/settings/runs">Settings</option>
+        </select></label
+      ><button id="demo-theme" type="button">Switch theme</button>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>

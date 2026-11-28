@@ -3,6 +3,7 @@ const exports = {
   search: { src: '/figma/components/872aa.svg', width: 16, height: 16 },
   lock: { src: '/figma/components/291ba.svg', width: 11, height: 11 },
   point: { src: '/figma/components/fb52b.svg', width: 5, height: 10 },
+  unread: { src: '/figma/reader/unread.svg', width: 6, height: 6 },
 } as const;
 
 /** The original SVG alpha geometry at its exported size, painted by the theme. */

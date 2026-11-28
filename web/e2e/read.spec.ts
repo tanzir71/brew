@@ -212,7 +212,7 @@ test('image privacy handles stored proxy URLs and requires explicit direct-image
   await page.goto('/b/1/214');
   await expect(page.locator('.brew-hero-image')).toHaveAttribute('src', proxy);
   expect(originalRequests).toEqual([]);
-  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('button', { name: 'More actions', exact: true }).click();
   await page.getByRole('combobox', { name: 'Image privacy', exact: true }).selectOption('direct');
   await expect(page.locator('.brew-hero-image')).toHaveAttribute('src', original);
   await expect.poll(() => originalRequests.length).toBe(1);

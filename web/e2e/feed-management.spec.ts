@@ -105,7 +105,7 @@ test('discovers and adds a feed into a folder', async ({ page }) => {
     });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('button', { name: 'More actions', exact: true }).click();
   await page.getByRole('link', { name: 'Manage feeds' }).click();
   await page.getByLabel('New folder name').fill('Design');
   await page.getByRole('button', { name: 'Create folder' }).click();
@@ -117,15 +117,13 @@ test('discovers and adds a feed into a folder', async ({ page }) => {
   await page.getByRole('button', { name: /Design Notes/ }).click();
   await expect(page.getByRole('heading', { name: 'Design Notes' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Import OPML', exact: true })).toBeEnabled();
-  await page
-    .getByLabel('Import OPML', { exact: true })
-    .setInputFiles({
-      name: 'subscriptions.opml',
-      mimeType: 'text/x-opml',
-      buffer: Buffer.from(
-        '<opml><body><outline text="Design"><outline text="Imported Journal" xmlUrl="https://imported.test/feed.xml"/></outline></body></opml>',
-      ),
-    });
+  await page.getByLabel('Import OPML', { exact: true }).setInputFiles({
+    name: 'subscriptions.opml',
+    mimeType: 'text/x-opml',
+    buffer: Buffer.from(
+      '<opml><body><outline text="Design"><outline text="Imported Journal" xmlUrl="https://imported.test/feed.xml"/></outline></body></opml>',
+    ),
+  });
   await page
     .getByRole('dialog', { name: 'Import OPML?', exact: true })
     .getByRole('button', { name: 'Import', exact: true })

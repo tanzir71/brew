@@ -1,18 +1,20 @@
 import { useWebMcpSurface } from '../webmcp/useWebMcpSurface';
 import { agentPageHref } from '../agentLocation';
 import { useQuery } from '@tanstack/react-query';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState, type Ref } from 'react';
 import type { BrewConfig } from '@brew/core/types/legacy-brew';
 import type { ReaderNavigation } from '@brew/core/types/api';
 import type { NewsletterOverview } from '@brew/core/types/newsletters';
 import { useCapabilities } from '../hooks/useCapabilities';
 import { ModeChip } from './ModeChip';
-import { Kbd, NavItem, Wordmark } from './controls';
+import { Avatar, IconButton, Kbd, NavItem, Wordmark } from './controls';
 import { runAssets } from './figmaAssets';
 import { Badge } from './Badge';
 import { capabilityRows } from '../settings/capabilityRows';
 import { useSavedSearches } from '../hooks/useSavedSearches';
-import { savedSearchHref } from '../savedSearches';
+import { SavedSearchList } from './SavedSearches';
+import { parseReaderPage } from '@brew/core/reader-pages';
+import { navigateReader, searchHref } from '../readerLocation';
 
 async function getJson<T>(url: string, signal: AbortSignal): Promise<T> {
   const response = await fetch(url, { signal });
@@ -22,12 +24,21 @@ async function getJson<T>(url: string, signal: AbortSignal): Promise<T> {
 
 export function AppSidebar({
   activeHref = location.pathname + location.search,
+  label,
+  detailedLibrary = false,
+  savedSearches: sharedSearches,
+  navigationRef,
 }: {
   activeHref?: string;
+  label?: string;
+  detailedLibrary?: boolean;
+  savedSearches?: ReturnType<typeof useSavedSearches>;
+  navigationRef?: Ref<HTMLElement>;
 }) {
   const activeUrl = new URL(activeHref, location.origin);
   activeUrl.searchParams.delete('agent');
   activeHref = activeUrl.pathname + activeUrl.search;
+  const readerRoute = parseReaderPage(activeUrl);
   const search = useRef<HTMLInputElement>(null);
   useLayoutEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
@@ -63,29 +74,76 @@ export function AppSidebar({
     queryKey: ['newsletter-overview'],
     queryFn: ({ signal }) => getJson<NewsletterOverview>('/api/newsletters/overview', signal),
   });
-  useWebMcpSurface(search, { names: ['search_items', ...(!configs.isPending && !configs.isError ? ['list_brews'] : [])] });
-  const saved = useSavedSearches();
+  useWebMcpSurface(search, {
+    names: ['search_items', ...(!configs.isPending && !configs.isError ? ['list_brews'] : [])],
+  });
+  const localSaved = useSavedSearches();
+  const saved = sharedSearches ?? localSaved;
+  const newsletterFeedIds = new Set(newsletters.data?.senders?.map((sender) => sender.id) ?? []);
+  const unfiled = navigation.data?.unfiled.filter((feed) => !newsletterFeedIds.has(feed.id)) ?? [];
+  const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
   const [calm] = useState(() => localStorage.getItem('brew:calm') === 'true');
   const count = (value?: number) =>
     !calm && value !== undefined && value > 0 ? (
       <span className="runs-nav-count">{value}</span>
     ) : null;
   return (
-    <aside className="runs-library">
+    <aside className="runs-library" aria-label={label}>
       <header className="runs-library-header">
         <a className="runs-wordmark" href={agentPageHref('/?view=brew')} aria-label="Brew home">
           <Wordmark />
         </a>
         <ModeChip />
       </header>
-      <form className="runs-search" action="/" role="search">
+      <form
+        className="runs-search"
+        action="/"
+        role="search"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const query = search.current?.value.trim() ?? '';
+          if (query) navigateReader(searchHref(query));
+        }}
+      >
         <img src={runAssets.search} alt="" />
         <input type="hidden" name="view" value="reader" />
-        {new URLSearchParams(location.search).get('agent') === '1' && <input type="hidden" name="agent" value="1" />}
-        <input ref={search} aria-label="Search library" name="q" placeholder="Search" />
+        {new URLSearchParams(location.search).get('agent') === '1' && (
+          <input type="hidden" name="agent" value="1" />
+        )}
+        <input
+          ref={search}
+          key={activeUrl.searchParams.get('q') ?? ''}
+          defaultValue={activeUrl.searchParams.get('q') ?? ''}
+          aria-label="Search library"
+          name="q"
+          placeholder="Search"
+        />
         <Kbd>/</Kbd>
       </form>
-      <nav aria-label="Library" className="runs-library-nav">
+      <nav
+        ref={navigationRef}
+        tabIndex={navigationRef ? -1 : undefined}
+        aria-label="Library"
+        className="runs-library-nav"
+        onClick={(event) => {
+          if (
+            label !== 'Reader navigation' ||
+            event.defaultPrevented ||
+            event.button !== 0 ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.shiftKey ||
+            event.altKey
+          )
+            return;
+          const anchor = (event.target as Element).closest('a');
+          if (!anchor) return;
+          const target = new URL(anchor.href);
+          if (target.origin !== location.origin || !parseReaderPage(target)) return;
+          event.preventDefault();
+          navigateReader(target.pathname + target.search);
+        }}
+      >
         <div className="runs-nav-group">
           {configs.data?.length ? (
             configs.data.map((config) => (
@@ -138,7 +196,7 @@ export function AppSidebar({
           )}
           <NavItem
             href="/?view=reader&scope=today"
-            active={activeHref === '/?view=reader&scope=today'}
+            active={readerRoute?.kind === 'today'}
             icon={<img src={runAssets.calendar} alt="" />}
             calm={calm}
             count={navigation.data?.counts.today}
@@ -147,7 +205,7 @@ export function AppSidebar({
           </NavItem>
           <NavItem
             href="/?view=reader&scope=all"
-            active={activeHref === '/?view=reader&scope=all'}
+            active={readerRoute?.kind === 'all'}
             icon={<img src={runAssets.layers} alt="" />}
             calm={calm}
             count={navigation.data?.counts.all}
@@ -156,7 +214,7 @@ export function AppSidebar({
           </NavItem>
           <NavItem
             href="/?view=reader&scope=starred"
-            active={activeHref === '/?view=reader&scope=starred'}
+            active={readerRoute?.kind === 'starred'}
             icon={<img src={runAssets.star} alt="" />}
             calm={calm}
             count={navigation.data?.counts.starred}
@@ -167,14 +225,57 @@ export function AppSidebar({
         <div className="runs-nav-group">
           <p className="runs-overline">Folders</p>
           {navigation.data?.folders.map((folder) => (
-            <a
-              key={folder.id}
-              href={agentPageHref(`/?view=reader&folder=${folder.id}&name=${encodeURIComponent(folder.title)}`)}
-            >
-              <img src={runAssets.folder} alt="" />
-              {folder.title}
-              {count(folder.unreadCount)}
-            </a>
+            <div key={folder.id} className="library-folder">
+              <div className="library-folder-row">
+                <a
+                  href={agentPageHref(
+                    `/?view=reader&folder=${folder.id}&name=${encodeURIComponent(folder.title)}`,
+                  )}
+                  aria-current={
+                    readerRoute?.kind === 'folder' && readerRoute.id === folder.id
+                      ? 'page'
+                      : undefined
+                  }
+                  className={
+                    readerRoute?.kind === 'folder' && readerRoute.id === folder.id
+                      ? 'brew-nav-item--active'
+                      : undefined
+                  }
+                >
+                  <img src={runAssets.folder} alt="" />
+                  {folder.title}
+                  {count(folder.unreadCount)}
+                </a>
+                {detailedLibrary && folder.feeds.length > 0 && (
+                  <IconButton
+                    icon={expanded.has(folder.id) ? 'chevron-down' : 'chevron-right'}
+                    label={`${expanded.has(folder.id) ? 'Collapse' : 'Expand'} ${folder.title} folder`}
+                    aria-expanded={expanded.has(folder.id)}
+                    onClick={() =>
+                      setExpanded((current) => {
+                        const next = new Set(current);
+                        if (next.has(folder.id)) next.delete(folder.id);
+                        else next.add(folder.id);
+                        return next;
+                      })
+                    }
+                  />
+                )}
+              </div>
+              {detailedLibrary &&
+                expanded.has(folder.id) &&
+                folder.feeds.map((feed) => (
+                  <NavItem
+                    key={feed.id}
+                    href={`/?view=reader&feed=${feed.id}`}
+                    active={readerRoute?.kind === 'feed' && readerRoute.id === feed.id}
+                    count={feed.unreadCount}
+                    icon={<Avatar id={feed.id} initial={feed.title} />}
+                  >
+                    {feed.title}
+                  </NavItem>
+                ))}
+            </div>
           ))}
           {!navigation.data?.folders.length && (
             <a href={agentPageHref('/?view=feeds')}>
@@ -183,27 +284,37 @@ export function AppSidebar({
             </a>
           )}
         </div>
-        {saved.searches.length > 0 && (
+        {detailedLibrary && unfiled.length > 0 && (
           <div className="runs-nav-group">
-            <p className="runs-overline">Saved searches</p>
-            {saved.searches.map((item) => (
-              <a key={item.id} href={agentPageHref(savedSearchHref(item))}>
-                <img src={runAssets.savedSearch} alt="" />
-                {item.name}
-              </a>
+            <p className="runs-overline">Unfiled</p>
+            {unfiled.map((feed) => (
+              <NavItem
+                key={feed.id}
+                href={`/?view=reader&feed=${feed.id}`}
+                active={readerRoute?.kind === 'feed' && readerRoute.id === feed.id}
+                count={feed.unreadCount}
+                icon={<Avatar id={feed.id} initial={feed.title} />}
+              >
+                {feed.title}
+              </NavItem>
             ))}
           </div>
         )}
-        {saved.loadError && (
-          <div role="alert">
-            <p>{saved.loadError}</p>
-            <button type="button" onClick={saved.refresh}>
-              Retry saved searches
-            </button>
-          </div>
-        )}
+        <SavedSearchList action={saved} />
         <div className="runs-nav-bottom">
-          <a href={agentPageHref('/?view=rules')}>
+          <a
+            href={agentPageHref('/rules')}
+            aria-current={
+              activeHref.startsWith('/rules') || activeUrl.searchParams.get('view') === 'rules'
+                ? 'page'
+                : undefined
+            }
+            className={
+              activeHref.startsWith('/rules') || activeUrl.searchParams.get('view') === 'rules'
+                ? 'brew-nav-item--active'
+                : undefined
+            }
+          >
             <img src={runAssets.rules} alt="" />
             Rules
           </a>

@@ -131,11 +131,13 @@ test('browser storage changes update already-open settings, Reader controls and 
     await page.getByRole('button', { name: 'Open article · Design story', exact: true }).click();
     const article = page.getByRole('dialog', { name: 'Article reader', exact: true });
     await expect(article).toHaveAttribute('aria-modal', 'false');
-    await expect(article.getByLabel('Reader font', { exact: true })).toHaveValue('sans');
-    await article.getByLabel('Reader font', { exact: true }).selectOption('serif');
+    await article.getByRole('button', { name: 'More article actions', exact: true }).click();
+    const actions = page.getByRole('dialog', { name: 'Article actions', exact: true });
+    await expect(actions.getByLabel('Reader font', { exact: true })).toHaveValue('sans');
+    await actions.getByLabel('Reader font', { exact: true }).selectOption('serif');
     await expect(settings.getByLabel('Reader font', { exact: true })).toHaveValue('serif');
     await settings.getByLabel('Reader width', { exact: true }).selectOption('wide');
-    await expect(article.getByLabel('Reader width', { exact: true })).toHaveValue('wide');
+    await expect(actions.getByLabel('Reader width', { exact: true })).toHaveValue('wide');
     await expect(article.locator('.article-content')).toHaveAttribute('data-reading-font', 'serif');
     await settings.getByRole('button', { name: 'Done', exact: true }).click();
     await other
@@ -144,7 +146,14 @@ test('browser storage changes update already-open settings, Reader controls and 
       .click();
     await other.getByLabel('Theme', { exact: true }).selectOption('dark');
     await expect(page.locator('html')).toHaveAttribute('data-resolved-theme', 'dark');
-    await article.getByRole('button', { name: 'Close article', exact: true }).click();
+    await actions.getByRole('button', { name: 'Close article', exact: true }).click();
+    if (
+      (await page
+        .locator('summary[aria-label="Reader options"]')
+        .locator('..')
+        .getAttribute('open')) === null
+    )
+      await page.locator('summary[aria-label="Reader options"]').click();
     await page.getByLabel('Read on scroll', { exact: true }).check();
     await other.getByRole('button', { name: 'Done', exact: true }).click();
     await other
