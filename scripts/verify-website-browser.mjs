@@ -225,6 +225,12 @@ try {
       ))
       assert(field.width <= field.available + 1, 'Editor choices overflow their field');
     const paper = page.getByRole('article', { name: 'Web preview', exact: true });
+    assert(
+      (await paper.locator('.compose-preview-excerpt').allTextContents()).every(
+        (text) => !/<\/?p>/.test(text),
+      ),
+      'Newsletter excerpts must contain text rather than escaped HTML markup',
+    );
     const expandedWidth = (await paper.boundingBox()).width;
     assert(expandedWidth > 560, 'Desktop web preview is still capped at its old narrow width');
     await page.screenshot({ path: output + '/compose-desktop-' + index + '.png' });

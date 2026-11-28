@@ -31,6 +31,15 @@ const letters = Object.entries(fixtures)
   .filter(([key]) => /^\/api\/newsletters\/letters\/\d+$/.test(key))
   .map(([, value]) => value as NewsletterLetter);
 for (const letter of letters) letter.originalAvailable = false;
+function articleText(html: string) {
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  for (const block of template.content.querySelectorAll(
+    'p, div, br, li, h1, h2, h3, h4, h5, h6, blockquote',
+  ))
+    block.append(' ');
+  return (template.content.textContent ?? '').replace(/\s+/g, ' ').trim();
+}
 payload<{ actions: { undo: boolean }; agentAccess: boolean; mcp: null }>(
   '/api/capabilities',
 ).actions.undo = false;
@@ -72,7 +81,7 @@ const previewStorage: BrewPreviewStoragePort = {
         folder: item.folderTitle ?? '',
         author: item.author ?? '',
         body: detail.fullTextHtml ?? detail.contentHtml,
-        content: detail.fullTextHtml ?? detail.contentHtml ?? '',
+        content: articleText(detail.fullTextHtml ?? detail.contentHtml ?? ''),
         publishedAt: Date.parse(item.publishedAt),
         readAt: item.readAt ? Date.parse(item.readAt) : null,
         ...(letter ? { newsletter: { cleaning: letter.cleaning } } : {}),

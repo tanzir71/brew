@@ -2056,7 +2056,9 @@ test('an agent triages, exports, confirms and undoes bulk read, saves a rule and
     await page.getByRole('button', { name: 'Mark all read', exact: true }).click();
     confirm = page.getByRole('dialog', { name: 'Mark all articles read?', exact: true });
     await confirm.getByRole('button', { name: 'Mark all read', exact: true }).click();
-    await expect(page.getByRole('status')).toHaveAttribute('aria-live', 'polite');
+    await expect(
+      page.getByRole('status', { name: 'Bulk read result', exact: true }),
+    ).toHaveAttribute('aria-live', 'polite');
     await expect.poll(readCount).toBeGreaterThan(before);
     await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect.poll(readCount).toBe(before);

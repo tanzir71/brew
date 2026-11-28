@@ -78,7 +78,9 @@ test('supports the complete Reader keyboard map and cheat sheet', async ({ page 
     .getByRole('dialog', { name: 'Mark all articles read?' })
     .getByRole('button', { name: 'Mark all read', exact: true })
     .click();
-  await expect(page.getByRole('status')).toContainText('Marked 2 read.');
+  await expect(page.getByRole('status', { name: 'Bulk read result', exact: true })).toContainText(
+    'Marked 2 read.',
+  );
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByRole('status', { name: 'Bulk read result', exact: true })).toContainText(
     'Undid local changes.',
