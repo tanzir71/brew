@@ -197,10 +197,10 @@ function pageNode(
   // The design includes future runtimes. Keep the visual cards and state release status.
   if (id === '18:28')
     children =
-      'Brew is an open-source reader that runs where you choose. Start in this browser, on your own server or Cloudflare. Your library is yours, and nobody is watching.';
+      'Brew is an open-source reader that runs where you choose. Start right in this browser, on your own computer, or on Cloudflare. Your feeds and newsletters stay in a library you own, with nobody watching.';
   if (id === '19:926')
     children =
-      'Start in this browser, or use your own server or Cloudflare for background fetching and inbound mail. Shared hosting and published editions are in development. Your data stays yours.';
+      'Run in this browser, or on your own server or Cloudflare for background fetching and mail. Shared hosting and published editions are in development. Your data stays yours.';
   if (id === '21:603') children = 'Open the demo, or run your own Brew. No sign-up.';
   if (tag === 'p' && label === 'npx brew-reader') children = 'git clone …/brew';
   if (id === '19:958') children = 'Ready in 10 seconds';
@@ -213,7 +213,7 @@ function pageNode(
   }
   if (tag === 'p' && (label === 'Rules run in your browser' || label === 'Good for a reading list'))
     children = 'In development';
-  if (tag === 'p' && label === 'Five ways') children = 'Browser + Node + Cloudflare';
+  if (tag === 'p' && label === 'Five ways') children = 'Browser + servers';
   if (tag === 'p' && label === '$89.99/yr') children = '$90/yr';
   if (tag === 'p' && label === '$99 first year, then $144/yr')
     children = ['$144/yr', createElement('br', { key: 'price' }), 'First-year offers'];
