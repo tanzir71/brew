@@ -16,7 +16,8 @@
   font-optical-sizing: auto;
 }
 body {
-  margin: 0;
+  max-width: 1440px;
+  margin: 0 auto;
   background: var(--brew-bg-canvas);
   color: var(--brew-text-primary);
 }

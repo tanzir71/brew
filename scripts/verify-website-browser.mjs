@@ -93,6 +93,19 @@ try {
     }
     audits.push({ base, geometry, assets });
     await page.screenshot({ path: output + '/home-desktop-' + index + '.png', fullPage: true });
+    for (const width of [1920, 2560]) {
+      await page.setViewportSize({ width, height: 1080 });
+      const sections = await page.locator('.site-section').evaluateAll((nodes) =>
+        nodes.map((node) => {
+          const rect = node.getBoundingClientRect();
+          return { id: node.id, center: rect.left + rect.width / 2 };
+        }),
+      );
+      for (const section of sections)
+        assert(Math.abs(section.center - width / 2) < 1, section.id + ' is off-center at ' + width);
+      await page.screenshot({ path: output + '/home-wide-' + width + '-' + index + '.png', fullPage: true });
+    }
+    await page.setViewportSize({ width: 1440, height: 960 });
     await page.getByRole('link', { name: 'Privacy', exact: true }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('button', { name: 'Close', exact: true }).click();
