@@ -7,10 +7,14 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { chromium, firefox, expect } from '@playwright/test';
+import { browserLaunchOptions } from './lib/browser-launch.mjs';
 
 const root = path.resolve('docs/browser');
+const publicUrl = process.env.BREW_BROWSER_APP_URL
+  ? new URL(process.env.BREW_BROWSER_APP_URL)
+  : null;
 const output = process.env.BREW_BROWSER_APP_REPORT_DIR ?? 'test-results/browser-app';
-const prefix = '/brew/browser/';
+const prefix = publicUrl?.pathname ?? '/brew/browser/';
 const mime = {
   '.html': 'text/html',
   '.js': 'application/javascript',
@@ -69,7 +73,7 @@ assert.equal(
   'Reuse the original shared wordmark point',
 );
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-const origin = 'http://127.0.0.1:' + server.address().port;
+const origin = publicUrl?.origin ?? 'http://127.0.0.1:' + server.address().port;
 async function api(page, url, method = 'GET', value) {
   return page.evaluate(
     async ({ url, method, value }) => {
@@ -104,18 +108,7 @@ try {
   ]) {
     if (process.env.BREW_BROWSER_TEST_BROWSER && process.env.BREW_BROWSER_TEST_BROWSER !== name)
       continue;
-    // The local Firefox build intermittently starts with neither WASM compiler enabled.
-    // Explicitly enable the engines required by SQLite; these preferences do not change the app.
-    const browser = await type.launch(
-      name === 'firefox'
-        ? {
-            firefoxUserPrefs: {
-              'javascript.options.wasm_baselinejit': true,
-              'javascript.options.wasm_optimizingjit': true,
-            },
-          }
-        : {},
-    );
+    const browser = await type.launch(browserLaunchOptions(name));
     const context = await browser.newContext({
       viewport: { width: 1440, height: 960 },
       reducedMotion: 'reduce',

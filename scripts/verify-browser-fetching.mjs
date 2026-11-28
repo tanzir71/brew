@@ -6,6 +6,7 @@ import { fileURLToPath, URL } from 'node:url';
 import process from 'node:process';
 import path from 'node:path';
 import { chromium, firefox } from '@playwright/test';
+import { browserLaunchOptions } from './lib/browser-launch.mjs';
 import { Miniflare, Response as BindingResponse } from 'miniflare';
 
 const root = fileURLToPath(new URL('../targets/browser/dist/', import.meta.url));
@@ -105,7 +106,7 @@ try {
     ['chromium', chromium],
     ['firefox', firefox],
   ]) {
-    const browser = await browserType.launch();
+    const browser = await browserType.launch(browserLaunchOptions(browserName));
     try {
       for (const persistence of ['auto', 'indexeddb']) {
         version = 1;

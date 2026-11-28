@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { setTimeout, clearTimeout } from 'node:timers';
 import path from 'node:path';
 import { chromium, firefox } from '@playwright/test';
+import { browserLaunchOptions } from './lib/browser-launch.mjs';
 import NativeSqlite from 'better-sqlite3';
 import { migrateDatabase } from '../dist/targets/node/src/db/database.js';
 
@@ -61,7 +62,7 @@ try {
     ['chromium', chromium],
     ['firefox', firefox],
   ]) {
-    const browser = await browserType.launch();
+    const browser = await browserType.launch(browserLaunchOptions(browserName));
     try {
       for (const persistence of ['auto', 'indexeddb']) {
         process.stdout.write(browserName + ' ' + persistence + '\n');
