@@ -1,3 +1,4 @@
+import { wireError } from './errors.js';
 import sqlite3InitModule, { type SAHPoolUtil } from '@sqlite.org/sqlite-wasm';
 import { BrowserSqliteEngine } from './engine.js';
 import { IndexedDbSnapshots } from './indexeddb.js';
@@ -146,10 +147,7 @@ self.onmessage = (event: MessageEvent<Request>) => {
       response = {
         id: request.id,
         ok: false,
-        error: {
-          name: error instanceof Error ? error.name : 'Error',
-          message: error instanceof Error ? error.message : String(error),
-        },
+        error: wireError(error),
       };
     }
     self.postMessage(response);

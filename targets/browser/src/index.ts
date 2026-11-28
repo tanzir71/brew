@@ -1,3 +1,4 @@
+import { fromWire } from './errors.js';
 import { drizzle, type SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';
 import type { SqlValue } from '@sqlite.org/sqlite-wasm';
 import { schema } from '../../../packages/db/src/schema.js';
@@ -13,6 +14,9 @@ import type {
 export type BrowserDrizzle = Omit<SqliteRemoteDatabase<typeof schema>, 'transaction'>;
 export type { OpenOptions, Persistence, Query, QueryResult } from './protocol.js';
 export { schema };
+export { BrowserLibrary, openBrowserLibrary, type BrowserLibraryOptions } from './library.js';
+export type { RelayConfig } from './relay.js';
+export type { FetchCycle, RelayStatus } from './fetching.js';
 
 class Channel {
   private nextId = 0;
@@ -27,7 +31,7 @@ class Channel {
       if (!pending) return;
       this.pending.delete(data.id);
       if (data.ok) pending.resolve(data.value);
-      else pending.reject(Object.assign(new Error(data.error.message), { name: data.error.name }));
+      else pending.reject(fromWire(data.error));
     };
     worker.onerror = (event) =>
       this.stop(new Error(event.message || 'Browser storage worker failed.'));

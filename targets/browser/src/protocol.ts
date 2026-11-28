@@ -1,3 +1,4 @@
+import type { WireError } from './errors.js';
 import type { SqlValue } from '@sqlite.org/sqlite-wasm';
 
 export type Persistence = 'opfs' | 'indexeddb';
@@ -23,5 +24,4 @@ export interface Request {
   operation: Operation;
 }
 export type Response =
-  | { id: number; ok: true; value: unknown }
-  | { id: number; ok: false; error: { name: string; message: string } };
+  { id: number; ok: true; value: unknown } | { id: number; ok: false; error: WireError };

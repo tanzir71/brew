@@ -16,6 +16,7 @@
     "dompurify": "latest",
     "linkedom": "latest",
     "marked": "18.3.0",
-    "postal-mime": "4.2.1"
+    "postal-mime": "4.2.1",
+    "quickjs-emscripten-core": "0.32.0"
   }
 }

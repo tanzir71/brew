@@ -134,7 +134,7 @@ packages/api/    Hono REST router with target-independent service interfaces
 packages/cli/    resumable Cloudflare deployment package and generated payload
 packages/web/    React SPA and Vite configuration
 targets/node/   Fastify transport, SQLite, feed fetching and platform adapters
-targets/browser/ SQLite WASM storage foundation (browser product in development)
+targets/browser/ SQLite WASM storage and relay fetching (product in development)
 server/         unchanged v1 unit tests, fixtures and compatibility exports
 web/e2e/        Playwright flows and visual baselines
 shared/         compatibility exports for v1 type imports

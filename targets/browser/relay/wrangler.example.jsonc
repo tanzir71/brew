@@ -1,0 +1,9 @@
+{
+  "name": "brew-feed-relay",
+  "main": "worker.js",
+  "compatibility_date": "2026-11-28",
+  "vars": {
+    "APP_ORIGIN": "https://your-brew.example",
+    "ALLOWED_HOSTS": "example.com,feeds.example.net"
+  }
+}
