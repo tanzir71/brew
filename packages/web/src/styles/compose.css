@@ -287,6 +287,7 @@
 .compose-paper > hr {
   border-top: 1px solid var(--brew-border-default);
   margin-top: 18px;
+  margin-bottom: 24px;
 }
 .compose-paper-section {
   padding: 20px 0 0;
