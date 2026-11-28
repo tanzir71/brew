@@ -19,7 +19,7 @@ comes from protocol integration tests.
 
 ## Architecture
 
-Cloudflare's Worker target and the resumable `brew-reader@0.1.0` deployment CLI
+Cloudflare's Worker target and the resumable `brew-reader@0.1.1` deployment CLI
 are available. See [installation](docs/cloudflare-install.md) and
 [runtime limits](docs/cloudflare.md). Run `npx brew-reader deploy cloudflare`
 with Node 22.12+ to deploy your own instance; the package includes the actual

@@ -1,6 +1,6 @@
 # Install Brew on Cloudflare
 
-The [brew-reader@0.1.0 installer](https://www.npmjs.com/package/brew-reader)
+The [brew-reader@0.1.1 installer](https://www.npmjs.com/package/brew-reader)
 is published on npm, and the deploy-button template is on the public main branch.
 Use Node 22.12+ and `npx brew-reader deploy cloudflare`. The package includes the
 actual Worker, WASM, web assets and all canonical SQL migrations. For source
