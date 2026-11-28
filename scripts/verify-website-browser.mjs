@@ -30,6 +30,28 @@ const expected = [
 ];
 const errors = [];
 const audits = [];
+async function assertModeCardActions(page, width) {
+  const cards = await page.locator('#run [data-name^="Mode card"]').evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const card = node.getBoundingClientRect();
+      const action = node.querySelector(':scope > [data-name^="Button/"]').getBoundingClientRect();
+      const style = getComputedStyle(node);
+      return {
+        name: node.getAttribute('data-name'),
+        top: card.top,
+        bottom: action.bottom,
+        inset: card.bottom - action.bottom,
+        expectedInset: parseFloat(style.paddingBottom) + parseFloat(style.borderBottomWidth),
+      };
+    }),
+  );
+  assert.equal(cards.length, 5);
+  for (const card of cards) {
+    assert(Math.abs(card.inset - card.expectedInset) < 1, card.name + ' CTA bottom inset at ' + width);
+    for (const peer of cards.filter((peer) => Math.abs(peer.top - card.top) < 1))
+      assert(Math.abs(peer.bottom - card.bottom) < 1, 'Mode card CTAs are misaligned at ' + width);
+  }
+}
 async function pageAt(base, viewport) {
   const context = await browser.newContext({ viewport, reducedMotion: 'reduce' });
   await context.route('**/*', async (route) => {
@@ -66,6 +88,10 @@ try {
       .locator('.site-section')
       .evaluateAll((nodes) => nodes.map((n) => [n.id, n.offsetTop, n.offsetHeight]));
     assert.deepEqual(geometry, expected, 'Figma section geometry at 1440');
+    await assertModeCardActions(page, 1440);
+    await page.locator('#run [data-node-id="19:931"]').screenshot({
+      path: output + '/mode-card-actions-' + index + '.png',
+    });
     const assets = await page.locator('img').evaluateAll((nodes) =>
       nodes.map((n) => ({
         file: n.getAttribute('src').replace(/^\.\//, ''),
@@ -95,6 +121,7 @@ try {
     await page.screenshot({ path: output + '/home-desktop-' + index + '.png', fullPage: true });
     for (const width of [1920, 2560]) {
       await page.setViewportSize({ width, height: 1080 });
+      await assertModeCardActions(page, width);
       const sections = await page.locator('.site-section').evaluateAll((nodes) =>
         nodes.map((node) => {
           const rect = node.getBoundingClientRect();
@@ -118,6 +145,7 @@ try {
     );
     for (const width of [390, 768, 1024]) {
       await page.setViewportSize({ width, height: 844 });
+      await assertModeCardActions(page, width);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       assert(overflow <= 1, 'Landing overflows ' + overflow + 'px at ' + width);
       await page.screenshot({
